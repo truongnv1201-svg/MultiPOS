@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+/* ---------- Tối ưu smartphone ---------- */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  /* Bỏ delay chạm + chống double-tap zoom lén trên nút */
+  touch-action: manipulation;
+  /* Tôn trọng tai thỏ / thanh điều hướng */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 640px) {
+  /* iOS tự zoom khi focus input chữ < 16px -> khóa ở 16px trên điện thoại */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  /* Mọi khối bọc trực tiếp bảng đều cuộn ngang được */
+  div:has(> table) {
+    overflow-x: auto;
+  }
+  table {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* HRM: scrollbar mảnh cho ma trận chấm công */
+.hrm-matrix::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.hrm-matrix::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.hrm-matrix::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+.hrm-matrix::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* HRM: vòng focus thấy rõ khi điều hướng bàn phím */
+#hrm-view :focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+/* Tôn trọng reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  #hrm-view *,
+  #hrm-view *::before,
+  #hrm-view *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Ẩn nút mũi tên lên/xuống của input số (đã có nút - / + riêng trong giỏ hàng) */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Hệ thống in — chỉ in #print-area, ẩn app còn lại.
+   @page động (A4 / K80) được inject từ ReceiptModal theo đúng mẫu đang xem. */
+#print-area { background: white; margin-left: auto; margin-right: auto; }
+.print-only { display: none; }
+@media print {
+  .print-only { display: block; }
+}
+@media print {
+  /* Giữ khổ giấy trình duyệt đang chọn (A4/A5/K80), chỉ chuẩn hóa lề khi chưa có @page động */
+  @page {
+    margin: 10mm;
+  }
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  /* Gỡ khung modal khỏi luồng in + xóa transform/filter (backdrop-blur, zoom-in)
+     để phiếu neo đúng đầu trang giấy, không lệch / không bị đẩy xuống */
+  #receipt-modal-overlay {
+    position: static !important;
+    display: block !important;
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    backdrop-filter: none !important;
+    filter: none !important;
+    transform: none !important;
+    animation: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  #receipt-modal-container {
+    display: block !important;
+    position: static !important;
+    max-height: none !important;
+    max-width: none !important;
+    width: 100% !important;
+    height: auto !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    transform: none !important;
+    animation: none !important;
+  }
+  /* Ẩn hẳn header/toolbar/footer modal khi in (tránh chiếm chỗ đẩy phiếu lệch) */
+  #receipt-modal-container > :not(.print-preview-wrap) {
+    display: none !important;
+  }
+  .print-preview-wrap {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: none !important;
+  }
+  #print-area,
+  #print-area * {
+    visibility: visible;
+  }
+  /* Thoát khỏi luồng trang app (h-screen) để không bị nội dung ẩn đẩy xuống */
+  #print-area {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 auto !important;
+    max-width: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* K80: canh giữa khổ nhiệt */
+  #print-area[data-template='k80-full'] {
+    width: 72mm;
+  }
+  /* A4/A5: full bề ngang vùng in được (khớp preview căn giữa) */
+  #print-area[data-template='a4-invoice'],
+  #print-area[data-template='a4-quote'],
+  #print-area[data-template='a5-invoice'] {
+    width: 100%;
+  }
+  .print-page-break {
+    page-break-before: always;
+  }
+  .print-cut-line {
+    border-top: 1px dashed #999;
+    margin-top: 4mm;
+    padding-top: 4mm;
+  }
+}
