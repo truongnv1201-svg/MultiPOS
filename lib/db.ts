@@ -12,15 +12,6 @@ import {
   DimensionDetail,
 } from './types';
 import type { Employee, AttendanceDay } from './hrm';
-import {
-  INITIAL_PRODUCTS,
-  INITIAL_CUSTOMERS,
-  INITIAL_SUPPLIERS,
-  INITIAL_ORDERS,
-  INITIAL_PROJECTS,
-  INITIAL_CASHBOOK,
-  INITIAL_SHIFT,
-} from './mock-data';
 
 export class MultiPOSDatabase extends Dexie {
   products!: Table<Product, string>;
@@ -36,7 +27,7 @@ export class MultiPOSDatabase extends Dexie {
   attendanceDays!: Table<AttendanceDay, string>; // HRM: công ngày
 
   constructor() {
-    super('MultiPOSDB_v212');
+    super('MultiPOSDB_v213');
     this.version(1).stores({
       products: 'id, sku, barcode, name, category, product_type',
       customers: 'id, code, name, phone, group',
@@ -134,20 +125,7 @@ export function generateMasterCode(prefix: string = 'SP', length: number = 6): s
 // Re-export để import cũ từ '@/lib/db' không gãy.
 export { calculateDimensionRow, recomputeOrderItem } from './pricing';
 
-// Initialize seed data if empty
+// Local storage starts empty. Server data is loaded by the providers when available.
 export async function initializeDatabase(): Promise<void> {
-  try {
-    const productCount = await db.products.count();
-    if (productCount === 0) {
-      await db.products.bulkAdd(INITIAL_PRODUCTS);
-      await db.customers.bulkAdd(INITIAL_CUSTOMERS);
-      await db.suppliers.bulkAdd(INITIAL_SUPPLIERS);
-      await db.orders.bulkAdd(INITIAL_ORDERS);
-      await db.projects.bulkAdd(INITIAL_PROJECTS);
-      await db.cashbook.bulkAdd(INITIAL_CASHBOOK);
-      await db.shifts.add(INITIAL_SHIFT);
-    }
-  } catch (error) {
-    console.warn('IndexedDB initial seed fallback:', error);
-  }
+  await db.open();
 }

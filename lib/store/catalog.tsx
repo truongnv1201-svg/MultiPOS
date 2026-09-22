@@ -6,11 +6,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useAuth } from './auth';
 import type { Product, Customer, Supplier } from '../types';
-import {
-  INITIAL_PRODUCTS,
-  INITIAL_CUSTOMERS,
-  INITIAL_SUPPLIERS,
-} from '../mock-data';
 import { db, generateMasterCode } from '../db';
 
 export interface CatalogSlice {
@@ -40,9 +35,9 @@ const CUSTOMER_MAP_KEY = 'multipos_customer_map_v1';
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const { supa, profile } = useAuth();
 
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [catalogSource, setCatalogSource] = useState<'local' | 'server'>('local');
 
   // P3: tải catalog từ server (anon SELECT, RLS read-only). Thất bại -> giữ local.

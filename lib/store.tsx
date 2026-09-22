@@ -29,14 +29,6 @@ import {
   normalizeLoginId,
 } from './hrm';
 import {
-  INITIAL_PRODUCTS,
-  INITIAL_CUSTOMERS,
-  INITIAL_SUPPLIERS,
-  INITIAL_ORDERS,
-  INITIAL_PROJECTS,
-  INITIAL_CASHBOOK,
-  INITIAL_SHIFT,
-  INITIAL_STOCK_MOVEMENTS,
   GRINDING_TYPES,
 } from './mock-data';
 import type { VietqrConfig } from './vietqr';
@@ -491,22 +483,26 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       await db.employees.clear().catch(() => {});
       await db.attendanceDays.clear().catch(() => {});
 
-      await db.products.bulkAdd(INITIAL_PRODUCTS);
-      await db.customers.bulkAdd(INITIAL_CUSTOMERS);
-      await db.suppliers.bulkAdd(INITIAL_SUPPLIERS);
-      await db.orders.bulkAdd(INITIAL_ORDERS);
-      await db.projects.bulkAdd(INITIAL_PROJECTS);
-      await db.cashbook.bulkAdd(INITIAL_CASHBOOK);
-      await db.shifts.add(INITIAL_SHIFT);
-
-      setProducts(INITIAL_PRODUCTS);
-      setCustomers(INITIAL_CUSTOMERS);
-      setSuppliers(INITIAL_SUPPLIERS);
-      setOrders(INITIAL_ORDERS);
-      setProjects(INITIAL_PROJECTS);
-      setCashbook(INITIAL_CASHBOOK);
-      setCurrentShift(INITIAL_SHIFT);
-      setStockMovements(INITIAL_STOCK_MOVEMENTS);
+      setProducts([]);
+      setCustomers([]);
+      setSuppliers([]);
+      setOrders([]);
+      setProjects([]);
+      setCashbook([]);
+      setCurrentShift({
+        id: 'shift-empty',
+        cashier_name: 'Chưa mở ca',
+        opened_at: '',
+        starting_cash: 0,
+        status: 'closed',
+        cash_sales: 0,
+        transfer_sales: 0,
+        deposit_collected: 0,
+        cash_payouts: 0,
+        expected_cash: 0,
+        order_count: 0,
+      });
+      setStockMovements([]);
       setEmployees([]);
       setAttendanceDays([]);
       setAdvances([]);

@@ -13,8 +13,21 @@ import { DEFAULT_TAB } from './cart';
 import { toRpcItems } from './rpc';
 import { db, generateOrderCode, recomputeOrderItem } from '../db';
 import { calcCartTotals, resolvePaidAmount } from '../pricing';
-import { INITIAL_ORDERS, INITIAL_PROJECTS, INITIAL_CASHBOOK, INITIAL_SHIFT, INITIAL_STOCK_MOVEMENTS } from '../mock-data';
 import { vietnamizeError } from '../error-vi';
+
+const EMPTY_SHIFT: Shift = {
+  id: 'shift-empty',
+  cashier_name: 'Chưa mở ca',
+  opened_at: '',
+  starting_cash: 0,
+  status: 'closed',
+  cash_sales: 0,
+  transfer_sales: 0,
+  deposit_collected: 0,
+  cash_payouts: 0,
+  expected_cash: 0,
+  order_count: 0,
+};
 
 export interface TransactionsSlice {
   orders: Order[];
@@ -112,11 +125,11 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const { shop, cashRounding } = useCommerce();
   const { products, setProducts, suppliers, setSuppliers, customers, setCustomers, customerMap, syncCustomers, refreshCatalog } = useCatalog();
   const { isOnline } = useNetwork();
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
-  const [cashbook, setCashbook] = useState<CashbookEntry[]>(INITIAL_CASHBOOK);
-  const [currentShift, setCurrentShift] = useState<Shift>(INITIAL_SHIFT);
-  const [stockMovements, setStockMovements] = useState<StockMovement[]>(INITIAL_STOCK_MOVEMENTS);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [cashbook, setCashbook] = useState<CashbookEntry[]>([]);
+  const [currentShift, setCurrentShift] = useState<Shift>(EMPTY_SHIFT);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
 
   const [branchName] = useState<string>('Chi nhánh 1 (Tổng kho)');
   // cashierName gắn với tài khoản đăng nhập (fix: trước đây hard-code 'Nguyễn Văn A'
