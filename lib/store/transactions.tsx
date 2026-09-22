@@ -124,7 +124,7 @@ const TransactionsContext = createContext<TransactionsSlice | null>(null);
 
 export function TransactionsProvider({ children }: { children: React.ReactNode }) {
   const { supa, user, profile, setLoginOpen } = useAuth();
-  const { shop, cashRounding } = useCommerce();
+  const { shop, cashRounding, branchName } = useCommerce();
   const { products, setProducts, suppliers, setSuppliers, customers, setCustomers, customerMap, syncCustomers, refreshCatalog } = useCatalog();
   const { isOnline } = useNetwork();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -138,7 +138,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     try {
       const { data: serverOrders, error: ordersError } = await supa
         .from('orders')
-        .select('*')
+        .select('*, branches(name)')
         .order('created_at', { ascending: false });
       if (ordersError) throw ordersError;
 
@@ -195,7 +195,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         note: row.note || undefined,
         created_at: row.created_at,
         cashier_name: row.cashier_id === user.id ? (profile?.full_name || user.email || '') : 'Nhân viên',
-        branch_name: 'Chi nhánh 1 (Tổng kho)',
+        branch_name: row.branches?.name || branchName,
         is_offline: false,
       }));
 
@@ -209,7 +209,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       console.warn('Server orders refresh failed:', error);
       return false;
     }
-  }, [supa, user, isOnline, profile]);
+  }, [supa, user, isOnline, profile, branchName]);
 
   const refreshServerStockMovements = useCallback(async (): Promise<boolean> => {
     if (!supa || !user || !isOnline) return false;
@@ -251,7 +251,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     }
   }, [supa, user, isOnline]);
 
-  const [branchName] = useState<string>('Chi nhánh 1 (Tổng kho)');
   // cashierName gắn với tài khoản đăng nhập (fix: trước đây hard-code 'Nguyễn Văn A'
   // nên chưa login vẫn mở/kết ca được). Chưa login -> 'Chưa đăng nhập'.
 

@@ -31,6 +31,9 @@ export function GlobalHeader() {
     pendingQueue,
     syncPendingOrders,
     branchName,
+    branchId,
+    branches,
+    selectBranch,
     currentScreen,
     setCurrentScreen,
     setShiftModalOpen,
@@ -301,14 +304,31 @@ export function GlobalHeader() {
         </div>
 
         {/* Branch selector */}
-        <div
+        <label
           id="branch-badge"
           className="hidden md:flex items-center gap-1 px-2 py-1 bg-slate-800 border border-slate-700 rounded-md text-[11px] text-slate-300"
-          title="Chi nhánh đang làm việc"
+          title={profile?.role === 'admin' ? 'Chọn chi nhánh đang làm việc' : 'Chi nhánh được phân quyền'}
         >
           <Building2 className="w-3.5 h-3.5 text-blue-400" />
-          <span className="truncate max-w-[120px]">{branchName}</span>
-        </div>
+          {branches.length > 0 ? (
+            <select
+              value={branchId || ''}
+              disabled={!user || profile?.role !== 'admin'}
+              onChange={(event) => {
+                selectBranch(event.target.value).then((error) => {
+                  if (error) alert(error);
+                });
+              }}
+              className="max-w-[130px] bg-transparent text-[11px] text-slate-300 outline-none disabled:opacity-80"
+              aria-label="Chi nhánh đang làm việc"
+            >
+              {!branchId && <option value="">Chọn chi nhánh</option>}
+              {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+            </select>
+          ) : (
+            <span className="truncate max-w-[120px]">{branchName}</span>
+          )}
+        </label>
 
         {/* Shift button — CHỈ hiện trạng thái ca, không hiện tên user (tránh trùng với nút user) */}
         <button

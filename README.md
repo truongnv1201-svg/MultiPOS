@@ -8,7 +8,7 @@ chuẩn KiotViet. PWA offline-first (Dexie) + Supabase (Postgres) làm source of
 
 - Next.js 15 + React 19 + TypeScript + Tailwind 4, PWA (`public/sw.js`, `app/offline`)
 - Client state: `lib/store.tsx` • Local DB: Dexie (`lib/db.ts`) • Server: Supabase
-  (`lib/supabase/`, `supabase/migrations/0001–0037`)
+  (`lib/supabase/`, `supabase/migrations/0001–0038`)
 - Phân quyền: `admin / manager / cashier / worker` (Supabase Auth + RLS + RPC
   `SECURITY DEFINER`; API `app/api/admin/*` chặn leo quyền)
 

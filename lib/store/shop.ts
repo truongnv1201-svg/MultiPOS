@@ -38,6 +38,12 @@ export interface GrindingService {
   price_per_md: number;
 }
 
+export interface Branch {
+  id: string;
+  name: string;
+  address?: string | null;
+}
+
 export const DEFAULT_SHOP: ShopSettings = {
   name: 'Nội Thất & Nhôm Kính Đa Ngành',
   hotline: '0901.234.567',

@@ -106,6 +106,9 @@ interface StoreContextType {
   employees: Employee[];
   attendanceDays: AttendanceDay[];
   branchName: string;
+  branchId: string | null;
+  branches: import('./store/shop').Branch[];
+  selectBranch: (id: string) => Promise<string | null>;
   cashierName: string;
 
   // Network & Offline (PWA)
@@ -277,6 +280,10 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   const {
     shop,
     updateShop,
+    branchId,
+    branches,
+    branchName: commerceBranchName,
+    selectBranch,
     vietqr,
     updateVietqr,
     grindingServices,
@@ -364,7 +371,6 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     setStockMovements,
     pendingQueue,
     setPendingQueue,
-    branchName,
     cashierName,
     posMode,
     setPosMode,
@@ -578,7 +584,10 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     lockMonth,
     reopenPayroll,
     payPayroll,
-    branchName,
+    branchName: commerceBranchName,
+    branchId,
+    branches,
+    selectBranch,
     cashierName,
     isOnline,
     setIsOnline,

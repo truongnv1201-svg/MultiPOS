@@ -12,7 +12,7 @@ export interface AuthSlice {
   supa: SupabaseClient | null;
   supabaseReady: boolean;
   user: User | null;
-  profile: { full_name: string; role: string } | null;
+  profile: { full_name: string; role: string; branch_id?: string | null } | null;
   authReady: boolean;
   loginOpen: boolean;
   setLoginOpen: (open: boolean) => void;
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // P6: Auth session + profile (role cho RBAC/RLS authenticated)
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<{ full_name: string; role: string } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string; role: string; branch_id?: string | null } | null>(null);
   const [authReady, setAuthReady] = useState<boolean>(false);
   const [loginOpen, setLoginOpen] = useState<boolean>(false);
 
@@ -51,8 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (uid: string) => {
       if (!supa) return;
       try {
-        const { data } = await supa.from('profiles').select('full_name, role').eq('id', uid).maybeSingle();
-        if (data) setProfile({ full_name: (data as any).full_name, role: (data as any).role });
+        const { data } = await supa.from('profiles').select('full_name, role, branch_id').eq('id', uid).maybeSingle();
+        if (data) setProfile({ full_name: (data as any).full_name, role: (data as any).role, branch_id: (data as any).branch_id });
         else setProfile(null);
       } catch {
         setProfile(null);

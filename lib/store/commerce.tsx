@@ -3,7 +3,7 @@
 // Phụ thuộc duy nhất: AuthSlice (supa/profile) để guard RBAC.
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from './auth';
 import { GRINDING_TYPES } from '../mock-data';
 import type { VietqrConfig } from '../vietqr';
@@ -12,12 +12,17 @@ import {
   normalizePrintTemplate,
   normalizePrinterWidth,
 } from './shop';
-import type { ShopSettings, GrindingService } from './shop';
+import type { ShopSettings, GrindingService, Branch } from './shop';
 import { vietnamizeError } from '../error-vi';
 
 export interface CommerceSlice {
   shop: ShopSettings;
   updateShop: (patch: Partial<ShopSettings>) => void;
+  branches: Branch[];
+  branchId: string | null;
+  branchName: string;
+  selectBranch: (id: string) => Promise<string | null>;
+  refreshShopSettings: () => Promise<boolean>;
   vietqr: VietqrConfig;
   updateVietqr: (patch: Partial<VietqrConfig>) => void;
   grindingServices: GrindingService[];
@@ -31,7 +36,8 @@ export interface CommerceSlice {
 const CommerceContext = createContext<CommerceSlice | null>(null);
 
 export function CommerceProvider({ children }: { children: React.ReactNode }) {
-  const { supa, profile } = useAuth();
+  const { supa, user, profile } = useAuth();
+  const shopSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Thương mại: shop info + VietQR theo máy trạm (localStorage)
   const [shop, setShop] = useState<ShopSettings>(() => {
@@ -67,7 +73,63 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
+    if (supa && profile?.role === 'admin') {
+      if (shopSyncTimer.current) clearTimeout(shopSyncTimer.current);
+      shopSyncTimer.current = setTimeout(async () => {
+        const raw = localStorage.getItem('multipos_shop_v1');
+        if (!raw) return;
+        const { error } = await supa.from('settings').upsert({ key: 'shop_profile', value: JSON.parse(raw) }, { onConflict: 'key' });
+        if (error) console.warn('Shop settings sync failed:', error.message);
+      }, 500);
+    }
   }, [supa, profile]);
+
+  const refreshShopSettings = useCallback(async (): Promise<boolean> => {
+    if (!supa) return false;
+    const { data, error } = await supa.from('settings').select('value').eq('key', 'shop_profile').maybeSingle();
+    if (error || !data?.value) return false;
+    const serverShop = data.value as Partial<ShopSettings>;
+    setShop((prev) => {
+      const next = {
+        ...DEFAULT_SHOP,
+        ...serverShop,
+        printTemplate: normalizePrintTemplate(serverShop.printTemplate ?? prev.printTemplate),
+        printerWidth: normalizePrinterWidth(serverShop.printerWidth ?? prev.printerWidth),
+      };
+      try { localStorage.setItem('multipos_shop_v1', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    return true;
+  }, [supa]);
+
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchId, setBranchId] = useState<string | null>(profile?.branch_id || null);
+  const refreshBranches = useCallback(async () => {
+    if (!supa || !user) return;
+    const { data, error } = await supa.from('branches').select('id, name, address').order('name');
+    if (!error && data) setBranches(data as Branch[]);
+  }, [supa, user]);
+  useEffect(() => {
+    if (!supa || !user) return;
+    Promise.resolve().then(() => {
+      refreshShopSettings();
+      refreshBranches();
+    });
+  }, [supa, user, refreshShopSettings, refreshBranches]);
+  const selectBranch = useCallback(async (id: string): Promise<string | null> => {
+    if (!supa || !user) return 'Vui lòng đăng nhập để chọn chi nhánh.';
+    if (!branches.some((branch) => branch.id === id)) return 'Chi nhánh không tồn tại.';
+    if (profile?.role !== 'admin' && profile?.branch_id && profile.branch_id !== id) {
+      return 'Tài khoản này chỉ được làm việc tại chi nhánh đã phân quyền.';
+    }
+    const { error } = await supa.from('profiles').update({ branch_id: id }).eq('id', user.id);
+    if (error) return vietnamizeError(error);
+    setBranchId(id);
+    return null;
+  }, [supa, user, branches, profile]);
+  const activeBranchId = branchId || profile?.branch_id || null;
+  const activeBranch = branches.find((branch) => branch.id === activeBranchId);
+  const branchName = activeBranch?.name || 'Chi nhánh 1 (Tổng kho)';
 
   const [vietqr, setVietqr] = useState<VietqrConfig>(() => {
     try {
@@ -157,6 +219,11 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
   const value: CommerceSlice = {
     shop,
     updateShop,
+    branches,
+    branchId: activeBranchId,
+    branchName,
+    selectBranch,
+    refreshShopSettings,
     vietqr,
     updateVietqr,
     grindingServices,
