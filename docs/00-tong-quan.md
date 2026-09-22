@@ -14,8 +14,8 @@ chấm công–lương, sổ quỹ, báo cáo VAT — chuẩn KiotViet. PWA offl
 |---|---|
 | App | Next.js 15 + React 19 + TypeScript + Tailwind 4, PWA (`public/sw.js`, `app/offline`) |
 | State client | `lib/store.tsx` + slice `lib/store/*` |
-| DB local | Dexie IndexedDB (`lib/db.ts`, DB `MultiPOSDB_v212`) |
-| Server | Supabase Postgres (`lib/supabase/`, `supabase/migrations/0001–0033`) |
+| DB local | Dexie IndexedDB (`lib/db.ts`, DB `MultiPOSDB_v213`) |
+| Server | Supabase Postgres (`lib/supabase/`, `supabase/migrations/0001–0037`) |
 | Auth | Supabase Auth + RLS + RPC `SECURITY DEFINER`; API `app/api/admin/*` |
 
 ## 3. Quy ước bắt buộc (đọc trước khi sửa)
@@ -85,3 +85,4 @@ SUPABASE_ACCESS_TOKEN=sbp_... node scripts/apply-one.mjs <file.sql>
 | `12-auth-phan-quyen.md` | Đăng nhập + phân quyền |
 | `13-offline-pwa-dong-bo.md` | Offline/PWA/đồng bộ |
 | `14-database-rpc.md` | Schema + RPC + scripts |
+| `15-huong-dan-van-hanh.md` | Hướng dẫn sử dụng và vận hành |

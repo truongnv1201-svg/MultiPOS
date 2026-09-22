@@ -8,7 +8,7 @@ chuẩn KiotViet. PWA offline-first (Dexie) + Supabase (Postgres) làm source of
 
 - Next.js 15 + React 19 + TypeScript + Tailwind 4, PWA (`public/sw.js`, `app/offline`)
 - Client state: `lib/store.tsx` • Local DB: Dexie (`lib/db.ts`) • Server: Supabase
-  (`lib/supabase/`, `supabase/migrations/0001–0024`)
+  (`lib/supabase/`, `supabase/migrations/0001–0037`)
 - Phân quyền: `admin / manager / cashier / worker` (Supabase Auth + RLS + RPC
   `SECURITY DEFINER`; API `app/api/admin/*` chặn leo quyền)
 
@@ -59,3 +59,14 @@ Lệnh khác: `npm run build` (lint chặn build — 0 errors), `npm run lint`, 
 - `lib/` — `types.ts`, `hrm.ts` (single source HRM), `db.ts`, `store.tsx`, `excel.ts`,
   `vietqr.ts`, `format.ts`, `error-vi.ts`
 - `scripts/` — seed, verify, sửa chữa kho (`repair-stock.mjs`, `restore-stock.mjs`)
+
+## Hướng dẫn sử dụng
+
+Hướng dẫn vận hành cho nhân viên và quản trị viên nằm tại
+[`docs/15-huong-dan-van-hanh.md`](docs/15-huong-dan-van-hanh.md). Tài liệu gồm:
+
+- đăng nhập, mở ca và thao tác bán hàng;
+- tạo hàng hóa, khách hàng, nhà cung cấp;
+- nhập kho, công nợ, công trình, nhân sự, sổ quỹ và báo cáo;
+- quy tắc khi mất mạng và kiểm tra hàng đợi đồng bộ;
+- quy trình sao lưu, bàn giao và xử lý lỗi thường gặp.

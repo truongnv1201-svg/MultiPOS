@@ -1,7 +1,7 @@
 # 13 — Offline / PWA / đồng bộ
 
 ## 1. Lớp local (`lib/db.ts`)
-Dexie `MultiPOSDB_v212` (v1→v5): products, customers, suppliers, orders, projects, cashbook,
+Dexie `MultiPOSDB_v213` (v1→v6): products, customers, suppliers, orders, projects, cashbook,
 shifts, purchaseOrders, **`pendingOrders`** (queue offline), employees, attendanceDays.
 Rỗng thì seed `INITIAL_*`. Mã chứng từ: `HD/TH/NH/CT/PQ/PT/PC-YYMMDD-SEQ`.
 
