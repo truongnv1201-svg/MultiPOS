@@ -161,7 +161,8 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         alert('Chỉ Admin/Quản lý được thêm hàng hóa!');
         throw new Error('Forbidden: cần quyền quản lý');
       }
-      const sku = data.sku || generateMasterCode('SP');
+      const autoSku = !data.sku;
+      let sku = data.sku || generateMasterCode('SP');
       const localProd: Product = {
         ...data,
         id: `prod-${Date.now()}`,
@@ -171,29 +172,44 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       let newProd = localProd;
       if (supa) {
         if (!user) throw new Error('Vui lòng đăng nhập trước khi thêm hàng hóa.');
-        const { data: row, error } = await supa
-          .from('products')
-          .insert({
-            sku,
-            barcode: data.barcode ?? null,
-            name: data.name,
-            category: data.category,
-            unit: data.unit,
-            product_type: data.product_type,
-            retail_price: data.retail_price,
-            trade_price: data.trade_price ?? null,
-            import_price: data.import_price,
-            avg_cost: localProd.avg_cost,
-            stock_quantity: data.stock_quantity,
-            min_stock: data.min_stock ?? 0,
-            waste_factor: data.waste_factor ?? 0,
-            default_grinding_price: data.default_grinding_price ?? 0,
-          })
-          .select('*')
-          .single();
-        if (error || !row) throw new Error(error?.message || 'Không thể lưu hàng hóa lên máy chủ.');
+        let row: any = null;
+        let lastError: { code?: string; message?: string } | null = null;
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const result = await supa
+            .from('products')
+            .insert({
+              sku,
+              barcode: data.barcode ?? null,
+              name: data.name,
+              category: data.category,
+              unit: data.unit,
+              product_type: data.product_type,
+              retail_price: data.retail_price,
+              trade_price: data.trade_price ?? null,
+              import_price: data.import_price,
+              avg_cost: localProd.avg_cost,
+              stock_quantity: data.stock_quantity,
+              min_stock: data.min_stock ?? 0,
+              waste_factor: data.waste_factor ?? 0,
+              default_grinding_price: data.default_grinding_price ?? 0,
+            })
+            .select('*')
+            .single();
+          if (!result.error && result.data) {
+            row = result.data;
+            break;
+          }
+          lastError = result.error;
+          const duplicateSku =
+            result.error?.code === '23505' &&
+            /products_sku_key|sku/i.test(result.error.message || '');
+          if (!autoSku || !duplicateSku) break;
+          sku = generateMasterCode('SP');
+        }
+        if (!row) throw new Error(lastError?.message || 'Không thể lưu hàng hóa lên máy chủ.');
         newProd = {
           ...localProd,
+          sku,
           id: row.id,
           avg_cost: Number(row.avg_cost),
           stock_quantity: Number(row.stock_quantity),
