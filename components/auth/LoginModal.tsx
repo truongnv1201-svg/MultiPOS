@@ -155,7 +155,6 @@ export function LoginModal({ locked = false }: { locked?: boolean }) {
               <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
               <span>Đúng người — đúng quyền</span>
             </div>
-            <div className="text-slate-500 leading-snug">Ca + kho + quỹ gắn theo tài khoản đăng nhập.</div>
           </div>
         </div>
 
@@ -202,13 +201,15 @@ export function LoginModal({ locked = false }: { locked?: boolean }) {
                 <button
                   onClick={handleSwitchAccount}
                   className="h-9 px-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                  title="Đăng xuất tài khoản hiện tại và nhập tài khoản khác"
                 >
                   <UserRound className="w-3.5 h-3.5" />
-                  <span>Đổi tài khoản</span>
+                  <span>Tài khoản khác</span>
                 </button>
                 <button
                   onClick={handleSignOut}
                   className="h-9 px-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                  title="Đăng xuất và đóng cửa sổ này"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>Đăng xuất</span>
