@@ -13,6 +13,18 @@ import {
 } from './types';
 import type { Employee, AttendanceDay } from './hrm';
 
+export interface PendingMasterData {
+  id: string;
+  entity: 'product' | 'customer' | 'supplier';
+  operation: 'insert' | 'update';
+  local_id: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+  attempts: number;
+  status: 'pending' | 'failed';
+  last_error?: string;
+}
+
 export class MultiPOSDatabase extends Dexie {
   products!: Table<Product, string>;
   customers!: Table<Customer, string>;
@@ -25,6 +37,7 @@ export class MultiPOSDatabase extends Dexie {
   pendingOrders!: Table<Order, string>; // Offline pending queue (OFF-ERR-01)
   employees!: Table<Employee, string>; // HRM: master nhân sự
   attendanceDays!: Table<AttendanceDay, string>; // HRM: công ngày
+  pendingMasterData!: Table<PendingMasterData, string>;
 
   constructor() {
     super('MultiPOSDB_v213');
@@ -95,6 +108,10 @@ export class MultiPOSDatabase extends Dexie {
       pendingOrders: 'id, order_code, created_at',
       employees: 'id, code, status, full_name',
       attendanceDays: 'id, employee_id, work_date',
+    });
+    // v6: hàng đợi master-data khi mất mạng (sản phẩm/KH/NCC)
+    this.version(6).stores({
+      pendingMasterData: 'id, entity, operation, status, created_at',
     });
   }
 }

@@ -5,8 +5,9 @@
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useAuth } from './auth';
+import { useNetwork } from './network';
 import type { Product, Customer, Supplier } from '../types';
-import { db, generateMasterCode } from '../db';
+import { db, generateMasterCode, type PendingMasterData } from '../db';
 
 export interface CatalogSlice {
   products: Product[];
@@ -18,6 +19,7 @@ export interface CatalogSlice {
   setSuppliers: React.Dispatch<React.SetStateAction<Supplier[]>>;
   setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
   refreshCatalog: () => Promise<boolean>;
+  syncMasterData: () => Promise<{ synced: number; failed: number }>;
   syncCustomers: () => Promise<Record<string, string>>;
   addProduct: (data: Omit<Product, 'id' | 'sku'> & { sku?: string }) => Promise<Product>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
@@ -34,11 +36,158 @@ const CUSTOMER_MAP_KEY = 'multipos_customer_map_v1';
 
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const { supa, user, profile } = useAuth();
+  const { isOnline } = useNetwork();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [catalogSource, setCatalogSource] = useState<'local' | 'server'>('local');
+  const [customerMap, setCustomerMap] = useState<Record<string, string>>(() => {
+    try {
+      if (typeof window === 'undefined') return {};
+      return JSON.parse(localStorage.getItem(CUSTOMER_MAP_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const queueMasterData = useCallback(
+    async (
+      entity: PendingMasterData['entity'],
+      operation: PendingMasterData['operation'],
+      localId: string,
+      payload: Record<string, unknown>
+    ) => {
+      const existing = await db.pendingMasterData
+        .where('local_id')
+        .equals(localId)
+        .filter((item) => item.entity === entity && item.operation === 'insert' && item.status !== 'failed')
+        .first();
+      if (existing && operation === 'update') {
+        await db.pendingMasterData.update(existing.id, { payload: { ...existing.payload, ...payload } });
+        return;
+      }
+      await db.pendingMasterData.put({
+        id: `${entity}-${operation}-${localId}-${Date.now()}`,
+        entity,
+        operation,
+        local_id: localId,
+        payload,
+        created_at: new Date().toISOString(),
+        attempts: 0,
+        status: 'pending',
+      });
+    },
+    []
+  );
+
+  const syncMasterData = useCallback(async (): Promise<{ synced: number; failed: number }> => {
+    if (!supa || !user || !isOnline) return { synced: 0, failed: 0 };
+    const queue = await db.pendingMasterData.orderBy('created_at').toArray();
+    let synced = 0;
+    let failed = 0;
+    const localToServer = new Map<string, string>();
+    for (const item of queue) {
+      if (item.status === 'failed' && item.attempts >= 5) {
+        failed += 1;
+        continue;
+      }
+      try {
+        const serverId = localToServer.get(item.local_id) || item.local_id;
+        let result: { data: any; error: any };
+        if (item.operation === 'insert') {
+          const payload = item.entity === 'product'
+            ? {
+                sku: item.payload.sku,
+                barcode: item.payload.barcode ?? null,
+                name: item.payload.name,
+                category: item.payload.category,
+                unit: item.payload.unit,
+                product_type: item.payload.product_type,
+                retail_price: item.payload.retail_price,
+                trade_price: item.payload.trade_price ?? null,
+                import_price: item.payload.import_price,
+                avg_cost: item.payload.avg_cost,
+                stock_quantity: item.payload.stock_quantity,
+                min_stock: item.payload.min_stock ?? 0,
+                waste_factor: item.payload.waste_factor ?? 0,
+                default_grinding_price: item.payload.default_grinding_price ?? 0,
+              }
+            : item.entity === 'customer'
+              ? {
+                  code: item.payload.code,
+                  name: item.payload.name,
+                  phone: item.payload.phone ?? null,
+                  address: item.payload.address ?? null,
+                  customer_group: item.payload.customer_group ?? item.payload.group,
+                  debt_limit: item.payload.debt_limit ?? 0,
+                  current_debt: item.payload.current_debt ?? 0,
+                }
+              : {
+                  code: item.payload.code,
+                  name: item.payload.name,
+                  phone: item.payload.phone ?? null,
+                  address: item.payload.address ?? null,
+                  tax_code: item.payload.tax_code ?? null,
+                  current_debt: item.payload.current_debt ?? 0,
+                };
+          result = await supa.from(item.entity === 'product' ? 'products' : item.entity === 'customer' ? 'customers' : 'suppliers')
+            // Bảng được chọn động theo queue entity; payload đã được whitelist ở trên.
+            .insert(payload as never)
+            .select('*')
+            .single();
+        } else {
+          const table = item.entity === 'product' ? 'products' : item.entity === 'customer' ? 'customers' : 'suppliers';
+          const payload = { ...item.payload };
+          delete payload.id;
+          result = await supa.from(table).update(payload).eq('id', serverId).select('*').single();
+        }
+        if (result.error || !result.data) throw new Error(result.error?.message || 'Server không trả về dữ liệu.');
+        const row = result.data;
+        if (item.operation === 'insert') localToServer.set(item.local_id, row.id);
+        const mappedId = row.id || serverId;
+        if (item.entity === 'product') {
+          await db.products.delete(item.local_id).catch(() => {});
+          await db.products.put({
+            ...(item.payload as unknown as Product),
+            id: mappedId,
+            sku: row.sku,
+            avg_cost: Number(row.avg_cost),
+            stock_quantity: Number(row.stock_quantity),
+          });
+          setProducts((prev) => prev.map((p) => (p.id === item.local_id ? { ...p, id: mappedId, sku: row.sku } : p)));
+        } else if (item.entity === 'customer') {
+          await db.customers.delete(item.local_id).catch(() => {});
+          const mapped = { ...(item.payload as unknown as Customer), id: mappedId, code: row.code, created_at: row.created_at };
+          await db.customers.put(mapped);
+          setCustomers((prev) => prev.map((c) => (c.id === item.local_id ? mapped : c)));
+          setCustomerMap((prev) => {
+            const next = { ...prev, [item.local_id]: mappedId };
+            try {
+              localStorage.setItem(CUSTOMER_MAP_KEY, JSON.stringify(next));
+            } catch {
+              /* best-effort */
+            }
+            return next;
+          });
+        } else {
+          await db.suppliers.delete(item.local_id).catch(() => {});
+          await db.suppliers.put({ ...(item.payload as unknown as Supplier), id: mappedId, code: row.code });
+          setSuppliers((prev) => prev.map((s) => (s.id === item.local_id ? { ...s, id: mappedId, code: row.code } : s)));
+        }
+        await db.pendingMasterData.delete(item.id);
+        synced += 1;
+      } catch (error) {
+        failed += 1;
+        await db.pendingMasterData.update(item.id, {
+          status: 'failed',
+          attempts: item.attempts + 1,
+          last_error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return { synced, failed };
+  }, [supa, user, isOnline]);
 
   // P3: tải catalog từ server (anon SELECT, RLS read-only). Thất bại -> giữ local.
   const refreshCatalog = useCallback(async (): Promise<boolean> => {
@@ -89,16 +238,37 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         tax_code: row.tax_code ?? undefined,
         current_debt: Number(row.current_debt) || 0,
       }));
-      setCustomers(mappedCustomers);
-      setSuppliers(mappedSuppliers);
+      // Không để lần refresh server làm mất các bản ghi còn đang chờ replay.
+      const pending = await db.pendingMasterData.toArray();
+      const pendingIds = new Set(pending.map((item) => item.local_id));
+      const [localProducts, localCustomers, localSuppliers] = await Promise.all([
+        db.products.bulkGet([...pendingIds]),
+        db.customers.bulkGet([...pendingIds]),
+        db.suppliers.bulkGet([...pendingIds]),
+      ]);
+      const pendingProducts = localProducts.filter((row): row is Product => Boolean(row));
+      const pendingCustomers = localCustomers.filter((row): row is Customer => Boolean(row));
+      const pendingSuppliers = localSuppliers.filter((row): row is Supplier => Boolean(row));
+      const mergePending = <T extends { id: string }>(serverRows: T[], localRows: T[]) => {
+        const localById = new Map(localRows.map((row) => [row.id, row]));
+        return serverRows.map((row) => localById.get(row.id) || row).concat(
+          localRows.filter((row) => !serverRows.some((serverRow) => serverRow.id === row.id))
+        );
+      };
+      const nextProducts = mergePending(mapped, pendingProducts);
+      const nextCustomers = mergePending(mappedCustomers, pendingCustomers);
+      const nextSuppliers = mergePending(mappedSuppliers, pendingSuppliers);
+      setProducts(nextProducts);
+      setCustomers(nextCustomers);
+      setSuppliers(nextSuppliers);
       setCatalogSource('server');
       try {
         await db.products.clear();
-        await db.products.bulkAdd(mapped);
+        await db.products.bulkAdd(nextProducts);
         await db.customers.clear();
-        await db.customers.bulkAdd(mappedCustomers);
+        await db.customers.bulkAdd(nextCustomers);
         await db.suppliers.clear();
-        await db.suppliers.bulkAdd(mappedSuppliers);
+        await db.suppliers.bulkAdd(nextSuppliers);
       } catch {
         /* cache best-effort */
       }
@@ -107,15 +277,6 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
   }, [supa]);
-
-  const [customerMap, setCustomerMap] = useState<Record<string, string>>(() => {
-    try {
-      if (typeof window === 'undefined') return {};
-      return JSON.parse(localStorage.getItem(CUSTOMER_MAP_KEY) || '{}');
-    } catch {
-      return {};
-    }
-  });
 
   // Đẩy master KH lên server (khớp phone -> code). Server giữ nợ hiện hữu (truth).
   const syncCustomers = useCallback(async (): Promise<Record<string, string>> => {
@@ -152,7 +313,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       }
     }
     return next;
-  }, [supa, customers, customerMap]);
+  }, [supa, customers, customerMap, setCustomerMap]);
 
   // Master Data Add/Update — P2: thu ngân/worker không được sửa hàng hóa/giá vốn
   const addProduct = useCallback(
@@ -172,6 +333,18 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       let newProd = localProd;
       if (supa) {
         if (!user) throw new Error('Vui lòng đăng nhập trước khi thêm hàng hóa.');
+        if (!isOnline) {
+          await queueMasterData('product', 'insert', localProd.id, {
+            ...localProd,
+            barcode: data.barcode ?? null,
+            min_stock: data.min_stock ?? 0,
+            waste_factor: data.waste_factor ?? 0,
+            default_grinding_price: data.default_grinding_price ?? 0,
+          });
+          setProducts((prev) => [...prev, localProd]);
+          await db.products.put(localProd);
+          return localProd;
+        }
         let row: any = null;
         let lastError: { code?: string; message?: string } | null = null;
         for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -219,7 +392,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       await db.products.add(newProd);
       return newProd;
     },
-    [supa, profile, user]
+    [supa, profile, user, isOnline, queueMasterData]
   );
 
   const updateProduct = useCallback(async (id: string, updates: Partial<Product>) => {
@@ -229,12 +402,18 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     }
     if (supa) {
       if (!user) throw new Error('Vui lòng đăng nhập trước khi sửa hàng hóa.');
+      if (!isOnline) {
+        await queueMasterData('product', 'update', id, updates as Record<string, unknown>);
+        setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+        await db.products.update(id, updates);
+        return;
+      }
       const { error } = await supa.from('products').update(updates).eq('id', id);
       if (error) throw new Error(error.message);
     }
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
     await db.products.update(id, updates);
-  }, [supa, profile, user]);
+  }, [supa, profile, user, isOnline, queueMasterData]);
 
   const addCustomer = useCallback(
     async (data: Omit<Customer, 'id' | 'code' | 'created_at'> & { created_at?: string }): Promise<Customer> => {
@@ -248,6 +427,16 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       let newCust = localCust;
       if (supa) {
         if (!user) throw new Error('Vui lòng đăng nhập trước khi thêm khách hàng.');
+        if (!isOnline) {
+          await queueMasterData('customer', 'insert', localCust.id, {
+            ...localCust,
+            customer_group: data.group,
+            phone: data.phone || null,
+          });
+          setCustomers((prev) => [...prev, localCust]);
+          await db.customers.put(localCust);
+          return localCust;
+        }
         const { data: row, error } = await supa
           .from('customers')
           .insert({
@@ -274,12 +463,24 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       await db.customers.add(newCust);
       return newCust;
     },
-    [customers.length, supa, user]
+    [customers.length, supa, user, isOnline, queueMasterData]
   );
 
   const updateCustomer = useCallback(async (id: string, updates: Partial<Customer>) => {
     if (supa) {
       if (!user) throw new Error('Vui lòng đăng nhập trước khi sửa khách hàng.');
+      if (!isOnline) {
+        await queueMasterData('customer', 'update', id, {
+          ...(updates.name !== undefined ? { name: updates.name } : {}),
+          ...(updates.phone !== undefined ? { phone: updates.phone || null } : {}),
+          ...(updates.address !== undefined ? { address: updates.address || null } : {}),
+          ...(updates.group !== undefined ? { customer_group: updates.group } : {}),
+          ...(updates.debt_limit !== undefined ? { debt_limit: updates.debt_limit } : {}),
+        });
+        setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+        await db.customers.update(id, updates);
+        return;
+      }
       const payload = {
         ...(updates.name !== undefined ? { name: updates.name } : {}),
         ...(updates.phone !== undefined ? { phone: updates.phone || null } : {}),
@@ -292,7 +493,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     }
     setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
     await db.customers.update(id, updates);
-  }, [supa, user]);
+  }, [supa, user, isOnline, queueMasterData]);
 
   const addSupplier = useCallback(
     async (data: Omit<Supplier, 'id' | 'code'>): Promise<Supplier> => {
@@ -305,6 +506,12 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       let newSup = localSup;
       if (supa) {
         if (!user) throw new Error('Vui lòng đăng nhập trước khi thêm nhà cung cấp.');
+        if (!isOnline) {
+          await queueMasterData('supplier', 'insert', localSup.id, { ...localSup, phone: data.phone || null });
+          setSuppliers((prev) => [...prev, localSup]);
+          await db.suppliers.put(localSup);
+          return localSup;
+        }
         const { data: row, error } = await supa
           .from('suppliers')
           .insert({
@@ -324,18 +531,24 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       await db.suppliers.add(newSup);
       return newSup;
     },
-    [suppliers.length, supa, user]
+    [suppliers.length, supa, user, isOnline, queueMasterData]
   );
 
   const updateSupplier = useCallback(async (id: string, updates: Partial<Supplier>) => {
     if (supa) {
       if (!user) throw new Error('Vui lòng đăng nhập trước khi sửa nhà cung cấp.');
+      if (!isOnline) {
+        await queueMasterData('supplier', 'update', id, updates as Record<string, unknown>);
+        setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+        await db.suppliers.update(id, updates);
+        return;
+      }
       const { error } = await supa.from('suppliers').update(updates).eq('id', id);
       if (error) throw new Error(error.message);
     }
     setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
     await db.suppliers.update(id, updates);
-  }, [supa, user]);
+  }, [supa, user, isOnline, queueMasterData]);
 
   const value: CatalogSlice = {
     products,
@@ -347,6 +560,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     setSuppliers,
     setCustomers,
     refreshCatalog,
+    syncMasterData,
     syncCustomers,
     addProduct,
     updateProduct,

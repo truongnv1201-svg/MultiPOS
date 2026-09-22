@@ -296,6 +296,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     customerMap,
     catalogSource,
     refreshCatalog,
+    syncMasterData,
     syncCustomers,
     addProduct,
     updateProduct,
@@ -461,7 +462,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isOnline) {
       Promise.resolve().then(() => {
-        refreshCatalog();
+        syncMasterData().then(() => refreshCatalog());
         refreshServerOrders();
         refreshServerStockMovements();
         syncCustomers();
@@ -469,7 +470,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         refreshCashRounding();
       });
     }
-  }, [isOnline, user, refreshCatalog, refreshServerOrders, refreshServerStockMovements, syncCustomers, refreshGrinding, refreshCashRounding]);
+  }, [isOnline, user, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, syncCustomers, refreshGrinding, refreshCashRounding]);
 
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;
@@ -666,15 +667,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <CommerceProvider>
-        <CatalogProvider>
-          <NetworkProvider>
+        <NetworkProvider>
+          <CatalogProvider>
             <TransactionsProvider>
               <HrmProvider>
                 <StoreInner>{children}</StoreInner>
               </HrmProvider>
             </TransactionsProvider>
-          </NetworkProvider>
-        </CatalogProvider>
+          </CatalogProvider>
+        </NetworkProvider>
       </CommerceProvider>
     </AuthProvider>
   );
