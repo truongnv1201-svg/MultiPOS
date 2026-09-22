@@ -4,19 +4,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '@/lib/store';
 import {
   X,
-  LogIn,
   Eye,
   EyeOff,
-  Loader2,
-  AlertCircle,
+  LoaderCircle,
+  TriangleAlert,
   LogOut,
   UserRound,
-  ShieldCheck,
 } from 'lucide-react';
 
-// Form đăng nhập nhân viên — mã NV (NV0001) hoặc email cũ + mật khẩu.
-// UX: autofocus + Enter submit + ESC đóng + nhớ mã lần trước + báo CapsLock +
-// thẻ phiên đang login (đổi tài khoản / đăng xuất) thay cho window.confirm ở header.
+// Form đăng nhập nhân viên — mã NV (VD: NV0001) hoặc email cũ + mật khẩu.
+// Style: Google Account hiện đại, tối giản — card trắng bo 28px trên nền #f0f4f9,
+// ô nhập viền floating-label, nút pill xanh #0b57d0.
+// Logic giữ nguyên bản remote: autofocus + Enter submit + ESC đóng + nhớ mã lần
+// trước + báo CapsLock + thẻ phiên đang login (đổi tài khoản / đăng xuất).
 // locked=true: chế độ cổng bắt buộc (không có nút X, ESC/overlay không đóng).
 const LAST_LOGIN_KEY = 'multipos_last_login';
 
@@ -28,11 +28,76 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 const ROLE_BADGE: Record<string, string> = {
-  admin: 'bg-rose-100 text-rose-700 border-rose-200',
-  manager: 'bg-amber-100 text-amber-800 border-amber-200',
-  cashier: 'bg-blue-100 text-blue-700 border-blue-200',
-  worker: 'bg-slate-100 text-slate-600 border-slate-200',
+  admin: 'bg-[#fce8e6] text-[#8c1d18]',
+  manager: 'bg-[#fef7e0] text-[#7a4a00]',
+  cashier: 'bg-[#e8f0fe] text-[#0b57d0]',
+  worker: 'bg-[#f0f4f9] text-[#444746]',
 };
+
+function GoogleG() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.8 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.3 6.1 29.4 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.2-3.9z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.3 6.1 29.4 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.8 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C41 35.4 44 30.2 44 24c0-1.3-.1-2.6-.2-3.9z" />
+    </svg>
+  );
+}
+
+function GoogleField({
+  id,
+  label,
+  value,
+  onChange,
+  type = 'text',
+  autoComplete,
+  inputRef,
+  onKeyDown,
+  onKeyUp,
+  spellCheck,
+  autoCapitalize,
+  trailing,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  autoComplete?: string;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+  onKeyUp?: (e: React.KeyboardEvent) => void;
+  spellCheck?: boolean;
+  autoCapitalize?: string;
+  trailing?: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
+        autoComplete={autoComplete}
+        autoCapitalize={autoCapitalize}
+        spellCheck={spellCheck}
+        placeholder=" "
+        className="peer w-full h-14 rounded-md border border-[#747775] bg-white px-4 pt-2 pr-11 text-[16px] text-[#1f1f1f] outline-none transition-colors placeholder-transparent hover:border-[#1f1f1f] focus:border-2 focus:border-[#0b57d0] focus:px-[15px] focus:pt-[7px]"
+      />
+      <label
+        htmlFor={id}
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-[16px] text-[#444746] transition-all duration-150 peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-[16px] peer-focus:top-0 peer-focus:text-[12px] peer-focus:text-[#0b57d0] peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:text-[12px] peer-[:not(:placeholder-shown)]:text-[#444746]"
+      >
+        {label}
+      </label>
+      {trailing}
+    </div>
+  );
+}
 
 export function LoginModal({ locked = false }: { locked?: boolean }) {
   const { loginOpen, setLoginOpen, signIn, signOut, user, profile } = useStore();
@@ -130,178 +195,181 @@ export function LoginModal({ locked = false }: { locked?: boolean }) {
   return (
     <div
       id="login-modal-overlay"
-      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-[2px] flex items-center justify-center p-3"
+      className="fixed inset-0 z-50 flex min-h-dvh flex-col items-center justify-center bg-[#f0f4f9] p-4 font-sans antialiased"
       onClick={locked ? undefined : close}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Đăng nhập nhân viên"
     >
       <div
         id="login-modal-container"
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex"
+        className="w-full max-w-[440px] rounded-[28px] bg-white px-6 py-8 sm:px-10 sm:py-9"
         onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Đăng nhập nhân viên"
       >
-        {/* Cột brand — ẩn trên mobile */}
-        <div className="hidden sm:flex w-40 shrink-0 flex-col justify-between bg-gradient-to-b from-slate-900 via-slate-900 to-blue-950 text-white p-4">
-          <div>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-400 flex items-center justify-center font-bold text-lg shadow">
-              M
-            </div>
-            <div className="mt-2 font-bold text-sm leading-tight">MultiPOS</div>
-            <div className="text-[10px] text-slate-400 leading-snug">Bán lẻ & Thi công<br />Nhôm kính</div>
-          </div>
-          <div className="space-y-1.5 text-[10px] text-slate-300">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>Đúng người — đúng quyền</span>
-            </div>
-          </div>
+        <div className="flex items-start justify-between">
+          <GoogleG />
+          {!locked && (
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Đóng"
+              title="Đóng (Esc)"
+              className="rounded-full p-2 text-[#444746] transition-colors hover:bg-slate-100"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
-        {/* Cột form / phiên */}
-        <div className="flex-1 min-w-0">
-          <div className="px-4 pt-3.5 pb-3 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                <LogIn className="w-4 h-4" />
-              </span>
-              {user ? 'Phiên đăng nhập' : 'Đăng nhập để vào làm việc'}
-            </h3>
-            {!locked && (
-              <button
-                onClick={close}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Đóng (Esc)"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
+        <h1 className="mt-4 text-[28px] font-normal leading-9 text-[#1f1f1f]">
+          {user ? 'Xin chào' : 'Đăng nhập'}
+        </h1>
+        <p className="mt-1 text-[15px] leading-6 text-[#1f1f1f]">
           {user ? (
-            /* Đã login: thẻ phiên + đổi/đăng xuất (thay window.confirm ở header) */
-            <div className="p-4 space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shrink-0">
-                  {initial}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-sm text-slate-900 truncate">{displayName}</div>
-                  <div className="text-[11px] text-slate-500 font-mono truncate">{user.email}</div>
-                  {roleKey && (
-                    <span
-                      className={`inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold border rounded ${ROLE_BADGE[roleKey] || ROLE_BADGE.worker}`}
-                    >
-                      {ROLE_LABEL[roleKey] || roleKey}
-                    </span>
-                  )}
-                </div>
+            <>để tiếp tục với phiên làm việc của bạn</>
+          ) : (
+            <>
+              để tiếp tục sử dụng <span className="font-medium text-[#0b57d0]">MultiPOS</span>
+            </>
+          )}
+        </p>
+
+        {user ? (
+          /* Đã login: thẻ phiên + đổi/đăng xuất (thay window.confirm ở header) */
+          <div className="mt-8 space-y-4">
+            <div className="flex items-center gap-3 rounded-2xl border border-[#c4c7c5] p-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0b57d0] text-lg font-medium text-white">
+                {initial}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={handleSwitchAccount}
-                  className="h-9 px-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                  title="Đăng xuất tài khoản hiện tại và nhập tài khoản khác"
-                >
-                  <UserRound className="w-3.5 h-3.5" />
-                  <span>Tài khoản khác</span>
-                </button>
-                <button
-                  onClick={handleSignOut}
-                  className="h-9 px-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-                  title="Đăng xuất và đóng cửa sổ này"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Đăng xuất</span>
-                </button>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[15px] font-medium text-[#1f1f1f]">{displayName}</div>
+                <div className="truncate font-mono text-[12px] text-[#444746]">{user.email}</div>
+                {roleKey && (
+                  <span
+                    className={`mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-[12px] font-medium ${ROLE_BADGE[roleKey] || ROLE_BADGE.worker}`}
+                  >
+                    {ROLE_LABEL[roleKey] || roleKey}
+                  </span>
+                )}
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={close}
-                className="w-full h-9 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors"
+                type="button"
+                onClick={handleSwitchAccount}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-full border border-[#747775] px-4 text-[14px] font-medium text-[#0b57d0] transition-colors hover:bg-[#f0f4f9]"
+                title="Đăng xuất tài khoản hiện tại và nhập tài khoản khác"
               >
-                Tiếp tục làm việc
+                <UserRound className="h-4 w-4" />
+                <span>Tài khoản khác</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-full border border-[#747775] px-4 text-[14px] font-medium text-[#444746] transition-colors hover:bg-[#fce8e6] hover:text-[#8c1d18]"
+                title="Đăng xuất và đóng cửa sổ này"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Đăng xuất</span>
               </button>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="p-4 space-y-3">
-              <div>
-                <label htmlFor="login-id-input" className="text-xs font-semibold text-slate-700">
-                  Mã nhân viên <span className="font-normal text-slate-400">hoặc email cũ</span>
-                </label>
-                <input
-                  ref={idRef}
-                  id="login-id-input"
-                  type="text"
-                  value={loginId}
-                  onChange={(e) => setLoginId(e.target.value)}
-                  placeholder="VD: NV0001"
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  className="mt-1 w-full h-10 px-3 text-sm font-mono font-bold tracking-wider bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition"
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between">
-                  <label htmlFor="login-password-input" className="text-xs font-semibold text-slate-700">
-                    Mật khẩu
-                  </label>
+            <div className="flex items-center justify-end pt-2">
+              <button
+                type="button"
+                onClick={close}
+                className="flex h-10 min-w-[96px] items-center justify-center rounded-full bg-[#0b57d0] px-6 text-[14px] font-medium text-white transition-colors hover:bg-[#0842a0] hover:shadow-md"
+              >
+                Tiếp tục
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-8 space-y-4" noValidate>
+            <div className="space-y-1.5">
+              <GoogleField
+                id="login-id-input"
+                label="Mã nhân viên hoặc email"
+                value={loginId}
+                inputRef={idRef}
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                onChange={setLoginId}
+              />
+              <p className="px-1 text-[13px] text-[#444746]">Ví dụ: NV0001 — tài khoản cũ vẫn dùng email được.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <GoogleField
+                id="login-password-input"
+                label="Nhập mật khẩu của bạn"
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                autoComplete="current-password"
+                onChange={setPassword}
+                onKeyDown={checkCaps}
+                onKeyUp={checkCaps}
+                trailing={
                   <button
                     type="button"
                     onClick={() => setShowPw((v) => !v)}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-blue-600 transition-colors"
+                    aria-label={showPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                     title={showPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 text-[#444746] hover:bg-slate-100"
                   >
-                    {showPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    <span>{showPw ? 'Ẩn' : 'Hiện'}</span>
+                    {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
-                </div>
-                <input
-                  id="login-password-input"
-                  type={showPw ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyUp={checkCaps}
-                  onKeyDown={checkCaps}
-                  placeholder="Phân biệt HOA / thường"
-                  autoComplete="current-password"
-                  className="mt-1 w-full h-10 px-3 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition"
-                />
-                {capsOn && (
-                  <p className="mt-1 text-[11px] text-amber-700 font-medium">⚠️ Đang bật CapsLock — kiểm tra lại mật khẩu.</p>
-                )}
-              </div>
-              {error && (
-                <p id="login-error" className="flex items-start gap-1.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-2.5">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-px" />
-                  <span>{error}</span>
+                }
+              />
+              {capsOn && (
+                <p className="px-1 text-[13px] font-medium text-[#7a4a00]">
+                  Đang bật CapsLock — kiểm tra lại mật khẩu (phân biệt HOA / thường).
                 </p>
               )}
+            </div>
+
+            {error && (
+              <p
+                id="login-error"
+                role="alert"
+                className="flex items-start gap-2 rounded-lg bg-[#fce8e6] px-3 py-2.5 text-[13px] leading-5 text-[#8c1d18]"
+              >
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </p>
+            )}
+
+            <div className="pt-1">
+              <span className="rounded px-1 py-1 text-[14px] font-medium text-[#0b57d0]">
+                Quên mật khẩu? Nhờ Admin đặt lại trong Cài đặt.
+              </span>
+            </div>
+
+            <p className="text-[13px] leading-5 text-[#444746]">
+              Không phải máy tính của bạn? Hãy đăng xuất sau khi xong việc. Mã NV được cấp khi vào làm.
+            </p>
+
+            <div className="flex items-center justify-end pt-3">
               <button
                 id="btn-login-submit"
                 type="submit"
                 disabled={busy || !loginId.trim() || !password}
-                className="w-full h-10 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"
+                className="flex h-10 min-w-[120px] items-center justify-center gap-2 rounded-full bg-[#0b57d0] px-6 text-[14px] font-medium text-white transition-colors hover:bg-[#0842a0] hover:shadow-md disabled:cursor-not-allowed disabled:bg-[#0b57d0]/40 disabled:shadow-none"
               >
-                {busy ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang đăng nhập...</span>
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="w-4 h-4" />
-                    <span>Đăng nhập</span>
-                  </>
-                )}
+                {busy && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                {busy ? 'Đang xử lý…' : 'Tiếp tục'}
               </button>
-              <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-                Mã NV được cấp khi vào làm (VD: NV0001).
-                <br />
-                Quên mật khẩu? Nhờ Admin đặt lại trong Cài đặt.
-              </p>
-            </form>
-          )}
+            </div>
+          </form>
+        )}
+      </div>
+
+      <div className="mt-4 flex w-full max-w-[440px] items-center justify-between px-2 text-[12px] text-[#444746]">
+        <span>Tiếng Việt</span>
+        <div className="flex items-center gap-4">
+          <span className="cursor-pointer hover:text-[#1f1f1f]">Trợ giúp</span>
+          <span className="cursor-pointer hover:text-[#1f1f1f]">Quyền riêng tư</span>
+          <span className="cursor-pointer hover:text-[#1f1f1f]">Điều khoản</span>
         </div>
       </div>
     </div>
