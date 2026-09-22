@@ -64,21 +64,30 @@ export function SettingsView() {
     setVietqrMsg(error ? `Lỗi: ${error}` : 'Đã lưu VietQR lên máy chủ.');
   };
 
-  const handleSaveGrinding = async (id: string) => {
-    const raw = (grindingDraft[id] ?? '').replace(/[^\d]/g, '');
-    if (raw === '') {
-      setGrindingMsg('Nhập đơn giá (đ/md) trước khi lưu.');
+  const handleSaveAllGrinding = async () => {
+    const changed = grindingServices.filter((g) => (grindingDraft[g.id] ?? '') !== '');
+    if (changed.length === 0) {
+      setGrindingMsg('Chưa đổi giá nào — nhập đơn giá mới rồi bấm Lưu.');
       return;
     }
-    const err = await updateGrindingPrice(id, parseInt(raw, 10));
-    setGrindingMsg(err ? `Lỗi: ${err}` : `Đã lưu giá mài ${id}.`);
-    if (!err) {
-      setGrindingDraft((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
+    const errors: string[] = [];
+    let saved = 0;
+    for (const g of changed) {
+      const raw = (grindingDraft[g.id] ?? '').replace(/[^\d]/g, '');
+      if (raw === '') {
+        errors.push(`${g.label}: chưa nhập giá`);
+        continue;
+      }
+      const err = await updateGrindingPrice(g.id, parseInt(raw, 10));
+      if (err) errors.push(`${g.label}: ${err}`);
+      else saved += 1;
     }
+    if (saved > 0) setGrindingDraft({});
+    setGrindingMsg(
+      errors.length === 0
+        ? `Đã lưu ${saved} giá mài lên máy chủ.`
+        : `Đã lưu ${saved} giá${errors.length ? `, lỗi ${errors.length}: ${errors.join(' | ')}` : ''}.`
+    );
   };
 
   const handleSaveRounding = async () => {
@@ -382,6 +391,15 @@ export function SettingsView() {
                 <Lock className="w-3 h-3" /> Chỉ Admin được đổi
               </span>
             )}
+            {isAdmin && (
+              <button
+                onClick={handleSaveAllGrinding}
+                className="ml-auto px-3 h-7 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-bold"
+                title="Lưu một lần các đơn giá đã đổi lên máy chủ"
+              >
+                Lưu lên máy chủ
+              </button>
+            )}
           </h3>
           <div className="divide-y divide-slate-100">
             {grindingServices.map((g) => (
@@ -398,13 +416,6 @@ export function SettingsView() {
                   className="w-32 h-8 px-2 text-right font-mono border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
                 />
                 <span className="text-slate-400 w-12">đ/md</span>
-                <button
-                  disabled={!isAdmin}
-                  onClick={() => handleSaveGrinding(g.id)}
-                  className="px-3 h-8 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-md font-bold"
-                >
-                  Lưu
-                </button>
               </div>
             ))}
           </div>
