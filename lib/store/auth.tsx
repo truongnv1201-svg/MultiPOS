@@ -2,7 +2,7 @@
 // Không phụ thuộc slice nào khác; Commerce và Store chính consume slice này.
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { createSupabaseBrowserClient } from '../supabase/client';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { normalizeLoginId } from '../hrm';
@@ -27,12 +27,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Khởi tạo null ở cả server lẫn client lần đầu render để tránh hydration mismatch
   // (server luôn null; client chỉ tạo sau mount). supabaseReady=false ở lần render đầu hai phía.
   const [supa, setSupa] = useState<SupabaseClient | null>(null);
+  // Đánh dấu supa đã khởi tạo xong (chạy trước microtask bên dưới theo thứ tự FIFO).
+  const supaArrived = useRef(false);
   useEffect(() => {
     // Chạy trong microtask (idiom chung) để tránh set-state-in-effect sync:
     // vẫn giữ semantics cũ — server render null, client chỉ tạo sau mount (không hydration mismatch).
     Promise.resolve().then(() => {
       try {
         if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return;
+        supaArrived.current = true;
         setSupa(createSupabaseBrowserClient());
       } catch {
         /* local-only */
@@ -63,9 +66,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!supa) {
-      // Defer khỏi body effect để tránh cascading renders (set-state-in-effect)
-      Promise.resolve().then(() => setAuthReady(true));
-      return;
+      // supa chưa có: chỉ đánh dấu sẵn sàng khi chắc chắn KHÔNG có supa nào đang tới
+      // (máy local-only thiếu env). Nếu supa đang trên đường tới, phải chờ getSession
+      // xong mới kết luận — nếu không, cổng login bật nhầm lúc reload (hiện thẻ
+      // "Xin chào" dù phiên cũ vẫn còn, phải bấm Tiếp tục như app kém).
+      let cancelled = false;
+      Promise.resolve().then(() => {
+        if (!cancelled && !supaArrived.current) setAuthReady(true);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
     // Supa vừa khởi tạo xong nhưng session chưa tải về: đánh dấu chưa sẵn sàng để
     // cổng login (needGate ở page) không bật nhầm modal trong lúc chờ getSession.
