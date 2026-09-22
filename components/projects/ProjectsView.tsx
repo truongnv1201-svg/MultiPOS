@@ -28,6 +28,9 @@ import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { sortRows } from '@/lib/sort';
 
+const EMPTY_PROJECT_MATERIALS: ProjectMaterial[] = [];
+const EMPTY_PROJECT_WORKERS: ProjectWorker[] = [];
+
 export function ProjectsView() {
   const { projects, addProject, updateProject, products, employees, exportProjectMaterial, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit } = useStore();
   const [selectedProject, setSelectedProject] = useState<Project | null>(projects[0] || null);
@@ -230,9 +233,10 @@ export function ProjectsView() {
   // Sắp xếp 2 bảng vật tư / nhân công của công trình đang xem (bấm header để đảo chiều)
   const { sortKey: matSortKey, sortDir: matSortDir, toggleSort: toggleMatSort } = useSortState();
   const { sortKey: workerSortKey, sortDir: workerSortDir, toggleSort: toggleWorkerSort } = useSortState();
-  const sortedMaterials = useMemo(() => {
-    const base = currentProject?.materials ?? [];
-    if (!matSortKey) return base;
+  const materials = currentProject?.materials ?? EMPTY_PROJECT_MATERIALS;
+  const workers = currentProject?.workers ?? EMPTY_PROJECT_WORKERS;
+  const sortedMaterials = (() => {
+    if (!matSortKey) return materials;
     const getters: Record<string, (m: ProjectMaterial) => unknown> = {
       sku: (m) => m.sku,
       name: (m) => m.name,
@@ -241,12 +245,11 @@ export function ProjectsView() {
       total_cost: (m) => m.total_cost,
     };
     const get = getters[matSortKey];
-    if (!get) return base;
-    return sortRows(base, get, matSortDir);
-  }, [currentProject, matSortKey, matSortDir]);
-  const sortedWorkers = useMemo(() => {
-    const base = currentProject?.workers ?? [];
-    if (!workerSortKey) return base;
+    if (!get) return materials;
+    return sortRows(materials, get, matSortDir);
+  })();
+  const sortedWorkers = (() => {
+    if (!workerSortKey) return workers;
     const getters: Record<string, (w: ProjectWorker) => unknown> = {
       worker_name: (w) => w.worker_name,
       role: (w) => w.role,
@@ -256,9 +259,9 @@ export function ProjectsView() {
       total_wage: (w) => w.total_wage,
     };
     const get = getters[workerSortKey];
-    if (!get) return base;
-    return sortRows(base, get, workerSortDir);
-  }, [currentProject, workerSortKey, workerSortDir]);
+    if (!get) return workers;
+    return sortRows(workers, get, workerSortDir);
+  })();
 
   // ---- Xuất Excel / In bảng ----
   const handleExportExcel = () => {
