@@ -26,6 +26,45 @@ import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
 import { DataTableShell } from '@/components/common/DataTableShell';
 
+const UNIT_OPTIONS = [
+  {
+    label: 'Vật liệu & kích thước',
+    options: [
+      { value: 'm²', label: 'm² — mét vuông' },
+      { value: 'md', label: 'md — mét dài' },
+      { value: 'm', label: 'm — mét' },
+      { value: 'cây', label: 'cây' },
+      { value: 'kg', label: 'kg — kilôgam' },
+      { value: 'tấn', label: 'tấn' },
+    ],
+  },
+  {
+    label: 'Hàng hóa & phụ kiện',
+    options: [
+      { value: 'cái', label: 'cái' },
+      { value: 'chiếc', label: 'chiếc' },
+      { value: 'bộ', label: 'bộ' },
+      { value: 'cặp', label: 'cặp' },
+      { value: 'chai', label: 'chai' },
+      { value: 'cuộn', label: 'cuộn' },
+      { value: 'thùng', label: 'thùng' },
+      { value: 'bao', label: 'bao' },
+      { value: 'hộp', label: 'hộp' },
+      { value: 'gói', label: 'gói' },
+      { value: 'viên', label: 'viên' },
+    ],
+  },
+  {
+    label: 'Dịch vụ',
+    options: [
+      { value: 'chuyến', label: 'chuyến' },
+      { value: 'công', label: 'công' },
+      { value: 'giờ', label: 'giờ' },
+      { value: 'lần', label: 'lần' },
+    ],
+  },
+] as const;
+
 export function ProductsView() {
   const { products, addProduct, updateProduct } = useStore();
 
@@ -570,12 +609,22 @@ export function ProductsView() {
                 </div>
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Đơn vị tính</label>
-                  <input
-                    type="text"
+                  <select
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
-                    className="w-full h-8 px-2.5 border border-slate-300 rounded"
-                  />
+                    aria-label="Đơn vị tính"
+                    className="w-full h-8 px-2.5 border border-slate-300 rounded bg-white"
+                  >
+                    {UNIT_OPTIONS.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.options.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
               </div>
 
