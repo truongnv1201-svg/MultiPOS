@@ -33,7 +33,7 @@ const CatalogContext = createContext<CatalogSlice | null>(null);
 const CUSTOMER_MAP_KEY = 'multipos_customer_map_v1';
 
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
-  const { supa, profile } = useAuth();
+  const { supa, user, profile } = useAuth();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -44,8 +44,13 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const refreshCatalog = useCallback(async (): Promise<boolean> => {
     if (!supa) return false;
     try {
-      const { data, error } = await supa.from('products').select('*').order('sku');
-      if (error || !data) return false;
+      const [productsResult, customersResult, suppliersResult] = await Promise.all([
+        supa.from('products').select('*').order('sku'),
+        supa.from('customers').select('*').order('code'),
+        supa.from('suppliers').select('*').order('code'),
+      ]);
+      const { data, error } = productsResult;
+      if (error || !data || customersResult.error || suppliersResult.error) return false;
       const mapped: Product[] = (data as any[]).map((row) => ({
         id: row.id,
         sku: row.sku,
@@ -64,10 +69,36 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         default_grinding_price: row.default_grinding_price != null ? Number(row.default_grinding_price) : undefined,
       }));
       setProducts(mapped);
+      const mappedCustomers: Customer[] = (customersResult.data as any[]).map((row) => ({
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        phone: row.phone ?? '',
+        address: row.address ?? undefined,
+        group: row.customer_group,
+        current_debt: Number(row.current_debt) || 0,
+        debt_limit: Number(row.debt_limit) || 0,
+        created_at: row.created_at,
+      }));
+      const mappedSuppliers: Supplier[] = (suppliersResult.data as any[]).map((row) => ({
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        phone: row.phone ?? '',
+        address: row.address ?? undefined,
+        tax_code: row.tax_code ?? undefined,
+        current_debt: Number(row.current_debt) || 0,
+      }));
+      setCustomers(mappedCustomers);
+      setSuppliers(mappedSuppliers);
       setCatalogSource('server');
       try {
         await db.products.clear();
         await db.products.bulkAdd(mapped);
+        await db.customers.clear();
+        await db.customers.bulkAdd(mappedCustomers);
+        await db.suppliers.clear();
+        await db.suppliers.bulkAdd(mappedSuppliers);
       } catch {
         /* cache best-effort */
       }
@@ -131,17 +162,48 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Forbidden: cần quyền quản lý');
       }
       const sku = data.sku || generateMasterCode('SP');
-      const newProd: Product = {
+      const localProd: Product = {
         ...data,
         id: `prod-${Date.now()}`,
         sku,
         avg_cost: data.avg_cost ?? data.import_price, // INT-ERR-01 fix
       };
+      let newProd = localProd;
+      if (supa) {
+        if (!user) throw new Error('Vui lòng đăng nhập trước khi thêm hàng hóa.');
+        const { data: row, error } = await supa
+          .from('products')
+          .insert({
+            sku,
+            barcode: data.barcode ?? null,
+            name: data.name,
+            category: data.category,
+            unit: data.unit,
+            product_type: data.product_type,
+            retail_price: data.retail_price,
+            trade_price: data.trade_price ?? null,
+            import_price: data.import_price,
+            avg_cost: localProd.avg_cost,
+            stock_quantity: data.stock_quantity,
+            min_stock: data.min_stock ?? 0,
+            waste_factor: data.waste_factor ?? 0,
+            default_grinding_price: data.default_grinding_price ?? 0,
+          })
+          .select('*')
+          .single();
+        if (error || !row) throw new Error(error?.message || 'Không thể lưu hàng hóa lên máy chủ.');
+        newProd = {
+          ...localProd,
+          id: row.id,
+          avg_cost: Number(row.avg_cost),
+          stock_quantity: Number(row.stock_quantity),
+        };
+      }
       setProducts((prev) => [...prev, newProd]);
       await db.products.add(newProd);
       return newProd;
     },
-    [supa, profile]
+    [supa, profile, user]
   );
 
   const updateProduct = useCallback(async (id: string, updates: Partial<Product>) => {
@@ -149,50 +211,115 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       alert('Chỉ Admin/Quản lý được sửa hàng hóa/giá vốn!');
       return;
     }
+    if (supa) {
+      if (!user) throw new Error('Vui lòng đăng nhập trước khi sửa hàng hóa.');
+      const { error } = await supa.from('products').update(updates).eq('id', id);
+      if (error) throw new Error(error.message);
+    }
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
     await db.products.update(id, updates);
-  }, [supa, profile]);
+  }, [supa, profile, user]);
 
   const addCustomer = useCallback(
     async (data: Omit<Customer, 'id' | 'code' | 'created_at'> & { created_at?: string }): Promise<Customer> => {
       const code = `KH${String(customers.length + 1).padStart(4, '0')}`;
-      const newCust: Customer = {
+      const localCust: Customer = {
         ...data,
         id: `cust-${Date.now()}`,
         code,
         created_at: data.created_at || new Date().toISOString(),
       };
+      let newCust = localCust;
+      if (supa) {
+        if (!user) throw new Error('Vui lòng đăng nhập trước khi thêm khách hàng.');
+        const { data: row, error } = await supa
+          .from('customers')
+          .insert({
+            code,
+            name: data.name,
+            phone: data.phone || null,
+            address: data.address || null,
+            customer_group: data.group,
+            debt_limit: data.debt_limit || 0,
+            current_debt: data.current_debt || 0,
+          })
+          .select('*')
+          .single();
+        if (error || !row) throw new Error(error?.message || 'Không thể lưu khách hàng lên máy chủ.');
+        newCust = {
+          ...localCust,
+          id: row.id,
+          current_debt: Number(row.current_debt) || 0,
+          debt_limit: Number(row.debt_limit) || 0,
+          created_at: row.created_at,
+        };
+      }
       setCustomers((prev) => [...prev, newCust]);
       await db.customers.add(newCust);
       return newCust;
     },
-    [customers.length]
+    [customers.length, supa, user]
   );
 
   const updateCustomer = useCallback(async (id: string, updates: Partial<Customer>) => {
+    if (supa) {
+      if (!user) throw new Error('Vui lòng đăng nhập trước khi sửa khách hàng.');
+      const payload = {
+        ...(updates.name !== undefined ? { name: updates.name } : {}),
+        ...(updates.phone !== undefined ? { phone: updates.phone || null } : {}),
+        ...(updates.address !== undefined ? { address: updates.address || null } : {}),
+        ...(updates.group !== undefined ? { customer_group: updates.group } : {}),
+        ...(updates.debt_limit !== undefined ? { debt_limit: updates.debt_limit } : {}),
+      };
+      const { error } = await supa.from('customers').update(payload).eq('id', id);
+      if (error) throw new Error(error.message);
+    }
     setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
     await db.customers.update(id, updates);
-  }, []);
+  }, [supa, user]);
 
   const addSupplier = useCallback(
     async (data: Omit<Supplier, 'id' | 'code'>): Promise<Supplier> => {
       const code = generateMasterCode('NCC', suppliers.length + 1);
-      const newSup: Supplier = {
+      const localSup: Supplier = {
         ...data,
         id: `sup-${Date.now()}`,
         code,
       };
+      let newSup = localSup;
+      if (supa) {
+        if (!user) throw new Error('Vui lòng đăng nhập trước khi thêm nhà cung cấp.');
+        const { data: row, error } = await supa
+          .from('suppliers')
+          .insert({
+            code,
+            name: data.name,
+            phone: data.phone || null,
+            address: data.address || null,
+            tax_code: data.tax_code || null,
+            current_debt: data.current_debt || 0,
+          })
+          .select('*')
+          .single();
+        if (error || !row) throw new Error(error?.message || 'Không thể lưu nhà cung cấp lên máy chủ.');
+        newSup = { ...localSup, id: row.id, current_debt: Number(row.current_debt) || 0 };
+      }
       setSuppliers((prev) => [...prev, newSup]);
       await db.suppliers.add(newSup);
       return newSup;
     },
-    [suppliers.length]
+    [suppliers.length, supa, user]
   );
 
   const updateSupplier = useCallback(async (id: string, updates: Partial<Supplier>) => {
+    if (supa) {
+      if (!user) throw new Error('Vui lòng đăng nhập trước khi sửa nhà cung cấp.');
+      const { error } = await supa.from('suppliers').update(updates).eq('id', id);
+      if (error) throw new Error(error.message);
+    }
     setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
     await db.suppliers.update(id, updates);
-  }, []);
+  }, [supa, user]);
 
   const value: CatalogSlice = {
     products,

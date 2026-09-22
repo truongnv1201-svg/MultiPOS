@@ -467,7 +467,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         refreshCashRounding();
       });
     }
-  }, [isOnline, refreshCatalog, refreshServerOrders, syncCustomers, refreshGrinding, refreshCashRounding]);
+  }, [isOnline, user, refreshCatalog, refreshServerOrders, syncCustomers, refreshGrinding, refreshCashRounding]);
 
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;
