@@ -1,5 +1,5 @@
-// P3-phần 2: slice Commerce — shop info, VietQR, giá mài, làm tròn tiền mặt.
-// Setting máy trạm lưu localStorage; giá mài + làm tròn đọc/tuân server (chỉ Admin được đổi).
+// P3-phần 2: slice Commerce — shop info, cấu hình in, VietQR, giá mài, làm tròn tiền mặt.
+// Nhận diện cửa hàng đồng bộ server; cấu hình in/POS giữ riêng từng máy.
 // Phụ thuộc duy nhất: AuthSlice (supa/profile) để guard RBAC.
 'use client';
 
@@ -34,6 +34,30 @@ export interface CommerceSlice {
 }
 
 const CommerceContext = createContext<CommerceSlice | null>(null);
+
+const LOCAL_SHOP_KEYS: (keyof ShopSettings)[] = [
+  'printerWidth',
+  'printTemplate',
+  'printCopies',
+  'autoPrint',
+  'showLogo',
+  'showCashier',
+  'showCustomerPhone',
+  'showVietqr',
+  'showDimensions',
+  'showDebt',
+  'fontSize',
+  'defaultVat',
+  'defaultPayment',
+  'defaultPriceBook',
+];
+
+function sharedShopSettings(settings: ShopSettings): Partial<ShopSettings> {
+  const localKeys = new Set<keyof ShopSettings>(LOCAL_SHOP_KEYS);
+  return Object.fromEntries(
+    Object.entries(settings).filter(([key]) => !localKeys.has(key as keyof ShopSettings))
+  ) as Partial<ShopSettings>;
+}
 
 export function CommerceProvider({ children }: { children: React.ReactNode }) {
   const { supa, user, profile } = useAuth();
@@ -78,7 +102,10 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       shopSyncTimer.current = setTimeout(async () => {
         const raw = localStorage.getItem('multipos_shop_v1');
         if (!raw) return;
-        const { error } = await supa.from('settings').upsert({ key: 'shop_profile', value: JSON.parse(raw) }, { onConflict: 'key' });
+        const { error } = await supa.from('settings').upsert(
+          { key: 'shop_profile', value: sharedShopSettings(JSON.parse(raw) as ShopSettings) },
+          { onConflict: 'key' }
+        );
         if (error) console.warn('Shop settings sync failed:', error.message);
       }, 500);
     }
@@ -90,9 +117,14 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     if (error || !data?.value) return false;
     const serverShop = data.value as Partial<ShopSettings>;
     setShop((prev) => {
+      const localSettings = Object.fromEntries(
+        LOCAL_SHOP_KEYS.map((key) => [key, prev[key]])
+      ) as Partial<ShopSettings>;
       const next = {
         ...DEFAULT_SHOP,
+        ...localSettings,
         ...serverShop,
+        ...localSettings,
         printTemplate: normalizePrintTemplate(serverShop.printTemplate ?? prev.printTemplate),
         printerWidth: normalizePrinterWidth(serverShop.printerWidth ?? prev.printerWidth),
       };
