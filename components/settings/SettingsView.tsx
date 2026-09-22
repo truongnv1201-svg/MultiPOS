@@ -94,16 +94,6 @@ export function SettingsView() {
           <Settings className="w-5 h-5 text-blue-600" />
           <span>Cài đặt Hệ thống</span>
         </h2>
-        {isAdmin && (
-          <button
-            onClick={handleSaveShop}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5"
-            title="Lưu một lần các thay đổi thông tin chung cửa hàng lên máy chủ"
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>Lưu cấu hình</span>
-          </button>
-        )}
         {!user && (
           <button
             onClick={() => setLoginOpen(true)}
@@ -134,9 +124,18 @@ export function SettingsView() {
                 <Lock className="w-3 h-3" /> Chỉ Admin được đổi
               </span>
             )}
+            {isAdmin && (
+              <button
+                onClick={handleSaveShop}
+                className="ml-auto px-3 h-7 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-bold"
+                title="Đồng bộ thông tin cửa hàng lên máy chủ"
+              >
+                Lưu lên máy chủ
+              </button>
+            )}
           </h3>
           <p className="text-[11px] text-slate-400 -mt-2">
-            Thông tin cửa hàng chỉ gửi lên máy chủ khi bấm <strong>Lưu cấu hình</strong>.
+            Thông tin cửa hàng chỉ gửi lên máy chủ khi bấm <strong>Lưu lên máy chủ</strong> trong khối này.
             Khổ giấy, mẫu in và tùy chọn in vẫn lưu riêng trên máy này.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
