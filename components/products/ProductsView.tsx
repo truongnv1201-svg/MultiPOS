@@ -278,22 +278,26 @@ export function ProductsView() {
     e.preventDefault();
     if (!name.trim()) return;
 
-    await addProduct({
-      name: name.trim(),
-      category,
-      unit,
-      product_type: productType,
-      retail_price: retailPrice,
-      import_price: importPrice,
-      avg_cost: importPrice, // INT-ERR-01
-      stock_quantity: stockQuantity,
-      waste_factor: productType === 'area' ? wasteFactor : undefined,
-      default_grinding_price: productType === 'area' ? defaultGrindingPrice : undefined,
-    });
+    try {
+      await addProduct({
+        name: name.trim(),
+        category,
+        unit,
+        product_type: productType,
+        retail_price: retailPrice,
+        import_price: importPrice,
+        avg_cost: importPrice, // INT-ERR-01
+        stock_quantity: stockQuantity,
+        waste_factor: productType === 'area' ? wasteFactor : undefined,
+        default_grinding_price: productType === 'area' ? defaultGrindingPrice : undefined,
+      });
 
-    setIsAddModalOpen(false);
-    setName('');
-    alert('Thêm mới sản phẩm thành công!');
+      setIsAddModalOpen(false);
+      setName('');
+      alert('Thêm mới sản phẩm thành công!');
+    } catch (err: any) {
+      alert(`Không thể tạo sản phẩm: ${err?.message || 'Lỗi không xác định'}`);
+    }
   };
 
   return (
