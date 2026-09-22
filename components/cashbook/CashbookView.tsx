@@ -223,7 +223,7 @@ export function CashbookView() {
         <div className="flex items-center gap-3">
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
             <Wallet className="w-5 h-5 text-blue-600" />
-            <span>Sổ Quỹ Thu - Chi (Bất biến Không nhân đôi doanh thu)</span>
+            <span>Sổ Quỹ Thu - Chi</span>
           </h2>
           <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
             {cashbook.length} bút toán
