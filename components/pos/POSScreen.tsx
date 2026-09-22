@@ -1141,7 +1141,7 @@ export function POSScreen() {
                     setDiscountType((prev) => (prev === 'vnd' ? 'percent' : 'vnd'));
                     updateActiveTab({ discount_amount: 0, discount_percent: 0 });
                   }}
-                  className="h-7 px-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-[10px] font-bold text-slate-700"
+                  className="h-7 w-8 shrink-0 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-[10px] font-bold text-slate-700 flex items-center justify-center"
                 >
                   {discountType === 'vnd' ? 'đ' : '%'}
                 </button>
@@ -1188,7 +1188,7 @@ export function POSScreen() {
                     setShippingType(next);
                     updateActiveTab({ shipping_fee: 0, shipping_percent: 0, shipping_type: next });
                   }}
-                  className="h-7 px-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-[10px] font-bold text-slate-700"
+                  className="h-7 w-8 shrink-0 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-[10px] font-bold text-slate-700 flex items-center justify-center"
                 >
                   {shippingType === 'vnd' ? 'đ' : '%'}
                 </button>
