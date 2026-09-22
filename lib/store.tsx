@@ -206,6 +206,10 @@ interface StoreContextType {
   addProject: (project: Omit<Project, 'id' | 'code'>) => Promise<Project>;
   updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
   exportProjectMaterial: (projectId: string, productId: string, quantity: number) => Promise<Project | null>;
+  exportProjectMaterialBatch: (
+    projectId: string,
+    lines: { productId: string; quantity: number }[]
+  ) => Promise<Project | null>;
   addProjectWorker: (
     projectId: string,
     worker: { worker_name: string; role: string; days_worked: number; daily_wage: number; allowance: number; employee_id?: string; employee_code?: string }
@@ -403,6 +407,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     addProject,
     updateProject,
     exportProjectMaterial,
+    exportProjectMaterialBatch,
     addProjectWorker,
     removeProjectLine,
     updateProjectFinance,
@@ -623,6 +628,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     addProject,
     updateProject,
     exportProjectMaterial,
+    exportProjectMaterialBatch,
     addProjectWorker,
     removeProjectLine,
     updateProjectFinance,

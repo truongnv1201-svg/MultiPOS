@@ -2065,6 +2065,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     addProject,
     updateProject,
     exportProjectMaterial,
+    exportProjectMaterialBatch,
     addProjectWorker,
     removeProjectLine,
     updateProjectFinance,
