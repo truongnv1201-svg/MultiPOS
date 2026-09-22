@@ -189,7 +189,7 @@ export function ReceiptModal() {
         </div>
         <div className={`grid grid-cols-2 bg-slate-50 border border-slate-200 rounded ${compact ? 'gap-2 p-2' : 'gap-3 p-3'}`}>
           <div><span className="text-slate-500">Khách hàng: </span><strong>{order.customer_name}</strong>{shop.showCustomerPhone && order.customer_phone && <span> — {order.customer_phone}</span>}</div>
-          <div><span className="text-slate-500">Thu ngân: </span>{shop.showCashier ? order.cashier_name : '—'} • Chi nhánh: {order.branch_name}</div>
+          <div><span className="text-slate-500">Thu ngân: </span>{shop.showCashier ? order.cashier_name : '—'}</div>
         </div>
         <table className="w-full border-collapse border border-slate-300">
           <thead>

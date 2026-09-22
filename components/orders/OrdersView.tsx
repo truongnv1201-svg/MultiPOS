@@ -507,7 +507,7 @@ export function OrdersView() {
                   <div className="text-slate-600 font-mono">{selectedOrder.customer_phone}</div>
                 )}
                 <div className="text-[11px] text-slate-400">
-                  Thu ngân: {selectedOrder.cashier_name} • {selectedOrder.branch_name}
+                  Thu ngân: {selectedOrder.cashier_name}
                   </div>
               </div>
 

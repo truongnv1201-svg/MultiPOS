@@ -122,6 +122,10 @@ export function SettingsView() {
               </span>
             )}
           </h3>
+          <p className="text-[11px] text-slate-400 -mt-2">
+            Thông tin cửa hàng chỉ gửi lên máy chủ khi bấm <strong>Lưu cấu hình</strong>.
+            Khổ giấy, mẫu in và tùy chọn in vẫn lưu riêng trên máy này.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Tên cửa hàng</label>
@@ -176,10 +180,6 @@ export function SettingsView() {
                   className="w-full h-8 px-2.5 border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
                 />
               </div>
-              <p className="text-[11px] text-slate-400">
-                Thông tin cửa hàng chỉ gửi lên máy chủ khi bấm <strong>Lưu cấu hình</strong>.
-                Khổ giấy, mẫu in và tùy chọn in vẫn lưu riêng trên máy này.
-              </p>
               {shopMsg && <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{shopMsg}</p>}
             </div>
             <div>

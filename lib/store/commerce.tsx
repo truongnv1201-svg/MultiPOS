@@ -12,17 +12,13 @@ import {
   normalizePrintTemplate,
   normalizePrinterWidth,
 } from './shop';
-import type { ShopSettings, GrindingService, Branch } from './shop';
+import type { ShopSettings, GrindingService } from './shop';
 import { vietnamizeError } from '../error-vi';
 
 export interface CommerceSlice {
   shop: ShopSettings;
   updateShop: (patch: Partial<ShopSettings>) => void;
   saveShopSettings: () => Promise<string | null>;
-  branches: Branch[];
-  branchId: string | null;
-  branchName: string;
-  selectBranch: (id: string) => Promise<string | null>;
   refreshShopSettings: () => Promise<boolean>;
   vietqr: VietqrConfig;
   updateVietqr: (patch: Partial<VietqrConfig>) => void;
@@ -61,7 +57,7 @@ function sharedShopSettings(settings: ShopSettings): Partial<ShopSettings> {
 }
 
 export function CommerceProvider({ children }: { children: React.ReactNode }) {
-  const { supa, user, profile } = useAuth();
+  const { supa, profile } = useAuth();
 
   // Thương mại: shop info + VietQR theo máy trạm (localStorage)
   const [shop, setShop] = useState<ShopSettings>(() => {
@@ -132,34 +128,12 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [supa]);
 
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [branchId, setBranchId] = useState<string | null>(profile?.branch_id || null);
-  const refreshBranches = useCallback(async () => {
-    if (!supa || !user) return;
-    const { data, error } = await supa.from('branches').select('id, name, address').order('name');
-    if (!error && data) setBranches(data as Branch[]);
-  }, [supa, user]);
   useEffect(() => {
-    if (!supa || !user) return;
+    if (!supa) return;
     Promise.resolve().then(() => {
       refreshShopSettings();
-      refreshBranches();
     });
-  }, [supa, user, refreshShopSettings, refreshBranches]);
-  const selectBranch = useCallback(async (id: string): Promise<string | null> => {
-    if (!supa || !user) return 'Vui lòng đăng nhập để chọn chi nhánh.';
-    if (!branches.some((branch) => branch.id === id)) return 'Chi nhánh không tồn tại.';
-    if (profile?.role !== 'admin' && profile?.branch_id && profile.branch_id !== id) {
-      return 'Tài khoản này chỉ được làm việc tại chi nhánh đã phân quyền.';
-    }
-    const { error } = await supa.from('profiles').update({ branch_id: id }).eq('id', user.id);
-    if (error) return vietnamizeError(error);
-    setBranchId(id);
-    return null;
-  }, [supa, user, branches, profile]);
-  const activeBranchId = branchId || profile?.branch_id || null;
-  const activeBranch = branches.find((branch) => branch.id === activeBranchId);
-  const branchName = activeBranch?.name || 'Chi nhánh 1 (Tổng kho)';
+  }, [supa, refreshShopSettings]);
 
   const [vietqr, setVietqr] = useState<VietqrConfig>(() => {
     try {
@@ -250,10 +224,6 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     shop,
     updateShop,
     saveShopSettings,
-    branches,
-    branchId: activeBranchId,
-    branchName,
-    selectBranch,
     refreshShopSettings,
     vietqr,
     updateVietqr,

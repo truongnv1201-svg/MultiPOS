@@ -351,7 +351,6 @@ export const INITIAL_ORDERS: Order[] = [
     status: 'completed',
     created_at: '2026-09-14T09:30:00Z',
     cashier_name: 'Nguyễn Văn A',
-    branch_name: 'Chi nhánh 1 (Tổng kho)',
   },
   {
     id: 'ord-1002',
@@ -388,7 +387,6 @@ export const INITIAL_ORDERS: Order[] = [
     note: 'Nhận cọc đợt 1, hẹn giao thứ 6',
     created_at: '2026-09-14T11:15:00Z',
     cashier_name: 'Nguyễn Văn A',
-    branch_name: 'Chi nhánh 1 (Tổng kho)',
   }
 ];
 
@@ -554,4 +552,3 @@ export const INITIAL_STOCK_MOVEMENTS: StockMovement[] = [
     created_at: '2026-09-12T14:00:00Z',
   },
 ];
-

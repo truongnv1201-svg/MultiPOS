@@ -94,7 +94,6 @@ export interface Order {
   note?: string;
   created_at: string;
   cashier_name: string;
-  branch_name: string;
   is_offline?: boolean;
 }
 

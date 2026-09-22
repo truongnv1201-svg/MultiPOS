@@ -43,7 +43,6 @@ export interface TransactionsSlice {
   refreshServerStockMovements: () => Promise<boolean>;
   pendingQueue: Order[];
   setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;
-  branchName: string;
   cashierName: string;
   posMode: 'standard' | 'fast';
   setPosMode: (mode: 'standard' | 'fast' | ((prev: 'standard' | 'fast') => 'standard' | 'fast')) => void;
@@ -124,7 +123,7 @@ const TransactionsContext = createContext<TransactionsSlice | null>(null);
 
 export function TransactionsProvider({ children }: { children: React.ReactNode }) {
   const { supa, user, profile, setLoginOpen } = useAuth();
-  const { shop, cashRounding, branchName } = useCommerce();
+  const { shop, cashRounding } = useCommerce();
   const { products, setProducts, suppliers, setSuppliers, customers, setCustomers, customerMap, syncCustomers, refreshCatalog } = useCatalog();
   const { isOnline } = useNetwork();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -138,7 +137,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     try {
       const { data: serverOrders, error: ordersError } = await supa
         .from('orders')
-        .select('*, branches(name)')
+        .select('*')
         .order('created_at', { ascending: false });
       if (ordersError) throw ordersError;
 
@@ -195,7 +194,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         note: row.note || undefined,
         created_at: row.created_at,
         cashier_name: row.cashier_id === user.id ? (profile?.full_name || user.email || '') : 'Nhân viên',
-        branch_name: row.branches?.name || branchName,
         is_offline: false,
       }));
 
@@ -209,7 +207,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       console.warn('Server orders refresh failed:', error);
       return false;
     }
-  }, [supa, user, isOnline, profile, branchName]);
+  }, [supa, user, isOnline, profile]);
 
   const refreshServerStockMovements = useCallback(async (): Promise<boolean> => {
     if (!supa || !user || !isOnline) return false;
@@ -605,7 +603,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         note: activeCart.note,
         created_at: new Date().toISOString(),
         cashier_name: cashierName,
-        branch_name: branchName,
         is_offline: !isOnline,
       };
 
@@ -743,7 +740,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       activeCart,
       calculatedTotals,
       cashierName,
-      branchName,
       isOnline,
       supa,
       user,
@@ -2161,7 +2157,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     setStockMovements,
     pendingQueue,
     setPendingQueue,
-    branchName,
     cashierName,
     posMode,
     setPosMode,
