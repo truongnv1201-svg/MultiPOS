@@ -17,6 +17,28 @@ WHERE combo_product_id IN (SELECT id FROM public.products WHERE sku = 'SP000009'
        ('SP000001','SP000002','SP000003','SP000004','SP000005','SP000006','SP000007','SP000008','SP000009','SP000010','SP000011')
    );
 
+-- Preserve historical order rows while removing the demo catalog records.
+UPDATE public.order_items
+SET product_id = NULL
+WHERE product_id IN (
+  SELECT id FROM public.products WHERE sku IN
+    ('SP000001','SP000002','SP000003','SP000004','SP000005','SP000006','SP000007','SP000008','SP000009','SP000010','SP000011')
+);
+
+UPDATE public.stock_movements
+SET product_id = NULL
+WHERE product_id IN (
+  SELECT id FROM public.products WHERE sku IN
+    ('SP000001','SP000002','SP000003','SP000004','SP000005','SP000006','SP000007','SP000008','SP000009','SP000010','SP000011')
+);
+
+UPDATE public.project_materials
+SET product_id = NULL
+WHERE product_id IN (
+  SELECT id FROM public.products WHERE sku IN
+    ('SP000001','SP000002','SP000003','SP000004','SP000005','SP000006','SP000007','SP000008','SP000009','SP000010','SP000011')
+);
+
 DELETE FROM public.products
 WHERE sku IN
   ('SP000001','SP000002','SP000003','SP000004','SP000005','SP000006','SP000007','SP000008','SP000009','SP000010','SP000011');
