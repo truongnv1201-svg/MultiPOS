@@ -113,8 +113,6 @@ interface StoreContextType {
 
   // Network & Offline (PWA)
   isOnline: boolean;
-  setIsOnline: (online: boolean) => void;
-  toggleOnline: () => void;
   pendingQueue: Order[];
   syncPendingOrders: () => Promise<void>;
   // P3: Supabase Source of Truth
@@ -322,7 +320,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   // State nghiệp vụ còn lại ở StoreInner: điều hướng + khởi tạo DB + facade. Master data ở Catalog, tiền/kho/POS ở Transactions, nhân sự ở Hrm.
 
   // Network (isOnline/toggle) sống ở NetworkProvider; state tiền/kho/POS sống ở TransactionsProvider.
-  const { isOnline, setIsOnline, toggleOnline } = useNetwork();
+  const { isOnline } = useNetwork();
   const {
     employees,
     attendanceDays,
@@ -470,15 +468,17 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isOnline) {
       Promise.resolve().then(() => {
-        syncMasterData().then(() => refreshCatalog());
-        refreshServerOrders();
-        refreshServerStockMovements();
-        syncCustomers();
-        refreshGrinding();
-        refreshCashRounding();
+        syncPendingOrders().then(() => {
+          syncMasterData().then(() => refreshCatalog());
+          refreshServerOrders();
+          refreshServerStockMovements();
+          syncCustomers();
+          refreshGrinding();
+          refreshCashRounding();
+        });
       });
     }
-  }, [isOnline, user, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, syncCustomers, refreshGrinding, refreshCashRounding]);
+  }, [isOnline, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, syncCustomers, refreshGrinding, refreshCashRounding]);
 
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;
@@ -592,8 +592,6 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     selectBranch,
     cashierName,
     isOnline,
-    setIsOnline,
-    toggleOnline,
     pendingQueue,
     syncPendingOrders,
     catalogSource,

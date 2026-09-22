@@ -2,21 +2,20 @@
 // Không phụ thuộc slice nào; Transactions + HRM + Store chính đều consume.
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export interface NetworkSlice {
   isOnline: boolean;
-  setIsOnline: (online: boolean) => void;
-  toggleOnline: () => void;
 }
 
 const NetworkContext = createContext<NetworkSlice | null>(null);
 
 export function NetworkProvider({ children }: { children: React.ReactNode }) {
-  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [isOnline, setIsOnline] = useState<boolean>(false);
 
   // Listen for browser online/offline events
   useEffect(() => {
+    Promise.resolve().then(() => setIsOnline(navigator.onLine));
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
@@ -27,11 +26,7 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const toggleOnline = useCallback(() => {
-    setIsOnline((prev) => !prev);
-  }, []);
-
-  const value: NetworkSlice = { isOnline, setIsOnline, toggleOnline };
+  const value: NetworkSlice = { isOnline };
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
 }
 

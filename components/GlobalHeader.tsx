@@ -27,7 +27,6 @@ export function GlobalHeader() {
     flyoutMenuOpen,
     setFlyoutMenuOpen,
     isOnline,
-    setIsOnline,
     pendingQueue,
     syncPendingOrders,
     branchName,
@@ -286,21 +285,20 @@ export function GlobalHeader() {
 
         {/* If on POS screen: không còn nút Quản lý riêng — dùng Menu (Alt+M) để chuyển phân hệ */}
 
-        {/* Offline / Online Toggle */}
+        {/* Trạng thái mạng — chỉ đọc từ trình duyệt */}
         <div className="flex items-center">
-          <button
+          <div
             id="network-status-toggle"
-            onClick={() => setIsOnline(!isOnline)}
             className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
               isOnline
                 ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 hover:bg-emerald-900'
                 : 'bg-rose-950/90 text-rose-300 border border-rose-700 animate-pulse'
             }`}
-            title={isOnline ? 'Đang Online (Click để giả lập mất mạng)' : 'Đang Ngoại tuyến (Click để khôi phục kết nối)'}
+            title={isOnline ? 'Đang Online — trạng thái tự động theo kết nối mạng' : 'Đang Offline — trạng thái tự động theo kết nối mạng'}
           >
             {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
-          </button>
+          </div>
         </div>
 
         {/* Branch selector */}
