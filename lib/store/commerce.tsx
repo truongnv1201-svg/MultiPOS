@@ -3,7 +3,7 @@
 // Phụ thuộc duy nhất: AuthSlice (supa/profile) để guard RBAC.
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useAuth } from './auth';
 import { GRINDING_TYPES } from '../mock-data';
 import type { VietqrConfig } from '../vietqr';
@@ -18,6 +18,7 @@ import { vietnamizeError } from '../error-vi';
 export interface CommerceSlice {
   shop: ShopSettings;
   updateShop: (patch: Partial<ShopSettings>) => void;
+  saveShopSettings: () => Promise<string | null>;
   branches: Branch[];
   branchId: string | null;
   branchName: string;
@@ -61,7 +62,6 @@ function sharedShopSettings(settings: ShopSettings): Partial<ShopSettings> {
 
 export function CommerceProvider({ children }: { children: React.ReactNode }) {
   const { supa, user, profile } = useAuth();
-  const shopSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Thương mại: shop info + VietQR theo máy trạm (localStorage)
   const [shop, setShop] = useState<ShopSettings>(() => {
@@ -97,19 +97,17 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
-    if (supa && profile?.role === 'admin') {
-      if (shopSyncTimer.current) clearTimeout(shopSyncTimer.current);
-      shopSyncTimer.current = setTimeout(async () => {
-        const raw = localStorage.getItem('multipos_shop_v1');
-        if (!raw) return;
-        const { error } = await supa.from('settings').upsert(
-          { key: 'shop_profile', value: sharedShopSettings(JSON.parse(raw) as ShopSettings) },
-          { onConflict: 'key' }
-        );
-        if (error) console.warn('Shop settings sync failed:', error.message);
-      }, 500);
-    }
   }, [supa, profile]);
+
+  const saveShopSettings = useCallback(async (): Promise<string | null> => {
+    if (!supa) return null;
+    if (profile?.role !== 'admin') return 'Chỉ tài khoản Admin được lưu cấu hình cửa hàng.';
+    const { error } = await supa.from('settings').upsert(
+      { key: 'shop_profile', value: sharedShopSettings(shop) },
+      { onConflict: 'key' }
+    );
+    return error ? vietnamizeError(error) : null;
+  }, [supa, profile, shop]);
 
   const refreshShopSettings = useCallback(async (): Promise<boolean> => {
     if (!supa) return false;
@@ -251,6 +249,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
   const value: CommerceSlice = {
     shop,
     updateShop,
+    saveShopSettings,
     branches,
     branchId: activeBranchId,
     branchName,

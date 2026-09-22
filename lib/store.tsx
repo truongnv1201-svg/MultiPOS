@@ -127,6 +127,7 @@ interface StoreContextType {
   // Thương mại: cấu hình cửa hàng, VietQR, giá mài, làm tròn
   shop: ShopSettings;
   updateShop: (patch: Partial<ShopSettings>) => void;
+  saveShopSettings: () => Promise<string | null>;
   vietqr: VietqrConfig;
   updateVietqr: (patch: Partial<VietqrConfig>) => void;
   grindingServices: GrindingService[];
@@ -280,6 +281,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   const {
     shop,
     updateShop,
+    saveShopSettings,
     branchId,
     branches,
     branchName: commerceBranchName,
@@ -601,6 +603,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     syncCustomers,
     shop,
     updateShop,
+    saveShopSettings,
     vietqr,
     updateVietqr,
     grindingServices,

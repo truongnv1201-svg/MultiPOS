@@ -26,6 +26,7 @@ export function SettingsView() {
   const {
     shop,
     updateShop,
+    saveShopSettings,
     vietqr,
     updateVietqr,
     grindingServices,
@@ -43,6 +44,12 @@ export function SettingsView() {
   const [grindingMsg, setGrindingMsg] = useState<string | null>(null);
   const [roundingDraft, setRoundingDraft] = useState<string>('');
   const [roundingMsg, setRoundingMsg] = useState<string | null>(null);
+  const [shopMsg, setShopMsg] = useState<string | null>(null);
+
+  const handleSaveShop = async () => {
+    const error = await saveShopSettings();
+    setShopMsg(error ? `Lỗi: ${error}` : 'Đã lưu cấu hình chung lên máy chủ.');
+  };
 
   const handleSaveGrinding = async (id: string) => {
     const raw = (grindingDraft[id] ?? '').replace(/[^\d]/g, '');
@@ -74,6 +81,16 @@ export function SettingsView() {
           <Settings className="w-5 h-5 text-blue-600" />
           <span>Cài đặt Hệ thống</span>
         </h2>
+        {isAdmin && (
+          <button
+            onClick={handleSaveShop}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5"
+            title="Lưu một lần các thay đổi thông tin chung cửa hàng lên máy chủ"
+          >
+            <Check className="w-3.5 h-3.5" />
+            <span>Lưu cấu hình</span>
+          </button>
+        )}
         {!user && (
           <button
             onClick={() => setLoginOpen(true)}
@@ -159,6 +176,11 @@ export function SettingsView() {
                   className="w-full h-8 px-2.5 border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
                 />
               </div>
+              <p className="text-[11px] text-slate-400">
+                Thông tin cửa hàng chỉ gửi lên máy chủ khi bấm <strong>Lưu cấu hình</strong>.
+                Khổ giấy, mẫu in và tùy chọn in vẫn lưu riêng trên máy này.
+              </p>
+              {shopMsg && <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{shopMsg}</p>}
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Lời cảm ơn cuối phiếu</label>
