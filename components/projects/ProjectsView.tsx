@@ -364,9 +364,9 @@ export function ProjectsView() {
       </div>
 
       {/* Main workspace */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left: Project List */}
-        <div className="w-full lg:w-80 bg-white border-r border-slate-200 flex flex-col overflow-y-auto">
+        <div className="w-full lg:w-80 bg-white border-r border-slate-200 flex flex-col overflow-y-auto min-h-0">
           <div className="p-3 border-b border-slate-100 font-semibold text-xs text-slate-700">
             Danh sách công trình đang triển khai
           </div>
@@ -401,7 +401,7 @@ export function ProjectsView() {
 
         {/* Right: 4-Phase Step Tracker & Detailed Management */}
         {currentProject ? (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
             {/* 4-Phase Progress Tracker Banner */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 gap-2">
@@ -496,7 +496,7 @@ export function ProjectsView() {
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-lg overflow-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                       <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
@@ -559,7 +559,7 @@ export function ProjectsView() {
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-slate-200 rounded-lg overflow-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                       <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">

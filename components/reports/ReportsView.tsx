@@ -232,7 +232,7 @@ export function ReportsView() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {/* KPI Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
@@ -307,7 +307,7 @@ export function ReportsView() {
             <Percent className="w-4 h-4 text-violet-600" />
             <span>Thuế VAT Đầu Ra Theo Tháng (Đối Chiếu Sổ Quỹ)</span>
           </h3>
-          <div className="border border-slate-100 rounded-lg overflow-hidden overflow-x-auto">
+          <div className="border border-slate-100 rounded-lg overflow-auto">
             <table className="w-full text-left text-xs min-w-[720px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
@@ -360,7 +360,7 @@ export function ReportsView() {
               <span>Hiệu Quả Kinh Doanh Từng Mặt Hàng (Giá Bán vs Giá Vốn MAC)</span>
             </h3>
 
-            <div className="border border-slate-100 rounded-lg overflow-hidden">
+            <div className="border border-slate-100 rounded-lg overflow-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                       <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
@@ -405,7 +405,7 @@ export function ReportsView() {
               <span>Khách Hàng Có Dư Nợ Lớn Nhất</span>
             </h3>
 
-            <div className="border border-slate-100 rounded-lg overflow-hidden">
+            <div className="border border-slate-100 rounded-lg overflow-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                       <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">

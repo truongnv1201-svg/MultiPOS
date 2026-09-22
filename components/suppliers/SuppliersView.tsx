@@ -427,7 +427,7 @@ export function SuppliersView() {
             </div>
 
             {/* Suppliers Table */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
@@ -536,7 +536,7 @@ export function SuppliersView() {
                 Tìm thấy <strong className="text-slate-900 font-mono">{filteredImports.length}</strong> / {importMovements.length} phiếu nhập kho
               </span>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">

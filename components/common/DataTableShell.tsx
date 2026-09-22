@@ -9,7 +9,7 @@ interface DataTableShellProps {
 
 export function DataTableShell({ children, className = '' }: DataTableShellProps) {
   return (
-    <div className={`bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full ${className}`}>
+    <div className={`bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full min-h-0 ${className}`}>
       {children}
     </div>
   );

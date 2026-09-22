@@ -292,7 +292,7 @@ export function CustomersView() {
       {/* Main Container */}
       <div className="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
         {/* Left: Customer List */}
-        <div className="flex-1 flex flex-col bg-slate-100 min-w-0">
+        <div className="flex-1 flex flex-col bg-slate-100 min-w-0 min-h-0">
           <DataTableShell>
           {/* Filters Bar */}
           <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
@@ -352,7 +352,7 @@ export function CustomersView() {
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">

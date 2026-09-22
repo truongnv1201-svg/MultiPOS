@@ -38,7 +38,7 @@ export function DataTableSection({
 }: DataTableSectionProps) {
   return (
     <div className={`flex-1 flex flex-col p-4 ${className}`}>
-      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full min-h-0">
         {/* Filter Bar */}
         <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
           {filterBar}
@@ -52,7 +52,7 @@ export function DataTableSection({
         )}
 
         {/* Table Wrapper */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {isEmpty ? (
             <div className="py-12 text-center text-slate-400 text-xs">
               {emptyMessage}

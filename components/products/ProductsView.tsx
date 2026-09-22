@@ -330,7 +330,7 @@ export function ProductsView() {
       </div>
 
       {/* Data table workspace */}
-      <div className="flex-1 overflow-hidden p-4">
+      <div className="flex-1 min-h-0 overflow-hidden p-4">
         <DataTableShell>
       {/* Filter Bar */}
       <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-2">
@@ -429,7 +429,7 @@ export function ProductsView() {
       </div>
 
       {/* Products Table */}
-      <div className="flex-1 overflow-y-auto flex flex-col justify-between">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col justify-between">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
