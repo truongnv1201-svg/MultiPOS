@@ -67,17 +67,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       Promise.resolve().then(() => setAuthReady(true));
       return;
     }
+    // Supa vừa khởi tạo xong nhưng session chưa tải về: đánh dấu chưa sẵn sàng để
+    // cổng login (needGate ở page) không bật nhầm modal trong lúc chờ getSession.
+    // Không có dòng này, reload khi còn phiên cũ sẽ hiện thẻ "Xin chào" dù đã login.
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) setAuthReady(false);
+    });
     supa.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
       setUser(data.session?.user ?? null);
       if (data.session?.user) loadProfile(data.session.user.id);
       setAuthReady(true);
     });
     const { data: sub } = supa.auth.onAuthStateChange((_evt, session) => {
+      if (cancelled) return;
       setUser(session?.user ?? null);
       if (session?.user) loadProfile(session.user.id);
       else setProfile(null);
     });
     return () => {
+      cancelled = true;
       sub.subscription.unsubscribe();
     };
   }, [supa, loadProfile]);
