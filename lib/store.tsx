@@ -389,6 +389,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     setShiftModalOpen,
     calculatedTotals,
     checkoutActiveOrder,
+    refreshServerOrders,
     syncPendingOrders,
     resolveServerOrderId,
     cancelOrder,
@@ -460,12 +461,28 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     if (isOnline) {
       Promise.resolve().then(() => {
         refreshCatalog();
+        refreshServerOrders();
         syncCustomers();
         refreshGrinding();
         refreshCashRounding();
       });
     }
-  }, [isOnline, refreshCatalog, syncCustomers, refreshGrinding, refreshCashRounding]);
+  }, [isOnline, refreshCatalog, refreshServerOrders, syncCustomers, refreshGrinding, refreshCashRounding]);
+
+  useEffect(() => {
+    if (!isOnline || !supabaseReady) return;
+    const refresh = () => {
+      refreshServerOrders();
+    };
+    const interval = window.setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [isOnline, supabaseReady, refreshServerOrders]);
 
   // Active Cart Tab
 
@@ -610,6 +627,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     setShiftModalOpen,
     calculatedTotals,
     checkoutActiveOrder,
+    refreshServerOrders,
     cancelOrder,
     returnOrder,
     collectDebt,

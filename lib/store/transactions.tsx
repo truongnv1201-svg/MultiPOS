@@ -7,7 +7,7 @@ import { useAuth } from './auth';
 import { useCommerce } from './commerce';
 import { useCatalog } from './catalog';
 import { useNetwork } from './network';
-import type { Product, Order, OrderItem, Project, ProjectMaterial, ProjectWorker, CashbookEntry, Shift, PaymentItem, DimensionDetail, StockMovement } from '../types';
+import type { Product, ProductType, Order, OrderItem, Project, ProjectMaterial, ProjectWorker, CashbookEntry, Shift, PaymentItem, DimensionDetail, StockMovement } from '../types';
 import type { CartTab, ReturnResult, RestockLine, ReturnSkipped } from './types';
 import { DEFAULT_TAB } from './cart';
 import { toRpcItems } from './rpc';
@@ -78,6 +78,7 @@ export interface TransactionsSlice {
     debt_amount: number;
   };
   checkoutActiveOrder: (isDeposit?: boolean) => Promise<Order | null>;
+  refreshServerOrders: () => Promise<boolean>;
   syncPendingOrders: () => Promise<void>;
   resolveServerOrderId: (order: Order) => Promise<string | null>;
   cancelOrder: (orderId: string) => Promise<boolean>;
@@ -130,6 +131,84 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const [cashbook, setCashbook] = useState<CashbookEntry[]>([]);
   const [currentShift, setCurrentShift] = useState<Shift>(EMPTY_SHIFT);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+
+  const refreshServerOrders = useCallback(async (): Promise<boolean> => {
+    if (!supa || !user || !isOnline) return false;
+    try {
+      const { data: serverOrders, error: ordersError } = await supa
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (ordersError) throw ordersError;
+
+      const orderIds = (serverOrders || []).map((row: { id: string }) => row.id);
+      const { data: serverItems, error: itemsError } =
+        orderIds.length > 0
+          ? await supa.from('order_items').select('*').in('order_id', orderIds)
+          : { data: [], error: null };
+      if (itemsError) throw itemsError;
+
+      const itemsByOrder = new Map<string, OrderItem[]>();
+      for (const row of (serverItems || []) as any[]) {
+        const item: OrderItem = {
+          id: row.id,
+          product_id: row.product_id || '',
+          sku: row.sku,
+          name: row.name,
+          product_type: row.item_type as ProductType,
+          unit: row.unit,
+          unit_price: Number(row.unit_price || 0),
+          quantity: Number(row.quantity || 0),
+          discount_amount: Number(row.discount_amount || 0),
+          processing_fee: Number(row.processing_fee || 0),
+          subtotal: Number(row.subtotal || 0),
+          dimension_details: row.dimension_details || undefined,
+          waste_factor: row.waste_factor != null ? Number(row.waste_factor) : undefined,
+          material_consumed: row.material_consumed != null ? Number(row.material_consumed) : undefined,
+        };
+        const list = itemsByOrder.get(row.order_id) || [];
+        list.push(item);
+        itemsByOrder.set(row.order_id, list);
+      }
+
+      const mapped: Order[] = (serverOrders || []).map((row: any) => ({
+        id: `server-${row.id}`,
+        server_id: row.id,
+        order_code: row.order_code,
+        customer_id: row.customer_id || undefined,
+        customer_name: row.customer_name || 'Khách Lẻ',
+        items: itemsByOrder.get(row.id) || [],
+        subtotal: Number(row.subtotal || 0),
+        discount_amount: Number(row.discount_amount || 0),
+        discount_percent: 0,
+        shipping_fee: Number(row.shipping_fee || 0),
+        vat_amount: Number(row.vat_amount || 0),
+        vat_percent: 0,
+        cash_rounding: Number(row.cash_rounding || 0),
+        total_amount: Number(row.total_amount || 0),
+        paid_amount: Number(row.paid_amount || 0),
+        debt_amount: Number(row.debt_amount || 0),
+        change_amount: Number(row.change_amount || 0),
+        payments: row.paid_amount > 0 ? [{ method: 'cash', amount: Number(row.paid_amount) }] : [],
+        status: row.status,
+        note: row.note || undefined,
+        created_at: row.created_at,
+        cashier_name: row.cashier_id === user.id ? (profile?.full_name || user.email || '') : 'Nhân viên',
+        branch_name: 'Chi nhánh 1 (Tổng kho)',
+        is_offline: false,
+      }));
+
+      setOrders((previous) => {
+        const pendingLocal = previous.filter((order) => order.is_offline && !order.server_id);
+        return [...pendingLocal, ...mapped];
+      });
+      await db.orders.bulkPut(mapped);
+      return true;
+    } catch (error) {
+      console.warn('Server orders refresh failed:', error);
+      return false;
+    }
+  }, [supa, user, isOnline, profile]);
 
   const [branchName] = useState<string>('Chi nhánh 1 (Tổng kho)');
   // cashierName gắn với tài khoản đăng nhập (fix: trước đây hard-code 'Nguyễn Văn A'
@@ -2068,6 +2147,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     setShiftModalOpen,
     calculatedTotals,
     checkoutActiveOrder,
+    refreshServerOrders,
     syncPendingOrders,
     resolveServerOrderId,
     cancelOrder,
