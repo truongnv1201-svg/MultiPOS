@@ -40,6 +40,7 @@ export interface TransactionsSlice {
   setCurrentShift: React.Dispatch<React.SetStateAction<Shift>>;
   stockMovements: StockMovement[];
   setStockMovements: React.Dispatch<React.SetStateAction<StockMovement[]>>;
+  refreshServerStockMovements: () => Promise<boolean>;
   pendingQueue: Order[];
   setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;
   branchName: string;
@@ -209,6 +210,46 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       return false;
     }
   }, [supa, user, isOnline, profile]);
+
+  const refreshServerStockMovements = useCallback(async (): Promise<boolean> => {
+    if (!supa || !user || !isOnline) return false;
+    try {
+      const { data, error } = await supa
+        .from('stock_movements')
+        .select('id, reference_code, product_id, quantity, previous_stock, new_stock, note, created_at, products(name)')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      const mapped: StockMovement[] = ((data || []) as any[]).map((row) => {
+        const note = row.note || '';
+        const movementType: StockMovement['movement_type'] = /nhập|nhap|trả|tra|restock/i.test(note)
+          ? 'return'
+          : /công trình|project/i.test(note)
+            ? 'export_project'
+            : /bán|checkout|sales/i.test(note)
+              ? 'export_sales'
+              : 'import';
+        const product = Array.isArray(row.products) ? row.products[0] : row.products;
+        return {
+          id: row.id,
+          reference_code: row.reference_code,
+          product_id: row.product_id || '',
+          product_name: product?.name || 'Sản phẩm đã xóa',
+          movement_type: movementType,
+          quantity: Number(row.quantity || 0),
+          previous_stock: row.previous_stock == null ? 0 : Number(row.previous_stock),
+          new_stock: row.new_stock == null ? 0 : Number(row.new_stock),
+          note,
+          created_at: row.created_at,
+        };
+      });
+      setStockMovements(mapped);
+      return true;
+    } catch (error) {
+      console.warn('Stock movement sync failed:', error);
+      return false;
+    }
+  }, [supa, user, isOnline]);
 
   const [branchName] = useState<string>('Chi nhánh 1 (Tổng kho)');
   // cashierName gắn với tài khoản đăng nhập (fix: trước đây hard-code 'Nguyễn Văn A'
@@ -2148,6 +2189,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     calculatedTotals,
     checkoutActiveOrder,
     refreshServerOrders,
+    refreshServerStockMovements,
     syncPendingOrders,
     resolveServerOrderId,
     cancelOrder,
