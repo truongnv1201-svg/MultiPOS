@@ -203,7 +203,7 @@ export function ReportsView() {
   };
 
   return (
-    <div id="reports-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] bg-slate-100 overflow-hidden">
+    <div id="reports-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
       {/* Top Header */}
       <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-3">

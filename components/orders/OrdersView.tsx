@@ -282,7 +282,7 @@ export function OrdersView() {
   };
 
   return (
-    <div id="orders-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] bg-slate-100 overflow-hidden">
+    <div id="orders-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
       {/* Top Action Bar */}
       <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -308,7 +308,7 @@ export function OrdersView() {
       </div>
 
       {/* Main Content: Table + Detail Preview */}
-      <div className="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
         {/* Left: Orders Table */}
         <div className="flex-1 flex flex-col bg-slate-100 min-w-0 min-h-0">
           <div className="flex-1 flex flex-col bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden min-h-0">

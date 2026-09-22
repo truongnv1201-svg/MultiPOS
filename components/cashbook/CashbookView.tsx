@@ -217,7 +217,7 @@ export function CashbookView() {
   };
 
   return (
-    <div id="cashbook-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] bg-slate-100 overflow-hidden">
+    <div id="cashbook-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
       {/* Header */}
       <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -292,7 +292,7 @@ export function CashbookView() {
       </div>
 
       {/* Filter & Entries Table */}
-      <div className="flex-1 flex flex-col p-4 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col p-4 overflow-hidden">
         <DataTableShell>
         {/* Filters */}
         <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">

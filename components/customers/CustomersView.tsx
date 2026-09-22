@@ -249,7 +249,7 @@ export function CustomersView() {
   };
 
   return (
-    <div id="customers-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] bg-slate-100 overflow-hidden">
+    <div id="customers-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
       {/* Top Header */}
       <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -290,7 +290,7 @@ export function CustomersView() {
       </div>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
         {/* Left: Customer List */}
         <div className="flex-1 flex flex-col bg-slate-100 min-w-0 min-h-0">
           <DataTableShell>

@@ -67,7 +67,7 @@ export function SettingsView() {
   };
 
   return (
-    <div id="settings-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] bg-slate-100 overflow-hidden">
+    <div id="settings-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
       {/* Header */}
       <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
         <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">

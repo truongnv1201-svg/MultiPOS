@@ -253,7 +253,7 @@ export function InventoryView() {
   const totalInventoryValue = products.reduce((sum, p) => sum + (p.stock_quantity > 0 ? p.stock_quantity * p.avg_cost : 0), 0);
 
   return (
-    <div id="inventory-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] bg-slate-100 overflow-hidden">
+    <div id="inventory-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
       {/* Top bar */}
       <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-3">

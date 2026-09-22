@@ -317,7 +317,7 @@ export function SuppliersView() {
   };
 
   return (
-    <div id="suppliers-view" className="flex-1 flex flex-col h-full bg-slate-100 overflow-hidden">
+    <div id="suppliers-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
       {/* Top Bar */}
       <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
