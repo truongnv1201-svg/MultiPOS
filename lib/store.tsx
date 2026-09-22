@@ -124,6 +124,8 @@ interface StoreContextType {
   saveShopSettings: () => Promise<string | null>;
   vietqr: VietqrConfig;
   updateVietqr: (patch: Partial<VietqrConfig>) => void;
+  saveVietqrSettings: () => Promise<string | null>;
+  refreshVietqr: () => Promise<boolean>;
   grindingServices: GrindingService[];
   refreshGrinding: () => Promise<boolean>;
   updateGrindingPrice: (id: string, price: number) => Promise<string | null>;
@@ -278,6 +280,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     saveShopSettings,
     vietqr,
     updateVietqr,
+    saveVietqrSettings,
+    refreshVietqr,
     grindingServices,
     refreshGrinding,
     updateGrindingPrice,
@@ -592,6 +596,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     saveShopSettings,
     vietqr,
     updateVietqr,
+    saveVietqrSettings,
+    refreshVietqr,
     grindingServices,
     refreshGrinding,
     updateGrindingPrice,

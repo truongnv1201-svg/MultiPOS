@@ -1,5 +1,6 @@
 // P3-phần 2: slice Commerce — shop info, cấu hình in, VietQR, giá mài, làm tròn tiền mặt.
-// Nhận diện cửa hàng đồng bộ server; cấu hình in/POS giữ riêng từng máy.
+// Đồng bộ server: thông tin cửa hàng + mặc định POS + VietQR + giá mài + làm tròn.
+// Chỉ cấu hình in ấn (mẫu/tùy chọn/nội dung phiếu) giữ riêng từng máy trạm.
 // Phụ thuộc duy nhất: AuthSlice (supa/profile) để guard RBAC.
 'use client';
 
@@ -22,6 +23,8 @@ export interface CommerceSlice {
   refreshShopSettings: () => Promise<boolean>;
   vietqr: VietqrConfig;
   updateVietqr: (patch: Partial<VietqrConfig>) => void;
+  saveVietqrSettings: () => Promise<string | null>;
+  refreshVietqr: () => Promise<boolean>;
   grindingServices: GrindingService[];
   refreshGrinding: () => Promise<boolean>;
   updateGrindingPrice: (id: string, price: number) => Promise<string | null>;
@@ -44,9 +47,6 @@ const LOCAL_SHOP_KEYS: (keyof ShopSettings)[] = [
   'showDimensions',
   'showDebt',
   'fontSize',
-  'defaultVat',
-  'defaultPayment',
-  'defaultPriceBook',
 ];
 
 function sharedShopSettings(settings: ShopSettings): Partial<ShopSettings> {
@@ -128,12 +128,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [supa]);
 
-  useEffect(() => {
-    if (!supa) return;
-    Promise.resolve().then(() => {
-      refreshShopSettings();
-    });
-  }, [supa, refreshShopSettings]);
+  // Kéo cấu hình dùng chung từ server (effect tổng đặt cuối, sau mọi định nghĩa).
 
   const [vietqr, setVietqr] = useState<VietqrConfig>(() => {
     try {
@@ -159,6 +154,40 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, [supa, profile]);
+
+  // VietQR đồng bộ máy chủ (settings key 'vietqr') — máy nào đổi, máy khác kéo về.
+  const saveVietqrSettings = useCallback(async (): Promise<string | null> => {
+    if (!supa) return 'Chưa cấu hình Supabase.';
+    if (profile?.role !== 'admin') return 'Chỉ tài khoản Admin được lưu VietQR.';
+    const { error } = await supa.from('settings').upsert(
+      { key: 'vietqr', value: { bank: vietqr.bank, account: vietqr.account, name: vietqr.name } },
+      { onConflict: 'key' }
+    );
+    return error ? vietnamizeError(error) : null;
+  }, [supa, profile, vietqr]);
+
+  const refreshVietqr = useCallback(async (): Promise<boolean> => {
+    if (!supa) return false;
+    try {
+      const { data, error } = await supa.from('settings').select('value').eq('key', 'vietqr').maybeSingle();
+      const v = (data as any)?.value;
+      if (error || !v || typeof v !== 'object') return false;
+      const next: VietqrConfig = {
+        bank: String(v.bank ?? ''),
+        account: String(v.account ?? ''),
+        name: String(v.name ?? ''),
+      };
+      setVietqr(next);
+      try {
+        localStorage.setItem('multipos_vietqr_v1', JSON.stringify(next));
+      } catch {
+        /* best-effort */
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, [supa]);
 
   // Thương mại: giá công mài từ server (fallback mock khi offline)
   const [grindingServices, setGrindingServices] = useState<GrindingService[]>(() =>
@@ -220,6 +249,15 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     [supa, profile]
   );
 
+  // Vừa online / vừa có supa -> kéo cấu hình chung + VietQR từ server về máy này.
+  useEffect(() => {
+    if (!supa) return;
+    Promise.resolve().then(() => {
+      refreshShopSettings();
+      refreshVietqr();
+    });
+  }, [supa, refreshShopSettings, refreshVietqr]);
+
   const value: CommerceSlice = {
     shop,
     updateShop,
@@ -227,6 +265,8 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     refreshShopSettings,
     vietqr,
     updateVietqr,
+    saveVietqrSettings,
+    refreshVietqr,
     grindingServices,
     refreshGrinding,
     updateGrindingPrice,

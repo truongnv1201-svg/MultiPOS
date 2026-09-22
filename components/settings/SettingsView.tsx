@@ -29,6 +29,7 @@ export function SettingsView() {
     saveShopSettings,
     vietqr,
     updateVietqr,
+    saveVietqrSettings,
     grindingServices,
     updateGrindingPrice,
     cashRounding,
@@ -45,10 +46,22 @@ export function SettingsView() {
   const [roundingDraft, setRoundingDraft] = useState<string>('');
   const [roundingMsg, setRoundingMsg] = useState<string | null>(null);
   const [shopMsg, setShopMsg] = useState<string | null>(null);
+  const [posMsg, setPosMsg] = useState<string | null>(null);
+  const [vietqrMsg, setVietqrMsg] = useState<string | null>(null);
 
   const handleSaveShop = async () => {
     const error = await saveShopSettings();
-    setShopMsg(error ? `Lỗi: ${error}` : 'Đã lưu cấu hình chung lên máy chủ.');
+    setShopMsg(error ? `Lỗi: ${error}` : null);
+  };
+
+  const handleSavePosDefaults = async () => {
+    const error = await saveShopSettings();
+    setPosMsg(error ? `Lỗi: ${error}` : 'Đã lưu mặc định POS lên máy chủ.');
+  };
+
+  const handleSaveVietqr = async () => {
+    const error = await saveVietqrSettings();
+    setVietqrMsg(error ? `Lỗi: ${error}` : 'Đã lưu VietQR lên máy chủ.');
   };
 
   const handleSaveGrinding = async (id: string) => {
@@ -203,10 +216,245 @@ export function SettingsView() {
               />
             </div>
           </div>
-          <p className="text-[11px] text-slate-400">Lưu tự động theo từng máy trạm (không cần nút Lưu).</p>
         </div>
 
-        {/* 2. Trung tâm in ấn */}
+        {/* 2. Mặc định bán hàng POS (đồng bộ máy chủ) */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
+          <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+            <ShoppingCart className="w-4 h-4 text-amber-600" />
+            <span>Mặc định bán hàng (áp dụng cho hóa đơn mới)</span>
+            {!isAdmin && (
+              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Chỉ Admin được đổi
+              </span>
+            )}
+            {isAdmin && (
+              <button
+                onClick={handleSavePosDefaults}
+                className="ml-auto px-3 h-7 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-bold"
+                title="Đồng bộ VAT / thanh toán / bảng giá mặc định lên máy chủ"
+              >
+                Lưu lên máy chủ
+              </button>
+            )}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">VAT mặc định</label>
+              <div className="flex gap-1">
+                {[0, 8, 10].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    disabled={!isAdmin}
+                    onClick={() => updateShop({ defaultVat: v as any })}
+                    className={`flex-1 h-8 rounded font-bold border ${shop.defaultVat === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'} disabled:opacity-50`}
+                  >
+                    {v}%
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Thanh toán mặc định</label>
+              <select
+                value={shop.defaultPayment}
+                disabled={!isAdmin}
+                onChange={(e) => updateShop({ defaultPayment: e.target.value as any })}
+                className="w-full h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
+              >
+                <option value="cash">Tiền mặt</option>
+                <option value="transfer">VietQR chuyển khoản</option>
+                <option value="card">Quẹt thẻ</option>
+                <option value="debt">Ghi nợ</option>
+              </select>
+            </div>
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Bảng giá mặc định</label>
+              <select
+                value={shop.defaultPriceBook}
+                disabled={!isAdmin}
+                onChange={(e) => updateShop({ defaultPriceBook: e.target.value as any })}
+                className="w-full h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
+              >
+                <option value="retail">Giá lẻ</option>
+                <option value="trade">Giá thợ / đại lý</option>
+              </select>
+            </div>
+          </div>
+          {posMsg && (
+            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{posMsg}</p>
+          )}
+        </div>
+
+        {/* 3. VietQR (đồng bộ máy chủ) */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-4 text-xs">
+          <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+            <QrCode className="w-4 h-4 text-blue-600" />
+            <span>Tài khoản VietQR (hiện mã QR thật ở POS & phiếu in)</span>
+            {!isAdmin && (
+              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Chỉ Admin được đổi
+              </span>
+            )}
+            {isAdmin && (
+              <button
+                onClick={handleSaveVietqr}
+                className="ml-auto px-3 h-7 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-bold"
+                title="Đồng bộ tài khoản VietQR lên máy chủ"
+              >
+                Lưu lên máy chủ
+              </button>
+            )}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Ngân hàng</label>
+              <select
+                value={vietqr.bank}
+                disabled={!isAdmin}
+                onChange={(e) => updateVietqr({ bank: e.target.value })}
+                className="w-full h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
+              >
+                <option value="">-- Chọn ngân hàng --</option>
+                {VIETQR_BANKS.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.name} ({b.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Số tài khoản (chỉ số)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={vietqr.account}
+                disabled={!isAdmin}
+                onChange={(e) => updateVietqr({ account: e.target.value.replace(/[^\d]/g, '').slice(0, 19) })}
+                placeholder="VD: 0901234567"
+                className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono disabled:bg-slate-50 disabled:text-slate-400"
+              />
+            </div>
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Tên chủ tài khoản</label>
+              <input
+                type="text"
+                value={vietqr.name}
+                disabled={!isAdmin}
+                onChange={(e) => updateVietqr({ name: e.target.value })}
+                placeholder="VD: NGUYEN VAN A"
+                className="w-full h-8 px-2.5 border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+              {isVietqrReady(vietqr) ? (
+                <>
+                  {/* QR mẫu từ img.vietqr.io (ảnh ngoài, đổi theo cấu hình) — next/image không phù hợp: giữ <img>. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={buildVietqrUrl(vietqr)}
+                  alt="VietQR mẫu"
+                  className="w-24 h-24 border border-slate-200 rounded object-contain"
+                />
+                <p className="text-[11px] text-emerald-700 font-semibold">
+                  Hợp lệ — mã QR thật (số tiền động theo đơn) sẽ hiện ở màn hình thu tiền & phiếu in.
+                </p>
+              </>
+            ) : (
+              <p className="text-[11px] text-amber-700">
+                Chưa đủ thông tin — POS sẽ hiện khung chờ thay vì mã QR giả.
+              </p>
+            )}
+          </div>
+          {vietqrMsg && (
+            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{vietqrMsg}</p>
+          )}
+        </div>
+
+        {/* 4. Đơn giá công mài (đồng bộ máy chủ) */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
+          <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+            <Hammer className="w-4 h-4 text-amber-600" />
+            <span>Đơn giá công mài (đ/mét dài) — áp dụng ngay cho Modal F3</span>
+            {!isAdmin && (
+              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Chỉ Admin được đổi
+              </span>
+            )}
+          </h3>
+          <div className="divide-y divide-slate-100">
+            {grindingServices.map((g) => (
+              <div key={g.id} className="py-2 flex items-center gap-2">
+                <span className="flex-1 font-medium text-slate-700">{g.label}</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  disabled={!isAdmin}
+                  value={grindingDraft[g.id] ?? new Intl.NumberFormat('vi-VN').format(g.price_per_md)}
+                  onChange={(e) =>
+                    setGrindingDraft((prev) => ({ ...prev, [g.id]: e.target.value.replace(/[^\d]/g, '') }))
+                  }
+                  className="w-32 h-8 px-2 text-right font-mono border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
+                />
+                <span className="text-slate-400 w-12">đ/md</span>
+                <button
+                  disabled={!isAdmin}
+                  onClick={() => handleSaveGrinding(g.id)}
+                  className="px-3 h-8 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-md font-bold"
+                >
+                  Lưu
+                </button>
+              </div>
+            ))}
+          </div>
+          {grindingMsg && (
+            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{grindingMsg}</p>
+          )}
+        </div>
+
+        {/* 5. Làm tròn tiền mặt (đồng bộ máy chủ) */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
+          <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+            <Coins className="w-4 h-4 text-emerald-600" />
+            <span>Làm tròn tiền mặt (chỉ khi thu tiền mặt)</span>
+            {!isAdmin && (
+              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Chỉ Admin được đổi
+              </span>
+            )}
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-600">
+              Mệnh giá hiện tại: <strong className="font-mono">{new Intl.NumberFormat('vi-VN').format(cashRounding)}đ</strong>
+            </span>
+            <select
+              disabled={!isAdmin}
+              value={roundingDraft || String(cashRounding)}
+              onChange={(e) => setRoundingDraft(e.target.value)}
+              className="h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
+            >
+              {[100, 500, 1000, 5000].map((d) => (
+                <option key={d} value={d}>
+                  {new Intl.NumberFormat('vi-VN').format(d)}đ
+                </option>
+              ))}
+            </select>
+            <button
+              disabled={!isAdmin}
+              onClick={handleSaveRounding}
+              className="px-3 h-8 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-md font-bold"
+            >
+              Lưu
+            </button>
+          </div>
+          {roundingMsg && (
+            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{roundingMsg}</p>
+          )}
+        </div>
+
+        {/* 6. Trung tâm in ấn (chỉ lưu trên máy này) */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-4 text-xs">
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <Printer className="w-4 h-4 text-indigo-600" />
@@ -217,6 +465,9 @@ export function SettingsView() {
               </span>
             )}
           </h3>
+          <p className="text-[11px] text-slate-400 -mt-2">
+            Mẫu in và tùy chọn in chỉ lưu trên máy này, không đồng bộ máy chủ.
+          </p>
             {/* Mẫu phiếu — khổ giấy gắn liền theo mẫu, chỉ chọn 1 nơi */}
             <div>
               <p className="font-bold text-slate-800 mb-0.5">Mẫu phiếu mặc định</p>
@@ -338,7 +589,7 @@ export function SettingsView() {
             </div>
         </div>
 
-        {/* 3. Nội dung hiển thị trên phiếu */}
+        {/* 7. Nội dung hiển thị trên phiếu in (chỉ lưu trên máy này) */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <Receipt className="w-4 h-4 text-emerald-600" />
@@ -349,6 +600,9 @@ export function SettingsView() {
               </span>
             )}
           </h3>
+          <p className="text-[11px] text-slate-400 -mt-1">
+            Các mục hiển thị chỉ lưu trên máy này, không đồng bộ máy chủ.
+          </p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {[
               { key: 'showLogo' as const, label: 'Logo / tên nổi bật' },
@@ -373,218 +627,6 @@ export function SettingsView() {
               </label>
             ))}
           </div>
-        </div>
-
-        {/* 4. Mặc định bán hàng POS */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
-          <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
-            <ShoppingCart className="w-4 h-4 text-amber-600" />
-            <span>Mặc định bán hàng (áp dụng cho hóa đơn mới)</span>
-            {!isAdmin && (
-              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Chỉ Admin được đổi
-              </span>
-            )}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">VAT mặc định</label>
-              <div className="flex gap-1">
-                {[0, 8, 10].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    disabled={!isAdmin}
-                    onClick={() => updateShop({ defaultVat: v as any })}
-                    className={`flex-1 h-8 rounded font-bold border ${shop.defaultVat === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'} disabled:opacity-50`}
-                  >
-                    {v}%
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">Thanh toán mặc định</label>
-              <select
-                value={shop.defaultPayment}
-                disabled={!isAdmin}
-                onChange={(e) => updateShop({ defaultPayment: e.target.value as any })}
-                className="w-full h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
-              >
-                <option value="cash">Tiền mặt</option>
-                <option value="transfer">VietQR chuyển khoản</option>
-                <option value="card">Quẹt thẻ</option>
-                <option value="debt">Ghi nợ</option>
-              </select>
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">Bảng giá mặc định</label>
-              <select
-                value={shop.defaultPriceBook}
-                disabled={!isAdmin}
-                onChange={(e) => updateShop({ defaultPriceBook: e.target.value as any })}
-                className="w-full h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
-              >
-                <option value="retail">Giá lẻ</option>
-                <option value="trade">Giá thợ / đại lý</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* VietQR */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-4 text-xs">
-          <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
-            <QrCode className="w-4 h-4 text-blue-600" />
-            <span>Tài khoản VietQR (hiện mã QR thật ở POS & phiếu in)</span>
-            {!isAdmin && (
-              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Chỉ Admin được đổi
-              </span>
-            )}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">Ngân hàng</label>
-              <select
-                value={vietqr.bank}
-                disabled={!isAdmin}
-                onChange={(e) => updateVietqr({ bank: e.target.value })}
-                className="w-full h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
-              >
-                <option value="">-- Chọn ngân hàng --</option>
-                {VIETQR_BANKS.map((b) => (
-                  <option key={b.code} value={b.code}>
-                    {b.name} ({b.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">Số tài khoản (chỉ số)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={vietqr.account}
-                disabled={!isAdmin}
-                onChange={(e) => updateVietqr({ account: e.target.value.replace(/[^\d]/g, '').slice(0, 19) })}
-                placeholder="VD: 0901234567"
-                className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono disabled:bg-slate-50 disabled:text-slate-400"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">Tên chủ tài khoản</label>
-              <input
-                type="text"
-                value={vietqr.name}
-                disabled={!isAdmin}
-                onChange={(e) => updateVietqr({ name: e.target.value })}
-                placeholder="VD: NGUYEN VAN A"
-                className="w-full h-8 px-2.5 border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-              {isVietqrReady(vietqr) ? (
-                <>
-                  {/* QR mẫu từ img.vietqr.io (ảnh ngoài, đổi theo cấu hình) — next/image không phù hợp: giữ <img>. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={buildVietqrUrl(vietqr)}
-                  alt="VietQR mẫu"
-                  className="w-24 h-24 border border-slate-200 rounded object-contain"
-                />
-                <p className="text-[11px] text-emerald-700 font-semibold">
-                  Hợp lệ — mã QR thật (số tiền động theo đơn) sẽ hiện ở màn hình thu tiền & phiếu in.
-                </p>
-              </>
-            ) : (
-              <p className="text-[11px] text-amber-700">
-                Chưa đủ thông tin — POS sẽ hiện khung chờ thay vì mã QR giả.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Grinding prices (admin) */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
-          <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
-            <Hammer className="w-4 h-4 text-amber-600" />
-            <span>Đơn giá công mài (đ/mét dài) — áp dụng ngay cho Modal F3</span>
-            {!isAdmin && (
-              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Chỉ Admin được đổi
-              </span>
-            )}
-          </h3>
-          <div className="divide-y divide-slate-100">
-            {grindingServices.map((g) => (
-              <div key={g.id} className="py-2 flex items-center gap-2">
-                <span className="flex-1 font-medium text-slate-700">{g.label}</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  disabled={!isAdmin}
-                  value={grindingDraft[g.id] ?? new Intl.NumberFormat('vi-VN').format(g.price_per_md)}
-                  onChange={(e) =>
-                    setGrindingDraft((prev) => ({ ...prev, [g.id]: e.target.value.replace(/[^\d]/g, '') }))
-                  }
-                  className="w-32 h-8 px-2 text-right font-mono border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
-                />
-                <span className="text-slate-400 w-12">đ/md</span>
-                <button
-                  disabled={!isAdmin}
-                  onClick={() => handleSaveGrinding(g.id)}
-                  className="px-3 h-8 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-md font-bold"
-                >
-                  Lưu
-                </button>
-              </div>
-            ))}
-          </div>
-          {grindingMsg && (
-            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{grindingMsg}</p>
-          )}
-        </div>
-
-        {/* Cash rounding (admin) */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
-          <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
-            <Coins className="w-4 h-4 text-emerald-600" />
-            <span>Làm tròn tiền mặt (chỉ khi thu tiền mặt)</span>
-            {!isAdmin && (
-              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Chỉ Admin được đổi
-              </span>
-            )}
-          </h3>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-600">
-              Mệnh giá hiện tại: <strong className="font-mono">{new Intl.NumberFormat('vi-VN').format(cashRounding)}đ</strong>
-            </span>
-            <select
-              disabled={!isAdmin}
-              value={roundingDraft || String(cashRounding)}
-              onChange={(e) => setRoundingDraft(e.target.value)}
-              className="h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
-            >
-              {[100, 500, 1000, 5000].map((d) => (
-                <option key={d} value={d}>
-                  {new Intl.NumberFormat('vi-VN').format(d)}đ
-                </option>
-              ))}
-            </select>
-            <button
-              disabled={!isAdmin}
-              onClick={handleSaveRounding}
-              className="px-3 h-8 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-md font-bold"
-            >
-              Lưu
-            </button>
-          </div>
-          {roundingMsg && (
-            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{roundingMsg}</p>
-          )}
         </div>
       </div>
     </div>
