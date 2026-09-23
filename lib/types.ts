@@ -169,6 +169,7 @@ export interface ProjectWorker {
 
 export interface Project {
   id: string;
+  server_id?: string; // uuid server sau khi đẩy (giữ id local ổn định cho UI)
   code: string; // CT-YYMMDD-XXXX
   name: string;
   customer_id: string;

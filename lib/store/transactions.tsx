@@ -108,6 +108,8 @@ export interface TransactionsSlice {
     amount: number,
     paymentMethod: 'cash' | 'transfer'
   ) => Promise<Project | null>;
+  refreshServerProjects: () => Promise<boolean>;
+  syncProjects: () => Promise<void>;
   closeShift: (countedCash: number) => Promise<boolean>;
   openNewShift: (startingCash: number) => Promise<void>;
   refreshShiftFromServer: () => Promise<boolean>;
@@ -1375,26 +1377,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     [suppliers, supa, profile, setSuppliers]
   );
 
-  const addProject = useCallback(
-    async (data: Omit<Project, 'id' | 'code'>): Promise<Project> => {
-      const code = generateOrderCode('CT');
-      const newProj: Project = {
-        ...data,
-        id: `proj-${Date.now()}`,
-        code,
-      };
-      setProjects((prev) => [...prev, newProj]);
-      await db.projects.add(newProj);
-      return newProj;
-    },
-    []
-  );
-
-  const updateProject = useCallback(async (id: string, updates: Partial<Project>) => {
-    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
-    await db.projects.update(id, updates);
-  }, []);
-
   // Tính lại tổng công trình từ dòng (mirror công thức P&L ở ProjectsView)
   const recalcProjectTotals = (p: Project): Project => {
     const material_cost_total = p.materials.reduce((s, m) => s + (m.total_cost || 0), 0);
@@ -1408,6 +1390,232 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       actual_profit: (p.settled_revenue || 0) - total_cost,
     };
   };
+
+  // ---- Đồng bộ Dự án/Công trình 2 chiều (migration 0040) ----
+  // Local-first: id `proj-...` = chưa đẩy; sau khi đẩy, thay id local bằng uuid
+  // server (mirror catalog). Server thắng khi kéo, trừ bản local chưa từng đẩy.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const asUuidOrNull = (v?: string | null) => (v && UUID_RE.test(v) ? v : null);
+
+  // Đẩy 1 công trình: header upsert trực tiếp + dòng vật tư/thợ qua RPC
+  // sync_project_workspace (delta tồn kho, chạy lại không trừ 2 lần).
+  // Giữ id local ổn định cho UI, chỉ gắn server_id (mirror customerMap).
+  // Lỗi mạng/quyền -> warn + giữ local, trả null.
+  const pushProjectToServer = useCallback(
+    async (project: Project): Promise<Project | null> => {
+      if (!supa || !user || !isOnline) return null;
+      try {
+        let serverId = asUuidOrNull(project.server_id) ?? asUuidOrNull(project.id);
+        const header = {
+          code: project.code,
+          name: project.name,
+          customer_id: customerMap[project.customer_id] ?? asUuidOrNull(project.customer_id),
+          customer_name: project.customer_name,
+          address: project.address,
+          phase: project.phase,
+          estimated_revenue: Math.round(project.estimated_revenue || 0),
+          settled_revenue: Math.round(project.settled_revenue || 0),
+          deposit_amount: Math.round(project.deposit_amount || 0),
+          other_costs: Math.round(project.other_costs || 0),
+          status: project.status,
+        };
+        if (serverId) {
+          const { error } = await supa.from('projects').update(header).eq('id', serverId);
+          if (error) throw error;
+        } else {
+          const { data, error } = await supa.from('projects').insert(header).select('id').single();
+          if (error) {
+            // Mã CT đã tồn tại (đẩy từ máy khác) -> dùng bản server rồi update
+            if ((error as { code?: string }).code === '23505') {
+              const existing = await supa.from('projects').select('id').eq('code', project.code).single();
+              if (existing.error || !existing.data) throw error;
+              serverId = existing.data.id as string;
+              const { error: upErr } = await supa.from('projects').update(header).eq('id', serverId as string);
+              if (upErr) throw upErr;
+            } else {
+              throw error;
+            }
+          } else {
+            serverId = data.id as string;
+          }
+        }
+        const { error: rpcError } = await supa.rpc('sync_project_workspace', {
+          p_project_id: serverId as string,
+          p_materials: project.materials.map((m) => ({
+            product_id: asUuidOrNull(m.product_id),
+            sku: m.sku,
+            name: m.name,
+            quantity: m.quantity,
+            unit: m.unit,
+            unit_cost: Math.round(m.unit_cost || 0),
+          })),
+          p_workers: project.workers.map((w) => ({
+            employee_id: asUuidOrNull(w.employee_id),
+            employee_code: w.employee_code ?? null,
+            worker_name: w.worker_name,
+            role: w.role,
+            days_worked: w.days_worked,
+            daily_wage: Math.round(w.daily_wage || 0),
+            allowance: Math.round(w.allowance || 0),
+          })),
+        });
+        if (rpcError) throw rpcError;
+        // Gắn server_id vào bản local (giữ nguyên id cho UI đang cầm)
+        if (project.server_id !== serverId) {
+          await db.projects.update(project.id, { server_id: serverId as string }).catch(() => {});
+          setProjects((prev) =>
+            prev.map((p) => (p.id === project.id ? { ...p, server_id: serverId as string } : p))
+          );
+          return { ...project, server_id: serverId as string };
+        }
+        return project;
+      } catch (err) {
+        console.warn('Project push failed (giữ local):', err);
+        return null;
+      }
+    },
+    [supa, user, isOnline, customerMap]
+  );
+
+  // Kéo công trình từ server (server thắng), giữ bản local chưa từng đẩy.
+  const refreshServerProjects = useCallback(async (): Promise<boolean> => {
+    if (!supa || !user) return false;
+    try {
+      const [projRes, matRes, workRes] = await Promise.all([
+        supa.from('projects').select('*').order('code'),
+        supa.from('project_materials').select('*'),
+        supa.from('project_workers').select('*'),
+      ]);
+      if (projRes.error || matRes.error || workRes.error) return false;
+      const matsByProject = new Map<string, unknown[]>();
+      for (const m of ((matRes.data || []) as Record<string, unknown>[])) {
+        const pid = String(m.project_id || '');
+        if (!matsByProject.has(pid)) matsByProject.set(pid, []);
+        matsByProject.get(pid)?.push(m);
+      }
+      const worksByProject = new Map<string, unknown[]>();
+      for (const w of ((workRes.data || []) as Record<string, unknown>[])) {
+        const pid = String(w.project_id || '');
+        if (!worksByProject.has(pid)) worksByProject.set(pid, []);
+        worksByProject.get(pid)?.push(w);
+      }
+      const serverToLocalCustomer = new Map(
+        Object.entries(customerMap).map(([localId, serverId]) => [serverId, localId])
+      );
+      const num = (v: unknown) => Number(v) || 0;
+      const mapped: Project[] = ((projRes.data || []) as Record<string, unknown>[]).map((row) => {
+        const materials: ProjectMaterial[] = (matsByProject.get(String(row.id)) || []).map((rm) => {
+          const r = rm as Record<string, unknown>;
+          const qty = num(r.quantity);
+          const unitCost = num(r.unit_cost);
+          return {
+            product_id: typeof r.product_id === 'string' ? r.product_id : '',
+            sku: typeof r.sku === 'string' ? r.sku : '',
+            name: typeof r.name === 'string' && r.name ? r.name : 'Vật tư',
+            quantity: qty,
+            unit: typeof r.unit === 'string' ? r.unit : '',
+            unit_cost: Math.round(unitCost),
+            total_cost: Math.round(qty * unitCost),
+          };
+        });
+        const workers: ProjectWorker[] = (worksByProject.get(String(row.id)) || []).map((rw) => {
+          const r = rw as Record<string, unknown>;
+          const days = num(r.days_worked);
+          const wage = Math.round(num(r.daily_wage));
+          const allow = Math.round(num(r.allowance));
+          return {
+            id: String(r.id),
+            employee_id: typeof r.employee_id === 'string' ? r.employee_id : undefined,
+            employee_code: typeof r.employee_code === 'string' ? r.employee_code : undefined,
+            worker_name: typeof r.worker_name === 'string' ? r.worker_name : '',
+            role: typeof r.role === 'string' && r.role ? r.role : 'Thợ',
+            days_worked: days,
+            daily_wage: wage,
+            allowance: allow,
+            total_wage: Math.round(days * wage + allow),
+          };
+        });
+        const serverCustomerId = typeof row.customer_id === 'string' ? row.customer_id : '';
+        const base: Project = {
+          id: String(row.id),
+          code: typeof row.code === 'string' ? row.code : '',
+          name: typeof row.name === 'string' ? row.name : '',
+          customer_id: (serverCustomerId && serverToLocalCustomer.get(serverCustomerId)) || serverCustomerId,
+          customer_name: typeof row.customer_name === 'string' ? row.customer_name : '',
+          address: typeof row.address === 'string' ? row.address : '',
+          phase: row.phase === 2 ? 2 : row.phase === 3 ? 3 : 1,
+          estimated_revenue: Math.round(num(row.estimated_revenue)),
+          settled_revenue: Math.round(num(row.settled_revenue)),
+          deposit_amount: Math.round(num(row.deposit_amount)),
+          materials,
+          workers,
+          other_costs: Math.round(num(row.other_costs)),
+          material_cost_total: 0,
+          labor_cost_total: 0,
+          total_cost: 0,
+          actual_profit: 0,
+          status:
+            row.status === 'completed' || row.status === 'in_progress'
+              ? row.status
+              : 'planning',
+          created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+        };
+        return recalcProjectTotals(base);
+      });
+      const localRows = await db.projects.toArray().catch(() => [] as Project[]);
+      const localByServerId = new Map(
+        localRows.filter((p) => p.server_id).map((p) => [p.server_id as string, p])
+      );
+      const withLocalIds = mapped.map((m) => {
+        const local = localByServerId.get(m.id);
+        return { ...m, id: local ? local.id : m.id, server_id: m.id };
+      });
+      const pushedCodes = new Set(withLocalIds.map((m) => m.code));
+      const neverPushed = localRows.filter((p) => !p.server_id && !pushedCodes.has(p.code));
+      const next = [...withLocalIds, ...neverPushed];
+      setProjects(next);
+      await db.projects.clear().catch(() => {});
+      await db.projects.bulkAdd(next).catch(() => {});
+      return true;
+    } catch (err) {
+      console.warn('Project pull failed (giữ local):', err);
+      return false;
+    }
+  }, [supa, user, customerMap]);
+
+  // Đồng bộ đầy đủ khi online: kéo trước, đẩy nốt bản local chưa lên.
+  const syncProjects = useCallback(async (): Promise<void> => {
+    if (!supa || !user || !isOnline) return;
+    await refreshServerProjects();
+    const locals = await db.projects.toArray().catch(() => [] as Project[]);
+    for (const p of locals.filter((x) => !x.server_id)) {
+      await pushProjectToServer(p);
+    }
+  }, [supa, user, isOnline, refreshServerProjects, pushProjectToServer]);
+
+  const addProject = useCallback(
+    async (data: Omit<Project, 'id' | 'code'>): Promise<Project> => {
+      const code = generateOrderCode('CT');
+      const newProj: Project = {
+        ...data,
+        id: `proj-${Date.now()}`,
+        code,
+      };
+      setProjects((prev) => [...prev, newProj]);
+      await db.projects.add(newProj);
+      // Đẩy lên server để remap id local -> uuid (thất bại vẫn giữ local)
+      const synced = await pushProjectToServer(newProj);
+      return synced ?? newProj;
+    },
+    [pushProjectToServer]
+  );
+
+  const updateProject = useCallback(async (id: string, updates: Partial<Project>) => {
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+    await db.projects.update(id, updates);
+    const row = await db.projects.get(id).catch(() => undefined);
+    if (row) void pushProjectToServer(row as Project);
+  }, [pushProjectToServer]);
 
   // Phase 2: xuất vật tư cho công trình — trừ tồn kho thật + thẻ kho export_project.
   // Chỉ hàng goods/area (service/combo chặn); đơn giá vốn = avg_cost hiện tại.
@@ -1642,9 +1850,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         total_cost: updated.total_cost,
         actual_profit: updated.actual_profit,
       });
+      void pushProjectToServer(updated);
       return updated;
     },
-    [projects, supa, user, setLoginOpen]
+    [projects, supa, user, setLoginOpen, pushProjectToServer]
   );
 
   // Sửa số tài chính (dự toán/quyết toán/chi khác độc lập nhau) + tính lại lãi
@@ -1675,9 +1884,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         total_cost: updated.total_cost,
         actual_profit: updated.actual_profit,
       });
+      void pushProjectToServer(updated);
       return updated;
     },
-    [projects, supa, user, setLoginOpen]
+    [projects, supa, user, setLoginOpen, pushProjectToServer]
   );
 
   // Thu cọc/tạm ứng chủ đầu tư: phiếu thu deposit theo mã CT + cộng dồn deposit_amount.
@@ -1726,9 +1936,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       };
       setProjects((prev) => prev.map((x) => (x.id === projectId ? updated : x)));
       await db.projects.update(projectId, { deposit_amount: updated.deposit_amount });
+      void pushProjectToServer(updated);
       return updated;
     },
-    [projects, supa, user, currentShift, setLoginOpen]
+    [projects, supa, user, currentShift, setLoginOpen, pushProjectToServer]
   );
   const removeProjectLine = useCallback(
     async (projectId: string, kind: 'material' | 'worker', lineKey: string): Promise<Project | null> => {
@@ -1766,18 +1977,19 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           };
           setStockMovements((prev) => [movement, ...prev]);
         }
-        const updated = recalcProjectTotals({
-          ...project,
-          materials: project.materials.filter((_, i) => i !== idx),
-        });
-        setProjects((prev) => prev.map((x) => (x.id === projectId ? updated : x)));
-        await db.projects.update(projectId, {
-          materials: updated.materials,
-          material_cost_total: updated.material_cost_total,
-          total_cost: updated.total_cost,
-          actual_profit: updated.actual_profit,
-        });
-        return updated;
+      const updated = recalcProjectTotals({
+        ...project,
+        materials: project.materials.filter((_, i) => i !== idx),
+      });
+      setProjects((prev) => prev.map((x) => (x.id === projectId ? updated : x)));
+      await db.projects.update(projectId, {
+        materials: updated.materials,
+        material_cost_total: updated.material_cost_total,
+        total_cost: updated.total_cost,
+        actual_profit: updated.actual_profit,
+      });
+      void pushProjectToServer(updated);
+      return updated;
       }
       const updated = recalcProjectTotals({
         ...project,
@@ -1790,9 +2002,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         total_cost: updated.total_cost,
         actual_profit: updated.actual_profit,
       });
+      void pushProjectToServer(updated);
       return updated;
     },
-    [projects, products, supa, user, currentShift, setLoginOpen, setProducts]
+    [projects, products, supa, user, currentShift, setLoginOpen, setProducts, pushProjectToServer]
   );
 
   const closeShift = useCallback(
@@ -2218,6 +2431,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     removeProjectLine,
     updateProjectFinance,
     collectProjectDeposit,
+    refreshServerProjects,
+    syncProjects,
     closeShift,
     openNewShift,
     refreshShiftFromServer,
