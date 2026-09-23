@@ -9,14 +9,13 @@ import {
   LoaderCircle,
   TriangleAlert,
   LogOut,
-  UserRound,
 } from 'lucide-react';
 
 // Form đăng nhập nhân viên — mã NV (VD: NV0001) hoặc email cũ + mật khẩu.
 // Style: Google Account hiện đại, tối giản — card trắng bo 28px trên nền #f0f4f9,
 // ô nhập viền floating-label, nút pill xanh #0b57d0.
-// Logic giữ nguyên bản remote: autofocus + Enter submit + ESC đóng + nhớ mã lần
-// trước + báo CapsLock + thẻ phiên đang login (đổi tài khoản / đăng xuất).
+// Logic: autofocus + Enter submit + ESC đóng + nhớ mã lần trước + báo CapsLock
+// + thẻ phiên đang login (tiếp tục / đăng xuất).
 // locked=true: chế độ cổng bắt buộc (không có nút X, ESC/overlay không đóng).
 const LAST_LOGIN_KEY = 'multipos_last_login';
 
@@ -169,17 +168,6 @@ export function LoginModal({ locked = false }: { locked?: boolean }) {
     }
   };
 
-  const handleSwitchAccount = async () => {
-    await signOut();
-    setPassword('');
-    setError(null);
-    // user -> null nên modal tự chuyển sang form; focus lại ô mã
-    Promise.resolve().then(() => {
-      idRef.current?.focus();
-      idRef.current?.select();
-    });
-  };
-
   const handleSignOut = async () => {
     await signOut();
     setLoginOpen(false);
@@ -240,7 +228,7 @@ export function LoginModal({ locked = false }: { locked?: boolean }) {
         </p>
 
         {user ? (
-          /* Đã login: thẻ phiên + đổi/đăng xuất (thay window.confirm ở header) */
+          /* Đã login: thẻ phiên + tiếp tục/đăng xuất (thay window.confirm ở header) */
           <div className="mt-8 space-y-4">
             <div className="flex items-center gap-3 rounded-2xl border border-[#c4c7c5] p-4">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0b57d0] text-lg font-medium text-white">
@@ -261,12 +249,11 @@ export function LoginModal({ locked = false }: { locked?: boolean }) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={handleSwitchAccount}
-                className="flex h-10 items-center justify-center gap-1.5 rounded-full border border-[#747775] px-4 text-[14px] font-medium text-[#0b57d0] transition-colors hover:bg-[#f0f4f9]"
-                title="Đăng xuất tài khoản hiện tại và nhập tài khoản khác"
+                onClick={close}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-full bg-[#0b57d0] px-4 text-[14px] font-medium text-white transition-colors hover:bg-[#0842a0] hover:shadow-md"
+                title="Tiếp tục làm việc"
               >
-                <UserRound className="h-4 w-4" />
-                <span>Tài khoản khác</span>
+                <span>Tiếp tục</span>
               </button>
               <button
                 type="button"
@@ -276,15 +263,6 @@ export function LoginModal({ locked = false }: { locked?: boolean }) {
               >
                 <LogOut className="h-4 w-4" />
                 <span>Đăng xuất</span>
-              </button>
-            </div>
-            <div className="flex items-center justify-end pt-2">
-              <button
-                type="button"
-                onClick={close}
-                className="flex h-10 min-w-[96px] items-center justify-center rounded-full bg-[#0b57d0] px-6 text-[14px] font-medium text-white transition-colors hover:bg-[#0842a0] hover:shadow-md"
-              >
-                Tiếp tục
               </button>
             </div>
           </div>
