@@ -32,13 +32,14 @@ const EMPTY_PROJECT_MATERIALS: ProjectMaterial[] = [];
 const EMPTY_PROJECT_WORKERS: ProjectWorker[] = [];
 
 export function ProjectsView() {
-  const { projects, addProject, updateProject, products, employees, exportProjectMaterial, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit } = useStore();
+  const { projects, customers, addProject, updateProject, products, employees, exportProjectMaterial, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit } = useStore();
   const [selectedProject, setSelectedProject] = useState<Project | null>(projects[0] || null);
 
   // New project modal
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [name, setName] = useState('');
-  const [customerName, setCustomerName] = useState('');
+  // Chọn KH có sẵn (link customer_id) hoặc gõ tên chủ đầu tư mới (allowCustom)
+  const [customerPick, setCustomerPick] = useState('');
   const [address, setAddress] = useState('');
   const [estimatedRevenue, setEstimatedRevenue] = useState(0);
   const [skipEstimate, setSkipEstimate] = useState(false);
@@ -187,14 +188,23 @@ export function ProjectsView() {
     e.preventDefault();
     if (!name.trim()) return;
 
+    // Link KH có sẵn để ăn công nợ + đồng bộ server; tên gõ mới thì lưu chay
+    const matchedCustomer = customers.find((c) => c.id === customerPick);
+    const resolvedCustomerId = matchedCustomer ? matchedCustomer.id : '';
+    const resolvedCustomerName = matchedCustomer
+      ? matchedCustomer.name
+      : customerPick.trim() || 'Chủ đầu tư';
+    // Bỏ qua báo giá -> vào thẳng thi công, quyết toán = 0 (chỉ quyết toán sau ở phase 3)
+    const settled = skipEstimate ? 0 : estimatedRevenue;
+
     const created = await addProject({
       name: name.trim(),
-      customer_id: 'cust-new',
-      customer_name: customerName || 'Chủ đầu tư',
+      customer_id: resolvedCustomerId,
+      customer_name: resolvedCustomerName,
       address,
       phase: skipEstimate ? 2 : 1,
       estimated_revenue: estimatedRevenue,
-      settled_revenue: estimatedRevenue,
+      settled_revenue: settled,
       deposit_amount: 0,
       materials: [],
       workers: [],
@@ -202,7 +212,7 @@ export function ProjectsView() {
       material_cost_total: 0,
       labor_cost_total: 0,
       total_cost: 0,
-      actual_profit: estimatedRevenue,
+      actual_profit: settled,
       status: skipEstimate ? 'in_progress' : 'planning',
       created_at: new Date().toISOString(),
     });
@@ -210,6 +220,9 @@ export function ProjectsView() {
     setSelectedProject(created);
     setIsNewProjectModalOpen(false);
     setName('');
+    setCustomerPick('');
+    setAddress('');
+    setEstimatedRevenue(0);
     setSkipEstimate(false);
   };
 
@@ -942,14 +955,21 @@ export function ProjectsView() {
                 />
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Tên khách hàng / Chủ đầu tư</label>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Vd: Anh Tuấn"
-                  className="w-full h-8 px-2.5 border border-slate-300 rounded"
+                <label className="font-semibold text-slate-700 block mb-1">Khách hàng / Chủ đầu tư (link công nợ)</label>
+                <SearchableSelect
+                  value={customerPick}
+                  placeholder="Chọn KH có sẵn hoặc gõ tên mới…"
+                  allowCustom
+                  options={customers.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} — nợ ${formatVND(c.current_debt)}`,
+                    sub: `${c.code} · ${c.phone || 'không SĐT'}`,
+                  }))}
+                  onChange={(v) => setCustomerPick(v)}
                 />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Chọn đúng KH để ăn theo công nợ và đồng bộ server; gõ tên mới thì lưu chay.
+                </p>
               </div>
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Địa chỉ thi công</label>
