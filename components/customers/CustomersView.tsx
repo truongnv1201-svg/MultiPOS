@@ -25,7 +25,7 @@ export function CustomersView() {
     try {
       const { updated, skipped } = await syncDebtsFromServer();
       if (updated > 0 || skipped > 0) {
-        alert(`Đồng bộ công nợ xong: ${updated} KH cập nhật theo server${skipped > 0 ? `, ${skipped} KH chưa liên kết nên bỏ qua` : ''}.`);
+        notify(`Đồng bộ công nợ xong: ${updated} KH cập nhật theo server${skipped > 0 ? `, ${skipped} KH chưa liên kết nên bỏ qua` : ''}.`, 'success');
       }
     } finally {
       setSyncingDebt(false);
@@ -178,7 +178,7 @@ export function CustomersView() {
 
   const handleExportExcel = () => {
     if (sortedCustomers.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('khach-hang-cong-no', [{ name: 'KhachHang', rows: sortedCustomers.map(customerToRow) }]);
@@ -186,7 +186,7 @@ export function CustomersView() {
 
   const handlePrint = () => {
     if (sortedCustomers.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -227,7 +227,7 @@ export function CustomersView() {
     try {
       const { rows } = await readExcelFile(file);
       if (rows.length === 0) {
-        alert('File không có dữ liệu!');
+        notify('File không có dữ liệu!', 'error');
         return;
       }
       let created = 0;
@@ -270,7 +270,7 @@ export function CustomersView() {
       }
       alert(`Nhập xong: ${created} tạo mới, ${updated} cập nhật${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`);
     } catch (err: any) {
-      alert(`Đọc file thất bại: ${err?.message || err}`);
+      notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {
       setImporting(false);
     }
@@ -289,7 +289,7 @@ export function CustomersView() {
     const ok = await collectDebt(selectedCustomer.id, collectAmount, collectMethod, collectNote);
     if (!ok) return;
     setIsCollectModalOpen(false);
-    alert(`Đã thu ${formatVND(collectAmount)} tiền nợ của ${selectedCustomer.name} thành công!`);
+    notify(`Đã thu ${formatVND(collectAmount)} tiền nợ của ${selectedCustomer.name} thành công!`, 'success');
   };
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
@@ -310,7 +310,7 @@ export function CustomersView() {
     setIsAddModalOpen(false);
     setName('');
     setPhone('');
-    alert('Thêm khách hàng mới thành công!');
+      notify('Thêm khách hàng mới thành công!', 'success');
   };
 
   return (

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
+import { notify } from '@/components/common/Toast';
 import {
   LogOut,
   X,
@@ -68,7 +69,7 @@ export function ShiftModalF12() {
     try {
       const ok = await closeShift(countedCash);
       if (ok) {
-        alert('Đóng ca làm việc thành công! Biên bản kết ca đã được khóa sổ vĩnh viễn.');
+        notify('Đóng ca làm việc thành công! Biên bản kết ca đã được khóa sổ vĩnh viễn.', 'success');
       }
     } finally {
       setIsClosing(false);
@@ -82,7 +83,7 @@ export function ShiftModalF12() {
       return;
     }
     await openNewShift(newShiftStartingCash);
-    alert('Bắt đầu ca làm việc mới thành công!');
+    notify('Bắt đầu ca làm việc mới thành công!', 'success');
     setShiftModalOpen(false);
   };
 

@@ -7,6 +7,7 @@ import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/Produ
 import { POSQuickCustomerModal } from '@/components/pos/POSQuickCustomerModal';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { NumberInput } from '@/components/common/NumberInput';
+import { notify } from '@/components/common/Toast';
 import { isVietqrReady, buildVietqrUrl, vietqrAddInfo } from '@/lib/vietqr';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
@@ -172,7 +173,7 @@ export function POSScreen() {
       );
       if (ok) {
         setImpLines([]);
-        alert('Nhập kho thành công! Tồn kho, MAC và sổ quỹ đã cập nhật.');
+        notify('Nhập kho thành công! Tồn kho, MAC và sổ quỹ đã cập nhật.', 'success');
       }
     } finally {
       setIsProcessing(false);
@@ -235,7 +236,7 @@ export function POSScreen() {
     try {
       await checkoutActiveOrder(false);
     } catch (err: any) {
-      alert(`Lỗi thanh toán: ${vietnamizeError(err)}`);
+      notify(`Lỗi thanh toán: ${vietnamizeError(err)}`, 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -263,7 +264,7 @@ export function POSScreen() {
     try {
       await checkoutActiveOrder(true);
     } catch (err: any) {
-      alert(`Lỗi tạo đơn cọc: ${vietnamizeError(err)}`);
+      notify(`Lỗi tạo đơn cọc: ${vietnamizeError(err)}`, 'error');
     } finally {
       setIsProcessing(false);
     }

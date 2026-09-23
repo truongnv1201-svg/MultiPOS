@@ -14,37 +14,33 @@ import {
   Wallet,
 } from 'lucide-react';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
+import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/common/DateFilter';
 import { TableTools } from '@/components/common/TableTools';
 import { DataTableShell } from '@/components/common/DataTableShell';
 import { PaginationBar } from '@/components/common/PaginationBar';
+import { notify } from '@/components/common/Toast';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { sortRows } from '@/lib/sort';
 import type { Product, Customer, Supplier } from '@/lib/types';
 
-type TimeRange = 'today' | 'week' | 'month';
 type ReportTab = 'overview' | 'vat' | 'margin' | 'debt';
 
-const RANGE_LABEL: Record<TimeRange, string> = {
-  today: 'hôm nay',
-  week: 'tuần này',
-  month: 'tháng này',
-};
-
-function inTimeRange(iso: string, range: TimeRange, now = new Date()): boolean {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return false;
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  if (range === 'today') return d >= startOfDay;
-  if (range === 'month') {
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+// Nhãn kỳ báo cáo dùng chung (badge, Excel, In)
+function rangeLabel(f: DateFilterState): string {
+  switch (f.preset) {
+    case 'today':
+      return 'hôm nay';
+    case 'yesterday':
+      return 'hôm qua';
+    case '7days':
+      return '7 ngày qua';
+    case 'this_month':
+      return 'tháng này';
+    case 'custom':
+      return `${f.fromDate || '...'} → ${f.toDate || '...'}`;
+    default:
+      return 'toàn thời gian';
   }
-  // week: Thứ 2 đầu tuần -> hiện tại
-  const day = (now.getDay() + 6) % 7; // Mon=0
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - day);
-  startOfWeek.setHours(0, 0, 0, 0);
-  return d >= startOfWeek;
 }
 
 // ---------- Biểu đồ SVG thuần (không thêm dependency) ----------
@@ -182,7 +178,8 @@ function CashflowDonut({ receipt, expense }: { receipt: number; expense: number 
 export function ReportsView() {
   const { orders, products, customers, suppliers, cashbook } = useStore();
   const [activeTab, setActiveTab] = useState<ReportTab>('overview');
-  const [timeRange, setTimeRange] = useState<TimeRange>('today');
+  // Kỳ báo cáo tab Tổng quan: dùng DateFilter chung (có Tùy chọn ngày)
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
   // Sắp xếp 2 bảng: bấm header để đảo chiều; đổi sort/tìm kiếm -> về trang 1
   const { sortKey: marginSortKey, sortDir: marginSortDir, toggleSort: toggleMarginSortRaw } = useSortState();
   const { sortKey: debtSortKey, sortDir: debtSortDir, toggleSort: toggleDebtSortRaw } = useSortState('current_debt', 'desc');
@@ -304,14 +301,14 @@ export function ReportsView() {
   const totalSupplierDebt = suppliers.reduce((sum, s) => sum + (s.current_debt || 0), 0);
   const supplierDebtorCount = suppliers.filter((s) => s.current_debt > 0).length;
 
-  // ---- KPI theo kỳ Hôm nay / Tuần này / Tháng này ----
+  // ---- KPI theo kỳ (DateFilter chung, có Tùy chọn ngày) ----
   const rangedOrders = useMemo(() => {
     return orders.filter(
       (o) =>
         (o.status === 'completed' || o.status === 'deposit_order') &&
-        inTimeRange(o.created_at, timeRange),
+        matchesDateFilter(o.created_at, dateFilter),
     );
-  }, [orders, timeRange]);
+  }, [orders, dateFilter]);
 
   // Revenue computations (theo kỳ đã chọn)
   const totalRevenue = rangedOrders.reduce((sum, o) => sum + o.total_amount, 0);
@@ -445,7 +442,7 @@ export function ReportsView() {
 
   // ---- Xuất Excel / In theo từng tab ----
   const summaryRows = [
-    { 'Chỉ tiêu': `Doanh thu đơn hàng (${RANGE_LABEL[timeRange]})`, 'Giá trị': totalRevenue },
+    { 'Chỉ tiêu': `Doanh thu đơn hàng (${rangeLabel(dateFilter)})`, 'Giá trị': totalRevenue },
     { 'Chỉ tiêu': 'Thực thu', 'Giá trị': totalCollected },
     { 'Chỉ tiêu': 'Công nợ phải thu (KH)', 'Giá trị': totalDebtReceivable },
     { 'Chỉ tiêu': 'Công nợ phải trả (NCC)', 'Giá trị': totalSupplierDebt },
@@ -497,28 +494,28 @@ export function ReportsView() {
   };
   const handleExportVat = () => {
     if (vatMonthly.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('bao-cao-vat-dau-ra', [{ name: 'VAT', rows: vatExcelRows }]);
   };
   const handleExportMargin = () => {
     if (sortedMargin.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('bao-cao-bien-loi', [{ name: 'BienLoi', rows: marginExcelRows(sortedMargin) }]);
   };
   const handleExportDebtCustomer = () => {
     if (sortedDebtors.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('bao-cao-cong-no-phai-thu', [{ name: 'CongNoKH', rows: debtExcelRows(sortedDebtors) }]);
   };
   const handleExportDebtSupplier = () => {
     if (sortedSuppliers.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('bao-cao-cong-no-phai-tra', [
@@ -536,7 +533,7 @@ export function ReportsView() {
 
   const handlePrintOverview = () => {
     printTable({
-      title: `Báo cáo quản trị (${RANGE_LABEL[timeRange]})`,
+      title: `Báo cáo quản trị (${rangeLabel(dateFilter)})`,
       meta: [`In lúc ${new Date().toLocaleString('vi-VN')}`],
       columns: [{ header: 'Chỉ tiêu' }, { header: 'Giá trị', align: 'right' }],
       rows: summaryRows.map((r) => [String(r['Chỉ tiêu']), Number(r['Giá trị']).toLocaleString('vi-VN')]),
@@ -544,7 +541,7 @@ export function ReportsView() {
   };
   const handlePrintVat = () => {
     if (vatMonthly.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -571,7 +568,7 @@ export function ReportsView() {
   };
   const handlePrintMargin = () => {
     if (sortedMargin.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -599,7 +596,7 @@ export function ReportsView() {
   };
   const handlePrintDebtCustomer = () => {
     if (sortedDebtors.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -617,7 +614,7 @@ export function ReportsView() {
   };
   const handlePrintDebtSupplier = () => {
     if (sortedSuppliers.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -636,7 +633,7 @@ export function ReportsView() {
 
   const tabBadge =
     activeTab === 'overview'
-      ? `${rangedOrders.length} đơn ${RANGE_LABEL[timeRange]}`
+      ? `${rangedOrders.length} đơn ${rangeLabel(dateFilter)}`
       : activeTab === 'vat'
         ? `${vatMonthly.length} tháng`
         : activeTab === 'margin'
@@ -694,19 +691,7 @@ export function ReportsView() {
               <span className="text-xs font-semibold text-slate-600">
                 Kỳ báo cáo <span className="font-normal text-slate-400">(áp dụng cho 5 thẻ chỉ tiêu)</span>
               </span>
-              <div className="flex bg-slate-100 p-1 rounded-lg text-xs font-semibold">
-                {(['today', 'week', 'month'] as const).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setTimeRange(r)}
-                    className={`px-3 py-1 rounded-md transition-all ${
-                      timeRange === r ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600'
-                    }`}
-                  >
-                    {r === 'today' ? 'Hôm nay' : r === 'week' ? 'Tuần này' : 'Tháng này'}
-                  </button>
-                ))}
-              </div>
+              <DateFilter value={dateFilter} onChange={setDateFilter} />
             </div>
 
             {/* Overview Metric Cards — nền màu theo chỉ tiêu */}

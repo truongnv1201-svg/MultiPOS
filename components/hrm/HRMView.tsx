@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { TableTools } from '@/components/common/TableTools';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { notify } from '@/components/common/Toast';
 // P3: atoms/tokens/helpers thuần dùng chung các tab (tách ra ui.tsx).
 import {
   CARD,
@@ -309,7 +310,7 @@ function AttendancePayrollTab({
 
   const handleExportPayroll = () => {
     if (!run || items.length === 0) {
-      alert('Chưa có bảng lương để xuất!');
+      notify('Chưa có bảng lương để xuất!', 'error');
       return;
     }
     exportToExcel(`bang-luong-${monthKey}`, [
@@ -332,7 +333,7 @@ function AttendancePayrollTab({
 
   const handlePrintPayroll = () => {
     if (!run || items.length === 0) {
-      alert('Chưa có bảng lương để in!');
+      notify('Chưa có bảng lương để in!', 'error');
       return;
     }
     printTable({
@@ -768,7 +769,7 @@ function StaffTab({
 
   const handleExportExcel = () => {
     if (list.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('nhan-su', [{ name: 'NhanSu', rows: list.map(staffToRow) }]);
@@ -776,7 +777,7 @@ function StaffTab({
 
   const handlePrint = () => {
     if (list.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -824,7 +825,7 @@ function StaffTab({
     try {
       const { rows } = await readExcelFile(file);
       if (rows.length === 0) {
-        alert('File không có dữ liệu!');
+        notify('File không có dữ liệu!', 'error');
         return;
       }
       let created = 0;
@@ -867,7 +868,7 @@ function StaffTab({
       }
       alert(`Nhập xong: ${created} tạo mới, ${updated} cập nhật (hồ sơ chưa gắn tài khoản — vào Sửa để tạo).${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`);
     } catch (err: any) {
-      alert(`Đọc file thất bại: ${err?.message || err}`);
+      notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {
       setImporting(false);
     }
@@ -1575,7 +1576,7 @@ function AttendanceTab({
     if (!selEmp || !isManager || locked || filling) return;
     const missing = workIsos.filter((iso) => !cellMap.get(`${selEmp.id}:${iso}`));
     if (missing.length === 0) {
-      alert(`${selEmp.full_name} đã đủ công các ngày làm việc trong tháng.`);
+      notify(`${selEmp.full_name} đã đủ công các ngày làm việc trong tháng.`, 'info');
       return;
     }
     if (!(await confirmDialog(`Chấm "Đi làm" cho ${missing.length} ngày trống của ${selEmp.full_name} trong T${month}?`, { title: 'Chấm nhanh', confirmLabel: 'Chấm hết', danger: false }))) return;
@@ -1638,7 +1639,7 @@ function AttendanceTab({
   // ---- Xuất Excel / In bảng công tháng ----
   const handleExportExcel = () => {
     if (rows.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel(`cham-cong-${monthKey}`, [
@@ -1661,7 +1662,7 @@ function AttendanceTab({
 
   const handlePrint = () => {
     if (rows.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({

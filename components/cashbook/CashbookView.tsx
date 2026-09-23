@@ -22,6 +22,7 @@ import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { NumberInput } from '@/components/common/NumberInput';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
+import { notify } from '@/components/common/Toast';
 import { sortRows } from '@/lib/sort';
 import { DataTableShell } from '@/components/common/DataTableShell';
 
@@ -139,7 +140,7 @@ export function CashbookView() {
 
   const handleExportExcel = () => {
     if (filteredEntries.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('so-quy-thu-chi', [{ name: 'SoQuy', rows: filteredEntries.map(entryToRow) }]);
@@ -147,7 +148,7 @@ export function CashbookView() {
 
   const handlePrint = () => {
     if (filteredEntries.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -196,7 +197,7 @@ export function CashbookView() {
       setPartnerName('');
       setNote('');
       setAdvanceEmpId('');
-      alert('Đã ghi tạm ứng — tự trừ vào bảng lương tháng này.');
+      notify('Đã ghi tạm ứng — tự trừ vào bảng lương tháng này.', 'success');
       return;
     }
 
@@ -213,7 +214,7 @@ export function CashbookView() {
     setIsModalOpen(false);
     setPartnerName('');
     setNote('');
-    alert(`Đã lập ${voucherType === 'receipt' ? 'Phiếu thu' : 'Phiếu chi'} thành công!`);
+      notify(`Đã lập ${voucherType === 'receipt' ? 'Phiếu thu' : 'Phiếu chi'} thành công!`, 'success');
   };
 
   return (

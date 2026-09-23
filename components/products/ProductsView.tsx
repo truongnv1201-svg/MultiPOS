@@ -238,7 +238,7 @@ export function ProductsView() {
 
   const handleExportExcel = () => {
     if (sortedProducts.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('danh-muc-hang-hoa', [{ name: 'HangHoa', rows: sortedProducts.map(productToRow) }]);
@@ -246,7 +246,7 @@ export function ProductsView() {
 
   const handlePrint = () => {
     if (sortedProducts.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     const rows = sortedProducts.slice(0, 1000).map((p) => [
@@ -293,7 +293,7 @@ export function ProductsView() {
     try {
       const { rows } = await readExcelFile(file);
       if (rows.length === 0) {
-        alert('File không có dữ liệu!');
+        notify('File không có dữ liệu!', 'error');
         return;
       }
       let created = 0;
@@ -342,7 +342,7 @@ export function ProductsView() {
       }
       alert(`Nhập xong: ${created} tạo mới, ${updated} cập nhật${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`);
     } catch (err: any) {
-      alert(`Đọc file thất bại: ${err?.message || err}`);
+      notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {
       setImporting(false);
     }
@@ -368,9 +368,9 @@ export function ProductsView() {
 
       setIsAddModalOpen(false);
       setName('');
-      alert('Thêm mới sản phẩm thành công!');
+      notify('Thêm mới sản phẩm thành công!', 'success');
     } catch (err: any) {
-      alert(`Không thể tạo sản phẩm: ${err?.message || 'Lỗi không xác định'}`);
+      notify(`Không thể tạo sản phẩm: ${err?.message || 'Lỗi không xác định'}`, 'error');
     }
   };
 

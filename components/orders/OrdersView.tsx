@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { notify } from '@/components/common/Toast';
 import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/common/DateFilter';
 import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, printTable } from '@/lib/excel';
@@ -149,7 +150,7 @@ export function OrdersView() {
     });
     if (okConfirm) {
       const ok = await cancelOrder(orderId);
-      if (ok) alert('Đã hủy đơn hàng thành công và hạch toán hoàn quỹ tương ứng.');
+      if (ok) notify('Đã hủy đơn hàng thành công và hạch toán hoàn quỹ tương ứng.', 'success');
     }
   };
 
@@ -180,7 +181,7 @@ export function OrdersView() {
 
   const handleExportExcel = () => {
     if (sortedOrders.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('don-hang', [{ name: 'DonHang', rows: sortedOrders.map(orderToRow) }]);
@@ -188,7 +189,7 @@ export function OrdersView() {
 
   const handlePrint = () => {
     if (sortedOrders.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -276,7 +277,7 @@ export function OrdersView() {
         res.skipped.length > 0
           ? ` Bỏ qua (không nhập): ${res.skipped.map((l) => `${l.sku} (${l.reason})`).join(', ')}.`
           : '';
-      alert(`Đã xử lý trả hàng: công nợ khấu trừ tối đa, phần dôi hoàn tiền mặt (FIN-ERR-03).${inLines}${skipLines}`);
+      notify(`Đã xử lý trả hàng: công nợ khấu trừ tối đa, phần dôi hoàn tiền mặt (FIN-ERR-03).${inLines}${skipLines}`, 'success');
       setReturnTarget(null);
     }
   };

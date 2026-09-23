@@ -24,6 +24,7 @@ import { db, generateOrderCode } from '../db';
 import { createClient } from '@supabase/supabase-js';
 import { vietnamizeError } from '../error-vi';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { notify } from '@/components/common/Toast';
 import { employeeCols } from './staff';
 
 export interface HrmSlice {
@@ -543,7 +544,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
           alert(json.error || 'Đặt lại mật khẩu thất bại.');
           return false;
         }
-        alert(`Đã đặt lại mật khẩu cho ${emp.code} — ${emp.full_name}.`);
+        notify(`Đã đặt lại mật khẩu cho ${emp.code} — ${emp.full_name}.`, 'success');
         return true;
       } catch (err: any) {
         alert(vietnamizeError(err));

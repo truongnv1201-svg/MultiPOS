@@ -22,6 +22,7 @@ import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/com
 import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
+import { notify } from '@/components/common/Toast';
 import { sortRows } from '@/lib/sort';
 import type { StockMovement } from '@/lib/types';
 
@@ -64,7 +65,7 @@ export function InventoryView() {
 
   const handleExportStocks = () => {
     if (sortedProducts.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('ton-kho', [
@@ -87,7 +88,7 @@ export function InventoryView() {
 
   const handlePrintStocks = () => {
     if (sortedProducts.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -117,7 +118,7 @@ export function InventoryView() {
 
   const handleExportMovements = () => {
     if (sortedMovements.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('the-kho', [
@@ -139,7 +140,7 @@ export function InventoryView() {
 
   const handlePrintMovements = () => {
     if (sortedMovements.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({

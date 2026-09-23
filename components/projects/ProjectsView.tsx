@@ -24,6 +24,7 @@ import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { NumberInput } from '@/components/common/NumberInput';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { notify } from '@/components/common/Toast';
 import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { sortRows } from '@/lib/sort';
@@ -96,7 +97,7 @@ export function ProjectsView() {
       setIsMatModalOpen(false);
       setMatProductId('');
       setMatQty(1);
-      alert(`Đã xuất ${matQty} ${matProduct?.unit} ${matProduct?.name} cho công trình (trừ kho + thẻ kho).`);
+      notify(`Đã xuất ${matQty} ${matProduct?.unit} ${matProduct?.name} cho công trình (trừ kho + thẻ kho).`, 'success');
     }
   };
 
@@ -168,7 +169,7 @@ export function ProjectsView() {
       setSelectedProject(updated);
       setIsDepModalOpen(false);
       setDepAmount(0);
-      alert(`Đã thu ${formatVND(depAmount)} cho công trình ${currentProject.code}.`);
+      notify(`Đã thu ${formatVND(depAmount)} cho công trình ${currentProject.code}.`, 'success');
     }
   };
 
@@ -279,7 +280,7 @@ export function ProjectsView() {
   // ---- Xuất Excel / In bảng ----
   const handleExportExcel = () => {
     if (projects.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     const sheets: { name: string; rows: Record<string, unknown>[] }[] = [

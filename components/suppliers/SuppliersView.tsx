@@ -150,7 +150,7 @@ export function SuppliersView() {
 
   const handleExportExcel = () => {
     if (sortedSuppliers.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('nha-cung-cap', [{ name: 'NhaCungCap', rows: sortedSuppliers.map(supplierToRow) }]);
@@ -158,7 +158,7 @@ export function SuppliersView() {
 
   const handlePrint = () => {
     if (sortedSuppliers.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
@@ -191,7 +191,7 @@ export function SuppliersView() {
     try {
       const { rows } = await readExcelFile(file);
       if (rows.length === 0) {
-        alert('File không có dữ liệu!');
+        notify('File không có dữ liệu!', 'error');
         return;
       }
       let created = 0;
@@ -231,7 +231,7 @@ export function SuppliersView() {
       }
       alert(`Nhập xong: ${created} tạo mới, ${updated} cập nhật${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`);
     } catch (err: any) {
-      alert(`Đọc file thất bại: ${err?.message || err}`);
+      notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {
       setImporting(false);
     }
@@ -326,7 +326,7 @@ export function SuppliersView() {
   // ---- Xuất Excel / In lịch sử nhập kho ----
   const handleExportImports = () => {
     if (sortedImports.length === 0) {
-      alert('Không có dữ liệu để xuất!');
+      notify('Không có dữ liệu để xuất!', 'error');
       return;
     }
     exportToExcel('lich-su-nhap-kho', [
@@ -347,7 +347,7 @@ export function SuppliersView() {
 
   const handlePrintImports = () => {
     if (sortedImports.length === 0) {
-      alert('Không có dữ liệu để in!');
+      notify('Không có dữ liệu để in!', 'error');
       return;
     }
     printTable({
