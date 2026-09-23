@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
@@ -48,9 +48,9 @@ import { HrmProvider, useHrm } from './store/hrm-slice';
 import type { User } from '@supabase/supabase-js';
 import { vietnamizeError } from './error-vi';
 
-// P3: domain modules â€” types giá»/NV (./store/types), shop/in (./store/shop),
-// tab máº·c Ä‘á»‹nh (./store/cart), payload RPC (./store/rpc), chuáº©n hÃ³a NV (./store/staff).
-// Re-export Ä‘á»ƒ import cÅ© tá»« '@/lib/store' khÃ´ng gÃ£y.
+// P3: domain modules — types giỏ/NV (./store/types), shop/in (./store/shop),
+// tab mặc định (./store/cart), payload RPC (./store/rpc), chuẩn hóa NV (./store/staff).
+// Re-export để import cũ từ '@/lib/store' không gãy.
 import type { CartTab, EmployeeInput, HrmAccount, RestockLine, ReturnSkipped, ReturnResult } from './store/types';
 import {
   DEFAULT_SHOP,
@@ -115,10 +115,10 @@ interface StoreContextType {
   catalogSource: 'local' | 'server';
   supabaseReady: boolean;
   refreshCatalog: () => Promise<boolean>;
-  // P6/Auth + 0009: map id KH local -> uuid server (link cÃ´ng ná»£ server)
+  // P6/Auth + 0009: map id KH local -> uuid server (link công nợ server)
   customerMap: Record<string, string>;
   syncCustomers: () => Promise<Record<string, string>>;
-  // ThÆ°Æ¡ng máº¡i: cáº¥u hÃ¬nh cá»­a hÃ ng, VietQR, giÃ¡ mÃ i, lÃ m trÃ²n
+  // Thương mại: cấu hình cửa hàng, VietQR, giá mài, làm tròn
   shop: ShopSettings;
   updateShop: (patch: Partial<ShopSettings>) => void;
   saveShopSettings: () => Promise<string | null>;
@@ -144,7 +144,7 @@ interface StoreContextType {
   // POS State
   posMode: 'standard' | 'fast'; // F2 toggle
   setPosMode: (mode: 'standard' | 'fast' | ((prev: 'standard' | 'fast') => 'standard' | 'fast')) => void;
-  posFlow: 'sale' | 'import'; // Luá»“ng POS: bÃ¡n hÃ ng hoáº·c nháº­p hÃ ng (giá» riÃªng, commit riÃªng)
+  posFlow: 'sale' | 'import'; // Luồng POS: bán hàng hoặc nhập hàng (giỏ riêng, commit riêng)
   setPosFlow: (flow: 'sale' | 'import' | ((prev: 'sale' | 'import') => 'sale' | 'import')) => void;
   cartTabs: CartTab[];
   activeTabId: string;
@@ -231,7 +231,7 @@ interface StoreContextType {
     supplierName?: string,
     note?: string
   ) => Promise<boolean>;
-  // HRM rebuild (gá»n): employees master + Ä‘iá»ƒm danh ngÃ y + phÃ©p + lÆ°Æ¡ng
+  // HRM rebuild (gọn): employees master + điểm danh ngày + phép + lương
   hrmLoading: boolean;
   hrmError: string | null;
   refreshHrm: () => Promise<void>;
@@ -246,16 +246,16 @@ interface StoreContextType {
   setEmployeeStatus: (id: string, status: 'active' | 'inactive') => Promise<boolean>;
   markDay: (input: MarkDayInput) => Promise<boolean>;
   clearDay: (id: string) => Promise<boolean>;
-  payrollLocks: string[]; // cÃ¡c thÃ¡ng YYYY-MM Ä‘Ã£ chá»‘t (khÃ³a cháº¥m)
+  payrollLocks: string[]; // các tháng YYYY-MM đã chốt (khóa chấm)
   setMonthLock: (month: string, locked: boolean) => Promise<boolean>;
   payrollRuns: PayrollRun[];
   payrollItems: PayrollItem[];
   advances: SalaryAdvance[];
   addAdvance: (input: { employee_id: string; amount: number; fund_type: 'cash' | 'bank'; advance_date: string; note?: string }) => Promise<boolean>;
   deleteAdvance: (id: string) => Promise<boolean>;
-  // Láº­p phiáº¿u chi tay á»Ÿ Sá»• quá»¹ (háº¡ng má»¥c Táº¡m á»©ng) + link vÃ o báº£ng lÆ°Æ¡ng
+  // Lập phiếu chi tay ở Sổ quỹ (hạng mục Tạm ứng) + link vào bảng lương
   addAdvanceVoucher: (input: { employee_id: string; amount: number; fund_type: 'cash' | 'bank'; note?: string }) => Promise<boolean>;
-  payrollStaleMonths: string[]; // thÃ¡ng cÃ³ báº£ng nhÃ¡p nhÆ°ng cÃ´ng/á»©ng Ä‘á»•i sau khi láº­p -> cáº§n Táº¡o láº¡i
+  payrollStaleMonths: string[]; // tháng có bảng nháp nhưng công/ứng đổi sau khi lập -> cần Tạo lại
   generatePayroll: (month: string) => Promise<boolean>;
   lockMonth: (month: string) => Promise<boolean>;
   reopenPayroll: (runId: string) => Promise<boolean>;
@@ -265,9 +265,9 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | null>(null);
 
-// P3-pháº§n 2: StoreInner giá»¯ toÃ n bá»™ state nghiá»‡p vá»¥ cÃ²n láº¡i; Auth + Commerce sá»‘ng á»Ÿ
-// providers riÃªng (./store/auth, ./store/commerce) vÃ  Ä‘Æ°á»£c consume á»Ÿ Ä‘Ã¢y. API useStore()
-// giá»¯ nguyÃªn nÃªn má»i mÃ n hÃ¬nh khÃ´ng Ä‘á»•i.
+// P3-phần 2: StoreInner giữ toàn bộ state nghiệp vụ còn lại; Auth + Commerce sống ở
+// providers riêng (./store/auth, ./store/commerce) và được consume ở đây. API useStore()
+// giữ nguyên nên mọi màn hình không đổi.
 function StoreInner({ children }: { children: React.ReactNode }) {
   const {
     supa,
@@ -322,9 +322,9 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   const [currentScreen, setCurrentScreen] = useState<ActiveScreen>('pos');
   const [flyoutMenuOpen, setFlyoutMenuOpen] = useState<boolean>(false);
 
-  // State nghiá»‡p vá»¥ cÃ²n láº¡i á»Ÿ StoreInner: Ä‘iá»u hÆ°á»›ng + khá»Ÿi táº¡o DB + facade. Master data á»Ÿ Catalog, tiá»n/kho/POS á»Ÿ Transactions, nhÃ¢n sá»± á»Ÿ Hrm.
+  // State nghiệp vụ còn lại ở StoreInner: điều hướng + khởi tạo DB + facade. Master data ở Catalog, tiền/kho/POS ở Transactions, nhân sự ở Hrm.
 
-  // Network (isOnline/toggle) sá»‘ng á»Ÿ NetworkProvider; state tiá»n/kho/POS sá»‘ng á»Ÿ TransactionsProvider.
+  // Network (isOnline/toggle) sống ở NetworkProvider; state tiền/kho/POS sống ở TransactionsProvider.
   const { isOnline } = useNetwork();
   const {
     employees,
@@ -461,7 +461,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
             /* best-effort */
           }
         } catch {
-          /* mÃ¡y tráº¡m chÆ°a nÃ¢ng Dexie v4 -> bá» qua, láº§n ghi Ä‘áº§u sáº½ táº¡o báº£ng */
+          /* máy trạm chưa nâng Dexie v4 -> bỏ qua, lần ghi đầu sẽ tạo bảng */
         }
       } catch (err) {
         console.warn('DB load error:', err);
@@ -470,10 +470,10 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   }, [setCustomers, setProducts, setCashbook, setOrders, setPendingQueue, setProjects, setAttendanceDays, setEmployees]);
 
 
-  // P3: cÃ³ máº¡ng -> kÃ©o catalog tá»« server (re-sync tá»“n/giÃ¡ khi vá»«a online láº¡i)
-  // 0009: Ä‘á»“ng thá»i Ä‘áº©y master KH lÃªn server Ä‘á»ƒ link cÃ´ng ná»£ (bá» qua khÃ¡ch láº» + Ä‘Ã£ map)
-  // ThÆ°Æ¡ng máº¡i: kÃ©o giÃ¡ mÃ i + lÃ m trÃ²n server
-  // (cháº¡y trong microtask Ä‘á»ƒ trÃ¡nh set-state-in-effect)
+  // P3: có mạng -> kéo catalog từ server (re-sync tồn/giá khi vừa online lại)
+  // 0009: đồng thời đẩy master KH lên server để link công nợ (bỏ qua khách lẻ + đã map)
+  // Thương mại: kéo giá mài + làm tròn server
+  // (chạy trong microtask để tránh set-state-in-effect)
   useEffect(() => {
     if (isOnline) {
       Promise.resolve().then(() => {
@@ -533,7 +533,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       setCashbook([]);
       setCurrentShift({
         id: 'shift-empty',
-        cashier_name: 'ChÆ°a má»Ÿ ca',
+        cashier_name: 'Chưa mở ca',
         opened_at: '',
         starting_cash: 0,
         status: 'closed',
@@ -689,7 +689,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
-// Composer giá»¯ tÃªn + API cÅ©: Auth > Commerce > Catalog > Network > nghiá»‡p vá»¥ cÃ²n láº¡i.
+// Composer giữ tên + API cũ: Auth > Commerce > Catalog > Network > nghiệp vụ còn lại.
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
@@ -715,4 +715,3 @@ export function useStore(): StoreContextType {
   }
   return context;
 }
-
