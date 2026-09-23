@@ -459,7 +459,12 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
 
   const addCustomer = useCallback(
     async (data: Omit<Customer, 'id' | 'code' | 'created_at'> & { created_at?: string }): Promise<Customer> => {
-      const code = `KH${String(customers.length + 1).padStart(4, '0')}`;
+      let codeNum = customers.length + 1;
+      let code = `KH${String(codeNum).padStart(4, '0')}`;
+      while (customers.some((c) => c.code === code)) {
+        codeNum++;
+        code = `KH${String(codeNum).padStart(4, '0')}`;
+      }
       const localCust: Customer = {
         ...data,
         id: `cust-${Date.now()}`,
@@ -496,6 +501,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         newCust = {
           ...localCust,
           id: row.id,
+          group: (row.customer_group as Customer['group']) || data.group,
           current_debt: Number(row.current_debt) || 0,
           debt_limit: Number(row.debt_limit) || 0,
           created_at: row.created_at,
@@ -505,7 +511,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       await db.customers.add(newCust);
       return newCust;
     },
-    [customers.length, supa, user, isOnline, queueMasterData]
+    [customers, supa, user, isOnline, queueMasterData]
   );
 
   const updateCustomer = useCallback(async (id: string, updates: Partial<Customer>) => {

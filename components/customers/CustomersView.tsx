@@ -296,21 +296,26 @@ export function CustomersView() {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const created = await addCustomer({
-      name: name.trim(),
-      phone,
-      address,
-      group,
-      current_debt: 0,
-      debt_limit: debtLimit,
-      created_at: new Date().toISOString(),
-    });
+    try {
+      const created = await addCustomer({
+        name: name.trim(),
+        phone: phone.trim(),
+        address: address.trim() || undefined,
+        group,
+        current_debt: 0,
+        debt_limit: debtLimit || 0,
+        created_at: new Date().toISOString(),
+      });
 
-    setSelectedCustomer(created);
-    setIsAddModalOpen(false);
-    setName('');
-    setPhone('');
-      notify('Thêm khách hàng mới thành công!', 'success');
+      setSelectedCustomer(created);
+      setIsAddModalOpen(false);
+      setName('');
+      setPhone('');
+      setAddress('');
+      notify(`Thêm khách hàng "${created.name}" mới thành công!`, 'success');
+    } catch (err: any) {
+      notify(`Không thể thêm khách hàng: ${err?.message || 'lỗi không rõ'}`, 'error');
+    }
   };
 
   return (
