@@ -6,6 +6,7 @@ import {
   Menu,
   Wifi,
   WifiOff,
+  RefreshCw,
   User,
   Settings,
   Maximize,
@@ -28,6 +29,10 @@ export function GlobalHeader() {
     isOnline,
     pendingQueue,
     syncPendingOrders,
+    isSyncing,
+    lastSyncAt,
+    lastSyncError,
+    refreshNow,
     currentScreen,
     setCurrentScreen,
     setShiftModalOpen,
@@ -279,6 +284,39 @@ export function GlobalHeader() {
         )}
 
         {/* If on POS screen: không còn nút Quản lý riêng — dùng Menu (Alt+M) để chuyển phân hệ */}
+
+        {/* Làm mới tay — kéo đơn/sổ quỹ/kho/catalog mới nhất từ server (đa máy).
+            Tự động 15s đã có; nút này để bấm ngay khi thấy số liệu lạ + hiện lỗi sync. */}
+        <button
+          id="header-refresh-btn"
+          onClick={() => {
+            refreshNow();
+          }}
+          disabled={isSyncing || !isOnline}
+          className={`flex items-center gap-1.5 px-2 py-1 border rounded-md text-[11px] transition-colors ${
+            !isOnline
+              ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
+              : lastSyncError
+                ? 'bg-rose-950/80 border-rose-700 text-rose-300 hover:bg-rose-900'
+                : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+          } ${isSyncing ? 'cursor-wait' : ''}`}
+          title={
+            !isOnline
+              ? 'Đang Offline — số liệu là cache của máy này'
+              : lastSyncError
+                ? `Đồng bộ lỗi: ${lastSyncError}`
+                : lastSyncAt
+                  ? `Đồng bộ lần cuối: ${new Date(lastSyncAt).toLocaleString('vi-VN')} — bấm để kéo mới`
+                  : 'Bấm để kéo số liệu mới nhất từ server'
+          }
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-300' : !isOnline ? 'text-slate-500' : lastSyncError ? 'text-rose-300' : 'text-slate-300'}`} />
+          {lastSyncAt !== null && isOnline && !lastSyncError && (
+            <span className="hidden xl:inline font-mono text-[10px] text-slate-400">
+              {new Date(lastSyncAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+        </button>
 
         {/* Trạng thái mạng — chỉ đọc từ trình duyệt */}
         <div className="flex items-center">

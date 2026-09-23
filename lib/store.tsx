@@ -118,6 +118,15 @@ interface StoreContextType {
   // P6/Auth + 0009: map id KH local -> uuid server (link công nợ server)
   customerMap: Record<string, string>;
   syncCustomers: () => Promise<Record<string, string>>;
+  // Đồng bộ kéo đa máy: expose pull + trạng thái để badge/nút Làm mới ở header
+  // (trước đây refreshServer* nằm ngoài type nên màn hình không gọi được).
+  refreshServerOrders: () => Promise<boolean>;
+  refreshServerCashbook: () => Promise<boolean>;
+  refreshServerStockMovements: () => Promise<boolean>;
+  lastSyncAt: number | null;
+  lastSyncError: string | null;
+  isSyncing: boolean;
+  refreshNow: () => Promise<boolean>;
   // Thương mại: cấu hình cửa hàng, VietQR, giá mài, làm tròn
   shop: ShopSettings;
   updateShop: (patch: Partial<ShopSettings>) => void;
@@ -435,6 +444,42 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     importStockBatch,
   } = useTransactions();
 
+  // Trạng thái đồng bộ kéo (badge header + nút Làm mới tay). Ghi nhận cả nhịp
+  // tự động (15s/focus) lẫn bấm tay để máy báo cáo không "đứng hình câm".
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const refreshNow = useCallback(async (): Promise<boolean> => {
+    if (!isOnline || !supabaseReady) {
+      setLastSyncError(
+        !isOnline ? 'Đang offline — chưa kéo được số liệu mới.' : 'Chưa kết nối Supabase.'
+      );
+      return false;
+    }
+    setIsSyncing(true);
+    try {
+      const results = await Promise.all([
+        refreshServerOrders(),
+        refreshServerStockMovements(),
+        refreshServerCashbook(),
+        refreshCatalog(),
+      ]);
+      const ok = results.every(Boolean);
+      if (ok) {
+        setLastSyncAt(Date.now());
+        setLastSyncError(null);
+      } else {
+        setLastSyncError('Một phần dữ liệu chưa đồng bộ — bấm Làm mới để thử lại.');
+      }
+      return ok;
+    } catch (e: unknown) {
+      setLastSyncError(e instanceof Error ? e.message : 'Lỗi đồng bộ.');
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isOnline, supabaseReady, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshCatalog]);
+
 
 
   // Initialize DB on mount
@@ -500,9 +545,20 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;
     const refresh = () => {
-      refreshServerOrders();
-      refreshServerStockMovements();
-      refreshServerCashbook();
+      // Ghi nhận kết quả nhịp tự động để badge header phản ánh đúng (đủ/thiếu).
+      // Không đè lỗi của lần bấm tay đang chạy dở.
+      Promise.allSettled([
+        refreshServerOrders(),
+        refreshServerStockMovements(),
+        refreshServerCashbook(),
+      ]).then((rs) => {
+        if (rs.every((r) => r.status === 'fulfilled' && r.value === true)) {
+          setLastSyncAt(Date.now());
+          setLastSyncError(null);
+        } else if (!isSyncing) {
+          setLastSyncError('Tự động đồng bộ thiếu một phần — bấm Làm mới để thử lại.');
+        }
+      });
     };
     const interval = window.setInterval(refresh, 15000);
     window.addEventListener('focus', refresh);
@@ -512,7 +568,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [isOnline, supabaseReady, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook]);
+  }, [isOnline, supabaseReady, isSyncing, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook]);
 
   // Active Cart Tab
 
@@ -608,6 +664,10 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     isOnline,
     pendingQueue,
     syncPendingOrders,
+    lastSyncAt,
+    lastSyncError,
+    isSyncing,
+    refreshNow,
     catalogSource,
     supabaseReady,
     refreshCatalog,
@@ -658,6 +718,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     calculatedTotals,
     checkoutActiveOrder,
     refreshServerOrders,
+    refreshServerCashbook,
+    refreshServerStockMovements,
     cancelOrder,
     returnOrder,
     collectDebt,
