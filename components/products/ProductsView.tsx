@@ -219,7 +219,7 @@ export function ProductsView() {
   }, [sortedProducts, page, pageSize]);
 
   // ---- Xuất / Nhập / In Excel ----
-  const PRODUCT_TEMPLATE = ['Mã SKU', 'Tên hàng *', 'Danh mục', 'ĐVT', 'Loại (goods/area/combo/service)', 'Giá bán lẻ', 'Giá thợ/đại lý', 'Giá vốn nhập', 'Tồn kho', 'Tồn tối thiểu', 'Hao hụt (%)'];
+  const PRODUCT_TEMPLATE = ['Mã SKU', 'Tên hàng *', 'Danh mục', 'ĐVT', 'Loại (goods/area/combo/service)', 'Giá bán', 'Giá vốn nhập', 'Tồn kho', 'Tồn tối thiểu', 'Hao hụt (%)'];
 
   const productToRow = (p: Product): Record<string, unknown> => ({
     'Mã SKU': p.sku,
@@ -227,8 +227,7 @@ export function ProductsView() {
     'Danh mục': p.category,
     'ĐVT': p.unit,
     'Loại': p.product_type,
-    'Giá bán lẻ': p.retail_price,
-    'Giá thợ/đại lý': p.trade_price ?? '',
+    'Giá bán': p.retail_price,
     'Giá vốn nhập': p.import_price,
     'Giá vốn BQ': Math.round(p.avg_cost),
     'Tồn kho': p.stock_quantity,
@@ -265,7 +264,7 @@ export function ProductsView() {
         { header: 'Tên hàng' },
         { header: 'Danh mục' },
         { header: 'ĐVT', align: 'center' },
-        { header: 'Giá bán lẻ', align: 'right' },
+        { header: 'Giá bán', align: 'right' },
         { header: 'Tồn kho', align: 'right' },
       ],
       rows,
@@ -279,8 +278,7 @@ export function ProductsView() {
       'Danh mục': 'Nhôm Kính & Tấm',
       'ĐVT': 'm²',
       'Loại (goods/area/combo/service)': 'area',
-      'Giá bán lẻ': 350000,
-      'Giá thợ/đại lý': 320000,
+      'Giá bán': 350000,
       'Giá vốn nhập': 260000,
       'Tồn kho': 100,
       'Tồn tối thiểu': 10,
@@ -308,13 +306,13 @@ export function ProductsView() {
           if (!name) throw new Error('thiếu Tên hàng');
           const rawType = (r['Loại (goods/area/combo/service)'] || r['Loại'] || 'goods').trim().toLowerCase();
           const product_type = (validTypes.includes(rawType as ProductType) ? rawType : 'goods') as ProductType;
+          const priceRaw = r['Giá bán'] ?? r['Giá bán lẻ'] ?? 0;
           const payload = {
             name,
             category: (r['Danh mục'] || 'Chưa phân loại').trim(),
             unit: (r['ĐVT'] || 'cái').trim(),
             product_type,
-            retail_price: Math.max(0, Math.round(parseExcelNum(r['Giá bán lẻ']))),
-            trade_price: r['Giá thợ/đại lý'] !== '' ? Math.max(0, Math.round(parseExcelNum(r['Giá thợ/đại lý']))) : undefined,
+            retail_price: Math.max(0, Math.round(parseExcelNum(priceRaw))),
             import_price: Math.max(0, Math.round(parseExcelNum(r['Giá vốn nhập']))),
             avg_cost: Math.max(0, Math.round(parseExcelNum(r['Giá vốn nhập']))),
             stock_quantity: Math.max(0, parseExcelNum(r['Tồn kho'])),
@@ -517,7 +515,7 @@ export function ProductsView() {
                 <SortableTh className="py-2.5 px-3" label="Danh mục" sortKey="category" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-center" label="Loại hàng" sortKey="product_type" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-center" label="ĐVT" sortKey="unit" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3 text-right" label="Giá bán lẻ" sortKey="retail_price" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3 text-right" label="Giá bán" sortKey="retail_price" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-right" label="Giá vốn (Bình quân)" sortKey="avg_cost" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-right" label="Nhập gần nhất" sortKey="import_price" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-center" label="Hao hụt phôi" sortKey="waste_factor" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
@@ -725,7 +723,7 @@ export function ProductsView() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Giá bán lẻ (đ)</label>
+                  <label className="font-semibold text-slate-700 block mb-1">Giá bán (đ)</label>
                   <NumberInput
                     value={retailPrice}
                     onChange={(val) => setRetailPrice(val)}
@@ -895,7 +893,7 @@ export function ProductsView() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Giá bán lẻ (đ)</label>
+                  <label className="font-semibold text-slate-700 block mb-1">Giá bán (đ)</label>
                   <NumberInput
                     value={editRetailPrice}
                     onChange={(val) => setEditRetailPrice(val)}

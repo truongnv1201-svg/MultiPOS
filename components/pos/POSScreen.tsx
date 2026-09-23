@@ -61,7 +61,6 @@ export function POSScreen() {
     setPosMode,
     posFlow,
     setPosFlow,
-    switchPriceBook,
     vietqr,
     currentShift,
     user,
@@ -523,37 +522,6 @@ export function POSScreen() {
 
           {/* CỘT 3: Controls — kích thước cố định theo nội dung, neo phải */}
           <div className="flex flex-wrap items-center gap-1.5">
-            {/* Price Book Toggle (Giá lẻ vs Giá thợ) — chỉ luồng bán */}
-            {!isImportFlow && (
-            <div className="flex items-center h-9 bg-slate-100 p-0.5 rounded-md border border-slate-200">
-              <button
-                type="button"
-                id="btn-price-book-retail"
-                onClick={() => switchPriceBook('retail')}
-                className={`px-2 h-full rounded text-[11px] font-semibold transition-all flex items-center ${
-                  (activeCart.price_book || 'retail') === 'retail'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-                title="Bảng giá bán lẻ"
-              >
-                Giá lẻ
-              </button>
-              <button
-                type="button"
-                id="btn-price-book-trade"
-                onClick={() => switchPriceBook('trade')}
-                className={`px-2 h-full rounded text-[11px] font-semibold transition-all flex items-center ${
-                  activeCart.price_book === 'trade'
-                    ? 'bg-amber-600 text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-                title="Bảng giá thợ / đại lý"
-              >
-                Giá thợ
-              </button>
-            </div>
-            )}
             {/* Chuyển luồng Bán / Nhập (chỉ Admin/Quản lý) */}
             {canImport && (
               <div className="flex items-center h-9 bg-slate-100 p-0.5 rounded-md border border-slate-200" title="Chuyển giữa bán hàng và nhập hàng (giỏ bán được giữ nguyên)">

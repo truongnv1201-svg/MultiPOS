@@ -395,11 +395,11 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       items: [],
       vat_percent: shop.defaultVat ?? 0,
       payment_method: shop.defaultPayment ?? 'cash',
-      price_book: shop.defaultPriceBook ?? 'retail',
+      price_book: 'retail',
     };
     setCartTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
-  }, [cartTabs.length, shop.defaultVat, shop.defaultPayment, shop.defaultPriceBook]);
+  }, [cartTabs.length, shop.defaultVat, shop.defaultPayment]);
 
   const closeCartTab = useCallback((tabId: string) => {
     setCartTabs((prev) => {
@@ -432,12 +432,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const addItemToCart = useCallback(
     (product: Product, quantity = 1, dimensionDetails?: DimensionDetail[], priceOverride?: number) => {
       updateActiveTab((tab) => {
-        const itemPrice =
-          priceOverride !== undefined
-            ? priceOverride
-            : tab.price_book === 'trade' && product.trade_price
-            ? product.trade_price
-            : product.retail_price;
+        const itemPrice = priceOverride !== undefined ? priceOverride : product.retail_price;
 
         const existingIndex = tab.items.findIndex(
           (item) => item.product_id === product.id && item.product_type !== 'area'
@@ -480,21 +475,20 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   );
 
   const switchPriceBook = useCallback(
-    (priceBook: 'retail' | 'trade') => {
+    (_priceBook?: 'retail' | 'trade') => {
+      // Bảng giá bán duy nhất: luôn áp dụng đơn giá niêm yết (product.retail_price)
       updateActiveTab((tab) => {
         const updatedItems = tab.items.map((item) => {
           const product = products.find((p) => p.id === item.product_id);
           if (!product) return item;
-          const targetPrice =
-            priceBook === 'trade' && product.trade_price ? product.trade_price : product.retail_price;
           return recomputeOrderItem({
             ...item,
-            unit_price: targetPrice,
+            unit_price: product.retail_price,
           });
         });
         return {
           ...tab,
-          price_book: priceBook,
+          price_book: 'retail',
           items: updatedItems,
         };
       });

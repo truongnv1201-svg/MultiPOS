@@ -298,13 +298,13 @@ export function SettingsView() {
               <button
                 onClick={handleSavePosDefaults}
                 className="ml-auto px-3 h-7 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-bold"
-                title="Đồng bộ VAT / thanh toán / bảng giá mặc định lên máy chủ"
+                title="Đồng bộ VAT / phương thức thanh toán mặc định lên máy chủ"
               >
                 Lưu lên máy chủ
               </button>
             )}
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">VAT mặc định</label>
               <div className="flex gap-1">
@@ -333,18 +333,6 @@ export function SettingsView() {
                 <option value="transfer">VietQR chuyển khoản</option>
                 <option value="card">Quẹt thẻ</option>
                 <option value="debt">Ghi nợ</option>
-              </select>
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">Bảng giá mặc định</label>
-              <select
-                value={shop.defaultPriceBook}
-                disabled={!isAdmin}
-                onChange={(e) => updateShop({ defaultPriceBook: e.target.value as any })}
-                className="w-full h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
-              >
-                <option value="retail">Giá lẻ</option>
-                <option value="trade">Giá thợ / đại lý</option>
               </select>
             </div>
           </div>

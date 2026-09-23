@@ -6,7 +6,7 @@ import { useStore } from '@/lib/store';
 import { User, X } from 'lucide-react';
 
 export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { addCustomer, updateActiveTab, switchPriceBook } = useStore();
+  const { addCustomer, updateActiveTab } = useStore();
   const [newCustName, setNewCustName] = useState<string>('');
   const [newCustPhone, setNewCustPhone] = useState<string>('');
   const [newCustGroup, setNewCustGroup] = useState<'retail' | 'contractor' | 'wholesale'>('retail');
@@ -29,9 +29,6 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
       customer_name: newCust.name,
       customer_phone: newCust.phone,
     });
-    if (newCustGroup === 'contractor' || newCustGroup === 'wholesale') {
-      switchPriceBook('trade');
-    }
     onClose();
     setNewCustName('');
     setNewCustPhone('');
@@ -85,7 +82,7 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Nhóm khách hàng & Bảng giá:
+                Nhóm khách hàng:
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -98,7 +95,7 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
                   }`}
                 >
                   Khách lẻ
-                  <div className="text-[10px] font-normal text-slate-400">Giá niêm yết</div>
+                  <div className="text-[10px] font-normal text-slate-400">Cá nhân mua lẻ</div>
                 </button>
                 <button
                   type="button"
@@ -110,7 +107,7 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
                   }`}
                 >
                   Thợ công trình
-                  <div className="text-[10px] font-normal text-slate-400">Giá thợ</div>
+                  <div className="text-[10px] font-normal text-slate-400">Thợ / nhà thầu</div>
                 </button>
                 <button
                   type="button"
@@ -122,7 +119,7 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
                   }`}
                 >
                   Đại lý cấp 1
-                  <div className="text-[10px] font-normal text-slate-400">Chiết khấu sỉ</div>
+                  <div className="text-[10px] font-normal text-slate-400">Cửa hàng / đại lý</div>
                 </button>
               </div>
             </div>
