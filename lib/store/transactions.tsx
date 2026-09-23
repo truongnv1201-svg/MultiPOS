@@ -212,7 +212,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         discount_percent: 0,
         shipping_fee: Number(row.shipping_fee || 0),
         vat_amount: Number(row.vat_amount || 0),
-        vat_percent: 0,
+        vat_percent: Number(row.vat_percent || 0),
         cash_rounding: Number(row.cash_rounding || 0),
         total_amount: Number(row.total_amount || 0),
         paid_amount: Number(row.paid_amount || 0),
