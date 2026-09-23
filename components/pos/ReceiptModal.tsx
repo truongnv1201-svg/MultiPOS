@@ -25,6 +25,10 @@ export function ReceiptModal() {
 
   const fontCls =
     shop.fontSize === 'small' ? 'text-[10px]' : shop.fontSize === 'large' ? 'text-[12px]' : 'text-[11px]';
+  // Cỡ chữ phiếu (K80/giấy nhiệt): các khối con gắn cỡ cứng nên chỉ đổi font gốc
+  // không đủ — dùng zoom để cả phiếu co/giãn thật (Chromium in ấn vẫn giữ zoom).
+  // A4/A5 giữ layout cố định theo chuẩn văn phòng.
+  const k80Zoom = shop.fontSize === 'small' ? 0.9 : shop.fontSize === 'large' ? 1.12 : 1;
 
   const handlePrint = () => {
     const prevTitle = document.title;
@@ -137,7 +141,7 @@ export function ReceiptModal() {
   );
 
   const renderK80Full = () => (
-    <div className={`w-full max-w-[340px] bg-white p-4 font-mono text-slate-900 leading-tight space-y-2.5 ${fontCls}`}>
+    <div style={{ zoom: k80Zoom }} className={`w-full max-w-[340px] bg-white p-4 font-mono text-slate-900 leading-tight space-y-2.5 ${fontCls}`}>
       {headerBlock()}
       {metaBlock()}
       <div className="space-y-1.5 pb-2 border-b border-dashed border-slate-300">
