@@ -7,6 +7,7 @@ UPDATE public.projects
 SET phase = CASE WHEN phase = 4 THEN 3 WHEN phase = 3 THEN 2 ELSE phase END
 WHERE phase IN (3, 4);
 
+ALTER TABLE public.projects DROP CONSTRAINT IF EXISTS projects_phase_1_3;
 ALTER TABLE public.projects ADD CONSTRAINT projects_phase_1_3 CHECK (phase BETWEEN 1 AND 3);
 
 NOTIFY pgrst, 'reload schema';

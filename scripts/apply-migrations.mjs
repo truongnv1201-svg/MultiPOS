@@ -22,8 +22,13 @@ const dir = join(process.cwd(), 'supabase', 'migrations');
 const files = readdirSync(dir)
   .filter((f) => f.endsWith('.sql'))
   .sort();
+const SKIP_FILES = new Set(['0017_payroll.sql']);
 
 for (const f of files) {
+  if (SKIP_FILES.has(f)) {
+    console.log(`SKIP (historical): ${f}`);
+    continue;
+  }
   const sql = readFileSync(join(dir, f), 'utf8');
   const res = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
     method: 'POST',

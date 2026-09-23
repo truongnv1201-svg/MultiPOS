@@ -14,7 +14,7 @@ do $$ begin
     drop trigger if exists trg_block_locked_month on public.attendance_records;
   end if;
 end $$;
-drop function if exists public.trg_block_locked_month();
+drop function if exists public.trg_block_locked_month() cascade;
 
 -- Gỡ bảng cũ (CASCADE dọn policy/trigger/index đi kèm)
 drop table if exists public.payroll_items cascade;
