@@ -229,7 +229,12 @@ interface StoreContextType {
   importStockBatch: (
     lines: { productId: string; quantity: number; importPrice: number }[],
     supplierName?: string,
-    note?: string
+    note?: string,
+    paymentOptions?: {
+      paymentMethod?: 'cash' | 'transfer' | 'debt' | 'partial';
+      paidAmount?: number;
+      supplierId?: string;
+    }
   ) => Promise<boolean>;
   // HRM rebuild (gọn): employees master + điểm danh ngày + phép + lương
   hrmLoading: boolean;

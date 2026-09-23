@@ -111,6 +111,8 @@ export function POSScreen() {
   const [impLines, setImpLines] = useState<ImportLine[]>([]);
   const [impSupplier, setImpSupplier] = useState<string>('');
   const [impNote, setImpNote] = useState<string>('');
+  const [impPaymentMethod, setImpPaymentMethod] = useState<'cash' | 'transfer' | 'debt' | 'partial'>('cash');
+  const [impPaidAmount, setImpPaidAmount] = useState<number>(0);
 
   // Quick supplier modal
   const [isQuickSupplierModalOpen, setIsQuickSupplierModalOpen] = useState<boolean>(false);
@@ -119,6 +121,14 @@ export function POSScreen() {
   const [supAddress, setSupAddress] = useState('');
   const [supTaxCode, setSupTaxCode] = useState('');
   const [supCreating, setSupCreating] = useState(false);
+
+  const matchedSupplier = React.useMemo(() => {
+    if (!impSupplier.trim()) return null;
+    const target = impSupplier.trim().toLowerCase();
+    return suppliers.find(
+      (s) => s.name.toLowerCase() === target || s.code.toLowerCase() === target
+    ) || null;
+  }, [suppliers, impSupplier]);
 
   const addImportLine = useCallback(
     (product: Product, qty: number) => {
@@ -164,21 +174,40 @@ export function POSScreen() {
       alert('Phiếu nhập chưa có dòng hàng nào!');
       return;
     }
+
+    let paid = impTotal;
+    if (impPaymentMethod === 'debt') {
+      paid = 0;
+    } else if (impPaymentMethod === 'partial') {
+      paid = Math.max(0, Math.min(impTotal, impPaidAmount || 0));
+    }
+
+    if ((impPaymentMethod === 'debt' || impPaymentMethod === 'partial') && !impSupplier.trim()) {
+      alert('Vui lòng chọn hoặc nhập tên Nhà cung cấp để ghi nợ!');
+      return;
+    }
+
     setIsProcessing(true);
     try {
       const ok = await importStockBatch(
         impLines.map((l) => ({ productId: l.productId, quantity: l.qty, importPrice: l.price })),
         impSupplier.trim() || 'Nhà Cung Cấp',
-        impNote.trim() || 'Nhập kho hàng hóa'
+        impNote.trim() || 'Nhập kho hàng hóa',
+        {
+          paymentMethod: impPaymentMethod,
+          paidAmount: paid,
+          supplierId: matchedSupplier?.id,
+        }
       );
       if (ok) {
         setImpLines([]);
-        notify('Nhập kho thành công! Tồn kho, MAC và sổ quỹ đã cập nhật.', 'success');
+        setImpPaidAmount(0);
+        notify('Nhập kho thành công! Tồn kho, MAC, công nợ và sổ quỹ đã cập nhật.', 'success');
       }
     } finally {
       setIsProcessing(false);
     }
-  }, [impLines, impSupplier, impNote, importStockBatch]);
+  }, [impLines, impSupplier, impNote, impPaymentMethod, impPaidAmount, impTotal, matchedSupplier, importStockBatch]);
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -932,7 +961,7 @@ export function POSScreen() {
                     onChange={(v) => setImpSupplier(v)}
                   />
                 </div>
-                  <button
+                <button
                   type="button"
                   id="btn-quick-supplier-modal"
                   onClick={() => setIsQuickSupplierModalOpen(true)}
@@ -942,6 +971,12 @@ export function POSScreen() {
                   <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
+              {matchedSupplier && (
+                <div className="mt-1.5 text-[11px] flex items-center justify-between text-amber-800 bg-amber-50 px-2 py-1 rounded border border-amber-200 font-medium">
+                  <span>Nợ NCC hiện tại:</span>
+                  <span className="font-bold font-mono text-rose-600">{formatVND(matchedSupplier.current_debt || 0)}</span>
+                </div>
+              )}
             </div>
             <div>
               <label className="text-[11px] font-semibold text-slate-600">Ghi chú phiếu nhập</label>
@@ -954,6 +989,81 @@ export function POSScreen() {
               />
             </div>
           </div>
+
+          {/* Phương thức thanh toán cho NCC */}
+          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-2">
+            <label className="text-[11px] font-bold text-slate-700 uppercase block">
+              Hình thức thanh toán NCC
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setImpPaymentMethod('cash')}
+                className={`py-1.5 px-2 rounded border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  impPaymentMethod === 'cash'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <Banknote className="w-3.5 h-3.5" />
+                <span>Tiền mặt</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setImpPaymentMethod('transfer')}
+                className={`py-1.5 px-2 rounded border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  impPaymentMethod === 'transfer'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Chuyển khoản</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setImpPaymentMethod('debt')}
+                className={`py-1.5 px-2 rounded border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  impPaymentMethod === 'debt'
+                    ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Nợ 100%</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setImpPaymentMethod('partial');
+                  if (impPaidAmount === 0) setImpPaidAmount(Math.round(impTotal * 0.5));
+                }}
+                className={`py-1.5 px-2 rounded border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  impPaymentMethod === 'partial'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <Percent className="w-3.5 h-3.5" />
+                <span>Trả 1 phần</span>
+              </button>
+            </div>
+
+            {impPaymentMethod === 'partial' && (
+              <div className="pt-2 border-t border-slate-100">
+                <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                  Số tiền trả trước cho NCC
+                </label>
+                <NumberInput
+                  value={impPaidAmount}
+                  onChange={(v) => setImpPaidAmount(v)}
+                  placeholder="0"
+                  className="w-full h-8 px-2.5 text-xs font-mono font-bold bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+            )}
+          </div>
+
           <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-1.5 text-xs">
             <div className="flex items-center justify-between text-slate-600">
               <span>Số dòng hàng:</span>
@@ -969,7 +1079,33 @@ export function POSScreen() {
               <span>TỔNG TIỀN NHẬP:</span>
               <span className="font-mono text-blue-700 text-sm">{formatVND(impTotal)}</span>
             </div>
-            <div className="text-[11px] text-slate-400">Trả bằng Ngân hàng · 1 phiếu chi tổng + thẻ kho từng dòng</div>
+            <div className="pt-1.5 border-t border-slate-100 text-[11px] space-y-1">
+              {impPaymentMethod === 'cash' && (
+                <div className="text-emerald-700 font-medium">Thanh toán đủ bằng Tiền mặt (Két quầy)</div>
+              )}
+              {impPaymentMethod === 'transfer' && (
+                <div className="text-blue-700 font-medium">Thanh toán đủ bằng Chuyển khoản (Ngân hàng)</div>
+              )}
+              {impPaymentMethod === 'debt' && (
+                <div className="text-rose-700 font-medium">Ghi nợ NCC 100%: +{formatVND(impTotal)} vào công nợ</div>
+              )}
+              {impPaymentMethod === 'partial' && (
+                <div className="space-y-0.5 text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Đã trả NCC:</span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {formatVND(Math.max(0, Math.min(impTotal, impPaidAmount || 0)))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Ghi nợ còn lại:</span>
+                    <span className="font-mono font-bold text-rose-600">
+                      {formatVND(Math.max(0, impTotal - Math.max(0, Math.min(impTotal, impPaidAmount || 0))))}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           {(currentShift.status !== 'open' || needLogin) && (
             <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-900 leading-relaxed">

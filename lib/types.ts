@@ -140,7 +140,7 @@ export interface PurchaseOrder {
   total_amount: number;
   paid_amount: number;
   debt_amount: number;
-  status: 'completed' | 'cancelled';
+  status: 'completed' | 'cancelled' | 'debt' | 'partial';
   created_at: string;
 }
 

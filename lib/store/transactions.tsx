@@ -139,7 +139,12 @@ export interface TransactionsSlice {
   importStockBatch: (
     lines: { productId: string; quantity: number; importPrice: number }[],
     supplierName?: string,
-    note?: string
+    note?: string,
+    paymentOptions?: {
+      paymentMethod?: 'cash' | 'transfer' | 'debt' | 'partial';
+      paidAmount?: number;
+      supplierId?: string;
+    }
   ) => Promise<boolean>;
 }
 
@@ -1511,14 +1516,18 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           const p = op.payload as {
             clientRef: string;
             code: string;
+            supplierId?: string;
             supplierName: string;
             total: number;
+            paid?: number;
+            debt?: number;
             lines: { productId: string; sku: string; quantity: number; importPrice: number }[];
           };
+          const supUuid = p.supplierId && /^[0-9a-fA-F-]{36}$/.test(p.supplierId) ? p.supplierId : null;
           const { error } = await supa.rpc('sync_stock_import', {
             p_client_ref: p.clientRef,
             p_code: p.code,
-            p_supplier_id: null,
+            p_supplier_id: supUuid,
             p_supplier_name: p.supplierName,
             p_lines: p.lines.map((l) => ({
               sku: l.sku,
@@ -1527,6 +1536,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
               import_price: l.importPrice,
             })),
             p_total: p.total,
+            p_paid: p.paid ?? p.total,
+            p_debt: p.debt ?? 0,
           });
           if (error) throw error;
         } else if (op.kind === 'voucher') {
@@ -2617,7 +2628,12 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     async (
       lines: { productId: string; quantity: number; importPrice: number }[],
       supplierName: string = 'Nhà Cung Cấp',
-      note: string = 'Nhập kho hàng hóa'
+      note: string = 'Nhập kho hàng hóa',
+      paymentOptions?: {
+        paymentMethod?: 'cash' | 'transfer' | 'debt' | 'partial';
+        paidAmount?: number;
+        supplierId?: string;
+      }
     ): Promise<boolean> => {
       // P2: thu ngân/worker không được nhập kho (khi có Supabase).
       if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
@@ -2639,6 +2655,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       }
       const refCode = generateOrderCode('NH');
       const now = new Date().toISOString();
+
+      const paymentMethod = paymentOptions?.paymentMethod || 'transfer';
+      const supplierId = paymentOptions?.supplierId || '';
+
       // Tính MAC nối tiếp trên bản sao (đúng cả khi 1 hàng xuất hiện nhiều dòng)
       const running = new Map(products.map((p) => [p.id, { ...p }]));
       const movements: StockMovement[] = [];
@@ -2668,6 +2688,17 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         });
       }
       if (movements.length === 0) return false;
+
+      let paidAmount = 0;
+      if (paymentMethod === 'cash' || paymentMethod === 'transfer') {
+        paidAmount = Math.round(totalAmount);
+      } else if (paymentMethod === 'debt') {
+        paidAmount = 0;
+      } else if (paymentMethod === 'partial') {
+        paidAmount = Math.max(0, Math.min(Math.round(totalAmount), Math.round(paymentOptions?.paidAmount || 0)));
+      }
+      const debtAmount = Math.max(0, Math.round(totalAmount) - paidAmount);
+
       const updatedList = products.map((p) => running.get(p.id) || p);
       setProducts(updatedList);
       try {
@@ -2686,25 +2717,57 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       }
       setStockMovements((prev) => [...movements.reverse(), ...prev]);
 
-      const expenseEntry: CashbookEntry = {
-        id: `cb-${Date.now()}-import`,
-        code: generateOrderCode('PC'),
-        type: 'expense',
-        fund_type: 'bank',
-        category: 'material',
-        amount: totalAmount,
-        partner_name: supplierName,
-        reference_order_code: refCode,
-        note: `Thanh toán tiền nhập kho ${movements.length} dòng hàng (${supplierName})`,
-        created_at: now,
-      };
-      setCashbook((prev) => [expenseEntry, ...prev]);
-      db.cashbook.add(expenseEntry).catch(console.warn);
-      // P0: lưu PO local để trace + xếp hàng đẩy nhập kho & voucher chi lên server
+      // 1) Nếu paidAmount > 0: tạo phiếu chi Cashbook
+      if (paidAmount > 0) {
+        const expenseEntry: CashbookEntry = {
+          id: `cb-${Date.now()}-import`,
+          code: generateOrderCode('PC'),
+          type: 'expense',
+          fund_type: paymentMethod === 'cash' ? 'cash' : 'bank',
+          category: 'material',
+          amount: paidAmount,
+          partner_name: supplierName,
+          reference_order_code: refCode,
+          note: `Thanh toán tiền nhập kho ${movements.length} dòng hàng (${supplierName})`,
+          created_at: now,
+        };
+        setCashbook((prev) => [expenseEntry, ...prev]);
+        db.cashbook.add(expenseEntry).catch(console.warn);
+        await enqueueOp('voucher', {
+          entryId: expenseEntry.id,
+          type: expenseEntry.type,
+          fund: expenseEntry.fund_type,
+          category: expenseEntry.category,
+          amount: expenseEntry.amount,
+          partner: expenseEntry.partner_name || '',
+          reference: expenseEntry.reference_order_code || '',
+          note: expenseEntry.note || '',
+        });
+      }
+
+      // 2) Nếu debtAmount > 0: tăng nợ nhà cung cấp
+      if (debtAmount > 0) {
+        let targetSupId = supplierId;
+        if (!targetSupId) {
+          const found = suppliers.find((s) => s.name.toLowerCase() === supplierName.toLowerCase());
+          if (found) targetSupId = found.id;
+        }
+        if (targetSupId) {
+          setSuppliers((prev) =>
+            prev.map((s) => (s.id === targetSupId ? { ...s, current_debt: s.current_debt + debtAmount } : s))
+          );
+          db.suppliers.get(targetSupId).then((s) => {
+            if (s) db.suppliers.update(targetSupId, { current_debt: s.current_debt + debtAmount });
+          }).catch(console.warn);
+        }
+      }
+
+      // 3) Ghi PurchaseOrder local
+      const poStatus: PurchaseOrder['status'] = debtAmount <= 0 ? 'completed' : paidAmount <= 0 ? 'debt' : 'partial';
       const poRecord: PurchaseOrder = {
         id: `po-${Date.now()}`,
         code: refCode,
-        supplier_id: '',
+        supplier_id: supplierId,
         supplier_name: supplierName,
         items: clean.map((l) => {
           const p = products.find((x) => x.id === l.productId);
@@ -2720,36 +2783,31 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         subtotal: Math.round(totalAmount),
         discount_amount: 0,
         total_amount: Math.round(totalAmount),
-        paid_amount: Math.round(totalAmount),
-        debt_amount: 0,
-        status: 'completed',
+        paid_amount: paidAmount,
+        debt_amount: debtAmount,
+        status: poStatus,
         created_at: now,
       };
       db.purchaseOrders.add(poRecord).catch(console.warn);
+
+      // 4) Hàng đợi đẩy import op lên server
       await enqueueOp('import', {
         clientRef: `imp-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
         code: refCode,
+        supplierId,
         supplierName,
         total: Math.round(totalAmount),
+        paid: paidAmount,
+        debt: debtAmount,
         lines: clean.map((l) => {
           const p = products.find((x) => x.id === l.productId);
           return { productId: l.productId, sku: p?.sku || '', quantity: l.quantity, importPrice: l.importPrice };
         }),
       });
-      await enqueueOp('voucher', {
-        entryId: expenseEntry.id,
-        type: expenseEntry.type,
-        fund: expenseEntry.fund_type,
-        category: expenseEntry.category,
-        amount: expenseEntry.amount,
-        partner: expenseEntry.partner_name || '',
-        reference: expenseEntry.reference_order_code || '',
-        note: expenseEntry.note || '',
-      });
       void syncPendingOps();
       return true;
     },
-    [products, supa, profile, currentShift, setProducts, syncPendingOps]
+    [products, suppliers, supa, profile, currentShift, setProducts, setSuppliers, setStockMovements, setCashbook, enqueueOp, syncPendingOps]
   );
 
   const value: TransactionsSlice = {
