@@ -466,7 +466,7 @@ export function CustomersView() {
                 </div>
 
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg space-y-1">
-                  <div className="text-[11px] text-rose-700">NỢ HIỆN TẠI (CHÂN LÝ DATABASE):</div>
+                  <div className="text-[11px] text-rose-700">NỢ HIỆN TẠI:</div>
                   <div className="text-xl font-extrabold text-rose-600 font-mono">
                     {formatVND(selectedCustomer.current_debt)}
                   </div>
