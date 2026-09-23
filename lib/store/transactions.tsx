@@ -495,6 +495,9 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
       const totals = calculatedTotals;
       let orderCode = generateOrderCode('HD');
+      // P0-idempotency: khóa ổn định cho 1 lần bán — gửi lên server để retry/timeout
+      // mập mờ không sinh trùng đơn; đơn offline dùng luôn id này khi replay.
+      const clientRef = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
       // Ô trống = trả đủ CHỈ cho chuyển khoản/quẹt thẻ; tiền mặt bắt buộc đã nhập (UI chặn),
       // nợ ghi 0 để rơi vào guard nợ vô chủ (chung lib/pricing với POSScreen)
       let paidAmount = resolvePaidAmount(totals.payable, activeCart.payment_method, activeCart.tendered_amount || 0);
@@ -548,6 +551,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           const first = await supa.rpc('pos_checkout', {
             ...rpcBase,
             p_vat_percent: activeCart.vat_percent || 0,
+            p_client_ref: clientRef,
           });
           if (first.error && /PGRST202|could not find.*function|schema cache/i.test(first.error.message || '')) {
             const retry = await supa.rpc('pos_checkout', {
@@ -602,7 +606,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           : [];
 
       const newOrder: Order = {
-        id: `ord-${Date.now()}`,
+        id: clientRef,
         server_id: serverOrderId ?? undefined,
         order_code: orderCode,
         customer_id: activeCart.customer_id,
@@ -837,8 +841,11 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             p_shipping_fee: (o.shipping_fee || 0) + (oVatPct > 0 ? 0 : vatResidual),
             p_is_deposit: o.status === 'deposit_order',
             p_customer_id: o.customer_id ? customerMap[o.customer_id] ?? null : null,
+            // P0-idempotency: key ổn định = id đơn local -> retry không sinh trùng đơn
+            p_client_ref: o.id,
           };
           let error: any = null;
+          let replayData: any = null;
           if (oVatPct > 0) {
             const first = await supa.rpc('pos_checkout', {
               ...replayBase,
@@ -846,12 +853,17 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
               p_vat_percent: oVatPct,
             });
             if (first.error && /PGRST202|could not find.*function|schema cache/i.test(first.error.message || '')) {
-              ({ error } = await supa.rpc('pos_checkout', replayBase));
+              const legacy = await supa.rpc('pos_checkout', { ...replayBase, p_client_ref: undefined });
+              error = legacy.error;
+              replayData = legacy.data;
             } else {
               error = first.error;
+              replayData = first.data;
             }
           } else {
-            ({ error } = await supa.rpc('pos_checkout', replayBase));
+            const res = await supa.rpc('pos_checkout', replayBase);
+            error = res.error;
+            replayData = res.data;
           }
           if (error) throw error;
           try {
@@ -860,6 +872,16 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             /* best-effort */
           }
           syncedIds.push(o.id);
+          // Lưu server_id để Hủy/Trả gọi đúng đơn (khỏi lookup theo mã offline cũ)
+          const replayOrderId = (replayData as { order_id?: unknown } | null)?.order_id;
+          if (typeof replayOrderId === 'string' && replayOrderId) {
+            setOrders((prev) =>
+              prev.map((ord) =>
+                ord.id === o.id ? { ...ord, server_id: replayOrderId, is_offline: false } : ord
+              )
+            );
+            await db.orders.update(o.id, { server_id: replayOrderId, is_offline: false }).catch(() => {});
+          }
         } catch (e: any) {
           // P0-3: giữ lại + ghi lý do để khỏi kẹt queue câm (nợ vô chủ / hết kho / mất mạng)
           remaining.push(o); // giữ lại để thử đợt sau
