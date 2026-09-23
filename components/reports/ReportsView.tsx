@@ -809,18 +809,24 @@ export function ReportsView() {
 
         {activeTab === 'vat' && (
           <DataTableShell>
+            {/* Dòng tổng hợp riêng, ngay trên tiêu đề cột */}
             <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex flex-wrap items-center justify-between text-[11px] font-medium text-slate-600 gap-2">
               <span>
-                Tổng doanh thu đơn: <strong className="font-mono text-slate-900 font-bold">{formatVND(vatTotals.revenue)}</strong>
+                Tìm thấy <strong className="text-slate-900 font-mono">{vatMonthly.length}</strong> tháng • Tổng doanh thu:{' '}
+                <strong className="font-mono text-slate-900 font-bold">{formatVND(vatTotals.revenue)}</strong>
               </span>
               <div className="flex items-center gap-4">
                 <span>
                   Sổ quỹ (bán + cọc):{' '}
-                  <strong className="font-mono text-emerald-700 font-bold">{formatVND(vatTotals.booked)}</strong>
+                  <strong className="font-mono text-emerald-700 font-bold">+{formatVND(vatTotals.booked)}</strong>
                 </span>
                 <span>
                   Chênh lệch:{' '}
                   <strong className="font-mono text-amber-700 font-bold">{formatVND(vatTotals.diff)}</strong>
+                </span>
+                <span>
+                  Tổng VAT:{' '}
+                  <strong className="font-mono text-violet-700 font-bold">{formatVND(vatTotals.vat)}</strong>
                 </span>
               </div>
             </div>
@@ -893,19 +899,34 @@ export function ReportsView() {
                   className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
                 />
               </div>
-              <span className="text-[11px] font-medium text-slate-600">
-                Biên BQ:{' '}
-                <strong className="font-mono text-emerald-700 font-bold">
-                  {sortedMargin.length > 0
-                    ? (
-                        (sortedMargin.reduce((s, p) => s + (p.retail_price - p.avg_cost), 0) /
-                          sortedMargin.reduce((s, p) => s + (p.retail_price || 1), 0)) *
-                        100
-                      ).toFixed(1)
-                    : '0.0'}
-                  %
-                </strong>
+            </div>
+
+            {/* Dòng tổng hợp riêng, ngay trên tiêu đề cột */}
+            <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex flex-wrap items-center justify-between text-[11px] font-medium text-slate-600 gap-2">
+              <span>
+                Tìm thấy <strong className="text-slate-900 font-mono">{sortedMargin.length}</strong> mặt hàng
               </span>
+              <div className="flex items-center gap-4">
+                <span>
+                  Tổng chênh lệch:{' '}
+                  <strong className="font-mono text-emerald-700 font-bold">
+                    +{formatVND(sortedMargin.reduce((s, p) => s + (p.retail_price - p.avg_cost), 0))}
+                  </strong>
+                </span>
+                <span>
+                  Biên BQ:{' '}
+                  <strong className="font-mono text-emerald-700 font-bold">
+                    {sortedMargin.length > 0
+                      ? (
+                          (sortedMargin.reduce((s, p) => s + (p.retail_price - p.avg_cost), 0) /
+                            sortedMargin.reduce((s, p) => s + (p.retail_price || 1), 0)) *
+                          100
+                        ).toFixed(1)
+                      : '0.0'}
+                    %
+                  </strong>
+                </span>
+              </div>
             </div>
 
             <div className="flex-1 min-h-0 overflow-auto">
@@ -1006,12 +1027,25 @@ export function ReportsView() {
                   className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
                 />
               </div>
-              <span className="text-[11px] font-medium text-slate-600">
-                {debtSide === 'customer' ? 'Tổng phải thu:' : 'Tổng phải trả:'}{' '}
-                <strong className={`font-mono font-bold ${debtSide === 'customer' ? 'text-rose-600' : 'text-amber-700'}`}>
-                  {formatVND(debtSide === 'customer' ? totalDebtReceivable : totalSupplierDebt)}
-                </strong>
+            </div>
+
+            {/* Dòng tổng hợp riêng, ngay trên tiêu đề cột */}
+            <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex flex-wrap items-center justify-between text-[11px] font-medium text-slate-600 gap-2">
+              <span>
+                Tìm thấy{' '}
+                <strong className="text-slate-900 font-mono">
+                  {debtSide === 'customer' ? sortedDebtors.length : sortedSuppliers.length}
+                </strong>{' '}
+                {debtSide === 'customer' ? 'khách đang nợ' : 'NCC đang nợ'}
               </span>
+              <div className="flex items-center gap-4">
+                <span>
+                  {debtSide === 'customer' ? 'Tổng phải thu:' : 'Tổng phải trả:'}{' '}
+                  <strong className={`font-mono font-bold ${debtSide === 'customer' ? 'text-rose-600' : 'text-amber-700'}`}>
+                    {formatVND(debtSide === 'customer' ? totalDebtReceivable : totalSupplierDebt)}
+                  </strong>
+                </span>
+              </div>
             </div>
 
             {debtSide === 'customer' ? (
