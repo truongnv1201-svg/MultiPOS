@@ -1,0 +1,19 @@
+{
+  "name": "MultiPOS - Bán lẻ & Thi công v2.12",
+  "short_name": "MultiPOS",
+  "description": "POS bán lẻ nhôm kính, đo đạc m², kho và công trình — offline-first",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

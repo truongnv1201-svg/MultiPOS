@@ -1,0 +1,6 @@
+{
+  "name": "MultiPOS - Quản trị Bán hàng & Thi công Đa ngành",
+  "description": "Hệ thống quản lý bán hàng POS đa ngành, đo đạc kích thước m2, quản lý kho vật tư thi công và công nợ chuẩn KiotViet v2.12",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

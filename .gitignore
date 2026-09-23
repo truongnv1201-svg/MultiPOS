@@ -1,0 +1,11 @@
+node_modules/
+.next/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+# P2: artifacts build/test cục bộ — không commit
+*.tsbuildinfo
+test-results/
+playwright-report/
