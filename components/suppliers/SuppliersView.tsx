@@ -11,6 +11,7 @@ import {
   Search,
   Phone,
   Building2,
+  MapPin,
   DollarSign,
   AlertCircle,
   FileText,
@@ -49,6 +50,9 @@ export function SuppliersView() {
   // Sắp xếp 2 bảng: bấm header để đảo chiều
   const { sortKey: supSortKey, sortDir: supSortDir, toggleSort: toggleSupSort } = useSortState();
   const { sortKey: impSortKey, sortDir: impSortDir, toggleSort: toggleImpSort } = useSortState();
+
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(suppliers[0] || null);
+  const liveSelectedSupplier = suppliers.find((s) => s.id === selectedSupplier?.id) || selectedSupplier || suppliers[0] || null;
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -114,6 +118,7 @@ export function SuppliersView() {
     try {
       await deleteSupplier(s.id);
       if (payingSupplier?.id === s.id) setPayingSupplier(null);
+      if (selectedSupplier?.id === s.id) setSelectedSupplier(null);
       notify('Đã xóa nhà cung cấp!', 'success');
     } catch (err: any) {
       notify(`Không xóa được: ${err?.message || 'lỗi không rõ'}`, 'error');
@@ -441,139 +446,212 @@ export function SuppliersView() {
       </div>
 
       {activeTab === 'list' && (
-        <div className="flex-1 p-4 overflow-hidden min-h-0">
-          <DataTableShell>
-            {/* Filter Bar — cùng khối với bảng (chuẩn Đơn hàng / Khách hàng) */}
-            <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
-              <div className="relative flex-1 min-w-[180px]">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={search}
+        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+          {/* Left: Table Section */}
+          <div className="flex-1 flex flex-col min-h-0 p-4 overflow-hidden">
+            <DataTableShell>
+              {/* Filter Bar — cùng khối với bảng (chuẩn Đơn hàng / Khách hàng) */}
+              <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setSupPage(1);
+                    }}
+                    placeholder="Tìm theo Tên NCC, Mã, Số điện thoại..."
+                    className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <select
+                  value={debtFilter}
                   onChange={(e) => {
-                    setSearch(e.target.value);
+                    setDebtFilter(e.target.value as 'all' | 'debt' | 'clean');
                     setSupPage(1);
                   }}
-                  placeholder="Tìm theo Tên NCC, Mã, Số điện thoại..."
-                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-                />
+                  className="h-8 px-2 text-xs bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
+                >
+                  <option value="all">Tất cả công nợ</option>
+                  <option value="debt">Đang còn nợ (&gt; 0)</option>
+                  <option value="clean">Hết nợ (= 0)</option>
+                </select>
               </div>
 
-              <select
-                value={debtFilter}
-                onChange={(e) => {
-                  setDebtFilter(e.target.value as 'all' | 'debt' | 'clean');
-                  setSupPage(1);
-                }}
-                className="h-8 px-2 text-xs bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
-              >
-                <option value="all">Tất cả công nợ</option>
-                <option value="debt">Đang còn nợ (&gt; 0)</option>
-                <option value="clean">Hết nợ (= 0)</option>
-              </select>
-            </div>
+              {/* Metric strip */}
+              <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+                <span>
+                  Tìm thấy <strong className="text-slate-900 font-mono">{filteredSuppliers.length}</strong> nhà cung cấp
+                </span>
+                <span>
+                  Tổng nợ nhóm này:{' '}
+                  <strong className="font-mono text-rose-600 font-bold">{formatVND(totalFilteredDebt)}</strong>
+                </span>
+              </div>
 
-            {/* Metric strip */}
-            <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
-              <span>
-                Tìm thấy <strong className="text-slate-900 font-mono">{filteredSuppliers.length}</strong> nhà cung cấp
-              </span>
-              <span>
-                Tổng nợ nhóm này:{' '}
-                <strong className="font-mono text-rose-600 font-bold">{formatVND(totalFilteredDebt)}</strong>
-              </span>
-            </div>
-
-            {/* Suppliers Table */}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                    <SortableTh className="py-2.5 px-3" label="Mã NCC" sortKey="code" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
-                    <SortableTh className="py-2.5 px-3" label="Tên Nhà Cung Cấp" sortKey="name" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
-                    <SortableTh className="py-2.5 px-3" label="Số Điện Thoại" sortKey="phone" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
-                    <SortableTh className="py-2.5 px-3" label="Địa Chỉ" sortKey="address" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
-                    <SortableTh className="py-2.5 px-3" label="Mã Số Thuế" sortKey="tax_code" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Dư Nợ Phải Trả" sortKey="current_debt" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
-                    <th className="py-2.5 px-3 text-center">Thao Tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {paginatedSuppliers.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400">
-                        Không tìm thấy nhà cung cấp nào phù hợp với bộ lọc.
-                      </td>
+              {/* Suppliers Table */}
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
+                      <SortableTh className="py-2.5 px-3" label="Mã NCC" sortKey="code" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
+                      <SortableTh className="py-2.5 px-3" label="Tên Nhà Cung Cấp" sortKey="name" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
+                      <SortableTh className="py-2.5 px-3" label="Số Điện Thoại" sortKey="phone" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
+                      <SortableTh className="py-2.5 px-3" label="Địa Chỉ" sortKey="address" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
+                      <SortableTh className="py-2.5 px-3" label="Mã Số Thuế" sortKey="tax_code" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
+                      <SortableTh className="py-2.5 px-3 text-right" label="Dư Nợ Phải Trả" sortKey="current_debt" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
+                      <th className="py-2.5 px-3 text-center">Thao Tác</th>
                     </tr>
-                  ) : (
-                    paginatedSuppliers.map((sup) => (
-                      <tr key={sup.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{sup.code}</td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-800">{sup.name}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-600">{sup.phone || '-'}</td>
-                        <td className="py-2.5 px-3 text-slate-600 truncate max-w-[200px]">
-                          {sup.address || '-'}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-slate-500">{sup.tax_code || '-'}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold">
-                          {sup.current_debt > 0 ? (
-                            <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
-                              {formatVND(sup.current_debt)}
-                            </span>
-                          ) : (
-                            <span className="text-slate-700">0 đ</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                          {sup.current_debt > 0 ? (
-                            <button
-                              onClick={() => {
-                                setPayingSupplier(sup);
-                                setPayAmount(sup.current_debt);
-                              }}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded text-[10px] font-bold transition-colors"
-                              title="Tạo phiếu chi trả nợ NCC"
-                            >
-                              Trả nợ
-                            </button>
-                          ) : (
-                            <span className="text-[11px] text-slate-400">Đã thanh toán</span>
-                          )}
-                          <button
-                            onClick={() => openEditSupplier(sup)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="Sửa thông tin nhà cung cấp"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSupplier(sup)}
-                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors"
-                            title="Xóa nhà cung cấp"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedSuppliers.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-slate-400">
+                          Không tìm thấy nhà cung cấp nào phù hợp với bộ lọc.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      paginatedSuppliers.map((sup) => (
+                        <tr
+                          key={sup.id}
+                          onClick={() => setSelectedSupplier(sup)}
+                          className={`cursor-pointer transition-colors ${
+                            liveSelectedSupplier?.id === sup.id ? 'bg-blue-50/80 font-medium' : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{sup.code}</td>
+                          <td className="py-2.5 px-3 font-semibold text-slate-800">{sup.name}</td>
+                          <td className="py-2.5 px-3 font-mono text-slate-600">{sup.phone || '-'}</td>
+                          <td className="py-2.5 px-3 text-slate-600 truncate max-w-[200px]">
+                            {sup.address || '-'}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-500">{sup.tax_code || '-'}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold">
+                            {sup.current_debt > 0 ? (
+                              <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
+                                {formatVND(sup.current_debt)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-700">0 đ</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <div className="flex min-h-7 items-center justify-center gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditSupplier(sup);
+                                }}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded text-blue-600 transition-colors hover:bg-blue-50"
+                                title="Sửa thông tin nhà cung cấp"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSupplier(sup);
+                                }}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded text-rose-600 transition-colors hover:bg-rose-50"
+                                title="Xóa nhà cung cấp"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-            {/* Pagination */}
-            <PaginationBar
-              currentPage={supPage}
-              totalItems={filteredSuppliers.length}
-              pageSize={supPageSize}
-              onPageChange={setSupPage}
-              onPageSizeChange={(s) => {
-                setSupPageSize(s);
-                setSupPage(1);
-              }}
-              itemName="nhà cung cấp"
-            />
-          </DataTableShell>
+              {/* Pagination */}
+              <PaginationBar
+                currentPage={supPage}
+                totalItems={filteredSuppliers.length}
+                pageSize={supPageSize}
+                onPageChange={setSupPage}
+                onPageSizeChange={(s) => {
+                  setSupPageSize(s);
+                  setSupPage(1);
+                }}
+                itemName="nhà cung cấp"
+              />
+            </DataTableShell>
+          </div>
+
+          {/* Right: Selected Supplier Card */}
+          {liveSelectedSupplier ? (
+            <div className="w-full md:w-96 bg-slate-100 flex flex-col min-h-0 p-4 pl-0">
+              <div className="flex-1 min-h-0 bg-white border border-slate-200 rounded-xl shadow-2xs p-3 flex flex-col overflow-y-auto">
+                <div className="space-y-4 text-xs">
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <span className="font-mono text-[10px] font-bold text-blue-700">
+                        {liveSelectedSupplier.code}
+                      </span>
+                      {liveSelectedSupplier.tax_code && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 font-mono">
+                          MST: {liveSelectedSupplier.tax_code}
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="font-bold text-sm text-slate-900">{liveSelectedSupplier.name}</h3>
+
+                    <div className="space-y-1 text-slate-600">
+                      <div className="flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{liveSelectedSupplier.phone || 'Chưa cập nhật SĐT'}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{liveSelectedSupplier.address || 'Chưa cập nhật địa chỉ'}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg space-y-1">
+                      <div className="text-[11px] text-rose-700 font-medium">NỢ PHẢI TRẢ HIỆN TẠI:</div>
+                      <div className="text-xl font-extrabold text-rose-600 font-mono">
+                        {formatVND(liveSelectedSupplier.current_debt)}
+                      </div>
+                      {liveSelectedSupplier.credit_limit !== undefined && liveSelectedSupplier.credit_limit > 0 && (
+                        <div className="text-[10px] text-slate-500">
+                          Hạn mức công nợ: {formatVND(liveSelectedSupplier.credit_limit)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Debt payment quick trigger */}
+                  {liveSelectedSupplier.current_debt > 0 ? (
+                    <button
+                      onClick={() => {
+                        setPayingSupplier(liveSelectedSupplier);
+                        setPayAmount(liveSelectedSupplier.current_debt);
+                      }}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <DollarSign className="w-4 h-4" />
+                      <span>Lập Phiếu Trả Nợ Nhà Cung Cấp (PC)</span>
+                    </button>
+                  ) : (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-center font-medium flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Nhà cung cấp không còn dư nợ!</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="w-96 m-4 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 text-xs">
+              Chọn nhà cung cấp để xem chi tiết
+            </div>
+          )}
         </div>
       )}
 
