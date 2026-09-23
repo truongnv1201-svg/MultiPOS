@@ -263,21 +263,27 @@ export function SuppliersView() {
     e.preventDefault();
     if (!name.trim()) return;
 
-    await addSupplier({
-      name: name.trim(),
-      phone: phone.trim(),
-      address: address.trim(),
-      tax_code: taxCode.trim() || undefined,
-      current_debt: initialDebt,
-      credit_limit: 100000000,
-    });
+    try {
+      const created = await addSupplier({
+        name: name.trim(),
+        phone: phone.trim(),
+        address: address.trim() || undefined,
+        tax_code: taxCode.trim() || undefined,
+        current_debt: initialDebt || 0,
+        credit_limit: 100000000,
+      });
 
-    setIsAddModalOpen(false);
-    setName('');
-    setPhone('');
-    setAddress('');
-    setTaxCode('');
-    setInitialDebt(0);
+      setSelectedSupplier(created);
+      setIsAddModalOpen(false);
+      setName('');
+      setPhone('');
+      setAddress('');
+      setTaxCode('');
+      setInitialDebt(0);
+      notify(`Đã thêm nhà cung cấp "${created.name}" thành công!`, 'success');
+    } catch (err: any) {
+      notify(`Không thể thêm nhà cung cấp: ${err?.message || 'lỗi không rõ'}`, 'error');
+    }
   };
 
   const handleExecutePayment = async (e: React.FormEvent) => {

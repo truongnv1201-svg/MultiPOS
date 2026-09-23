@@ -539,7 +539,12 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
 
   const addSupplier = useCallback(
     async (data: Omit<Supplier, 'id' | 'code'>): Promise<Supplier> => {
-      const code = generateMasterCode('NCC', suppliers.length + 1);
+      let codeNum = suppliers.length + 1;
+      let code = `NCC${String(codeNum).padStart(4, '0')}`;
+      while (suppliers.some((s) => s.code === code)) {
+        codeNum++;
+        code = `NCC${String(codeNum).padStart(4, '0')}`;
+      }
       const localSup: Supplier = {
         ...data,
         id: `sup-${Date.now()}`,
@@ -573,7 +578,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       await db.suppliers.add(newSup);
       return newSup;
     },
-    [suppliers.length, supa, user, isOnline, queueMasterData]
+    [suppliers, supa, user, isOnline, queueMasterData]
   );
 
   const updateSupplier = useCallback(async (id: string, updates: Partial<Supplier>) => {
