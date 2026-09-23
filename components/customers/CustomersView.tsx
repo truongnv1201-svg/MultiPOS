@@ -471,17 +471,6 @@ export function CustomersView() {
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           <div className="flex min-h-7 items-center justify-center gap-1">
-                          {c.current_debt > 0 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenCollectModal(c);
-                              }}
-                              className="inline-flex h-7 min-w-[3.4rem] items-center justify-center rounded border border-emerald-300 bg-emerald-50 px-2.5 text-[10px] font-bold leading-none text-emerald-700 transition-colors hover:bg-emerald-100"
-                            >
-                              Thu nợ
-                            </button>
-                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
