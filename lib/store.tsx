@@ -127,6 +127,8 @@ interface StoreContextType {
   lastSyncError: string | null;
   isSyncing: boolean;
   refreshNow: () => Promise<boolean>;
+  // Realtime đa máy (0049): true khi channel 'multipos-live' đã SUBSCRIBED
+  realtimeLive: boolean;
   // Thương mại: cấu hình cửa hàng, VietQR, giá mài, làm tròn
   shop: ShopSettings;
   updateShop: (patch: Partial<ShopSettings>) => void;
@@ -278,6 +280,10 @@ interface StoreContextType {
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
+
+// Realtime đa máy (0049): gom event thay đổi rồi refresh 1 lần để đợt checkout
+// dồn dập (N dòng items + receipt + trừ kho) không spam server.
+const REALTIME_DEBOUNCE_MS = 800;
 
 // P3-phần 2: StoreInner giữ toàn bộ state nghiệp vụ còn lại; Auth + Commerce sống ở
 // providers riêng (./store/auth, ./store/commerce) và được consume ở đây. API useStore()
@@ -480,6 +486,63 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     }
   }, [isOnline, supabaseReady, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshCatalog]);
 
+  // Realtime đa máy (0049): 1 channel 'multipos-live' nghe 10 bảng publication,
+  // event nào cũng chỉ xếp hàng rồi debounce gọi lại đúng hàm refresh tương ứng
+  // (tái dùng merge server-wins đã kiểm chứng). Poll 15s + focus giữ nguyên
+  // làm lưới an toàn khi socket rớt.
+  const [realtimeLive, setRealtimeLive] = useState(false);
+  useEffect(() => {
+    if (!isOnline || !supabaseReady || !supa || !user) {
+      // Idiom chung của repo: microtask để tránh set-state-in-effect sync
+      Promise.resolve().then(() => setRealtimeLive(false));
+      return;
+    }
+    const TABLE_REFRESH: Record<string, (() => Promise<boolean>)[]> = {
+      orders: [refreshServerOrders, refreshServerCashbook],
+      order_items: [refreshServerOrders],
+      cashbook_entries: [refreshServerCashbook],
+      products: [refreshCatalog],
+      customers: [refreshCatalog],
+      suppliers: [refreshCatalog],
+      combo_items: [refreshCatalog],
+      stock_movements: [refreshServerStockMovements],
+      purchase_orders: [refreshCatalog, refreshServerCashbook],
+      shifts: [refreshShiftFromServer],
+    };
+    const queued = new Set<() => Promise<boolean>>();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = async () => {
+      timer = null;
+      const fns = [...queued];
+      queued.clear();
+      if (fns.length === 0) return;
+      const rs = await Promise.allSettled(fns.map((f) => f()));
+      if (rs.every((r) => r.status === 'fulfilled' && r.value === true)) {
+        setLastSyncAt(Date.now());
+        setLastSyncError(null);
+      }
+    };
+    const schedule = (table: string) => {
+      (TABLE_REFRESH[table] || []).forEach((f) => queued.add(f));
+      if (timer !== null) return;
+      timer = setTimeout(() => {
+        flush().catch(() => {});
+      }, REALTIME_DEBOUNCE_MS);
+    };
+    const channel = supa.channel('multipos-live');
+    for (const table of Object.keys(TABLE_REFRESH)) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => schedule(table));
+    }
+    channel.subscribe((status) => {
+      setRealtimeLive(status === 'SUBSCRIBED');
+    });
+    return () => {
+      if (timer !== null) clearTimeout(timer);
+      setRealtimeLive(false);
+      supa.removeChannel(channel).catch(() => {});
+    };
+  }, [isOnline, supabaseReady, supa, user, refreshServerOrders, refreshServerCashbook, refreshServerStockMovements, refreshCatalog, refreshShiftFromServer]);
+
 
 
   // Initialize DB on mount
@@ -668,6 +731,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     lastSyncError,
     isSyncing,
     refreshNow,
+    realtimeLive,
     catalogSource,
     supabaseReady,
     refreshCatalog,

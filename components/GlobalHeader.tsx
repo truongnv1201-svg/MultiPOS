@@ -33,6 +33,7 @@ export function GlobalHeader() {
     lastSyncAt,
     lastSyncError,
     refreshNow,
+    realtimeLive,
     currentScreen,
     setCurrentScreen,
     setShiftModalOpen,
@@ -300,15 +301,17 @@ export function GlobalHeader() {
                 ? 'bg-rose-950/80 border-rose-700 text-rose-300 hover:bg-rose-900'
                 : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
           } ${isSyncing ? 'cursor-wait' : ''}`}
-          title={
-            !isOnline
-              ? 'Đang Offline — số liệu là cache của máy này'
-              : lastSyncError
-                ? `Đồng bộ lỗi: ${lastSyncError}`
-                : lastSyncAt
-                  ? `Đồng bộ lần cuối: ${new Date(lastSyncAt).toLocaleString('vi-VN')} — bấm để kéo mới`
-                  : 'Bấm để kéo số liệu mới nhất từ server'
-          }
+            title={
+              !isOnline
+                ? 'Đang Offline — số liệu là cache của máy này'
+                : realtimeLive
+                  ? `Đang trực tiếp (realtime)${lastSyncAt ? ` — đồng bộ lần cuối: ${new Date(lastSyncAt).toLocaleString('vi-VN')}` : ''} — bấm để kéo mới`
+                  : lastSyncError
+                    ? `Đồng bộ lỗi: ${lastSyncError}`
+                    : lastSyncAt
+                      ? `Đồng bộ lần cuối: ${new Date(lastSyncAt).toLocaleString('vi-VN')} (poll 15s) — bấm để kéo mới`
+                      : 'Bấm để kéo số liệu mới nhất từ server'
+            }
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-300' : !isOnline ? 'text-slate-500' : lastSyncError ? 'text-rose-300' : 'text-slate-300'}`} />
           {lastSyncAt !== null && isOnline && !lastSyncError && (
@@ -327,10 +330,10 @@ export function GlobalHeader() {
                 ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 hover:bg-emerald-900'
                 : 'bg-rose-950/90 text-rose-300 border border-rose-700 animate-pulse'
             }`}
-            title={isOnline ? 'Đang Online — trạng thái tự động theo kết nối mạng' : 'Đang Offline — trạng thái tự động theo kết nối mạng'}
+            title={isOnline ? (realtimeLive ? 'Đang Online — đồng bộ trực tiếp đa máy (realtime)' : 'Đang Online — đồng bộ theo nhịp 15s (realtime chưa nối)') : 'Đang Offline — trạng thái tự động theo kết nối mạng'}
           >
             {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
+            <span className="hidden sm:inline">{isOnline ? (realtimeLive ? 'Trực tiếp' : 'Online') : 'Offline'}</span>
           </div>
         </div>
 
