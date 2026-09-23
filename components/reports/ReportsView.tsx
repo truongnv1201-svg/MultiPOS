@@ -14,6 +14,8 @@ import {
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { TableTools } from '@/components/common/TableTools';
 import { DataTableShell } from '@/components/common/DataTableShell';
+import { PaginationBar } from '@/components/common/PaginationBar';
+import { Search } from 'lucide-react';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { sortRows } from '@/lib/sort';
 import type { Product, Customer } from '@/lib/types';
@@ -46,13 +48,34 @@ function inTimeRange(iso: string, range: TimeRange, now = new Date()): boolean {
 export function ReportsView() {
   const { orders, products, customers, cashbook } = useStore();
   const [timeRange, setTimeRange] = useState<TimeRange>('today');
-  // Sắp xếp 2 bảng mini: bấm header để đảo chiều (mặc định giữ nguyên thứ tự cũ)
-  const { sortKey: marginSortKey, sortDir: marginSortDir, toggleSort: toggleMarginSort } = useSortState();
-  const { sortKey: debtSortKey, sortDir: debtSortDir, toggleSort: toggleDebtSort } = useSortState('current_debt', 'desc');
+  // Sắp xếp 2 bảng mini: bấm header để đảo chiều (mặc định giữ nguyên thứ tự cũ).
+  // Mỗi bảng có tìm kiếm + phân trang riêng để không vỡ layout khi dữ liệu lớn.
+  const { sortKey: marginSortKey, sortDir: marginSortDir, toggleSort: toggleMarginSortRaw } = useSortState();
+  const { sortKey: debtSortKey, sortDir: debtSortDir, toggleSort: toggleDebtSortRaw } = useSortState('current_debt', 'desc');
+  const [marginSearch, setMarginSearch] = useState('');
+  const [marginPage, setMarginPage] = useState(1);
+  const [marginPageSize, setMarginPageSize] = useState(8);
+  const [debtSearch, setDebtSearch] = useState('');
+  const [debtPage, setDebtPage] = useState(1);
+  const [debtPageSize, setDebtPageSize] = useState(8);
 
-  const marginRows = useMemo(() => {
-    const base = products.slice(0, 6);
-    if (!marginSortKey) return base;
+  const handleMarginSort = (key: string) => {
+    toggleMarginSortRaw(key);
+    setMarginPage(1);
+  };
+  const handleDebtSort = (key: string) => {
+    toggleDebtSortRaw(key);
+    setDebtPage(1);
+  };
+
+  const marginFiltered = useMemo(() => {
+    const q = marginSearch.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => p.name.toLowerCase().includes(q));
+  }, [products, marginSearch]);
+
+  const sortedMargin = useMemo(() => {
+    if (!marginSortKey) return marginFiltered;
     const getters: Record<string, (p: Product) => unknown> = {
       name: (p) => p.name,
       retail_price: (p) => p.retail_price,
@@ -61,13 +84,29 @@ export function ReportsView() {
       margin_pct: (p) => (p.retail_price > 0 ? ((p.retail_price - p.avg_cost) / p.retail_price) * 100 : 0),
     };
     const get = getters[marginSortKey];
-    if (!get) return base;
-    return sortRows(base, get, marginSortDir);
-  }, [products, marginSortKey, marginSortDir]);
+    if (!get) return marginFiltered;
+    return sortRows(marginFiltered, get, marginSortDir);
+  }, [marginFiltered, marginSortKey, marginSortDir]);
 
-  const debtorRows = useMemo(() => {
+  // Kẹp trang khi dữ liệu co lại (lọc/tìm kiếm) để không ra trang trắng
+  const marginTotalPages = Math.max(1, Math.ceil(sortedMargin.length / marginPageSize));
+  const safeMarginPage = Math.min(Math.max(1, marginPage), marginTotalPages);
+  const marginRows = useMemo(() => {
+    const start = (safeMarginPage - 1) * marginPageSize;
+    return sortedMargin.slice(start, start + marginPageSize);
+  }, [sortedMargin, safeMarginPage, marginPageSize]);
+
+  const debtFiltered = useMemo(() => {
     const base = customers.filter((c) => c.current_debt > 0);
-    if (!debtSortKey) return base;
+    const q = debtSearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter(
+      (c) => c.name.toLowerCase().includes(q) || (c.phone || '').includes(q),
+    );
+  }, [customers, debtSearch]);
+
+  const sortedDebtors = useMemo(() => {
+    if (!debtSortKey) return debtFiltered;
     const getters: Record<string, (c: Customer) => unknown> = {
       name: (c) => c.name,
       phone: (c) => c.phone,
@@ -76,9 +115,16 @@ export function ReportsView() {
       debt_rate: (c) => (c.debt_limit > 0 ? (c.current_debt / c.debt_limit) * 100 : 0),
     };
     const get = getters[debtSortKey];
-    if (!get) return base;
-    return sortRows(base, get, debtSortDir);
-  }, [customers, debtSortKey, debtSortDir]);
+    if (!get) return debtFiltered;
+    return sortRows(debtFiltered, get, debtSortDir);
+  }, [debtFiltered, debtSortKey, debtSortDir]);
+
+  const debtTotalPages = Math.max(1, Math.ceil(sortedDebtors.length / debtPageSize));
+  const safeDebtPage = Math.min(Math.max(1, debtPage), debtTotalPages);
+  const debtorRows = useMemo(() => {
+    const start = (safeDebtPage - 1) * debtPageSize;
+    return sortedDebtors.slice(start, start + debtPageSize);
+  }, [sortedDebtors, safeDebtPage, debtPageSize]);
 
   // ---- KPI theo kỳ Hôm nay / Tuần này / Tháng này ----
   const rangedOrders = useMemo(() => {
@@ -191,7 +237,7 @@ export function ReportsView() {
       },
       {
         name: 'BienLoi',
-        rows: marginRows.map((p) => ({
+        rows: sortedMargin.map((p) => ({
           'Sản phẩm': p.name,
           'Giá bán': p.retail_price,
           'Giá vốn': Math.round(p.avg_cost),
@@ -201,7 +247,7 @@ export function ReportsView() {
       },
       {
         name: 'CongNo',
-        rows: debtorRows.map((c) => ({
+        rows: sortedDebtors.map((c) => ({
           'Khách hàng': c.name,
           'SĐT': c.phone,
           'Đang nợ': c.current_debt,
@@ -239,7 +285,7 @@ export function ReportsView() {
         { header: 'Đang nợ', align: 'right' },
         { header: 'Hạn mức', align: 'right' },
       ],
-      rows: debtorRows.slice(0, 1000).map((c) => [c.name, c.phone, c.current_debt.toLocaleString('vi-VN'), c.debt_limit.toLocaleString('vi-VN')]),
+      rows: sortedDebtors.slice(0, 1000).map((c) => [c.name, c.phone, c.current_debt.toLocaleString('vi-VN'), c.debt_limit.toLocaleString('vi-VN')]),
       footer: ['Tổng', '', totalDebtReceivable.toLocaleString('vi-VN'), ''],
     });
   };
@@ -435,8 +481,24 @@ export function ReportsView() {
                 <span>Hiệu Quả Kinh Doanh Từng Mặt Hàng (Giá Bán vs Giá Vốn MAC)</span>
               </h3>
               <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
-                {marginRows.length} mặt hàng
+                {sortedMargin.length} mặt hàng
               </span>
+            </div>
+
+            <div className="p-2.5 bg-slate-50 border-b border-slate-200">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={marginSearch}
+                  onChange={(e) => {
+                    setMarginSearch(e.target.value);
+                    setMarginPage(1);
+                  }}
+                  placeholder="Tìm mặt hàng theo tên..."
+                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
             </div>
 
             <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
@@ -444,10 +506,10 @@ export function ReportsView() {
               <span>
                 Biên BQ:{' '}
                 <strong className="font-mono text-emerald-700 font-bold">
-                  {marginRows.length > 0
+                  {sortedMargin.length > 0
                     ? (
-                        (marginRows.reduce((s, p) => s + (p.retail_price - p.avg_cost), 0) /
-                          marginRows.reduce((s, p) => s + (p.retail_price || 1), 0)) *
+                        (sortedMargin.reduce((s, p) => s + (p.retail_price - p.avg_cost), 0) /
+                          sortedMargin.reduce((s, p) => s + (p.retail_price || 1), 0)) *
                         100
                       ).toFixed(1)
                     : '0.0'}
@@ -456,20 +518,20 @@ export function ReportsView() {
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[360px]">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                    <SortableTh className="py-2.5 px-3" label="Tên sản phẩm" sortKey="name" activeKey={marginSortKey} dir={marginSortDir} onSort={toggleMarginSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Giá bán" sortKey="retail_price" activeKey={marginSortKey} dir={marginSortDir} onSort={toggleMarginSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Vốn MAC" sortKey="avg_cost" activeKey={marginSortKey} dir={marginSortDir} onSort={toggleMarginSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Chênh lệch" sortKey="margin" activeKey={marginSortKey} dir={marginSortDir} onSort={toggleMarginSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Tỷ suất lãi" sortKey="margin_pct" activeKey={marginSortKey} dir={marginSortDir} onSort={toggleMarginSort} />
+                    <SortableTh className="py-2.5 px-3" label="Tên sản phẩm" sortKey="name" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="Giá bán" sortKey="retail_price" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="Vốn MAC" sortKey="avg_cost" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="Chênh lệch" sortKey="margin" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="Tỷ suất lãi" sortKey="margin_pct" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {marginRows.length === 0 ? (
-                    <tr><td colSpan={5} className="py-12 text-center text-slate-400">Chưa có mặt hàng nào.</td></tr>
+                    <tr><td colSpan={5} className="py-12 text-center text-slate-400">Không tìm thấy mặt hàng nào phù hợp.</td></tr>
                   ) : (
                     marginRows.map((p) => {
                       const margin = p.retail_price - p.avg_cost;
@@ -498,6 +560,19 @@ export function ReportsView() {
                 </tbody>
               </table>
             </div>
+
+            <PaginationBar
+              currentPage={safeMarginPage}
+              totalItems={sortedMargin.length}
+              pageSize={marginPageSize}
+              onPageChange={setMarginPage}
+              onPageSizeChange={(s) => {
+                setMarginPageSize(s);
+                setMarginPage(1);
+              }}
+              pageSizeOptions={[8, 15, 25, 50]}
+              itemName="mặt hàng"
+            />
           </DataTableShell>
 
           {/* Debt Aging & Customers */}
@@ -508,8 +583,24 @@ export function ReportsView() {
                 <span>Khách Hàng Có Dư Nợ Lớn Nhất</span>
               </h3>
               <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
-                {debtorRows.length} khách đang nợ
+                {sortedDebtors.length} khách đang nợ
               </span>
+            </div>
+
+            <div className="p-2.5 bg-slate-50 border-b border-slate-200">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={debtSearch}
+                  onChange={(e) => {
+                    setDebtSearch(e.target.value);
+                    setDebtPage(1);
+                  }}
+                  placeholder="Tìm khách nợ theo tên, SĐT..."
+                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
             </div>
 
             <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
@@ -520,20 +611,20 @@ export function ReportsView() {
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[360px]">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                    <SortableTh className="py-2.5 px-3" label="Tên khách" sortKey="name" activeKey={debtSortKey} dir={debtSortDir} onSort={toggleDebtSort} />
-                    <SortableTh className="py-2.5 px-3" label="SĐT" sortKey="phone" activeKey={debtSortKey} dir={debtSortDir} onSort={toggleDebtSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Dư nợ hiện hữu" sortKey="current_debt" activeKey={debtSortKey} dir={debtSortDir} onSort={toggleDebtSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Hạn mức" sortKey="debt_limit" activeKey={debtSortKey} dir={debtSortDir} onSort={toggleDebtSort} />
-                    <SortableTh className="py-2.5 px-3 text-center" label="Tỷ lệ nợ" sortKey="debt_rate" activeKey={debtSortKey} dir={debtSortDir} onSort={toggleDebtSort} />
+                    <SortableTh className="py-2.5 px-3" label="Tên khách" sortKey="name" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
+                    <SortableTh className="py-2.5 px-3" label="SĐT" sortKey="phone" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="Dư nợ hiện hữu" sortKey="current_debt" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="Hạn mức" sortKey="debt_limit" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
+                    <SortableTh className="py-2.5 px-3 text-center" label="Tỷ lệ nợ" sortKey="debt_rate" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {debtorRows.length === 0 ? (
-                    <tr><td colSpan={5} className="py-12 text-center text-slate-400">Không có khách hàng nào đang nợ.</td></tr>
+                    <tr><td colSpan={5} className="py-12 text-center text-slate-400">Không tìm thấy khách hàng nào phù hợp.</td></tr>
                   ) : (
                     debtorRows.map((c) => {
                       const debtRate = c.debt_limit > 0 ? (c.current_debt / c.debt_limit) * 100 : 0;
@@ -568,6 +659,19 @@ export function ReportsView() {
                 </tbody>
               </table>
             </div>
+
+            <PaginationBar
+              currentPage={safeDebtPage}
+              totalItems={sortedDebtors.length}
+              pageSize={debtPageSize}
+              onPageChange={setDebtPage}
+              onPageSizeChange={(s) => {
+                setDebtPageSize(s);
+                setDebtPage(1);
+              }}
+              pageSizeOptions={[8, 15, 25, 50]}
+              itemName="khách hàng"
+            />
           </DataTableShell>
         </div>
       </div>
