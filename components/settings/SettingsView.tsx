@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useStore } from '@/lib/store';
+import { createLocalBackup, downloadLocalBackup, parseLocalBackup, restoreLocalBackup } from '@/lib/backup';
 import { VIETQR_BANKS, isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
 import { PRINT_TEMPLATES } from '@/lib/store';
 import type { PrintTemplate, PrinterWidth } from '@/lib/store';
@@ -20,6 +21,8 @@ import {
   Copy,
   Type,
   Zap,
+  Download,
+  Upload,
 } from 'lucide-react';
 
 export function SettingsView() {
@@ -48,6 +51,8 @@ export function SettingsView() {
   const [shopMsg, setShopMsg] = useState<string | null>(null);
   const [posMsg, setPosMsg] = useState<string | null>(null);
   const [vietqrMsg, setVietqrMsg] = useState<string | null>(null);
+  const [backupMsg, setBackupMsg] = useState<string | null>(null);
+  const backupInputRef = useRef<HTMLInputElement>(null);
 
   const handleSaveShop = async () => {
     const error = await saveShopSettings();
@@ -90,6 +95,29 @@ export function SettingsView() {
     );
   };
 
+  const handleBackup = async () => {
+    try {
+      downloadLocalBackup(await createLocalBackup());
+      setBackupMsg('Đã tải tệp sao lưu dữ liệu trên máy này.');
+    } catch (error) {
+      setBackupMsg(`Không thể sao lưu: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleRestore = async (file: File) => {
+    try {
+      const backup = parseLocalBackup(JSON.parse(await file.text()));
+      if (!window.confirm('Khôi phục sẽ thay thế dữ liệu local hiện tại trên máy này. Tiếp tục?')) return;
+      await restoreLocalBackup(backup);
+      setBackupMsg('Đã khôi phục. Trang sẽ tải lại để dùng dữ liệu vừa khôi phục.');
+      window.setTimeout(() => window.location.reload(), 500);
+    } catch (error) {
+      setBackupMsg(`Không thể khôi phục: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      if (backupInputRef.current) backupInputRef.current.value = '';
+    }
+  };
+
   const handleSaveRounding = async () => {
     const err = await updateCashRounding(parseInt(roundingDraft, 10));
     setRoundingMsg(err ? `Lỗi: ${err}` : 'Đã lưu mệnh giá làm tròn.');
@@ -123,6 +151,36 @@ export function SettingsView() {
 
       {/* Main content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Sao lưu local */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
+        <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+          <Download className="w-4 h-4 text-emerald-600" />
+          <span>Sao lưu dữ liệu trên máy</span>
+        </h3>
+        <p className="text-[11px] text-slate-500">
+          Sao lưu bao gồm dữ liệu offline và hàng đợi chưa đồng bộ của máy này. Dữ liệu trên máy chủ không bị thay đổi.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={handleBackup} className="px-3 h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold flex items-center gap-1.5">
+            <Download className="w-3.5 h-3.5" /> Tải bản sao lưu
+          </button>
+          <button onClick={() => backupInputRef.current?.click()} className="px-3 h-8 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md font-bold flex items-center gap-1.5">
+            <Upload className="w-3.5 h-3.5" /> Khôi phục từ tệp
+          </button>
+          <input
+            ref={backupInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void handleRestore(file);
+            }}
+          />
+        </div>
+        {backupMsg && <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{backupMsg}</p>}
+      </div>
+
         {/* 1. Store info (mở rộng) */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-4 text-xs">
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">

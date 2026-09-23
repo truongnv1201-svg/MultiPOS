@@ -95,6 +95,8 @@ export interface Order {
   created_at: string;
   cashier_name: string;
   is_offline?: boolean;
+  sync_attempts?: number;
+  sync_last_error?: string;
 }
 
 export interface Customer {

@@ -256,7 +256,7 @@ export function GlobalHeader() {
               id="pending-queue-badge"
               onClick={() => syncPendingOrders()}
               className="min-w-6 px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-slate-900 rounded-full hover:bg-amber-400 text-center transition-colors"
-              title={`${pendingQueue.length} đơn hàng chưa đồng bộ (Click để sync)`}
+              title={`${pendingQueue.length} đơn hàng chưa đồng bộ${pendingQueue.some((order) => order.sync_last_error) ? ' — có đơn lỗi, xem thông báo sau khi đồng bộ' : ''} (Click để sync)`}
             >
               {pendingQueue.length}
             </button>

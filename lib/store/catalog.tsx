@@ -220,13 +220,27 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const refreshCatalog = useCallback(async (): Promise<boolean> => {
     if (!supa) return false;
     try {
-      const [productsResult, customersResult, suppliersResult] = await Promise.all([
+      const [productsResult, customersResult, suppliersResult, comboResult] = await Promise.all([
         supa.from('products').select('*').order('sku'),
         supa.from('customers').select('*').order('code'),
         supa.from('suppliers').select('*').order('code'),
+        supa.from('combo_items').select('combo_product_id,child_product_id,child_sku,quantity'),
       ]);
       const { data, error } = productsResult;
-      if (error || !data || customersResult.error || suppliersResult.error) return false;
+      if (error || !data || customersResult.error || suppliersResult.error || comboResult.error) return false;
+      const comboItemsByProduct = new Map<string, { product_id: string; sku: string; name: string; quantity: number }[]>();
+      for (const row of (comboResult.data || []) as any[]) {
+        const child = (data as any[]).find((product) => product.id === row.child_product_id);
+        if (!child) continue;
+        const items = comboItemsByProduct.get(row.combo_product_id) || [];
+        items.push({
+          product_id: row.child_product_id,
+          sku: row.child_sku || child.sku,
+          name: child.name,
+          quantity: Number(row.quantity) || 0,
+        });
+        comboItemsByProduct.set(row.combo_product_id, items);
+      }
       const mapped: Product[] = (data as any[]).map((row) => ({
         id: row.id,
         sku: row.sku,
@@ -243,6 +257,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         min_stock: row.min_stock != null ? Number(row.min_stock) : undefined,
         waste_factor: row.waste_factor != null ? Number(row.waste_factor) : undefined,
         default_grinding_price: row.default_grinding_price != null ? Number(row.default_grinding_price) : undefined,
+        combo_items: comboItemsByProduct.get(row.id),
       }));
       setProducts(mapped);
       const mappedCustomers: Customer[] = (customersResult.data as any[]).map((row) => ({

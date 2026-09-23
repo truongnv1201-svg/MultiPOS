@@ -959,10 +959,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           if (typeof replayOrderId === 'string' && replayOrderId) {
             setOrders((prev) =>
               prev.map((ord) =>
-                ord.id === o.id ? { ...ord, server_id: replayOrderId, is_offline: false } : ord
+                ord.id === o.id
+                  ? { ...ord, server_id: replayOrderId, is_offline: false, sync_attempts: 0, sync_last_error: undefined }
+                  : ord
               )
             );
-            await db.orders.update(o.id, { server_id: replayOrderId, is_offline: false }).catch(() => {});
+            await db.orders
+              .update(o.id, { server_id: replayOrderId, is_offline: false, sync_attempts: 0, sync_last_error: undefined })
+              .catch(() => {});
           }
           // P1 sổ quỹ: replay đã ghi receipt server -> mirror local theo mã đơn offline
           // đánh dấu synced để pull sau không trùng dòng.
@@ -978,8 +982,13 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           );
         } catch (e: any) {
           // P0-3: giữ lại + ghi lý do để khỏi kẹt queue câm (nợ vô chủ / hết kho / mất mạng)
-          remaining.push(o); // giữ lại để thử đợt sau
-          failures.push(`${o.order_code}: ${e?.message || 'lỗi replay'}`);
+          const syncAttempts = (o.sync_attempts || 0) + 1;
+          const syncLastError = e?.message || 'lỗi replay';
+          const failedOrder = { ...o, sync_attempts: syncAttempts, sync_last_error: syncLastError };
+          remaining.push(failedOrder); // giữ lại để thử đợt sau
+          failures.push(`${o.order_code}: ${syncLastError}`);
+          await db.pendingOrders.put(failedOrder).catch(() => {});
+          setOrders((prev) => prev.map((ord) => (ord.id === o.id ? failedOrder : ord)));
         }
       }
       setPendingQueue(remaining);

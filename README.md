@@ -36,6 +36,8 @@ Lệnh khác: `npm run build` (lint chặn build — 0 errors), `npm run lint`, 
   đơn đã lên server mà offline thì **chặn** để khỏi lệch truth.
 - Chính sách trả hàng hoàn kho (0025): hàng `goods` hoàn đủ SL, `combo` hoàn linh kiện
   con theo BOM (cap theo SL đã bán); hàng `area` đã cắt + `service` không nhập lại.
+- P2.3: có thể tải/khôi phục sao lưu local trong Cài đặt; BOM combo được kéo từ
+  `combo_items`; hạn mức nợ khách hàng được chặn nguyên tử ở server (hạn mức 0 = không giới hạn).
 - Xem `supabase/migrations/0023_vat_support.sql`, `0024_cancel_reverse.sql`,
   `0025_return_restock.sql`.
 

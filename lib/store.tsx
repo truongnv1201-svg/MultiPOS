@@ -490,7 +490,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         });
       });
     }
-  }, [isOnline, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, syncCustomers, syncProjects, syncPendingOps, refreshGrinding, refreshCashRounding]);
+  }, [isOnline, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, syncCustomers, syncProjects, syncPendingOps, refreshGrinding, refreshCashRounding]);
 
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;
