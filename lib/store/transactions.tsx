@@ -35,6 +35,14 @@ async function enqueueOp(kind: PendingOp['kind'], payload: Record<string, unknow
     .catch(console.warn);
 }
 
+// P0-scale: cửa sổ + phân trang pull đơn server (trần ~1000 dòng/request của
+// PostgREST; lô .in() 200 id để khỏi vỡ URL). Đơn ngoài cửa sổ vẫn tra được
+// trong Dexie cache của máy.
+const SERVER_ORDERS_WINDOW_DAYS = 90;
+const SERVER_ORDERS_PAGE_SIZE = 1000;
+const SERVER_ORDERS_MAX_PAGES = 60;
+const SERVER_ITEMS_BATCH_SIZE = 200;
+
 const EMPTY_SHIFT: Shift = {
   id: 'shift-empty',
   cashier_name: 'Chưa mở ca',
@@ -161,24 +169,40 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const [currentShift, setCurrentShift] = useState<Shift>(EMPTY_SHIFT);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
 
+  // P0-scale: PostgREST/Supabase cắt ~1000 dòng/request khi thiếu .limit() tường
+  // minh, pull full-table trong im lặng sẽ mất đơn cũ khi quán đông đơn. Kéo theo
+  // cửa sổ 90 ngày + phân trang range; items gom theo lô 200 id để .in() khỏi vỡ
+  // URL. Đơn cũ hơn cửa sổ vẫn còn trong Dexie cache của máy.
   const refreshServerOrders = useCallback(async (): Promise<boolean> => {
     if (!supa || !user || !isOnline) return false;
     try {
-      const { data: serverOrders, error: ordersError } = await supa
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (ordersError) throw ordersError;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - SERVER_ORDERS_WINDOW_DAYS);
+      const cutoffIso = cutoff.toISOString();
+      const serverOrders: any[] = [];
+      for (let from = 0, page = 0; page < SERVER_ORDERS_MAX_PAGES; from += SERVER_ORDERS_PAGE_SIZE, page++) {
+        const { data, error } = await supa
+          .from('orders')
+          .select('*')
+          .gte('created_at', cutoffIso)
+          .order('created_at', { ascending: false })
+          .range(from, from + SERVER_ORDERS_PAGE_SIZE - 1);
+        if (error) throw error;
+        serverOrders.push(...(data || []));
+        if (!data || data.length < SERVER_ORDERS_PAGE_SIZE) break;
+      }
 
-      const orderIds = (serverOrders || []).map((row: { id: string }) => row.id);
-      const { data: serverItems, error: itemsError } =
-        orderIds.length > 0
-          ? await supa.from('order_items').select('*').in('order_id', orderIds)
-          : { data: [], error: null };
-      if (itemsError) throw itemsError;
+      const orderIds = serverOrders.map((row: { id: string }) => row.id);
+      const serverItems: any[] = [];
+      for (let i = 0; i < orderIds.length; i += SERVER_ITEMS_BATCH_SIZE) {
+        const batch = orderIds.slice(i, i + SERVER_ITEMS_BATCH_SIZE);
+        const { data, error } = await supa.from('order_items').select('*').in('order_id', batch);
+        if (error) throw error;
+        serverItems.push(...(data || []));
+      }
 
       const itemsByOrder = new Map<string, OrderItem[]>();
-      for (const row of (serverItems || []) as any[]) {
+      for (const row of serverItems as any[]) {
         const item: OrderItem = {
           id: row.id,
           product_id: row.product_id || '',
@@ -200,7 +224,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         itemsByOrder.set(row.order_id, list);
       }
 
-      const mapped: Order[] = (serverOrders || []).map((row: any) => ({
+      const mapped: Order[] = serverOrders.map((row: any) => ({
         id: `server-${row.id}`,
         server_id: row.id,
         order_code: row.order_code,
