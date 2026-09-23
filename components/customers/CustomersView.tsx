@@ -470,13 +470,14 @@ export function CustomersView() {
                           {formatVND(c.debt_limit)}
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <div className="flex min-h-7 items-center justify-center gap-1">
                           {c.current_debt > 0 && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleOpenCollectModal(c);
                               }}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded text-[10px] font-bold transition-colors"
+                              className="inline-flex h-7 min-w-[3.4rem] items-center justify-center rounded border border-emerald-300 bg-emerald-50 px-2.5 text-[10px] font-bold leading-none text-emerald-700 transition-colors hover:bg-emerald-100"
                             >
                               Thu nợ
                             </button>
@@ -486,7 +487,7 @@ export function CustomersView() {
                               e.stopPropagation();
                               openEditCustomer(c);
                             }}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-blue-600 transition-colors hover:bg-blue-50"
                             title="Sửa thông tin khách hàng"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -496,11 +497,12 @@ export function CustomersView() {
                               e.stopPropagation();
                               handleDeleteCustomer(c);
                             }}
-                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-rose-600 transition-colors hover:bg-rose-50"
                             title="Xóa khách hàng"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                          </div>
                         </td>
                       </tr>
                     );
