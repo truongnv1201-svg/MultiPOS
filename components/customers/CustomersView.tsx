@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { Customer } from '@/lib/types';
 import { formatVND } from '@/lib/format';
-import { Users, Plus, Search, DollarSign, History, AlertCircle, CheckCircle2, Phone, MapPin, Filter, RefreshCw } from 'lucide-react';
+import { Users, Plus, Search, DollarSign, History, AlertCircle, CheckCircle2, Phone, MapPin, Filter, RefreshCw, Edit2, Trash2, X } from 'lucide-react';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { NumberInput } from '@/components/common/NumberInput';
 import { TableTools } from '@/components/common/TableTools';
@@ -12,9 +12,11 @@ import { DataTableShell } from '@/components/common/DataTableShell';
 import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
+import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { notify } from '@/components/common/Toast';
 
 export function CustomersView() {
-  const { customers, addCustomer, updateCustomer, collectDebt, syncDebtsFromServer } = useStore();
+  const { customers, orders, addCustomer, updateCustomer, deleteCustomer, collectDebt, syncDebtsFromServer } = useStore();
   const [syncingDebt, setSyncingDebt] = useState(false);
 
   const handleSyncDebts = async () => {
@@ -56,6 +58,69 @@ export function CustomersView() {
   const [group, setGroup] = useState<'retail' | 'contractor' | 'wholesale'>('contractor');
   const [debtLimit, setDebtLimit] = useState(20000000);
   const [importing, setImporting] = useState(false);
+  // Edit customer modal
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editGroup, setEditGroup] = useState<'retail' | 'contractor' | 'wholesale'>('contractor');
+  const [editDebtLimit, setEditDebtLimit] = useState(0);
+
+  const openEditCustomer = (c: Customer) => {
+    setEditingCustomer(c);
+    setEditName(c.name);
+    setEditPhone(c.phone);
+    setEditAddress(c.address || '');
+    setEditGroup(c.group);
+    setEditDebtLimit(c.debt_limit);
+  };
+
+  const handleUpdateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCustomer || !editName.trim()) return;
+    try {
+      const updates = {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        address: editAddress.trim(),
+        group: editGroup,
+        debt_limit: Math.max(0, Math.round(editDebtLimit)),
+      };
+      await updateCustomer(editingCustomer.id, updates);
+      if (selectedCustomer?.id === editingCustomer.id) {
+        setSelectedCustomer({ ...selectedCustomer, ...updates });
+      }
+      setEditingCustomer(null);
+      notify('Đã lưu thay đổi khách hàng!', 'success');
+    } catch (err: any) {
+      notify(`Không lưu được: ${err?.message || 'lỗi không rõ'}`, 'error');
+    }
+  };
+
+  const handleDeleteCustomer = async (c: Customer) => {
+    if (c.current_debt > 0) {
+      alert(`Không thể xóa "${c.name}" vì còn nợ ${formatVND(c.current_debt)}. Hãy thu hết nợ trước khi xóa.`);
+      return;
+    }
+    const hasOrders = orders.some((o) => o.customer_id === c.id);
+    if (hasOrders) {
+      alert(`Không thể xóa "${c.name}" vì đã phát sinh đơn hàng (cần giữ lịch sử đối soát).`);
+      return;
+    }
+    const ok = await confirmDialog(`Xóa vĩnh viễn "${c.name}" khỏi danh sách?\nThao tác đồng bộ lên server và không thể hoàn tác.`, {
+      title: 'Xóa khách hàng',
+      confirmLabel: 'Xóa',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteCustomer(c.id);
+      if (selectedCustomer?.id === c.id) setSelectedCustomer(null);
+      notify('Đã xóa khách hàng!', 'success');
+    } catch (err: any) {
+      notify(`Không xóa được: ${err?.message || 'lỗi không rõ'}`, 'error');
+    }
+  };
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
@@ -404,7 +469,7 @@ export function CustomersView() {
                         <td className="py-2.5 px-3 text-right font-mono text-slate-500">
                           {formatVND(c.debt_limit)}
                         </td>
-                        <td className="py-2.5 px-3 text-center">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {c.current_debt > 0 && (
                             <button
                               onClick={(e) => {
@@ -416,6 +481,26 @@ export function CustomersView() {
                               Thu nợ
                             </button>
                           )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditCustomer(c);
+                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Sửa thông tin khách hàng"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteCustomer(c);
+                            }}
+                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            title="Xóa khách hàng"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -665,6 +750,100 @@ export function CustomersView() {
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
               >
                 Lưu khách hàng
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Customer Modal */}
+      {editingCustomer && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
+          <form
+            onSubmit={handleUpdateCustomer}
+            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
+          >
+            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-amber-400" />
+                Sửa Khách Hàng ({editingCustomer.code})
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingCustomer(null)}
+                className="p-1 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Tên khách hàng / Xưởng nhôm kính *</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full h-8 px-2.5 border border-slate-300 rounded"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Số điện thoại</label>
+                  <input
+                    type="text"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="09..."
+                    className="w-full h-8 px-2.5 border border-slate-300 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Nhóm khách hàng</label>
+                  <select
+                    value={editGroup}
+                    onChange={(e) => setEditGroup(e.target.value as any)}
+                    className="w-full h-8 px-2 border border-slate-300 rounded"
+                  >
+                    <option value="contractor">Thợ nhôm kính / Thi công</option>
+                    <option value="retail">Khách lẻ tại quầy</option>
+                    <option value="wholesale">Đại lý / Công ty nội thất</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Địa chỉ</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="Số nhà, đường, quận/huyện..."
+                  className="w-full h-8 px-2.5 border border-slate-300 rounded"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Hạn mức nợ cho phép (đ)</label>
+                <NumberInput
+                  value={editDebtLimit}
+                  onChange={(val) => setEditDebtLimit(val)}
+                  placeholder="0"
+                  className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+            </div>
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingCustomer(null)}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
+              >
+                Lưu thay đổi
               </button>
             </div>
           </form>

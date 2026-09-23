@@ -16,7 +16,7 @@ import type { Employee, AttendanceDay } from './hrm';
 export interface PendingMasterData {
   id: string;
   entity: 'product' | 'customer' | 'supplier';
-  operation: 'insert' | 'update';
+  operation: 'insert' | 'update' | 'delete';
   local_id: string;
   payload: Record<string, unknown>;
   created_at: string;

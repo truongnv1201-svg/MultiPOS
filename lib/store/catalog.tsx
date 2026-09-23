@@ -27,7 +27,13 @@ export interface CatalogSlice {
   updateCustomer: (id: string, updates: Partial<Customer>) => Promise<void>;
   addSupplier: (data: Omit<Supplier, 'id' | 'code'>) => Promise<Supplier>;
   updateSupplier: (id: string, updates: Partial<Supplier>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
+  deleteSupplier: (id: string) => Promise<void>;
 }
+
+// P1 Sửa/Xóa: id uuid server (= đã đồng bộ), id local còn lại (= chưa lên server).
+const IS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const CatalogContext = createContext<CatalogSlice | null>(null);
 
@@ -136,6 +142,27 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
             .insert(payload as never)
             .select('*')
             .single();
+        } else if (item.operation === 'delete') {
+          const table = item.entity === 'product' ? 'products' : item.entity === 'customer' ? 'customers' : 'suppliers';
+          const targetId =
+            typeof item.payload.server_id === 'string' && item.payload.server_id
+              ? item.payload.server_id
+              : serverId;
+          if (!targetId || !IS_UUID_RE.test(targetId)) {
+            // Bản local chưa từng lên server -> không có gì để xóa
+            await db.pendingMasterData.delete(item.id);
+            synced += 1;
+            continue;
+          }
+          const { error } = await supa.from(table).delete().eq('id', targetId);
+          if (error) {
+            if (/foreign key|violates|23503/i.test(error.message || ''))
+              throw new Error('Bản ghi đã phát sinh giao dịch nên không thể xóa.');
+            throw new Error(error.message);
+          }
+          await db.pendingMasterData.delete(item.id);
+          synced += 1;
+          continue;
         } else {
           const table = item.entity === 'product' ? 'products' : item.entity === 'customer' ? 'customers' : 'suppliers';
           const payload = { ...item.payload };
@@ -550,6 +577,82 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     await db.suppliers.update(id, updates);
   }, [supa, user, isOnline, queueMasterData]);
 
+  // P1 Sửa/Xóa: xóa local + (nếu đã lên server) xóa server (trực tiếp khi online,
+  // xếp hàng khi offline). Bản local chưa từng đẩy -> chỉ cần dọn hàng đợi insert/update
+  // cùng id để replay sau không "hồi sinh" lại. FK server tự chặn bản ghi đã dùng.
+  const deleteCatalogRecord = async (
+    entity: PendingMasterData['entity'],
+    localId: string,
+    serverId: string | null
+  ) => {
+    // Dọn hàng đợi insert/update cùng id trước để replay sau không hồi sinh
+    await db.pendingMasterData.where('local_id').equals(localId).delete().catch(() => {});
+    if (supa) {
+      if (!user) throw new Error('Vui lòng đăng nhập trước khi xóa.');
+      if (!isOnline) {
+        if (serverId) {
+          await queueMasterData(entity, 'delete', localId, { server_id: serverId });
+        }
+      } else if (serverId) {
+        const table = entity === 'product' ? 'products' : entity === 'customer' ? 'customers' : 'suppliers';
+        const { error } = await supa.from(table).delete().eq('id', serverId);
+        if (error) {
+          if (/foreign key|violates|23503/i.test(error.message || ''))
+            throw new Error('Bản ghi đã phát sinh giao dịch (đơn/phiếu) nên không thể xóa.');
+          throw new Error(error.message);
+        }
+      }
+    }
+    if (entity === 'product') {
+      setProducts((prev) => prev.filter((p) => p.id !== localId));
+      await db.products.delete(localId);
+    } else if (entity === 'customer') {
+      setCustomers((prev) => prev.filter((c) => c.id !== localId));
+      await db.customers.delete(localId);
+      setCustomerMap((prev) => {
+        if (!(localId in prev)) return prev;
+        const next = { ...prev };
+        delete next[localId];
+        try {
+          localStorage.setItem(CUSTOMER_MAP_KEY, JSON.stringify(next));
+        } catch {
+          /* best-effort */
+        }
+        return next;
+      });
+    } else {
+      setSuppliers((prev) => prev.filter((s) => s.id !== localId));
+      await db.suppliers.delete(localId);
+    }
+  };
+
+  const deleteProduct = useCallback(
+    async (id: string) => {
+      const serverId = IS_UUID_RE.test(id) ? id : null;
+      await deleteCatalogRecord('product', id, serverId);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [supa, user, isOnline]
+  );
+
+  const deleteCustomer = useCallback(
+    async (id: string) => {
+      const serverId = customerMap[id] ?? (IS_UUID_RE.test(id) ? id : null);
+      await deleteCatalogRecord('customer', id, serverId);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [supa, user, isOnline, customerMap]
+  );
+
+  const deleteSupplier = useCallback(
+    async (id: string) => {
+      const serverId = IS_UUID_RE.test(id) ? id : null;
+      await deleteCatalogRecord('supplier', id, serverId);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [supa, user, isOnline]
+  );
+
   const value: CatalogSlice = {
     products,
     suppliers,
@@ -568,6 +671,9 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     updateCustomer,
     addSupplier,
     updateSupplier,
+    deleteProduct,
+    deleteCustomer,
+    deleteSupplier,
   };
   return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;
 }

@@ -18,6 +18,8 @@ import {
   CheckCircle2,
   X,
   History,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import { NumberInput } from '@/components/common/NumberInput';
 import { TableTools } from '@/components/common/TableTools';
@@ -27,9 +29,11 @@ import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/com
 import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
+import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { notify } from '@/components/common/Toast';
 
 export function SuppliersView() {
-  const { suppliers, addSupplier, updateSupplier, paySupplierDebt, stockMovements, cashbook } = useStore();
+  const { suppliers, addSupplier, updateSupplier, deleteSupplier, paySupplierDebt, stockMovements, cashbook } = useStore();
 
   const [search, setSearch] = useState('');
   const [debtFilter, setDebtFilter] = useState<'all' | 'debt' | 'clean'>('all');
@@ -58,9 +62,63 @@ export function SuppliersView() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [taxCode, setTaxCode] = useState('');
-  const [category, setCategory] = useState('Kính & Gương nguyên khổ');
+  const [category, setCategory] = useState('K�nh & Guong nguy�n kh?');
   const [initialDebt, setInitialDebt] = useState(0);
   const [importing, setImporting] = useState(false);
+  // Edit supplier modal
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editTaxCode, setEditTaxCode] = useState('');
+
+  const openEditSupplier = (s: Supplier) => {
+    setEditingSupplier(s);
+    setEditName(s.name);
+    setEditPhone(s.phone || '');
+    setEditAddress(s.address || '');
+    setEditTaxCode(s.tax_code || '');
+  };
+
+  const handleUpdateSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSupplier || !editName.trim()) return;
+    try {
+      await updateSupplier(editingSupplier.id, {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        address: editAddress.trim(),
+        tax_code: editTaxCode.trim() || undefined,
+      });
+      if (payingSupplier?.id === editingSupplier.id) {
+        setPayingSupplier({ ...payingSupplier, name: editName.trim() });
+      }
+      setEditingSupplier(null);
+      notify('Đã lưu thay đổi nhà cung cấp!', 'success');
+    } catch (err: any) {
+      notify(`Không lưu được: ${err?.message || 'lỗi không rõ'}`, 'error');
+    }
+  };
+
+  const handleDeleteSupplier = async (s: Supplier) => {
+    if (s.current_debt > 0) {
+      alert(`Không thể xóa "${s.name}" vì còn nợ ${formatVND(s.current_debt)}. Hãy trả hết nợ trước khi xóa.`);
+      return;
+    }
+    const ok = await confirmDialog(`Xóa vĩnh viễn "${s.name}" khỏi danh sách?\nThao tác đồng bộ lên server và không thể hoàn tác.`, {
+      title: 'Xóa nhà cung cấp',
+      confirmLabel: 'Xóa',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteSupplier(s.id);
+      if (payingSupplier?.id === s.id) setPayingSupplier(null);
+      notify('Đã xóa nhà cung cấp!', 'success');
+    } catch (err: any) {
+      notify(`Không xóa được: ${err?.message || 'lỗi không rõ'}`, 'error');
+    }
+  };
 
   const filteredSuppliers = suppliers.filter((s) => {
     const matchesSearch =
@@ -466,7 +524,7 @@ export function SuppliersView() {
                             <span className="text-slate-700">0 đ</span>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 text-center">
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
                           {sup.current_debt > 0 ? (
                             <button
                               onClick={() => {
@@ -481,6 +539,20 @@ export function SuppliersView() {
                           ) : (
                             <span className="text-[11px] text-slate-400">Đã thanh toán</span>
                           )}
+                          <button
+                            onClick={() => openEditSupplier(sup)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Sửa thông tin nhà cung cấp"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSupplier(sup)}
+                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            title="Xóa nhà cung cấp"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -687,6 +759,90 @@ export function SuppliersView() {
                   className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded shadow-xs"
                 >
                   Lưu nhà cung cấp
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Supplier */}
+      {editingSupplier && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+              <span className="font-bold text-sm flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-amber-400" />
+                Sửa Nhà Cung Cấp ({editingSupplier.code})
+              </span>
+              <button
+                onClick={() => setEditingSupplier(null)}
+                className="p-1 text-slate-400 hover:text-white rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSupplier} className="p-4 space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Tên Nhà Cung Cấp / Công Ty <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full h-8 px-2.5 text-xs border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Số điện thoại</label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="0912..."
+                    className="w-full h-8 px-2.5 text-xs border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Mã số thuế</label>
+                  <input
+                    type="text"
+                    value={editTaxCode}
+                    onChange={(e) => setEditTaxCode(e.target.value)}
+                    placeholder="010..."
+                    className="w-full h-8 px-2.5 text-xs border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Địa chỉ kho / trụ sở</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  className="w-full h-8 px-2.5 text-xs border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingSupplier(null)}
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded font-medium"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded shadow-xs"
+                >
+                  Lưu thay đổi
                 </button>
               </div>
             </form>

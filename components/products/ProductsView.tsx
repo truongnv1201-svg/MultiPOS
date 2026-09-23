@@ -25,6 +25,8 @@ import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, pri
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
 import { DataTableShell } from '@/components/common/DataTableShell';
+import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { notify } from '@/components/common/Toast';
 
 const UNIT_OPTIONS = [
   {
@@ -66,7 +68,7 @@ const UNIT_OPTIONS = [
 ] as const;
 
 export function ProductsView() {
-  const { products, addProduct, updateProduct } = useStore();
+  const { products, orders, addProduct, updateProduct, deleteProduct } = useStore();
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -76,6 +78,78 @@ export function ProductsView() {
   const [pageSize, setPageSize] = useState<number>(25);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  // Sửa hàng hóa: prefill từ bản ghi, không cho đụng tồn kho/vốn BQ (đi luồng nhập kho)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editUnit, setEditUnit] = useState('cái');
+  const [editProductType, setEditProductType] = useState<ProductType>('goods');
+  const [editRetailPrice, setEditRetailPrice] = useState(0);
+  const [editImportPrice, setEditImportPrice] = useState(0);
+  const [editWasteFactor, setEditWasteFactor] = useState(0);
+  const [editGrindingPrice, setEditGrindingPrice] = useState(0);
+
+  const openEditProduct = (p: Product) => {
+    setEditingProduct(p);
+    setEditName(p.name);
+    setEditCategory(p.category);
+    setEditUnit(p.unit);
+    setEditProductType(p.product_type);
+    setEditRetailPrice(p.retail_price);
+    setEditImportPrice(p.import_price);
+    setEditWasteFactor(p.waste_factor ?? 0);
+    setEditGrindingPrice(p.default_grinding_price ?? 0);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct || !editName.trim()) return;
+    try {
+      await updateProduct(editingProduct.id, {
+        name: editName.trim(),
+        category: editCategory.trim() || 'Chưa phân loại',
+        unit: editUnit,
+        product_type: editProductType,
+        retail_price: Math.max(0, Math.round(editRetailPrice)),
+        import_price: Math.max(0, Math.round(editImportPrice)),
+        waste_factor: editProductType === 'area' ? Math.max(0, editWasteFactor) : undefined,
+        default_grinding_price: editProductType === 'area' ? Math.max(0, Math.round(editGrindingPrice)) : undefined,
+      });
+      setEditingProduct(null);
+      notify('Đã lưu thay đổi hàng hóa!', 'success');
+    } catch (err: any) {
+      notify(`Không lưu được: ${err?.message || 'lỗi không rõ'}`, 'error');
+    }
+  };
+
+  const handleDeleteProduct = async (p: Product) => {
+    if (p.stock_quantity > 0 && p.product_type !== 'service') {
+      alert(`Không thể xóa "${p.name}" vì còn tồn kho (${p.stock_quantity} ${p.unit}). Hãy xả hết tồn (bán/xuất điều chỉnh) trước khi xóa.`);
+      return;
+    }
+    const usedInOrder = orders.some((o) => o.items.some((it) => it.product_id === p.id));
+    if (usedInOrder) {
+      alert(`Không thể xóa "${p.name}" vì đã phát sinh trong đơn hàng (cần giữ lịch sử đối soát).`);
+      return;
+    }
+    const usedInCombo = products.some((x) => x.combo_items?.some((c) => c.product_id === p.id));
+    if (usedInCombo) {
+      alert(`Không thể xóa "${p.name}" vì đang là linh kiện trong combo. Gỡ khỏi combo trước.`);
+      return;
+    }
+    const ok = await confirmDialog(`Xóa vĩnh viễn "${p.name}" khỏi danh mục?\nThao tác đồng bộ lên server và không thể hoàn tác.`, {
+      title: 'Xóa hàng hóa',
+      confirmLabel: 'Xóa',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteProduct(p.id);
+      notify('Đã xóa hàng hóa!', 'success');
+    } catch (err: any) {
+      notify(`Không xóa được: ${err?.message || 'lỗi không rõ'}`, 'error');
+    }
+  };
   // Sắp xếp: bấm header để đảo chiều; đổi sort/filter -> về trang 1
   const { sortKey, sortDir, toggleSort } = useSortState();
   const handleSort = (key: string) => {
@@ -448,12 +522,13 @@ export function ProductsView() {
                 <SortableTh className="py-2.5 px-3 text-right" label="Nhập gần nhất" sortKey="import_price" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-center" label="Hao hụt phôi" sortKey="waste_factor" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-right" label="Tồn kho" sortKey="stock_quantity" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <th className="py-2.5 px-3 text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-slate-400">
                     Không tìm thấy sản phẩm nào phù hợp với bộ lọc.
                   </td>
                 </tr>
@@ -536,6 +611,22 @@ export function ProductsView() {
                             {p.stock_quantity} {p.unit}
                           </span>
                         )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => openEditProduct(p)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title="Sửa thông tin hàng hóa"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(p)}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          title="Xóa hàng hóa"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -707,6 +798,168 @@ export function ProductsView() {
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-xs"
               >
                 Lưu sản phẩm
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Product Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
+          <form
+            onSubmit={handleUpdateProduct}
+            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
+          >
+            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-amber-400" />
+                Sửa Hàng Hóa ({editingProduct.sku})
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="p-1 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Tên sản phẩm *</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full h-8 px-2.5 border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Loại sản phẩm</label>
+                  <select
+                    value={editProductType}
+                    onChange={(e) => {
+                      const val = e.target.value as ProductType;
+                      setEditProductType(val);
+                      if (val === 'area') setEditUnit('m²');
+                      else if (val === 'combo') setEditUnit('bộ');
+                    }}
+                    className="w-full h-8 px-2 border border-slate-300 rounded"
+                  >
+                    <option value="area">Diện tích (Kính, Tấm alu, MDF)</option>
+                    <option value="goods">Thường (Cây nhôm, Phụ kiện)</option>
+                    <option value="combo">Combo trọn bộ (Trừ kho con)</option>
+                    <option value="service">Dịch vụ (Công lắp đặt)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Đơn vị tính</label>
+                  <select
+                    value={editUnit}
+                    onChange={(e) => setEditUnit(e.target.value)}
+                    aria-label="Đơn vị tính"
+                    className="w-full h-8 px-2.5 border border-slate-300 rounded bg-white"
+                  >
+                    {UNIT_OPTIONS.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.options.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Danh mục</label>
+                <input
+                  type="text"
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  list="edit-product-categories"
+                  className="w-full h-8 px-2.5 border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                />
+                <datalist id="edit-product-categories">
+                  {categories.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Giá bán lẻ (đ)</label>
+                  <NumberInput
+                    value={editRetailPrice}
+                    onChange={(val) => setEditRetailPrice(val)}
+                    placeholder="0"
+                    className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Giá vốn nhập (đ)</label>
+                  <NumberInput
+                    value={editImportPrice}
+                    onChange={(val) => setEditImportPrice(val)}
+                    placeholder="0"
+                    className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {editProductType === 'area' && (
+                <div className="grid grid-cols-2 gap-2 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                  <div>
+                    <label className="font-semibold text-amber-900 block mb-1">
+                      Hệ số hao hụt phôi (%)
+                    </label>
+                    <NumberInput
+                      allowDecimals={true}
+                      value={editWasteFactor}
+                      onChange={(val) => setEditWasteFactor(val)}
+                      placeholder="5"
+                      className="w-full h-8 px-2.5 border border-amber-300 rounded font-mono bg-white focus:border-amber-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-amber-900 block mb-1">
+                      Giá mài mặc định (đ/md)
+                    </label>
+                    <NumberInput
+                      value={editGrindingPrice}
+                      onChange={(val) => setEditGrindingPrice(val)}
+                      placeholder="20.000"
+                      className="w-full h-8 px-2.5 border border-amber-300 rounded font-mono bg-white focus:border-amber-500 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-slate-400">
+                Tồn kho & giá vốn bình quân không sửa tay — thay đổi qua Nhập kho.
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-xs"
+              >
+                Lưu thay đổi
               </button>
             </div>
           </form>
