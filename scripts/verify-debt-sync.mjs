@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { fetchCatalog, goodsItem, pickGoods } from './verify-catalog.mjs';
 
 // Verify đường đọc mà nút "Đồng bộ nợ" (syncDebtsFromServer) dùng:
 // batch SELECT id,current_debt,debt_limit ... .in(id, [...]) bằng authenticated.
@@ -55,6 +56,9 @@ let H;
   }
   H = { apikey: ANON, Authorization: 'Bearer ' + j.access_token, 'Content-Type': 'application/json' };
 }
+const catalog = await fetchCatalog(URL, H);
+const goods = pickGoods(catalog);
+const price = Number(goods.retail_price);
 async function rpc(fn, args) {
   const r = await fetch(`${URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers: H, body: JSON.stringify(args) });
   const t = await r.text();
@@ -77,19 +81,19 @@ const custId = s.json?.id;
 
 const debt = await rpc('pos_checkout', {
   p_customer_name: 'Verify 26',
-  p_items: [{ sku: 'SP000007', name: 'Keo', item_type: 'goods', unit: 'chai', quantity: 1, unit_price: 62000, discount_amount: 0, processing_fee: 0, waste_factor: 0, dimension_details: null }],
+  p_items: [goodsItem(goods, 1)],
   p_discount: 0, p_payments: [], p_note: 'verify26-debt', p_shipping_fee: 0, p_is_deposit: false, p_customer_id: custId,
 });
 assert('tạo đơn nợ 62000', debt.ok, debt.text);
 
 const b1 = await batchDebts([custId]);
 assert('batch select đọc được nợ', b1.ok && b1.json?.length === 1, `HTTP ${b1.status} ` + JSON.stringify(b1.json).slice(0, 200));
-assert('truth nợ = 62000', Number(b1.json?.[0]?.current_debt) === 62000, JSON.stringify(b1.json).slice(0, 200));
+assert(`truth nợ = ${price}`, Number(b1.json?.[0]?.current_debt) === price, JSON.stringify(b1.json).slice(0, 200));
 
 const col = await rpc('collect_debt', { p_customer_id: custId, p_amount: 20000, p_method: 'cash', p_note: 'verify26-collect' });
 assert('thu 20000 ok', col.ok, col.text);
 const b2 = await batchDebts([custId]);
-assert('truth sau thu = 42000', b2.ok && Number(b2.json?.[0]?.current_debt) === 42000, JSON.stringify(b2.json).slice(0, 200));
+assert(`truth sau thu = ${price - 20000}`, b2.ok && Number(b2.json?.[0]?.current_debt) === price - 20000, JSON.stringify(b2.json).slice(0, 200));
 
 if (mgmt) {
   await dbq(`delete from public.cashbook_entries where reference_order_code in (select order_code from public.orders where note like 'verify26-%' or customer_id='${custId}')`);

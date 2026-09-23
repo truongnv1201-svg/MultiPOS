@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { fetchCatalog, goodsItem, pickGoods } from './verify-catalog.mjs';
 
 // Verify 0023 VAT riêng bằng ANON key (đúng quyền app POS):
 // 1) goods + VAT 8% + cash -> VAT, rounding, total, change khớp công thức local
@@ -50,28 +51,27 @@ async function rpc(body) {
   });
   return { ok: r.ok, status: r.status, json: await r.json() };
 }
-const item = (qty) => ({
-  sku: 'SP000007',
-  name: 'Keo',
-  item_type: 'goods',
-  unit: 'chai',
-  quantity: qty,
-  unit_price: 62000,
-  discount_amount: 0,
-  processing_fee: 0,
-  waste_factor: 0,
-  dimension_details: null,
-});
+const catalog = await fetchCatalog(URL, H);
+const goods = pickGoods(catalog);
+const price = Number(goods.retail_price);
+const item = (qty) => goodsItem(goods, qty);
+const round500 = (value) => Math.round(value / 500) * 500;
 
-let r = await fetch(`${URL}/rest/v1/products?select=stock_quantity&sku=eq.SP000007`, { headers: H });
-const stockBefore = (await r.json())[0].stock_quantity;
+let r = await fetch(`${URL}/rest/v1/products?select=stock_quantity&sku=eq.${goods.sku}`, { headers: H });
+const stockBefore = Number((await r.json())[0].stock_quantity);
+const base2 = price * 2;
+const vat8 = base2 * 0.08;
+const total8 = round500(base2 + vat8);
+const total10Ship = price + price * 0.1 + 15000;
+const discountedBase = base2 - 24000;
+const totalDiscounted = discountedBase + discountedBase * 0.08;
 
 // 1) VAT 8% + cash
 const t1 = await rpc({
   p_customer_name: 'Verify VAT',
   p_items: [item(2)],
   p_discount: 0,
-  p_payments: [{ method: 'cash', amount: 150000 }],
+  p_payments: [{ method: 'cash', amount: total8 + 16500 }],
   p_note: 'verify-vat-cash8',
   p_shipping_fee: 0,
   p_is_deposit: false,
@@ -83,9 +83,9 @@ assert(
   `HTTP ${t1.status} ` + JSON.stringify(t1.json).slice(0, 200)
 );
 if (t1.ok) {
-  assert('VAT8 cash: vat_amount=9920', Number(t1.json.vat_amount) === 9920, JSON.stringify(t1.json).slice(0, 200));
-  assert('VAT8 cash: total=133500', Number(t1.json.total_amount) === 133500, JSON.stringify(t1.json).slice(0, 200));
-  assert('VAT8 cash: rounding=420', Number(t1.json.cash_rounding) === 420, JSON.stringify(t1.json).slice(0, 200));
+  assert('VAT8 cash: vat theo gia catalog', Number(t1.json.vat_amount) === vat8, JSON.stringify(t1.json).slice(0, 200));
+  assert('VAT8 cash: total theo rounding', Number(t1.json.total_amount) === total8, JSON.stringify(t1.json).slice(0, 200));
+  assert('VAT8 cash: paid_amount theo rounding', Number(t1.json.paid_amount) === total8, JSON.stringify(t1.json).slice(0, 200));
   assert('VAT8 cash: change=16500', Number(t1.json.change_amount) === 16500, JSON.stringify(t1.json).slice(0, 200));
   assert('VAT8 cash: debt=0', Number(t1.json.debt_amount) === 0, JSON.stringify(t1.json).slice(0, 200));
 }
@@ -95,7 +95,7 @@ const t2 = await rpc({
   p_customer_name: 'Verify VAT',
   p_items: [item(1)],
   p_discount: 0,
-  p_payments: [{ method: 'transfer', amount: 83200 }],
+  p_payments: [{ method: 'transfer', amount: total10Ship }],
   p_note: 'verify-vat-ship10',
   p_shipping_fee: 15000,
   p_is_deposit: false,
@@ -103,8 +103,8 @@ const t2 = await rpc({
 });
 assert('VAT10 ship transfer: ok', t2.ok, `HTTP ${t2.status} ` + JSON.stringify(t2.json).slice(0, 200));
 if (t2.ok) {
-  assert('VAT10 ship transfer: vat_amount=6200', Number(t2.json.vat_amount) === 6200, JSON.stringify(t2.json).slice(0, 200));
-  assert('VAT10 ship transfer: total=83200', Number(t2.json.total_amount) === 83200, JSON.stringify(t2.json).slice(0, 200));
+  assert('VAT10 ship transfer: vat theo gia catalog', Number(t2.json.vat_amount) === price * 0.1, JSON.stringify(t2.json).slice(0, 200));
+  assert('VAT10 ship transfer: total theo gia catalog', Number(t2.json.total_amount) === total10Ship, JSON.stringify(t2.json).slice(0, 200));
   assert('VAT10 ship transfer: không làm tròn', Number(t2.json.cash_rounding) === 0);
   assert('VAT10 ship transfer: change=0', Number(t2.json.change_amount) === 0, JSON.stringify(t2.json).slice(0, 200));
 }
@@ -115,7 +115,7 @@ const t3 = await rpc({
   p_customer_name: 'Verify VAT',
   p_items: [item(2)],
   p_discount: 24000,
-  p_payments: [{ method: 'transfer', amount: 108000 }],
+  p_payments: [{ method: 'transfer', amount: totalDiscounted }],
   p_note: 'verify-vat-discount',
   p_shipping_fee: 0,
   p_is_deposit: false,
@@ -123,14 +123,14 @@ const t3 = await rpc({
 });
 assert('VAT8 + CK bill: ok', t3.ok, `HTTP ${t3.status} ` + JSON.stringify(t3.json).slice(0, 200));
 if (t3.ok) {
-  assert('VAT8 + CK bill: vat_amount=8000', Number(t3.json.vat_amount) === 8000, JSON.stringify(t3.json).slice(0, 200));
-  assert('VAT8 + CK bill: total=108000', Number(t3.json.total_amount) === 108000, JSON.stringify(t3.json).slice(0, 200));
+  assert('VAT8 + CK bill: vat theo gia catalog', Number(t3.json.vat_amount) === discountedBase * 0.08, JSON.stringify(t3.json).slice(0, 200));
+  assert('VAT8 + CK bill: total theo gia catalog', Number(t3.json.total_amount) === totalDiscounted, JSON.stringify(t3.json).slice(0, 200));
 }
 
 if (mgmt) {
   await dbq(`delete from public.cashbook_entries where reference_order_code in (select order_code from public.orders where note like 'verify-vat-%')`);
   await dbq(`delete from public.orders where note like 'verify-vat-%'`);
-  await dbq(`update public.products set stock_quantity = ${stockBefore} where sku = 'SP000007'`);
+  await dbq(`update public.products set stock_quantity = ${stockBefore} where sku = '${goods.sku}'`);
   const chk = await dbq(`select count(*) from public.orders where note like 'verify-vat-%'`);
   assert('cleanup sạch đơn verify', chk.includes('0'), chk.slice(0, 100));
 } else {

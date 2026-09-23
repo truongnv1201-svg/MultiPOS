@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { fetchCatalog, goodsItem, pickGoods } from './verify-catalog.mjs';
 
 // Verify 0009 bằng ANON: sync idempotent, nợ có chủ OK + trừ nợ KH, nợ vô chủ bị chặn, cleanup.
 function loadEnv() {
@@ -17,6 +18,9 @@ const mgmt = process.env.SUPABASE_ACCESS_TOKEN
   : null;
 let pass = 0;
 let fail = 0;
+const catalog = await fetchCatalog(URL, H);
+const goods = pickGoods(catalog);
+const price = Number(goods.retail_price);
 function assert(label, cond, extra = '') {
   if (cond) {
     pass++;
@@ -47,7 +51,7 @@ async function dbq(query) {
 }
 
 // 0) snapshot tồn trước test để restore tương đối (không bao giờ reset tuyệt đối)
-const snapRes = await fetch(`${URL}/rest/v1/products?select=stock_quantity&sku=eq.SP000007`, { headers: H });
+const snapRes = await fetch(`${URL}/rest/v1/products?select=stock_quantity&sku=eq.${goods.sku}`, { headers: H });
 const snapKeo = (await snapRes.json())[0]?.stock_quantity;
 
 // 1) sync idempotent theo phone
@@ -72,7 +76,7 @@ const custId = s1.json?.id;
 const bad = await rpc('pos_checkout', {
   p_customer_name: 'Khách Lẻ',
   p_items: [
-    { sku: 'SP000007', name: 'Keo', item_type: 'goods', unit: 'chai', quantity: 1, unit_price: 62000, discount_amount: 0, processing_fee: 0, waste_factor: 0, dimension_details: null },
+    goodsItem(goods, 1),
   ],
   p_discount: 0,
   p_payments: [],
@@ -84,20 +88,20 @@ assert('nợ vô chủ bị chặn', !bad.ok && bad.text.includes('Bán nợ'), 
 const good = await rpc('pos_checkout', {
   p_customer_name: 'Verify KH',
   p_items: [
-    { sku: 'SP000007', name: 'Keo', item_type: 'goods', unit: 'chai', quantity: 1, unit_price: 62000, discount_amount: 0, processing_fee: 0, waste_factor: 0, dimension_details: null },
+    goodsItem(goods, 1),
   ],
   p_discount: 0,
   p_payments: [],
   p_is_deposit: false,
   p_customer_id: custId,
 });
-assert('nợ có chủ OK, debt=62000', good.ok && Number(good.json?.debt_amount) === 62000, good.text);
+assert(`nợ có chủ OK, debt=${price}`, good.ok && Number(good.json?.debt_amount) === price, good.text);
 
 // 4) thanh toán đủ không cần KH (hồi quy)
 const full = await rpc('pos_checkout', {
   p_customer_name: 'Khách Lẻ',
   p_items: [
-    { sku: 'SP000007', name: 'Keo', item_type: 'goods', unit: 'chai', quantity: 1, unit_price: 62000, discount_amount: 0, processing_fee: 0, waste_factor: 0, dimension_details: null },
+    goodsItem(goods, 1),
   ],
   p_discount: 0,
   p_payments: [{ method: 'cash', amount: 62000 }],
@@ -107,11 +111,11 @@ assert('trả đủ không cần KH', full.ok && Number(full.json?.debt_amount) 
 
 if (mgmt) {
   const chkDebt = await dbq(`select current_debt from public.customers where id = '${custId}'`);
-  assert('nợ KH tăng 62000', chkDebt.includes('62000'), chkDebt.slice(0, 120));
+  assert(`nợ KH tăng ${price}`, chkDebt.includes(String(price)), chkDebt.slice(0, 120));
   await dbq(`delete from public.cashbook_entries where reference_order_code in (select order_code from public.orders where customer_id = '${custId}' or note like '%Verify%')`);
   await dbq(`delete from public.orders where customer_id = '${custId}'`);
   await dbq(`delete from public.orders where note like '%Verify%'`);
-  await dbq(`update public.products set stock_quantity = ${snapKeo} where sku = 'SP000007'`);
+  await dbq(`update public.products set stock_quantity = ${snapKeo} where sku = '${goods.sku}'`);
   await dbq(`delete from public.customers where id = '${custId}'`);
   const left = await dbq(`select count(*) from public.customers where phone = '0909999888'`);
   assert('cleanup sạch KH verify', left.includes('0'), left.slice(0, 80));
