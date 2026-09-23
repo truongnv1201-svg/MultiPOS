@@ -731,8 +731,12 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       // 6. Reset current cart
       clearActiveCart();
 
-      // Show receipt modal
-      setReceiptModalOrder(newOrder);
+      // In tự động (Cài đặt → Trung tâm in ấn): BẬT = tự mở phiếu sau bán để bấm In;
+      // TẮT = về bán tiếp luôn, xem/in lại trong Đơn hàng. Mặc định BẬT (!== false
+      // để máy cũ chưa có key này vẫn giữ hành vi cũ).
+      if (shop.autoPrint !== false) {
+        setReceiptModalOrder(newOrder);
+      }
 
       return newOrder;
     },
@@ -752,6 +756,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       setLoginOpen,
       setCustomers,
       setProducts,
+      shop.autoPrint,
     ]
   );
 
