@@ -21,6 +21,7 @@ import { ReportsView } from '@/components/reports/ReportsView';
 import { SettingsView } from '@/components/settings/SettingsView';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { ConfirmDialogHost } from '@/components/common/ConfirmDialog';
+import { ToastHost } from '@/components/common/Toast';
 
 // Màn hình hạ cánh sau đăng nhập: mọi vai trò đều vào Bán hàng (POS).
 // (Không export: file page của Next.js chỉ được export default + các named chuẩn).
@@ -132,6 +133,7 @@ export default function Home() {
     <StoreProvider>
       <AppContent />
       <ConfirmDialogHost />
+      <ToastHost />
     </StoreProvider>
   );
 }

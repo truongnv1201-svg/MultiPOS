@@ -14,6 +14,7 @@ import { toRpcItems } from './rpc';
 import { db, generateOrderCode, recomputeOrderItem } from '../db';
 import { calcCartTotals, resolvePaidAmount } from '../pricing';
 import { vietnamizeError } from '../error-vi';
+import { notify } from '@/components/common/Toast';
 
 const EMPTY_SHIFT: Shift = {
   id: 'shift-empty',
@@ -730,6 +731,19 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
       // 6. Reset current cart
       clearActiveCart();
+
+      // Thông báo thành công (kể cả khi tắt In tự động nên không mở phiếu)
+      const vnd = (n: number) => `${Math.round(n).toLocaleString('vi-VN')} đ`;
+      notify(
+        isDeposit
+          ? `Thu cọc thành công ${orderCode}\nĐã nhận: ${vnd(paidAmount)}`
+          : actualDebt > 0
+            ? `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)} • Còn nợ: ${vnd(actualDebt)}`
+            : effChange > 0
+              ? `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)} • Thối lại: ${vnd(effChange)}`
+              : `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)}`,
+        'success',
+      );
 
       // In tự động (Cài đặt → Trung tâm in ấn): BẬT = tự mở phiếu sau bán để bấm In;
       // TẮT = về bán tiếp luôn, xem/in lại trong Đơn hàng. Mặc định BẬT (!== false
