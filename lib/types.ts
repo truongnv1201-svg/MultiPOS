@@ -192,6 +192,7 @@ export interface Project {
 
 export interface CashbookEntry {
   id: string;
+  synced?: boolean; // đã đẩy lên server (voucher/import/suppay qua pendingOps)
   code: string; // PQ-YYMMDD-XXXX hoặc PT/PC
   type: 'receipt' | 'expense';
   fund_type: 'cash' | 'bank';

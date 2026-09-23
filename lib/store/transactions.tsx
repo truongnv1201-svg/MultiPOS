@@ -7,14 +7,33 @@ import { useAuth } from './auth';
 import { useCommerce } from './commerce';
 import { useCatalog } from './catalog';
 import { useNetwork } from './network';
-import type { Product, ProductType, Order, OrderItem, Project, ProjectMaterial, ProjectWorker, CashbookEntry, Shift, PaymentItem, DimensionDetail, StockMovement } from '../types';
+import type { Product, ProductType, Order, OrderItem, Project, ProjectMaterial, ProjectWorker, CashbookEntry, Shift, PaymentItem, DimensionDetail, StockMovement, PurchaseOrder } from '../types';
 import type { CartTab, ReturnResult, RestockLine, ReturnSkipped } from './types';
 import { DEFAULT_TAB } from './cart';
 import { toRpcItems } from './rpc';
 import { db, generateOrderCode, recomputeOrderItem } from '../db';
+import type { PendingOp } from '../db';
 import { calcCartTotals, resolvePaidAmount } from '../pricing';
 import { vietnamizeError } from '../error-vi';
 import { notify } from '@/components/common/Toast';
+
+// P0: nhận diện uuid server (dùng chung cho project/NCC/vật tư khi đồng bộ).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const asUuidOrNull = (v?: string | null) => (v && UUID_RE.test(v) ? v : null);
+
+// P0: xếp hàng đợi đẩy kho/quỹ/NCC (dedupe server bằng client_ref nên replay an toàn)
+async function enqueueOp(kind: PendingOp['kind'], payload: Record<string, unknown>) {
+  await db.pendingOps
+    .add({
+      id: `op-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+      kind,
+      payload,
+      created_at: new Date().toISOString(),
+      attempts: 0,
+      status: 'pending',
+    })
+    .catch(console.warn);
+}
 
 const EMPTY_SHIFT: Shift = {
   id: 'shift-empty',
@@ -110,6 +129,7 @@ export interface TransactionsSlice {
   ) => Promise<Project | null>;
   refreshServerProjects: () => Promise<boolean>;
   syncProjects: () => Promise<void>;
+  syncPendingOps: () => Promise<{ synced: number; failed: number }>;
   closeShift: (countedCash: number) => Promise<boolean>;
   openNewShift: (startingCash: number) => Promise<void>;
   refreshShiftFromServer: () => Promise<boolean>;
@@ -1343,6 +1363,122 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     }
   }, [supa, user, isOnline, customers, customerMap, setLoginOpen, setCustomers]);
 
+  // P0: quét hàng đợi kho/quỹ/NCC — FIFO khi online. Server dedupe bằng client_ref
+  // nên replay an toàn; supplier_payment còn kéo truth nợ về mirror như thu nợ KH.
+  const syncPendingOps = useCallback(async (): Promise<{ synced: number; failed: number }> => {
+    if (!supa || !user || !isOnline) return { synced: 0, failed: 0 };
+    const pendings = await db.pendingOps
+      .where('status')
+      .equals('pending')
+      .sortBy('created_at')
+      .catch(() => [] as PendingOp[]);
+    let synced = 0;
+    let failed = 0;
+    for (const op of pendings) {
+      try {
+        if (op.kind === 'import') {
+          const p = op.payload as {
+            clientRef: string;
+            code: string;
+            supplierName: string;
+            total: number;
+            lines: { productId: string; sku: string; quantity: number; importPrice: number }[];
+          };
+          const { error } = await supa.rpc('sync_stock_import', {
+            p_client_ref: p.clientRef,
+            p_code: p.code,
+            p_supplier_id: null,
+            p_supplier_name: p.supplierName,
+            p_lines: p.lines.map((l) => ({
+              sku: l.sku,
+              product_id: asUuidOrNull(l.productId),
+              quantity: l.quantity,
+              import_price: l.importPrice,
+            })),
+            p_total: p.total,
+          });
+          if (error) throw error;
+        } else if (op.kind === 'voucher') {
+          const p = op.payload as {
+            entryId: string;
+            type: string;
+            fund: string;
+            category: string;
+            amount: number;
+            partner: string;
+            reference: string;
+            note: string;
+          };
+          const { error } = await supa.rpc('record_cashbook_voucher', {
+            p_client_ref: p.entryId,
+            p_type: p.type,
+            p_fund_type: p.fund,
+            p_category: p.category,
+            p_amount: p.amount,
+            p_partner_name: p.partner || null,
+            p_reference: p.reference || null,
+            p_note: p.note || null,
+          });
+          if (error) throw error;
+          await db.cashbook.update(p.entryId, { synced: true }).catch(() => {});
+          setCashbook((prev) => prev.map((e) => (e.id === p.entryId ? { ...e, synced: true } : e)));
+        } else {
+          const p = op.payload as {
+            supplierId: string;
+            amount: number;
+            method: string;
+            note: string;
+            entryId: string;
+          };
+          const supplier = suppliers.find((s) => s.id === p.supplierId);
+          const serverSid = supplier ? asUuidOrNull(supplier.id) : null;
+          if (!serverSid) continue; // NCC chưa đồng bộ master -> giữ hàng đợi
+          const { data, error } = await supa.rpc('pay_supplier_debt', {
+            p_client_ref: p.entryId,
+            p_supplier_id: serverSid,
+            p_amount: p.amount,
+            p_method: p.method,
+            p_note: p.note || null,
+          });
+          if (error) throw error;
+          // Mirror truth nợ NCC từ server (server clamp theo nợ thật)
+          try {
+            const { data: srow } = await supa
+              .from('suppliers')
+              .select('current_debt')
+              .eq('id', serverSid)
+              .maybeSingle();
+            const truth = Number((srow as { current_debt?: unknown } | null)?.current_debt);
+            if (Number.isFinite(truth)) {
+              setSuppliers((prev) =>
+                prev.map((s) => (s.id === p.supplierId ? { ...s, current_debt: truth } : s))
+              );
+              await db.suppliers.update(p.supplierId, { current_debt: truth });
+            }
+          } catch {
+            /* giữ số mirror */
+          }
+          await db.cashbook.update(p.entryId, { synced: true }).catch(() => {});
+          setCashbook((prev) => prev.map((e) => (e.id === p.entryId ? { ...e, synced: true } : e)));
+          void data;
+        }
+        await db.pendingOps.delete(op.id);
+        synced += 1;
+      } catch (err) {
+        const attempts = op.attempts + 1;
+        await db.pendingOps
+          .update(op.id, {
+            attempts,
+            status: attempts >= 10 ? 'failed' : 'pending',
+            last_error: err instanceof Error ? err.message : String(err),
+          })
+          .catch(() => {});
+        if (attempts >= 10) failed += 1;
+      }
+    }
+    return { synced, failed };
+  }, [supa, user, isOnline, suppliers, setSuppliers, setCashbook]);
+
   // Master Data Add/Update hàng hóa/KH/NCC sống ở CatalogProvider (useCatalog) —
   // ở đây chỉ còn nghiệp vụ chi trả NCC (đụng sổ quỹ -> thuộc tầng Transactions).
   const paySupplierDebt = useCallback(
@@ -1364,7 +1500,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         code: generateOrderCode('PC'),
         type: 'expense',
         fund_type: paymentMethod === 'cash' ? 'cash' : 'bank',
-        category: 'material',
+        category: 'supplier_payment',
         amount,
         partner_name: supplier.name,
         note: `Chi trả nợ NCC ${supplier.name}: ${note}`,
@@ -1372,9 +1508,18 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       };
       setCashbook((prev) => [expenseEntry, ...prev]);
       await db.cashbook.add(expenseEntry);
+      // P0: xếp hàng đẩy trả NCC lên server (clamp + truth ở sweep); online thì đẩy ngay
+      await enqueueOp('supplier_payment', {
+        supplierId,
+        amount,
+        method: paymentMethod,
+        note,
+        entryId: expenseEntry.id,
+      });
+      void syncPendingOps();
       return true;
     },
-    [suppliers, supa, profile, setSuppliers]
+    [suppliers, supa, profile, setSuppliers, syncPendingOps]
   );
 
   // Tính lại tổng công trình từ dòng (mirror công thức P&L ở ProjectsView)
@@ -1392,10 +1537,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   };
 
   // ---- Đồng bộ Dự án/Công trình 2 chiều (migration 0040) ----
-  // Local-first: id `proj-...` = chưa đẩy; sau khi đẩy, thay id local bằng uuid
-  // server (mirror catalog). Server thắng khi kéo, trừ bản local chưa từng đẩy.
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const asUuidOrNull = (v?: string | null) => (v && UUID_RE.test(v) ? v : null);
+  // Local-first: id `proj-...` = chưa đẩy; sau khi đẩy gắn server_id, giữ id local
+  // ổn định cho UI. Server thắng khi kéo, trừ bản local chưa từng đẩy.
 
   // Đẩy 1 công trình: header upsert trực tiếp + dòng vật tư/thợ qua RPC
   // sync_project_workspace (delta tồn kho, chạy lại không trừ 2 lần).
@@ -2203,9 +2346,21 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       };
       setCashbook((prev) => [newEntry, ...prev]);
       await db.cashbook.add(newEntry);
+      // P0: xếp hàng đẩy voucher tay lên server (backup/audit); online thì đẩy ngay
+      await enqueueOp('voucher', {
+        entryId: newEntry.id,
+        type: newEntry.type,
+        fund: newEntry.fund_type,
+        category: newEntry.category,
+        amount: newEntry.amount,
+        partner: newEntry.partner_name || '',
+        reference: newEntry.reference_order_code || '',
+        note: newEntry.note || '',
+      });
+      void syncPendingOps();
       return true;
     },
-    [supa, user, currentShift, setLoginOpen]
+    [supa, user, currentShift, setLoginOpen, syncPendingOps]
   );
 
   const importStock = useCallback(
@@ -2278,8 +2433,51 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       };
       setCashbook((prev) => [expenseEntry, ...prev]);
       db.cashbook.add(expenseEntry).catch(console.warn);
+      // P0: lưu PO local + xếp hàng đẩy nhập kho & voucher chi lên server
+      const poSingle: PurchaseOrder = {
+        id: `po-${Date.now()}`,
+        code: refCode,
+        supplier_id: '',
+        supplier_name: supplierName,
+        items: [
+          {
+            product_id: product.id,
+            sku: product.sku,
+            name: product.name,
+            quantity,
+            unit_price: importPrice,
+            subtotal: Math.round(quantity * importPrice),
+          },
+        ],
+        subtotal: Math.round(quantity * importPrice),
+        discount_amount: 0,
+        total_amount: Math.round(quantity * importPrice),
+        paid_amount: Math.round(quantity * importPrice),
+        debt_amount: 0,
+        status: 'completed',
+        created_at: new Date().toISOString(),
+      };
+      db.purchaseOrders.add(poSingle).catch(console.warn);
+      await enqueueOp('import', {
+        clientRef: `imp-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+        code: refCode,
+        supplierName,
+        total: Math.round(quantity * importPrice),
+        lines: [{ productId: product.id, sku: product.sku, quantity, importPrice }],
+      });
+      await enqueueOp('voucher', {
+        entryId: expenseEntry.id,
+        type: expenseEntry.type,
+        fund: expenseEntry.fund_type,
+        category: expenseEntry.category,
+        amount: expenseEntry.amount,
+        partner: expenseEntry.partner_name || '',
+        reference: expenseEntry.reference_order_code || '',
+        note: expenseEntry.note || '',
+      });
+      void syncPendingOps();
     },
-    [products, supa, profile, currentShift, setProducts]
+    [products, supa, profile, currentShift, setProducts, syncPendingOps]
   );
 
   // Nhập 1 phiếu nhiều dòng cùng NCC: chung 1 mã NH + 1 phiếu chi tổng.
@@ -2371,9 +2569,56 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       };
       setCashbook((prev) => [expenseEntry, ...prev]);
       db.cashbook.add(expenseEntry).catch(console.warn);
+      // P0: lưu PO local để trace + xếp hàng đẩy nhập kho & voucher chi lên server
+      const poRecord: PurchaseOrder = {
+        id: `po-${Date.now()}`,
+        code: refCode,
+        supplier_id: '',
+        supplier_name: supplierName,
+        items: clean.map((l) => {
+          const p = products.find((x) => x.id === l.productId);
+          return {
+            product_id: l.productId,
+            sku: p?.sku || '',
+            name: p?.name || '',
+            quantity: l.quantity,
+            unit_price: l.importPrice,
+            subtotal: Math.round(l.quantity * l.importPrice),
+          };
+        }),
+        subtotal: Math.round(totalAmount),
+        discount_amount: 0,
+        total_amount: Math.round(totalAmount),
+        paid_amount: Math.round(totalAmount),
+        debt_amount: 0,
+        status: 'completed',
+        created_at: now,
+      };
+      db.purchaseOrders.add(poRecord).catch(console.warn);
+      await enqueueOp('import', {
+        clientRef: `imp-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+        code: refCode,
+        supplierName,
+        total: Math.round(totalAmount),
+        lines: clean.map((l) => {
+          const p = products.find((x) => x.id === l.productId);
+          return { productId: l.productId, sku: p?.sku || '', quantity: l.quantity, importPrice: l.importPrice };
+        }),
+      });
+      await enqueueOp('voucher', {
+        entryId: expenseEntry.id,
+        type: expenseEntry.type,
+        fund: expenseEntry.fund_type,
+        category: expenseEntry.category,
+        amount: expenseEntry.amount,
+        partner: expenseEntry.partner_name || '',
+        reference: expenseEntry.reference_order_code || '',
+        note: expenseEntry.note || '',
+      });
+      void syncPendingOps();
       return true;
     },
-    [products, supa, profile, currentShift, setProducts]
+    [products, supa, profile, currentShift, setProducts, syncPendingOps]
   );
 
   const value: TransactionsSlice = {
@@ -2433,6 +2678,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     collectProjectDeposit,
     refreshServerProjects,
     syncProjects,
+    syncPendingOps,
     closeShift,
     openNewShift,
     refreshShiftFromServer,

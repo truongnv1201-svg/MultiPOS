@@ -25,6 +25,18 @@ export interface PendingMasterData {
   last_error?: string;
 }
 
+// Hàng đợi đẩy kho/quỹ/NCC lên server (P0: import/voucher/supplier_payment).
+// Server dedupe bằng client_ref nên replay an toàn.
+export interface PendingOp {
+  id: string;
+  kind: 'import' | 'voucher' | 'supplier_payment';
+  payload: Record<string, unknown>;
+  created_at: string;
+  attempts: number;
+  status: 'pending' | 'failed';
+  last_error?: string;
+}
+
 export class MultiPOSDatabase extends Dexie {
   products!: Table<Product, string>;
   customers!: Table<Customer, string>;
@@ -38,6 +50,7 @@ export class MultiPOSDatabase extends Dexie {
   employees!: Table<Employee, string>; // HRM: master nhân sự
   attendanceDays!: Table<AttendanceDay, string>; // HRM: công ngày
   pendingMasterData!: Table<PendingMasterData, string>;
+  pendingOps!: Table<PendingOp, string>; // P0: nhập kho / voucher tay / trả NCC
 
   constructor() {
     super('MultiPOSDB_v213');
@@ -112,6 +125,10 @@ export class MultiPOSDatabase extends Dexie {
     // v6: hàng đợi master-data khi mất mạng (sản phẩm/KH/NCC)
     this.version(6).stores({
       pendingMasterData: 'id, entity, operation, status, created_at',
+    });
+    // v7: hàng đợi kho/quỹ/NCC (P0) — cộng thêm, giữ nguyên dữ liệu cũ
+    this.version(7).stores({
+      pendingOps: 'id, kind, status, created_at',
     });
   }
 }

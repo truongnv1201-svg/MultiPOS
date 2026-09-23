@@ -218,6 +218,7 @@ interface StoreContextType {
   ) => Promise<Project | null>;
   refreshServerProjects: () => Promise<boolean>;
   syncProjects: () => Promise<void>;
+  syncPendingOps: () => Promise<{ synced: number; failed: number }>;
   closeShift: (countedCash: number) => Promise<boolean>;
   openNewShift: (startingCash: number) => Promise<void>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
@@ -413,6 +414,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     collectProjectDeposit,
     refreshServerProjects,
     syncProjects,
+    syncPendingOps,
     closeShift,
     openNewShift,
     refreshShiftFromServer,
@@ -474,12 +476,13 @@ function StoreInner({ children }: { children: React.ReactNode }) {
           refreshServerStockMovements();
           syncCustomers();
           syncProjects();
+          syncPendingOps();
           refreshGrinding();
           refreshCashRounding();
         });
       });
     }
-  }, [isOnline, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, syncCustomers, syncProjects, refreshGrinding, refreshCashRounding]);
+  }, [isOnline, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, syncCustomers, syncProjects, syncPendingOps, refreshGrinding, refreshCashRounding]);
 
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;
@@ -662,6 +665,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     collectProjectDeposit,
     refreshServerProjects,
     syncProjects,
+    syncPendingOps,
     closeShift,
     openNewShift,
     addCashbookEntry,
