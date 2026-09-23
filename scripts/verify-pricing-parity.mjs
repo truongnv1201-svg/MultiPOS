@@ -5,6 +5,7 @@
 // Cần SUPABASE_ACCESS_TOKEN (ghi đơn test + cleanup). Thiếu -> SKIP exit 0.
 // Chạy: node scripts/verify-pricing-parity.mjs [n_cases]
 import { readFileSync } from 'node:fs';
+import { fetchCatalog, pickArea, pickGoods } from './verify-catalog.mjs';
 import {
   calculateDimensionRow,
   recomputeOrderItem,
@@ -86,11 +87,14 @@ try {
 } catch { /* giữ 500 */ }
 console.log(`denom=${denom}`);
 
-const keoBefore = await stock('SP000007');
-const kinhBefore = await stock('SP000001');
+const catalog = await fetchCatalog(URL, H);
+const goods = pickGoods(catalog);
+const area = pickArea(catalog);
+const keoBefore = await stock(goods.sku);
+const kinhBefore = await stock(area.sku);
 // Tạm bơm tồn để fuzz nhiều case không cạn kho giữa chừng (cuối cùng restore đúng snapshot)
-await dbq(`update public.products set stock_quantity = stock_quantity + 1000 where sku='SP000007'`);
-await dbq(`update public.products set stock_quantity = stock_quantity + 5000 where sku='SP000001'`);
+await dbq(`update public.products set stock_quantity = stock_quantity + 1000 where sku='${goods.sku}'`);
+await dbq(`update public.products set stock_quantity = stock_quantity + 5000 where sku='${area.sku}'`);
 
 // KH test cho case nợ
 const s = await rpc('sync_customer', { p_code: 'KHPARITY', p_name: 'Parity', p_phone: '0902600000', p_group: 'retail' });
@@ -112,9 +116,9 @@ for (let i = 0; i < N; i++) {
         corner_unit_price: 15000, extra_fee: pick([0, 0, 15000]),
       });
       // Giá lẻ cố ý để phủ nhánh làm tròn dòng (0027 bắt integer 2 phía)
-      const price = pick([290000, 320000, 380000, 99999, 123456]);
+      const price = pick([Number(area.retail_price), 99999, 123456]);
       items.push(recomputeOrderItem({
-        id: `item-${i}-${k}`, product_id: 'area-1', sku: 'SP000001', name: 'Kính',
+        id: `item-${i}-${k}`, product_id: area.sku, sku: area.sku, name: area.name,
         product_type: 'area', unit: 'm²', unit_price: price, quantity: 0,
         discount_amount: pick([0, 0, 50000]), processing_fee: 0, subtotal: 0,
         dimension_details: [dim], waste_factor: 5,
@@ -122,8 +126,8 @@ for (let i = 0; i < N; i++) {
     } else {
       const qty = rint(1, 5);
       items.push(recomputeOrderItem({
-        id: `item-${i}-${k}`, product_id: 'goods-1', sku: 'SP000007', name: 'Keo',
-        product_type: 'goods', unit: 'chai', unit_price: pick([62000, 61999, 57500]), quantity: qty,
+        id: `item-${i}-${k}`, product_id: goods.sku, sku: goods.sku, name: goods.name,
+        product_type: 'goods', unit: goods.unit, unit_price: pick([Number(goods.retail_price), 61999, 57500]), quantity: qty,
         discount_amount: pick([0, 0, 10000]), processing_fee: 0, subtotal: 0,
       }));
     }
@@ -182,8 +186,8 @@ for (let i = 0; i < N; i++) {
 // cleanup
 await dbq(`delete from public.cashbook_entries where reference_order_code in (select order_code from public.orders where note like 'parity-%' or customer_id='${custId}')`);
 await dbq(`delete from public.orders where note like 'parity-%' or customer_id='${custId}'`);
-await dbq(`update public.products set stock_quantity = ${keoBefore} where sku='SP000007'`);
-await dbq(`update public.products set stock_quantity = ${kinhBefore} where sku='SP000001'`);
+await dbq(`update public.products set stock_quantity = ${keoBefore} where sku='${goods.sku}'`);
+await dbq(`update public.products set stock_quantity = ${kinhBefore} where sku='${area.sku}'`);
 if (custId) await dbq(`delete from public.customers where id='${custId}'`);
 const left = await dbq(`select count(*) from public.orders where note like 'parity-%'`);
 assert('cleanup sạch', left.includes('0'), left.slice(0, 80));
