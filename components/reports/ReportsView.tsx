@@ -990,6 +990,24 @@ export function ReportsView() {
         {activeTab === 'debt' && (
           <DataTableShell>
             <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={debtSide === 'customer' ? debtSearch : supSearch}
+                  onChange={(e) => {
+                    if (debtSide === 'customer') {
+                      setDebtSearch(e.target.value);
+                      setDebtPage(1);
+                    } else {
+                      setSupSearch(e.target.value);
+                      setSupPage(1);
+                    }
+                  }}
+                  placeholder={debtSide === 'customer' ? 'Tìm khách nợ theo tên, SĐT...' : 'Tìm NCC theo tên, SĐT...'}
+                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
               {/* Chiều công nợ: phải thu (KH) / phải trả (NCC) */}
               <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-lg">
                 <button
@@ -1008,24 +1026,6 @@ export function ReportsView() {
                 >
                   Phải trả NCC ({sortedSuppliers.length})
                 </button>
-              </div>
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={debtSide === 'customer' ? debtSearch : supSearch}
-                  onChange={(e) => {
-                    if (debtSide === 'customer') {
-                      setDebtSearch(e.target.value);
-                      setDebtPage(1);
-                    } else {
-                      setSupSearch(e.target.value);
-                      setSupPage(1);
-                    }
-                  }}
-                  placeholder={debtSide === 'customer' ? 'Tìm khách nợ theo tên, SĐT...' : 'Tìm NCC theo tên, SĐT...'}
-                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-                />
               </div>
             </div>
 
