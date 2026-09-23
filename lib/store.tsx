@@ -403,6 +403,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     checkoutActiveOrder,
     refreshServerOrders,
     refreshServerStockMovements,
+    refreshServerCashbook,
     syncPendingOrders,
     resolveServerOrderId,
     cancelOrder,
@@ -480,6 +481,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
           syncMasterData().then(() => refreshCatalog());
           refreshServerOrders();
           refreshServerStockMovements();
+          refreshServerCashbook();
           syncCustomers();
           syncProjects();
           syncPendingOps();
@@ -495,6 +497,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     const refresh = () => {
       refreshServerOrders();
       refreshServerStockMovements();
+      refreshServerCashbook();
     };
     const interval = window.setInterval(refresh, 15000);
     window.addEventListener('focus', refresh);
@@ -504,7 +507,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [isOnline, supabaseReady, refreshServerOrders, refreshServerStockMovements]);
+  }, [isOnline, supabaseReady, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook]);
 
   // Active Cart Tab
 

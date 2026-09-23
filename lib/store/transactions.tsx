@@ -1,4 +1,4 @@
-// P3-phan 2 (tiep): slice Transactions - POS/gio, checkout, don/no/so quy/ca/nhap kho/cong trinh.
+﻿// P3-phan 2 (tiep): slice Transactions - POS/gio, checkout, don/no/so quy/ca/nhap kho/cong trinh.
 // Tang dieu phoi tien/kho; consume Auth + Commerce + Catalog + Network. Facade useStore() giu nguyen.
 'use client';
 
@@ -17,11 +17,11 @@ import { calcCartTotals, resolvePaidAmount } from '../pricing';
 import { vietnamizeError } from '../error-vi';
 import { notify } from '@/components/common/Toast';
 
-// P0: nhận diện uuid server (dùng chung cho project/NCC/vật tư khi đồng bộ).
+// P0: nháº­n diá»‡n uuid server (dÃ¹ng chung cho project/NCC/váº­t tÆ° khi Ä‘á»“ng bá»™).
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const asUuidOrNull = (v?: string | null) => (v && UUID_RE.test(v) ? v : null);
 
-// P0: xếp hàng đợi đẩy kho/quỹ/NCC (dedupe server bằng client_ref nên replay an toàn)
+// P0: xáº¿p hÃ ng Ä‘á»£i Ä‘áº©y kho/quá»¹/NCC (dedupe server báº±ng client_ref nÃªn replay an toÃ n)
 async function enqueueOp(kind: PendingOp['kind'], payload: Record<string, unknown>) {
   await db.pendingOps
     .add({
@@ -37,7 +37,7 @@ async function enqueueOp(kind: PendingOp['kind'], payload: Record<string, unknow
 
 const EMPTY_SHIFT: Shift = {
   id: 'shift-empty',
-  cashier_name: 'Chưa mở ca',
+  cashier_name: 'ChÆ°a má»Ÿ ca',
   opened_at: '',
   starting_cash: 0,
   status: 'closed',
@@ -61,6 +61,7 @@ export interface TransactionsSlice {
   stockMovements: StockMovement[];
   setStockMovements: React.Dispatch<React.SetStateAction<StockMovement[]>>;
   refreshServerStockMovements: () => Promise<boolean>;
+  refreshServerCashbook: () => Promise<boolean>;
   pendingQueue: Order[];
   setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;
   cashierName: string;
@@ -199,7 +200,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         server_id: row.id,
         order_code: row.order_code,
         customer_id: row.customer_id || undefined,
-        customer_name: row.customer_name || 'Khách Lẻ',
+        customer_name: row.customer_name || 'KhÃ¡ch Láº»',
         items: itemsByOrder.get(row.id) || [],
         subtotal: Number(row.subtotal || 0),
         discount_amount: Number(row.discount_amount || 0),
@@ -216,7 +217,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         status: row.status,
         note: row.note || undefined,
         created_at: row.created_at,
-        cashier_name: row.cashier_id === user.id ? (profile?.full_name || user.email || '') : 'Nhân viên',
+        cashier_name: row.cashier_id === user.id ? (profile?.full_name || user.email || '') : 'NhÃ¢n viÃªn',
         is_offline: false,
       }));
 
@@ -243,11 +244,11 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       if (error) throw error;
       const mapped: StockMovement[] = ((data || []) as any[]).map((row) => {
         const note = row.note || '';
-        const movementType: StockMovement['movement_type'] = /nhập|nhap|trả|tra|restock/i.test(note)
+        const movementType: StockMovement['movement_type'] = /nháº­p|nhap|tráº£|tra|restock/i.test(note)
           ? 'return'
-          : /công trình|project/i.test(note)
+          : /cÃ´ng trÃ¬nh|project/i.test(note)
             ? 'export_project'
-            : /bán|checkout|sales/i.test(note)
+            : /bÃ¡n|checkout|sales/i.test(note)
               ? 'export_sales'
               : 'import';
         const product = Array.isArray(row.products) ? row.products[0] : row.products;
@@ -255,7 +256,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           id: row.id,
           reference_code: row.reference_code,
           product_id: row.product_id || '',
-          product_name: product?.name || 'Sản phẩm đã xóa',
+          product_name: product?.name || 'Sáº£n pháº©m Ä‘Ã£ xÃ³a',
           movement_type: movementType,
           quantity: Number(row.quantity || 0),
           previous_stock: row.previous_stock == null ? 0 : Number(row.previous_stock),
@@ -272,20 +273,97 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     }
   }, [supa, user, isOnline]);
 
-  // cashierName gắn với tài khoản đăng nhập (fix: trước đây hard-code 'Nguyễn Văn A'
-  // nên chưa login vẫn mở/kết ca được). Chưa login -> 'Chưa đăng nhập'.
+  // P1 sá»• quá»¹ Ä‘a mÃ¡y: kÃ©o bÃºt toÃ¡n server vá» há»™i tá»¥ (ghi váº«n chá»‰ qua RPC).
+  // Server tháº¯ng; giá»¯ báº£n local chÆ°a synced (nháº­p kho, voucher chá» Ä‘áº©y, offline).
+  // Dedupe legacy 1 láº§n: báº£n local cÅ© trÃ¹ng (loáº¡i, háº¡ng má»¥c, tiá»n, tham chiáº¿u,
+  // Ä‘á»‘i tÃ¡c, cÃ¹ng ngÃ y) vá»›i dÃ²ng server -> Ä‘Ã¡nh dáº¥u synced, khá»i hiá»‡n 2 láº§n.
+  const refreshServerCashbook = useCallback(async (): Promise<boolean> => {
+    if (!supa || !user || !isOnline) return false;
+    try {
+      const { data, error } = await supa
+        .from('cashbook_entries')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error || !data) return false;
+      const validCats: CashbookEntry['category'][] = [
+        'sales', 'deposit', 'debt_collection', 'supplier_payment',
+        'labor', 'material', 'advance', 'other',
+      ];
+      const mapped: CashbookEntry[] = (data as Record<string, unknown>[]).map((row) => ({
+        id: String(row.id),
+        code: typeof row.code === 'string' ? row.code : '',
+        type: row.type === 'expense' ? 'expense' : 'receipt',
+        fund_type: row.fund_type === 'bank' ? 'bank' : 'cash',
+        category: validCats.includes(row.category as CashbookEntry['category'])
+          ? (row.category as CashbookEntry['category'])
+          : 'other',
+        amount: Number(row.amount) || 0,
+        reference_order_code:
+          typeof row.reference_order_code === 'string' ? row.reference_order_code : undefined,
+        partner_name: typeof row.partner_name === 'string' ? row.partner_name : undefined,
+        note: typeof row.note === 'string' ? row.note : '',
+        created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+        synced: true,
+      }));
+      const keyOf = (e: {
+        type: string;
+        category: string;
+        amount: number;
+        reference_order_code?: string;
+        partner_name?: string;
+        created_at: string;
+      }) =>
+        [
+          e.type,
+          e.category,
+          Math.round(e.amount),
+          e.reference_order_code || '',
+          e.partner_name || '',
+          (e.created_at || '').slice(0, 10),
+        ].join('|');
+      const serverKeys = new Set(mapped.map(keyOf));
+      const localRows = await db.cashbook.toArray().catch(() => [] as CashbookEntry[]);
+      const promotedIds: string[] = [];
+      const keptLocal: CashbookEntry[] = [];
+      for (const e of localRows) {
+        if (e.synced) continue;
+        if (serverKeys.has(keyOf(e))) {
+          promotedIds.push(e.id);
+          continue;
+        }
+        keptLocal.push(e);
+      }
+      if (promotedIds.length > 0) {
+        await db.cashbook.where('id').anyOf(promotedIds).modify({ synced: true }).catch(() => {});
+      }
+      const next = [...mapped, ...keptLocal].sort((a, b) =>
+        a.created_at < b.created_at ? 1 : -1
+      );
+      setCashbook(next);
+      await db.cashbook.clear().catch(() => {});
+      await db.cashbook.bulkAdd(next).catch(() => {});
+      return true;
+    } catch (err) {
+      console.warn('Cashbook pull failed (giá»¯ local):', err);
+      return false;
+    }
+  }, [supa, user, isOnline]);
+
+  // cashierName gáº¯n vá»›i tÃ i khoáº£n Ä‘Äƒng nháº­p (fix: trÆ°á»›c Ä‘Ã¢y hard-code 'Nguyá»…n VÄƒn A'
+  // nÃªn chÆ°a login váº«n má»Ÿ/káº¿t ca Ä‘Æ°á»£c). ChÆ°a login -> 'ChÆ°a Ä‘Äƒng nháº­p'.
 
   const [pendingQueue, setPendingQueue] = useState<Order[]>([]);
 
-  // Thu ngân hiện tại gắn với tài khoản đăng nhập (fix kết ca ẩn danh)
+  // Thu ngÃ¢n hiá»‡n táº¡i gáº¯n vá»›i tÃ i khoáº£n Ä‘Äƒng nháº­p (fix káº¿t ca áº©n danh)
   const cashierName = useMemo(
-    () => profile?.full_name || user?.email || 'Chưa đăng nhập',
+    () => profile?.full_name || user?.email || 'ChÆ°a Ä‘Äƒng nháº­p',
     [profile, user]
   );
 
   // POS State
-  const [posMode, setPosMode] = useState<'standard' | 'fast'>('fast'); // Mặc định bán nhanh
-  const [posFlow, setPosFlow] = useState<'sale' | 'import'>('sale'); // Luồng POS hiện tại
+  const [posMode, setPosMode] = useState<'standard' | 'fast'>('fast'); // Máº·c Ä‘á»‹nh bÃ¡n nhanh
+  const [posFlow, setPosFlow] = useState<'sale' | 'import'>('sale'); // Luá»“ng POS hiá»‡n táº¡i
   const [cartTabs, setCartTabs] = useState<CartTab[]>([DEFAULT_TAB]);
   const [activeTabId, setActiveTabId] = useState<string>('tab-1');
 
@@ -298,10 +376,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     return cartTabs.find((t) => t.id === activeTabId) || cartTabs[0] || DEFAULT_TAB;
   }, [cartTabs, activeTabId]);
 
-  // Tab operations — tab mới ăn theo mặc định POS trong Cài đặt
+  // Tab operations â€” tab má»›i Äƒn theo máº·c Ä‘á»‹nh POS trong CÃ i Ä‘áº·t
   const createCartTab = useCallback(() => {
     if (cartTabs.length >= 5) {
-      alert('Chỉ được mở tối đa 5 hóa đơn cùng lúc! Hãy thanh toán hoặc đóng bớt tab.');
+      alert('Chá»‰ Ä‘Æ°á»£c má»Ÿ tá»‘i Ä‘a 5 hÃ³a Ä‘Æ¡n cÃ¹ng lÃºc! HÃ£y thanh toÃ¡n hoáº·c Ä‘Ã³ng bá»›t tab.');
       return;
     }
     const newId = `tab-${Date.now()}`;
@@ -458,27 +536,27 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   }, [updateActiveTab]);
 
   // Calculations for current active order
-  // Tổng giỏ dùng chung lib/pricing (single source, có unit test) — khớp server từng đồng.
+  // Tá»•ng giá» dÃ¹ng chung lib/pricing (single source, cÃ³ unit test) â€” khá»›p server tá»«ng Ä‘á»“ng.
   const calculatedTotals = useMemo(() => calcCartTotals(activeCart, cashRounding), [activeCart, cashRounding]);
 
-  // Checkout Transaction Logic (SRS §2.2 & Invariants 1-5)
-  // P3: online + Supabase -> commit nguyên tử qua RPC pos_checkout (server tính lại
-  // tiền/kho/nợ/sổ quỹ). Offline hoặc chưa cấu hình -> logic local + hàng đợi pending.
+  // Checkout Transaction Logic (SRS Â§2.2 & Invariants 1-5)
+  // P3: online + Supabase -> commit nguyÃªn tá»­ qua RPC pos_checkout (server tÃ­nh láº¡i
+  // tiá»n/kho/ná»£/sá»• quá»¹). Offline hoáº·c chÆ°a cáº¥u hÃ¬nh -> logic local + hÃ ng Ä‘á»£i pending.
   const checkoutActiveOrder = useCallback(
     async (isDeposit = false): Promise<Order | null> => {
       if (activeCart.items.length === 0) return null;
-      // Fix thu ngân: bắt buộc đăng nhập (khi có Supabase) + ca đang mở mới được bán.
+      // Fix thu ngÃ¢n: báº¯t buá»™c Ä‘Äƒng nháº­p (khi cÃ³ Supabase) + ca Ä‘ang má»Ÿ má»›i Ä‘Æ°á»£c bÃ¡n.
       if (supa && !user) {
-        alert('Vui lòng đăng nhập thu ngân trước khi thanh toán!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p thu ngÃ¢n trÆ°á»›c khi thanh toÃ¡n!');
         setLoginOpen(true);
         return null;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi bán hàng.');
+        alert('Ca lÃ m viá»‡c chÆ°a má»Ÿ hoáº·c Ä‘Ã£ Ä‘Ã³ng! Vui lÃ²ng má»Ÿ ca má»›i (F12) trÆ°á»›c khi bÃ¡n hÃ ng.');
         setShiftModalOpen(true);
         return null;
       }
-      // Ca đang mở phải đứng tên người bán (trừ Admin/Quản lý) — khỏi dồn doanh số vào ca người khác
+      // Ca Ä‘ang má»Ÿ pháº£i Ä‘á»©ng tÃªn ngÆ°á»i bÃ¡n (trá»« Admin/Quáº£n lÃ½) â€” khá»i dá»“n doanh sá»‘ vÃ o ca ngÆ°á»i khÃ¡c
       if (
         supa &&
         user &&
@@ -487,7 +565,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         profile?.role !== 'manager'
       ) {
         alert(
-          `Ca đang mở đứng tên "${currentShift.cashier_name}", không phải bạn (${cashierName}). Hãy kết ca cũ (F12) / nhờ Admin rồi mở ca mới trước khi bán.`
+          `Ca Ä‘ang má»Ÿ Ä‘á»©ng tÃªn "${currentShift.cashier_name}", khÃ´ng pháº£i báº¡n (${cashierName}). HÃ£y káº¿t ca cÅ© (F12) / nhá» Admin rá»“i má»Ÿ ca má»›i trÆ°á»›c khi bÃ¡n.`
         );
         setShiftModalOpen(true);
         return null;
@@ -495,14 +573,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
       const totals = calculatedTotals;
       let orderCode = generateOrderCode('HD');
-      // P0-idempotency: khóa ổn định cho 1 lần bán — gửi lên server để retry/timeout
-      // mập mờ không sinh trùng đơn; đơn offline dùng luôn id này khi replay.
+      // P0-idempotency: khÃ³a á»•n Ä‘á»‹nh cho 1 láº§n bÃ¡n â€” gá»­i lÃªn server Ä‘á»ƒ retry/timeout
+      // máº­p má» khÃ´ng sinh trÃ¹ng Ä‘Æ¡n; Ä‘Æ¡n offline dÃ¹ng luÃ´n id nÃ y khi replay.
       const clientRef = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-      // Ô trống = trả đủ CHỈ cho chuyển khoản/quẹt thẻ; tiền mặt bắt buộc đã nhập (UI chặn),
-      // nợ ghi 0 để rơi vào guard nợ vô chủ (chung lib/pricing với POSScreen)
+      // Ã” trá»‘ng = tráº£ Ä‘á»§ CHá»ˆ cho chuyá»ƒn khoáº£n/quáº¹t tháº»; tiá»n máº·t báº¯t buá»™c Ä‘Ã£ nháº­p (UI cháº·n),
+      // ná»£ ghi 0 Ä‘á»ƒ rÆ¡i vÃ o guard ná»£ vÃ´ chá»§ (chung lib/pricing vá»›i POSScreen)
       let paidAmount = resolvePaidAmount(totals.payable, activeCart.payment_method, activeCart.tendered_amount || 0);
       let actualDebt = totals.payable - paidAmount;
-      // Số liệu hiệu dụng: mặc định = tính local, server ghi đè khi commit RPC thành công
+      // Sá»‘ liá»‡u hiá»‡u dá»¥ng: máº·c Ä‘á»‹nh = tÃ­nh local, server ghi Ä‘Ã¨ khi commit RPC thÃ nh cÃ´ng
       let effSubtotal = totals.subtotal;
       let effDiscount = totals.discount_amount;
       let effVat = totals.vat_amount;
@@ -510,21 +588,24 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       let effPayable = totals.payable;
       let effChange = totals.change_amount;
       let serverOrderId: string | null = null;
+      // P1 sá»• quá»¹ Ä‘a mÃ¡y: RPC thÃ nh cÃ´ng lÃ  server Ä‘Ã£ ghi receipt -> mirror local
+      // Ä‘Ã¡nh dáº¥u synced Ä‘á»ƒ láº§n pull sau khÃ´ng trÃ¹ng dÃ²ng.
+      let serverCommitted = false;
 
       if (isOnline && supa) {
         try {
-          // 0009: nợ > 0 mà KH chưa map uuid server -> sync gấp trước khi commit
-          // (server guard sẽ rollback nếu nợ vô chủ)
+          // 0009: ná»£ > 0 mÃ  KH chÆ°a map uuid server -> sync gáº¥p trÆ°á»›c khi commit
+          // (server guard sáº½ rollback náº¿u ná»£ vÃ´ chá»§)
           let serverCustId: string | null =
             activeCart.customer_id ? customerMap[activeCart.customer_id] ?? null : null;
           if (actualDebt > 0 && activeCart.customer_id && !serverCustId) {
             const fresh = await syncCustomers();
             serverCustId = fresh[activeCart.customer_id] ?? null;
           }
-          // Gửi TIỀN KHÁCH ĐƯA (không kẹp ở payable) để server chia paid/change/debt làm
-          // chuẩn — trước đây kẹp paid ở payable nên hóa đơn online không bao giờ hiện tiền
-          // thừa (bug lộ bởi fuzz parity). Ô trống = trả đủ cho chuyển khoản/quẹt thẻ
-          // (khớp resolvePaidAmount); cash trống đã bị UI chặn từ POSScreen.
+          // Gá»­i TIá»€N KHÃCH ÄÆ¯A (khÃ´ng káº¹p á»Ÿ payable) Ä‘á»ƒ server chia paid/change/debt lÃ m
+          // chuáº©n â€” trÆ°á»›c Ä‘Ã¢y káº¹p paid á»Ÿ payable nÃªn hÃ³a Ä‘Æ¡n online khÃ´ng bao giá» hiá»‡n tiá»n
+          // thá»«a (bug lá»™ bá»Ÿi fuzz parity). Ã” trá»‘ng = tráº£ Ä‘á»§ cho chuyá»ƒn khoáº£n/quáº¹t tháº»
+          // (khá»›p resolvePaidAmount); cash trá»‘ng Ä‘Ã£ bá»‹ UI cháº·n tá»« POSScreen.
           let tendered = activeCart.tendered_amount || 0;
           if (activeCart.payment_method !== 'cash' && activeCart.payment_method !== 'debt' && tendered <= 0) {
             tendered = totals.payable;
@@ -533,11 +614,11 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             activeCart.payment_method === 'debt' || tendered <= 0
               ? []
               : [{ method: activeCart.payment_method, amount: tendered }];
-          // 0023: server tính VAT riêng qua p_vat_percent (khớp calculatedTotals từng đồng).
-          // Server chưa migrate (không có overload 9-arg) -> PostgREST PGRST202 -> fallback
-          // cách cũ: gộp VAT vào ship để total vẫn khớp.
+          // 0023: server tÃ­nh VAT riÃªng qua p_vat_percent (khá»›p calculatedTotals tá»«ng Ä‘á»“ng).
+          // Server chÆ°a migrate (khÃ´ng cÃ³ overload 9-arg) -> PostgREST PGRST202 -> fallback
+          // cÃ¡ch cÅ©: gá»™p VAT vÃ o ship Ä‘á»ƒ total váº«n khá»›p.
           const rpcBase = {
-            p_customer_name: activeCart.customer_name || 'Khách Lẻ Mua Tại Quầy',
+            p_customer_name: activeCart.customer_name || 'KhÃ¡ch Láº» Mua Táº¡i Quáº§y',
             p_items: toRpcItems(activeCart.items),
             p_discount: totals.discount_amount,
             p_payments: rpcPayments,
@@ -565,6 +646,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             rpcError = first.error;
           }
           if (rpcError) throw new Error(rpcError.message);
+          serverCommitted = true;
           const res = data as {
             order_id?: string;
             order_code: string;
@@ -578,7 +660,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             debt_amount: number;
           };
           orderCode = res.order_code;
-          // 0024: giữ UUID server để cancel/return gọi đúng đơn (khỏi lookup)
+          // 0024: giá»¯ UUID server Ä‘á»ƒ cancel/return gá»i Ä‘Ãºng Ä‘Æ¡n (khá»i lookup)
           serverOrderId = typeof res.order_id === 'string' ? res.order_id : null;
           effSubtotal = Number(res.subtotal);
           effDiscount = Number(res.discount_amount);
@@ -589,7 +671,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           actualDebt = Number(res.debt_amount);
           effChange = Number(res.change_amount);
         } catch (err: any) {
-          alert(`Lỗi commit server — giữ nguyên giỏ để thử lại: ${vietnamizeError(err)}`);
+          alert(`Lá»—i commit server â€” giá»¯ nguyÃªn giá» Ä‘á»ƒ thá»­ láº¡i: ${vietnamizeError(err)}`);
           return null;
         }
       }
@@ -610,7 +692,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         server_id: serverOrderId ?? undefined,
         order_code: orderCode,
         customer_id: activeCart.customer_id,
-        customer_name: activeCart.customer_name || 'Khách Lẻ Mua Tại Quầy',
+        customer_name: activeCart.customer_name || 'KhÃ¡ch Láº» Mua Táº¡i Quáº§y',
         customer_phone: activeCart.customer_phone,
         items: [...activeCart.items],
         subtotal: effSubtotal,
@@ -652,8 +734,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           continue;
         }
 
-        // Regular item hoặc area: area tính theo m2 thực x waste hiện tại (mirror server 0028),
-        // không tin material_consumed cũ trong giỏ
+        // Regular item hoáº·c area: area tÃ­nh theo m2 thá»±c x waste hiá»‡n táº¡i (mirror server 0028),
+        // khÃ´ng tin material_consumed cÅ© trong giá»
         if (item.product_type === 'area' && item.dimension_details && item.dimension_details.length > 0) {
           const prod = products.find((p) => p.id === item.product_id);
           const waste = prod?.waste_factor ?? item.waste_factor ?? 0;
@@ -666,21 +748,21 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         }
       }
 
-      // P0-3: chặn bán lố kho ngay cả offline (server sẽ RAISE + rollback,
-      // đơn offline replay fail sẽ kẹt queue câm). Kiểm tra trước khi trừ.
+      // P0-3: cháº·n bÃ¡n lá»‘ kho ngay cáº£ offline (server sáº½ RAISE + rollback,
+      // Ä‘Æ¡n offline replay fail sáº½ káº¹t queue cÃ¢m). Kiá»ƒm tra trÆ°á»›c khi trá»«.
       const insufficient: string[] = [];
       for (const [pid, need] of Object.entries(stockDeductions)) {
         const p = products.find((x) => x.id === pid);
-        if (p && p.stock_quantity < need) insufficient.push(`${p.sku} (tồn ${p.stock_quantity}, cần ${need})`);
-        // Combo con thiếu cũng đã gộp trong stockDeductions qua child.product_id nên check chung.
+        if (p && p.stock_quantity < need) insufficient.push(`${p.sku} (tá»“n ${p.stock_quantity}, cáº§n ${need})`);
+        // Combo con thiáº¿u cÅ©ng Ä‘Ã£ gá»™p trong stockDeductions qua child.product_id nÃªn check chung.
       }
-      // Kiểm tra linh kiện combo con thiếu theo tên để báo rõ
+      // Kiá»ƒm tra linh kiá»‡n combo con thiáº¿u theo tÃªn Ä‘á»ƒ bÃ¡o rÃµ
       if (insufficient.length > 0) {
-        alert(`Tồn kho không đủ, không thể bán:\n${insufficient.join('\n')}\nHãy giảm SL hoặc nhập kho thêm.`);
+        alert(`Tá»“n kho khÃ´ng Ä‘á»§, khÃ´ng thá»ƒ bÃ¡n:\n${insufficient.join('\n')}\nHÃ£y giáº£m SL hoáº·c nháº­p kho thÃªm.`);
         return null;
       }
 
-      // Update in-memory and DB stock (không kẹp max(0) để khỏi lệch truth với server)
+      // Update in-memory and DB stock (khÃ´ng káº¹p max(0) Ä‘á»ƒ khá»i lá»‡ch truth vá»›i server)
       setProducts((prev) =>
         prev.map((p) => {
           const deduct = stockDeductions[p.id];
@@ -721,9 +803,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           reference_order_code: orderCode,
           partner_name: activeCart.customer_name,
           note: isDeposit
-            ? `Thu cọc đơn hàng ${orderCode}`
-            : `Thanh toán hóa đơn ${orderCode} (${activeCart.payment_method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản VietQR'})`,
+            ? `Thu cá»c Ä‘Æ¡n hÃ ng ${orderCode}`
+            : `Thanh toÃ¡n hÃ³a Ä‘Æ¡n ${orderCode} (${activeCart.payment_method === 'cash' ? 'Tiá»n máº·t' : 'Chuyá»ƒn khoáº£n VietQR'})`,
           created_at: new Date().toISOString(),
+          synced: serverCommitted || undefined,
         };
 
         setCashbook((prev) => [newEntry, ...prev]);
@@ -758,22 +841,22 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       // 6. Reset current cart
       clearActiveCart();
 
-      // Thông báo thành công (kể cả khi tắt In tự động nên không mở phiếu)
-      const vnd = (n: number) => `${Math.round(n).toLocaleString('vi-VN')} đ`;
+      // ThÃ´ng bÃ¡o thÃ nh cÃ´ng (ká»ƒ cáº£ khi táº¯t In tá»± Ä‘á»™ng nÃªn khÃ´ng má»Ÿ phiáº¿u)
+      const vnd = (n: number) => `${Math.round(n).toLocaleString('vi-VN')} Ä‘`;
       notify(
         isDeposit
-          ? `Thu cọc thành công ${orderCode}\nĐã nhận: ${vnd(paidAmount)}`
+          ? `Thu cá»c thÃ nh cÃ´ng ${orderCode}\nÄÃ£ nháº­n: ${vnd(paidAmount)}`
           : actualDebt > 0
-            ? `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)} • Còn nợ: ${vnd(actualDebt)}`
+            ? `Thanh toÃ¡n thÃ nh cÃ´ng ${orderCode}\nÄÃ£ thu: ${vnd(paidAmount)} â€¢ CÃ²n ná»£: ${vnd(actualDebt)}`
             : effChange > 0
-              ? `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)} • Thối lại: ${vnd(effChange)}`
-              : `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)}`,
+              ? `Thanh toÃ¡n thÃ nh cÃ´ng ${orderCode}\nÄÃ£ thu: ${vnd(paidAmount)} â€¢ Thá»‘i láº¡i: ${vnd(effChange)}`
+              : `Thanh toÃ¡n thÃ nh cÃ´ng ${orderCode}\nÄÃ£ thu: ${vnd(paidAmount)}`,
         'success',
       );
 
-      // In tự động (Cài đặt → Trung tâm in ấn): BẬT = tự mở phiếu sau bán để bấm In;
-      // TẮT = về bán tiếp luôn, xem/in lại trong Đơn hàng. Mặc định BẬT (!== false
-      // để máy cũ chưa có key này vẫn giữ hành vi cũ).
+      // In tá»± Ä‘á»™ng (CÃ i Ä‘áº·t â†’ Trung tÃ¢m in áº¥n): Báº¬T = tá»± má»Ÿ phiáº¿u sau bÃ¡n Ä‘á»ƒ báº¥m In;
+      // Táº®T = vá» bÃ¡n tiáº¿p luÃ´n, xem/in láº¡i trong ÄÆ¡n hÃ ng. Máº·c Ä‘á»‹nh Báº¬T (!== false
+      // Ä‘á»ƒ mÃ¡y cÅ© chÆ°a cÃ³ key nÃ y váº«n giá»¯ hÃ nh vi cÅ©).
       if (shop.autoPrint !== false) {
         setReceiptModalOrder(newOrder);
       }
@@ -801,9 +884,9 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   );
 
   // Sync Offline Queue
-  // P3: có Supabase -> replay từng đơn offline lên server qua pos_checkout rồi mới
-  // xóa hàng đợi (đơn replay nhận mã HD mới của server; mã offline cũ giữ ở máy trạm).
-  // Chưa cấu hình server -> hành vi cũ (đánh dấu đã sync).
+  // P3: cÃ³ Supabase -> replay tá»«ng Ä‘Æ¡n offline lÃªn server qua pos_checkout rá»“i má»›i
+  // xÃ³a hÃ ng Ä‘á»£i (Ä‘Æ¡n replay nháº­n mÃ£ HD má»›i cá»§a server; mÃ£ offline cÅ© giá»¯ á»Ÿ mÃ¡y tráº¡m).
+  // ChÆ°a cáº¥u hÃ¬nh server -> hÃ nh vi cÅ© (Ä‘Ã¡nh dáº¥u Ä‘Ã£ sync).
   const syncPendingOrders = useCallback(async () => {
     if (!isOnline || pendingQueue.length === 0) return;
     if (supa) {
@@ -812,18 +895,18 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       const failures: string[] = [];
       for (const o of pendingQueue) {
         try {
-          // Đơn offline mới (có vat_percent) -> gửi VAT riêng cho server 0023.
-          // Đơn offline cũ (không có vat_*, VAT nằm lẫn trong total) -> khôi phục residual
-          // = total - (subtotal - discount + ship - rounding) rồi gộp vào ship (tương thích
-          // cả server cũ lẫn mới).
+          // ÄÆ¡n offline má»›i (cÃ³ vat_percent) -> gá»­i VAT riÃªng cho server 0023.
+          // ÄÆ¡n offline cÅ© (khÃ´ng cÃ³ vat_*, VAT náº±m láº«n trong total) -> khÃ´i phá»¥c residual
+          // = total - (subtotal - discount + ship - rounding) rá»“i gá»™p vÃ o ship (tÆ°Æ¡ng thÃ­ch
+          // cáº£ server cÅ© láº«n má»›i).
           const oVatPct = o.vat_percent || 0;
           const vatResidual = Math.max(
             0,
             (o.total_amount || 0) -
               ((o.subtotal || 0) - (o.discount_amount || 0) + (o.shipping_fee || 0) - (o.cash_rounding || 0))
           );
-          // Replay gửi TIỀN KHÁCH ĐƯA (như checkout online) để server chia paid/change/debt.
-          // Đơn mới có tendered_amount; đơn cũ fallback paid đã kẹp trong payments.
+          // Replay gá»­i TIá»€N KHÃCH ÄÆ¯A (nhÆ° checkout online) Ä‘á»ƒ server chia paid/change/debt.
+          // ÄÆ¡n má»›i cÃ³ tendered_amount; Ä‘Æ¡n cÅ© fallback paid Ä‘Ã£ káº¹p trong payments.
           const payMethod = o.payments.length > 0 ? o.payments[0].method : 'debt';
           let replayTendered = o.tendered_amount || 0;
           if (replayTendered <= 0 && payMethod !== 'cash' && payMethod !== 'debt') {
@@ -841,7 +924,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             p_shipping_fee: (o.shipping_fee || 0) + (oVatPct > 0 ? 0 : vatResidual),
             p_is_deposit: o.status === 'deposit_order',
             p_customer_id: o.customer_id ? customerMap[o.customer_id] ?? null : null,
-            // P0-idempotency: key ổn định = id đơn local -> retry không sinh trùng đơn
+            // P0-idempotency: key á»•n Ä‘á»‹nh = id Ä‘Æ¡n local -> retry khÃ´ng sinh trÃ¹ng Ä‘Æ¡n
             p_client_ref: o.id,
           };
           let error: any = null;
@@ -872,7 +955,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             /* best-effort */
           }
           syncedIds.push(o.id);
-          // Lưu server_id để Hủy/Trả gọi đúng đơn (khỏi lookup theo mã offline cũ)
+          // LÆ°u server_id Ä‘á»ƒ Há»§y/Tráº£ gá»i Ä‘Ãºng Ä‘Æ¡n (khá»i lookup theo mÃ£ offline cÅ©)
           const replayOrderId = (replayData as { order_id?: unknown } | null)?.order_id;
           if (typeof replayOrderId === 'string' && replayOrderId) {
             setOrders((prev) =>
@@ -882,21 +965,33 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             );
             await db.orders.update(o.id, { server_id: replayOrderId, is_offline: false }).catch(() => {});
           }
+          // P1 sá»• quá»¹: replay Ä‘Ã£ ghi receipt server -> mirror local theo mÃ£ Ä‘Æ¡n offline
+          // Ä‘Ã¡nh dáº¥u synced Ä‘á»ƒ pull sau khÃ´ng trÃ¹ng dÃ²ng.
+          await db.cashbook
+            .where('reference_order_code')
+            .equals(o.order_code)
+            .modify({ synced: true })
+            .catch(() => {});
+          setCashbook((prev) =>
+            prev.map((e) =>
+              e.reference_order_code === o.order_code ? { ...e, synced: true } : e
+            )
+          );
         } catch (e: any) {
-          // P0-3: giữ lại + ghi lý do để khỏi kẹt queue câm (nợ vô chủ / hết kho / mất mạng)
-          remaining.push(o); // giữ lại để thử đợt sau
-          failures.push(`${o.order_code}: ${e?.message || 'lỗi replay'}`);
+          // P0-3: giá»¯ láº¡i + ghi lÃ½ do Ä‘á»ƒ khá»i káº¹t queue cÃ¢m (ná»£ vÃ´ chá»§ / háº¿t kho / máº¥t máº¡ng)
+          remaining.push(o); // giá»¯ láº¡i Ä‘á»ƒ thá»­ Ä‘á»£t sau
+          failures.push(`${o.order_code}: ${e?.message || 'lá»—i replay'}`);
         }
       }
       setPendingQueue(remaining);
       if (failures.length > 0) {
-        alert(`Đồng bộ ${failures.length} đơn offline thất bại, giữ lại để thử sau:\n${failures.slice(0, 5).join('\n')}${failures.length > 5 ? `\n...và ${failures.length - 5} đơn nữa` : ''}`);
+        alert(`Äá»“ng bá»™ ${failures.length} Ä‘Æ¡n offline tháº¥t báº¡i, giá»¯ láº¡i Ä‘á»ƒ thá»­ sau:\n${failures.slice(0, 5).join('\n')}${failures.length > 5 ? `\n...vÃ  ${failures.length - 5} Ä‘Æ¡n ná»¯a` : ''}`);
       }
       if (syncedIds.length > 0) {
         setOrders((prev) =>
           prev.map((ord) => (syncedIds.includes(ord.id) ? { ...ord, is_offline: false } : ord))
         );
-        refreshCatalog(); // kéo tồn kho server về sau replay
+        refreshCatalog(); // kÃ©o tá»“n kho server vá» sau replay
       }
       return;
     }
@@ -912,8 +1007,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     }
   }, [isOnline, pendingQueue, supa, customerMap, refreshCatalog]);
 
-  // Tra UUID server của đơn (0024): ưu tiên server_id đã lưu khi checkout, fallback tra
-  // theo order_code (authenticated được SELECT orders — RLS 0006). Đơn chưa lên server -> null.
+  // Tra UUID server cá»§a Ä‘Æ¡n (0024): Æ°u tiÃªn server_id Ä‘Ã£ lÆ°u khi checkout, fallback tra
+  // theo order_code (authenticated Ä‘Æ°á»£c SELECT orders â€” RLS 0006). ÄÆ¡n chÆ°a lÃªn server -> null.
   const resolveServerOrderId = useCallback(
     async (order: Order): Promise<string | null> => {
       if (order.server_id) return order.server_id;
@@ -927,7 +1022,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           return sid;
         }
       } catch {
-        /* tra cứu thất bại -> coi như chưa link server */
+        /* tra cá»©u tháº¥t báº¡i -> coi nhÆ° chÆ°a link server */
       }
       return null;
     },
@@ -935,18 +1030,18 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   );
 
   // Cancel Order & Reverse (FIN-ERR-05)
-  // 0024: đơn đã lên server + online -> commit qua RPC cancel_order (server hoàn kho/đảo nợ/
-  // hoàn quỹ; local mirror lại cho Dexie/UI khớp). Đơn server mà offline -> CHẶN để khỏi lệch
-  // truth. Đơn chưa lên server -> xử lý local + gỡ khỏi hàng đợi pending.
+  // 0024: Ä‘Æ¡n Ä‘Ã£ lÃªn server + online -> commit qua RPC cancel_order (server hoÃ n kho/Ä‘áº£o ná»£/
+  // hoÃ n quá»¹; local mirror láº¡i cho Dexie/UI khá»›p). ÄÆ¡n server mÃ  offline -> CHáº¶N Ä‘á»ƒ khá»i lá»‡ch
+  // truth. ÄÆ¡n chÆ°a lÃªn server -> xá»­ lÃ½ local + gá»¡ khá»i hÃ ng Ä‘á»£i pending.
   const cancelOrder = useCallback(
     async (orderId: string): Promise<boolean> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi hủy đơn!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi há»§y Ä‘Æ¡n!');
         setLoginOpen(true);
         return false;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Không được hủy/trả đơn sau khi kết ca.');
+        alert('Ca Ä‘Ã£ Ä‘Ã³ng! KhÃ´ng Ä‘Æ°á»£c há»§y/tráº£ Ä‘Æ¡n sau khi káº¿t ca.');
         return false;
       }
       const order = orders.find((o) => o.id === orderId);
@@ -954,7 +1049,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
       const serverId = await resolveServerOrderId(order);
       if (serverId && !isOnline) {
-        alert('Đơn này đã đồng bộ server nhưng đang ngoại tuyến — không thể hủy lúc này để tránh lệch kho/nợ. Hãy online rồi thử lại.');
+        alert('ÄÆ¡n nÃ y Ä‘Ã£ Ä‘á»“ng bá»™ server nhÆ°ng Ä‘ang ngoáº¡i tuyáº¿n â€” khÃ´ng thá»ƒ há»§y lÃºc nÃ y Ä‘á»ƒ trÃ¡nh lá»‡ch kho/ná»£. HÃ£y online rá»“i thá»­ láº¡i.');
         return false;
       }
       if (serverId && supa) {
@@ -962,13 +1057,13 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           const { error } = await supa.rpc('cancel_order', { p_order_id: serverId });
           if (error) throw new Error(error.message);
         } catch (err: any) {
-          alert(`Hủy đơn server thất bại — giữ nguyên đơn để thử lại: ${vietnamizeError(err)}`);
+          alert(`Há»§y Ä‘Æ¡n server tháº¥t báº¡i â€” giá»¯ nguyÃªn Ä‘Æ¡n Ä‘á»ƒ thá»­ láº¡i: ${vietnamizeError(err)}`);
           return false;
         }
       }
 
-      // 1. Restore stock (mirror server 0024+0028: hàng area theo m2 thực x waste server,
-      // hàng thường theo quantity, combo con theo BOM — không tin material_consumed client cũ)
+      // 1. Restore stock (mirror server 0024+0028: hÃ ng area theo m2 thá»±c x waste server,
+      // hÃ ng thÆ°á»ng theo quantity, combo con theo BOM â€” khÃ´ng tin material_consumed client cÅ©)
       const restoreQty: Record<string, number> = {};
       for (const item of order.items) {
         if (item.product_type === 'service' || item.product_type === 'combo') continue;
@@ -1018,6 +1113,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       }
 
       // 3. Refund payments to respective funds (FIN-ERR-05)
+      // P1 sá»• quá»¹: RPC cancel_order Ä‘Ã£ ghi Ä‘áº£o server -> mirror Ä‘Ã¡nh dáº¥u synced.
+      const cancelServerBacked = !!(serverId && supa && isOnline);
       for (const pmt of order.payments) {
         if (pmt.amount > 0) {
           const expenseEntry: CashbookEntry = {
@@ -1029,8 +1126,9 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             amount: pmt.amount,
             reference_order_code: order.order_code,
             partner_name: order.customer_name,
-            note: `Hoàn tiền hủy đơn hàng ${order.order_code} qua quỹ ${pmt.method === 'cash' ? 'Tiền mặt' : 'Ngân hàng'}`,
+            note: `HoÃ n tiá»n há»§y Ä‘Æ¡n hÃ ng ${order.order_code} qua quá»¹ ${pmt.method === 'cash' ? 'Tiá»n máº·t' : 'NgÃ¢n hÃ ng'}`,
             created_at: new Date().toISOString(),
+            synced: cancelServerBacked || undefined,
           };
           setCashbook((prev) => [expenseEntry, ...prev]);
           db.cashbook.add(expenseEntry).catch(console.warn);
@@ -1042,7 +1140,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         prev.map((o) => (o.id === orderId ? { ...o, status: 'cancelled' } : o))
       );
       await db.orders.update(orderId, { status: 'cancelled' });
-      // Đơn offline chưa lên server: gỡ khỏi hàng đợi để khỏi replay đơn đã hủy
+      // ÄÆ¡n offline chÆ°a lÃªn server: gá»¡ khá»i hÃ ng Ä‘á»£i Ä‘á»ƒ khá»i replay Ä‘Æ¡n Ä‘Ã£ há»§y
       if (order.is_offline) {
         setPendingQueue((prev) => prev.filter((o) => o.id !== orderId));
         db.pendingOrders.delete(orderId).catch(() => {});
@@ -1057,28 +1155,28 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     async (orderId: string, refundItems: { itemId: string; quantity: number; amount: number }[]): Promise<ReturnResult> => {
       const fail: ReturnResult = { ok: false, restocked: [], skipped: [] };
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi trả hàng!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi tráº£ hÃ ng!');
         setLoginOpen(true);
         return fail;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Không được hủy/trả đơn sau khi kết ca.');
+        alert('Ca Ä‘Ã£ Ä‘Ã³ng! KhÃ´ng Ä‘Æ°á»£c há»§y/tráº£ Ä‘Æ¡n sau khi káº¿t ca.');
         return fail;
       }
       const order = orders.find((o) => o.id === orderId);
       if (!order) return fail;
-      // 0026: chỉ đơn hiệu lực mới trả được (chặn trả lặp cả khi gọi trực tiếp hàm)
+      // 0026: chá»‰ Ä‘Æ¡n hiá»‡u lá»±c má»›i tráº£ Ä‘Æ°á»£c (cháº·n tráº£ láº·p cáº£ khi gá»i trá»±c tiáº¿p hÃ m)
       if (order.status !== 'completed' && order.status !== 'deposit_order') {
-        alert('Đơn này đã hủy/trả rồi — không xử lý lặp.');
+        alert('ÄÆ¡n nÃ y Ä‘Ã£ há»§y/tráº£ rá»“i â€” khÃ´ng xá»­ lÃ½ láº·p.');
         return fail;
       }
 
       const totalRefundAmount = refundItems.reduce((sum, r) => sum + r.amount, 0);
       if (totalRefundAmount <= 0) return fail;
 
-      // 0025: dựng danh sách hoàn kho từ dòng trả — goods hoàn đủ SL, combo rã BOM con,
-      // area/service KHÔNG hoàn (hàng đã cắt/tiêu hao). Server cap theo SL đã bán + từ chối
-      // area/service kể cả khi bị gửi nhầm.
+      // 0025: dá»±ng danh sÃ¡ch hoÃ n kho tá»« dÃ²ng tráº£ â€” goods hoÃ n Ä‘á»§ SL, combo rÃ£ BOM con,
+      // area/service KHÃ”NG hoÃ n (hÃ ng Ä‘Ã£ cáº¯t/tiÃªu hao). Server cap theo SL Ä‘Ã£ bÃ¡n + tá»« chá»‘i
+      // area/service ká»ƒ cáº£ khi bá»‹ gá»­i nháº§m.
       const restockReq = new Map<string, number>();
       const clientSkipped: ReturnSkipped[] = [];
       for (const rf of refundItems) {
@@ -1092,16 +1190,16 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             restockReq.set(child.sku, (restockReq.get(child.sku) || 0) + child.quantity * rf.quantity);
           }
         } else {
-          clientSkipped.push({ sku: line.sku, reason: line.product_type === 'area' ? 'hàng cắt theo kích thước, không nhập lại' : 'dịch vụ, không nhập kho' });
+          clientSkipped.push({ sku: line.sku, reason: line.product_type === 'area' ? 'hÃ ng cáº¯t theo kÃ­ch thÆ°á»›c, khÃ´ng nháº­p láº¡i' : 'dá»‹ch vá»¥, khÃ´ng nháº­p kho' });
         }
       }
       const pRestock = [...restockReq.entries()].map(([sku, quantity]) => ({ sku, quantity }));
 
-      // 0024: đơn đã lên server + online -> RPC return_order_items (server trừ nợ/hoàn tiền/
-      // hoàn kho, local mirror theo đúng số server trả về). Đơn server mà offline -> CHẶN.
+      // 0024: Ä‘Æ¡n Ä‘Ã£ lÃªn server + online -> RPC return_order_items (server trá»« ná»£/hoÃ n tiá»n/
+      // hoÃ n kho, local mirror theo Ä‘Ãºng sá»‘ server tráº£ vá»). ÄÆ¡n server mÃ  offline -> CHáº¶N.
       const serverId = await resolveServerOrderId(order);
       if (serverId && !isOnline) {
-        alert('Đơn này đã đồng bộ server nhưng đang ngoại tuyến — không thể trả hàng lúc này để tránh lệch nợ. Hãy online rồi thử lại.');
+        alert('ÄÆ¡n nÃ y Ä‘Ã£ Ä‘á»“ng bá»™ server nhÆ°ng Ä‘ang ngoáº¡i tuyáº¿n â€” khÃ´ng thá»ƒ tráº£ hÃ ng lÃºc nÃ y Ä‘á»ƒ trÃ¡nh lá»‡ch ná»£. HÃ£y online rá»“i thá»­ láº¡i.');
         return fail;
       }
       let srvDebtCut: number | null = null;
@@ -1132,15 +1230,15 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           if (Array.isArray(sk)) {
             srvSkipped = sk
               .filter((e: any) => typeof e?.sku === 'string')
-              .map((e: any) => ({ sku: e.sku as string, reason: String(e.reason || 'server từ chối') }));
+              .map((e: any) => ({ sku: e.sku as string, reason: String(e.reason || 'server tá»« chá»‘i') }));
           }
         } catch (err: any) {
-          alert(`Trả hàng server thất bại — giữ nguyên đơn để thử lại: ${vietnamizeError(err)}`);
+          alert(`Tráº£ hÃ ng server tháº¥t báº¡i â€” giá»¯ nguyÃªn Ä‘Æ¡n Ä‘á»ƒ thá»­ láº¡i: ${vietnamizeError(err)}`);
           return fail;
         }
       }
 
-      // Customer debt reduction with clamping (FIN-ERR-03) — mirror server khi có
+      // Customer debt reduction with clamping (FIN-ERR-03) â€” mirror server khi cÃ³
       let cashRefund = srvCashRefund ?? totalRefundAmount;
       if (order.customer_id) {
         const customer = customers.find((c) => c.id === order.customer_id);
@@ -1162,8 +1260,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         }
       }
 
-      // Hoàn kho mirror (0025): online thì theo đúng restocked server đã cap, offline/local
-      // thì theo yêu cầu đã dựng (tin caller, UI hiện chỉ trả full đơn).
+      // HoÃ n kho mirror (0025): online thÃ¬ theo Ä‘Ãºng restocked server Ä‘Ã£ cap, offline/local
+      // thÃ¬ theo yÃªu cáº§u Ä‘Ã£ dá»±ng (tin caller, UI hiá»‡n chá»‰ tráº£ full Ä‘Æ¡n).
       const finalRestocked: RestockLine[] = serverId
         ? srvRestocked
         : pRestock.map((l) => ({ sku: l.sku, quantity: l.quantity }));
@@ -1183,10 +1281,11 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       }
       const restockNote =
         finalRestocked.length > 0
-          ? ` + nhập lại kho: ${finalRestocked.map((l) => `${l.sku} x${l.quantity}`).join(', ')}`
+          ? ` + nháº­p láº¡i kho: ${finalRestocked.map((l) => `${l.sku} x${l.quantity}`).join(', ')}`
           : '';
 
       // Expense entry for cash refund surplus
+      // P1 sá»• quá»¹: RPC return_order_items Ä‘Ã£ ghi chi server -> mirror Ä‘Ã¡nh dáº¥u synced.
       if (cashRefund > 0) {
         const expenseEntry: CashbookEntry = {
           id: `cb-${Date.now()}`,
@@ -1197,8 +1296,9 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           amount: cashRefund,
           reference_order_code: order.order_code,
           partner_name: order.customer_name,
-          note: `Hoàn tiền trả hàng cho đơn ${order.order_code} (sau khi đã khấu trừ nợ)${restockNote}`,
+          note: `HoÃ n tiá»n tráº£ hÃ ng cho Ä‘Æ¡n ${order.order_code} (sau khi Ä‘Ã£ kháº¥u trá»« ná»£)${restockNote}`,
           created_at: new Date().toISOString(),
+          synced: (serverId && supa && isOnline) || undefined,
         };
         setCashbook((prev) => [expenseEntry, ...prev]);
         db.cashbook.add(expenseEntry).catch(console.warn);
@@ -1208,7 +1308,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         prev.map((o) => (o.id === orderId ? { ...o, status: 'returned' } : o))
       );
       await db.orders.update(orderId, { status: 'returned' });
-      // Đơn offline chưa lên server: gỡ khỏi hàng đợi để khỏi replay đơn đã trả
+      // ÄÆ¡n offline chÆ°a lÃªn server: gá»¡ khá»i hÃ ng Ä‘á»£i Ä‘á»ƒ khá»i replay Ä‘Æ¡n Ä‘Ã£ tráº£
       if (order.is_offline) {
         setPendingQueue((prev) => prev.filter((o) => o.id !== orderId));
         db.pendingOrders.delete(orderId).catch(() => {});
@@ -1227,22 +1327,22 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       note: string
     ): Promise<boolean> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi thu nợ!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi thu ná»£!');
         setLoginOpen(true);
         return false;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Không được thu nợ sau khi kết ca. Vui lòng mở ca mới (F12).');
+        alert('Ca Ä‘Ã£ Ä‘Ã³ng! KhÃ´ng Ä‘Æ°á»£c thu ná»£ sau khi káº¿t ca. Vui lÃ²ng má»Ÿ ca má»›i (F12).');
         return false;
       }
       const customer = customers.find((c) => c.id === customerId);
       if (!customer || amount <= 0) return false;
 
-      // 0024: KH đã link server + online -> RPC collect_debt (server clamp theo nợ thật,
-      // local mirror theo số server trả về + refresh truth). KH server mà offline -> CHẶN.
+      // 0024: KH Ä‘Ã£ link server + online -> RPC collect_debt (server clamp theo ná»£ tháº­t,
+      // local mirror theo sá»‘ server tráº£ vá» + refresh truth). KH server mÃ  offline -> CHáº¶N.
       const serverCustId = customerMap[customerId] ?? null;
       if (serverCustId && !isOnline) {
-        alert('Khách hàng đã đồng bộ server nhưng đang ngoại tuyến — không thể thu nợ lúc này để tránh lệch công nợ. Hãy online rồi thử lại.');
+        alert('KhÃ¡ch hÃ ng Ä‘Ã£ Ä‘á»“ng bá»™ server nhÆ°ng Ä‘ang ngoáº¡i tuyáº¿n â€” khÃ´ng thá»ƒ thu ná»£ lÃºc nÃ y Ä‘á»ƒ trÃ¡nh lá»‡ch cÃ´ng ná»£. HÃ£y online rá»“i thá»­ láº¡i.');
         return false;
       }
       let serverCollected: number | null = null;
@@ -1258,14 +1358,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           const got = Number((data as any)?.collected);
           if (Number.isFinite(got)) serverCollected = got;
         } catch (err: any) {
-          alert(`Thu nợ server thất bại — giữ nguyên để thử lại: ${vietnamizeError(err)}`);
+          alert(`Thu ná»£ server tháº¥t báº¡i â€” giá»¯ nguyÃªn Ä‘á»ƒ thá»­ láº¡i: ${vietnamizeError(err)}`);
           return false;
         }
       }
 
       const actualCollect = serverCollected ?? Math.min(amount, customer.current_debt);
       if (actualCollect <= 0) {
-        alert('Không còn nợ phải thu (server báo KH đã hết nợ).');
+        alert('KhÃ´ng cÃ²n ná»£ pháº£i thu (server bÃ¡o KH Ä‘Ã£ háº¿t ná»£).');
         return false;
       }
       const nextDebt = customer.current_debt - actualCollect;
@@ -1283,8 +1383,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         category: 'debt_collection',
         amount: actualCollect,
         partner_name: customer.name,
-        note: note || `Thu nợ khách hàng ${customer.name} qua ${paymentMethod === 'cash' ? 'Tiền mặt' : 'Ngân hàng'}`,
+        note: note || `Thu ná»£ khÃ¡ch hÃ ng ${customer.name} qua ${paymentMethod === 'cash' ? 'Tiá»n máº·t' : 'NgÃ¢n hÃ ng'}`,
         created_at: new Date().toISOString(),
+        // P1 sá»• quá»¹: RPC collect_debt Ä‘Ã£ ghi thu server -> mirror Ä‘Ã¡nh dáº¥u synced
+        synced: serverCollected != null || undefined,
       };
 
       setCashbook((prev) => [entry, ...prev]);
@@ -1302,7 +1404,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         });
       }
 
-      // Refresh nợ thật từ server (local có thể lệch truth) — best-effort
+      // Refresh ná»£ tháº­t tá»« server (local cÃ³ thá»ƒ lá»‡ch truth) â€” best-effort
       if (serverCustId && supa && isOnline) {
         try {
           const { data } = await supa.from('customers').select('current_debt').eq('id', serverCustId).maybeSingle();
@@ -1312,7 +1414,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             await db.customers.update(customerId, { current_debt: truth });
           }
         } catch {
-          /* giữ số mirror */
+          /* giá»¯ sá»‘ mirror */
         }
       }
 
@@ -1321,29 +1423,29 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     [customers, customerMap, isOnline, supa, user, currentShift, setLoginOpen, setCustomers]
   );
 
-  // Đồng bộ nợ KH từ server (0025+1): server là truth công nợ — số local có thể cũ khi thu nợ
-  // ở máy khác, sửa tay trên Dashboard, hoặc sync gián đoạn. Kéo batch theo uuid đã map,
-  // ghi đè current_debt (+debt_limit) local + Dexie. KH chưa link (khách lẻ, máy khác tạo)
-  // được bỏ qua — đếm vào skipped để UI báo rõ.
+  // Äá»“ng bá»™ ná»£ KH tá»« server (0025+1): server lÃ  truth cÃ´ng ná»£ â€” sá»‘ local cÃ³ thá»ƒ cÅ© khi thu ná»£
+  // á»Ÿ mÃ¡y khÃ¡c, sá»­a tay trÃªn Dashboard, hoáº·c sync giÃ¡n Ä‘oáº¡n. KÃ©o batch theo uuid Ä‘Ã£ map,
+  // ghi Ä‘Ã¨ current_debt (+debt_limit) local + Dexie. KH chÆ°a link (khÃ¡ch láº», mÃ¡y khÃ¡c táº¡o)
+  // Ä‘Æ°á»£c bá» qua â€” Ä‘áº¿m vÃ o skipped Ä‘á»ƒ UI bÃ¡o rÃµ.
   const syncDebtsFromServer = useCallback(async (): Promise<{ updated: number; skipped: number }> => {
     if (!supa || !user) {
-      alert('Vui lòng đăng nhập trước khi đồng bộ công nợ!');
+      alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi Ä‘á»“ng bá»™ cÃ´ng ná»£!');
       setLoginOpen(true);
       return { updated: 0, skipped: 0 };
     }
     if (!isOnline) {
-      alert('Đang ngoại tuyến — không thể đồng bộ công nợ. Hãy online rồi thử lại.');
+      alert('Äang ngoáº¡i tuyáº¿n â€” khÃ´ng thá»ƒ Ä‘á»“ng bá»™ cÃ´ng ná»£. HÃ£y online rá»“i thá»­ láº¡i.');
       return { updated: 0, skipped: 0 };
     }
     const linked = customers.filter((c) => c.id !== 'cust-1' && customerMap[c.id]);
     const skipped = customers.length - linked.length;
     if (linked.length === 0) return { updated: 0, skipped };
     try {
-      // Đảo map uuid server -> id local
+      // Äáº£o map uuid server -> id local
       const byUuid = new Map<string, string>();
       for (const c of linked) byUuid.set(customerMap[c.id], c.id);
       const truth = new Map<string, { debt: number; limit: number }>();
-      // Chia lô 100 uuid để URL REST không quá dài
+      // Chia lÃ´ 100 uuid Ä‘á»ƒ URL REST khÃ´ng quÃ¡ dÃ i
       for (let i = 0; i < linked.length; i += 100) {
         const batch = linked.slice(i, i + 100).map((c) => customerMap[c.id]);
         const { data, error } = await supa
@@ -1380,13 +1482,13 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       }
       return { updated, skipped };
     } catch (err: any) {
-      alert(`Đồng bộ công nợ thất bại: ${vietnamizeError(err)}`);
+      alert(`Äá»“ng bá»™ cÃ´ng ná»£ tháº¥t báº¡i: ${vietnamizeError(err)}`);
       return { updated: 0, skipped };
     }
   }, [supa, user, isOnline, customers, customerMap, setLoginOpen, setCustomers]);
 
-  // P0: quét hàng đợi kho/quỹ/NCC — FIFO khi online. Server dedupe bằng client_ref
-  // nên replay an toàn; supplier_payment còn kéo truth nợ về mirror như thu nợ KH.
+  // P0: quÃ©t hÃ ng Ä‘á»£i kho/quá»¹/NCC â€” FIFO khi online. Server dedupe báº±ng client_ref
+  // nÃªn replay an toÃ n; supplier_payment cÃ²n kÃ©o truth ná»£ vá» mirror nhÆ° thu ná»£ KH.
   const syncPendingOps = useCallback(async (): Promise<{ synced: number; failed: number }> => {
     if (!supa || !user || !isOnline) return { synced: 0, failed: 0 };
     const pendings = await db.pendingOps
@@ -1454,7 +1556,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           };
           const supplier = suppliers.find((s) => s.id === p.supplierId);
           const serverSid = supplier ? asUuidOrNull(supplier.id) : null;
-          if (!serverSid) continue; // NCC chưa đồng bộ master -> giữ hàng đợi
+          if (!serverSid) continue; // NCC chÆ°a Ä‘á»“ng bá»™ master -> giá»¯ hÃ ng Ä‘á»£i
           const { data, error } = await supa.rpc('pay_supplier_debt', {
             p_client_ref: p.entryId,
             p_supplier_id: serverSid,
@@ -1463,7 +1565,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             p_note: p.note || null,
           });
           if (error) throw error;
-          // Mirror truth nợ NCC từ server (server clamp theo nợ thật)
+          // Mirror truth ná»£ NCC tá»« server (server clamp theo ná»£ tháº­t)
           try {
             const { data: srow } = await supa
               .from('suppliers')
@@ -1478,7 +1580,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
               await db.suppliers.update(p.supplierId, { current_debt: truth });
             }
           } catch {
-            /* giữ số mirror */
+            /* giá»¯ sá»‘ mirror */
           }
           await db.cashbook.update(p.entryId, { synced: true }).catch(() => {});
           setCashbook((prev) => prev.map((e) => (e.id === p.entryId ? { ...e, synced: true } : e)));
@@ -1501,13 +1603,13 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     return { synced, failed };
   }, [supa, user, isOnline, suppliers, setSuppliers, setCashbook]);
 
-  // Master Data Add/Update hàng hóa/KH/NCC sống ở CatalogProvider (useCatalog) —
-  // ở đây chỉ còn nghiệp vụ chi trả NCC (đụng sổ quỹ -> thuộc tầng Transactions).
+  // Master Data Add/Update hÃ ng hÃ³a/KH/NCC sá»‘ng á»Ÿ CatalogProvider (useCatalog) â€”
+  // á»Ÿ Ä‘Ã¢y chá»‰ cÃ²n nghiá»‡p vá»¥ chi tráº£ NCC (Ä‘á»¥ng sá»• quá»¹ -> thuá»™c táº§ng Transactions).
   const paySupplierDebt = useCallback(
     async (supplierId: string, amount: number, paymentMethod: 'cash' | 'transfer', note: string): Promise<boolean> => {
-      // P2: thu ngân/worker không được chi trả NCC
+      // P2: thu ngÃ¢n/worker khÃ´ng Ä‘Æ°á»£c chi tráº£ NCC
       if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
-        alert('Chỉ Admin/Quản lý được chi trả nợ NCC!');
+        alert('Chá»‰ Admin/Quáº£n lÃ½ Ä‘Æ°á»£c chi tráº£ ná»£ NCC!');
         return false;
       }
       const supplier = suppliers.find((s) => s.id === supplierId);
@@ -1525,12 +1627,12 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         category: 'supplier_payment',
         amount,
         partner_name: supplier.name,
-        note: `Chi trả nợ NCC ${supplier.name}: ${note}`,
+        note: `Chi tráº£ ná»£ NCC ${supplier.name}: ${note}`,
         created_at: new Date().toISOString(),
       };
       setCashbook((prev) => [expenseEntry, ...prev]);
       await db.cashbook.add(expenseEntry);
-      // P0: xếp hàng đẩy trả NCC lên server (clamp + truth ở sweep); online thì đẩy ngay
+      // P0: xáº¿p hÃ ng Ä‘áº©y tráº£ NCC lÃªn server (clamp + truth á»Ÿ sweep); online thÃ¬ Ä‘áº©y ngay
       await enqueueOp('supplier_payment', {
         supplierId,
         amount,
@@ -1544,7 +1646,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     [suppliers, supa, profile, setSuppliers, syncPendingOps]
   );
 
-  // Tính lại tổng công trình từ dòng (mirror công thức P&L ở ProjectsView)
+  // TÃ­nh láº¡i tá»•ng cÃ´ng trÃ¬nh tá»« dÃ²ng (mirror cÃ´ng thá»©c P&L á»Ÿ ProjectsView)
   const recalcProjectTotals = (p: Project): Project => {
     const material_cost_total = p.materials.reduce((s, m) => s + (m.total_cost || 0), 0);
     const labor_cost_total = p.workers.reduce((s, w) => s + (w.total_wage || 0), 0);
@@ -1558,14 +1660,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     };
   };
 
-  // ---- Đồng bộ Dự án/Công trình 2 chiều (migration 0040) ----
-  // Local-first: id `proj-...` = chưa đẩy; sau khi đẩy gắn server_id, giữ id local
-  // ổn định cho UI. Server thắng khi kéo, trừ bản local chưa từng đẩy.
+  // ---- Äá»“ng bá»™ Dá»± Ã¡n/CÃ´ng trÃ¬nh 2 chiá»u (migration 0040) ----
+  // Local-first: id `proj-...` = chÆ°a Ä‘áº©y; sau khi Ä‘áº©y gáº¯n server_id, giá»¯ id local
+  // á»•n Ä‘á»‹nh cho UI. Server tháº¯ng khi kÃ©o, trá»« báº£n local chÆ°a tá»«ng Ä‘áº©y.
 
-  // Đẩy 1 công trình: header upsert trực tiếp + dòng vật tư/thợ qua RPC
-  // sync_project_workspace (delta tồn kho, chạy lại không trừ 2 lần).
-  // Giữ id local ổn định cho UI, chỉ gắn server_id (mirror customerMap).
-  // Lỗi mạng/quyền -> warn + giữ local, trả null.
+  // Äáº©y 1 cÃ´ng trÃ¬nh: header upsert trá»±c tiáº¿p + dÃ²ng váº­t tÆ°/thá»£ qua RPC
+  // sync_project_workspace (delta tá»“n kho, cháº¡y láº¡i khÃ´ng trá»« 2 láº§n).
+  // Giá»¯ id local á»•n Ä‘á»‹nh cho UI, chá»‰ gáº¯n server_id (mirror customerMap).
+  // Lá»—i máº¡ng/quyá»n -> warn + giá»¯ local, tráº£ null.
   const pushProjectToServer = useCallback(
     async (project: Project): Promise<Project | null> => {
       if (!supa || !user || !isOnline) return null;
@@ -1590,7 +1692,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         } else {
           const { data, error } = await supa.from('projects').insert(header).select('id').single();
           if (error) {
-            // Mã CT đã tồn tại (đẩy từ máy khác) -> dùng bản server rồi update
+            // MÃ£ CT Ä‘Ã£ tá»“n táº¡i (Ä‘áº©y tá»« mÃ¡y khÃ¡c) -> dÃ¹ng báº£n server rá»“i update
             if ((error as { code?: string }).code === '23505') {
               const existing = await supa.from('projects').select('id').eq('code', project.code).single();
               if (existing.error || !existing.data) throw error;
@@ -1625,7 +1727,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           })),
         });
         if (rpcError) throw rpcError;
-        // Gắn server_id vào bản local (giữ nguyên id cho UI đang cầm)
+        // Gáº¯n server_id vÃ o báº£n local (giá»¯ nguyÃªn id cho UI Ä‘ang cáº§m)
         if (project.server_id !== serverId) {
           await db.projects.update(project.id, { server_id: serverId as string }).catch(() => {});
           setProjects((prev) =>
@@ -1635,14 +1737,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         }
         return project;
       } catch (err) {
-        console.warn('Project push failed (giữ local):', err);
+        console.warn('Project push failed (giá»¯ local):', err);
         return null;
       }
     },
     [supa, user, isOnline, customerMap]
   );
 
-  // Kéo công trình từ server (server thắng), giữ bản local chưa từng đẩy.
+  // KÃ©o cÃ´ng trÃ¬nh tá»« server (server tháº¯ng), giá»¯ báº£n local chÆ°a tá»«ng Ä‘áº©y.
   const refreshServerProjects = useCallback(async (): Promise<boolean> => {
     if (!supa || !user) return false;
     try {
@@ -1676,7 +1778,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           return {
             product_id: typeof r.product_id === 'string' ? r.product_id : '',
             sku: typeof r.sku === 'string' ? r.sku : '',
-            name: typeof r.name === 'string' && r.name ? r.name : 'Vật tư',
+            name: typeof r.name === 'string' && r.name ? r.name : 'Váº­t tÆ°',
             quantity: qty,
             unit: typeof r.unit === 'string' ? r.unit : '',
             unit_cost: Math.round(unitCost),
@@ -1693,7 +1795,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             employee_id: typeof r.employee_id === 'string' ? r.employee_id : undefined,
             employee_code: typeof r.employee_code === 'string' ? r.employee_code : undefined,
             worker_name: typeof r.worker_name === 'string' ? r.worker_name : '',
-            role: typeof r.role === 'string' && r.role ? r.role : 'Thợ',
+            role: typeof r.role === 'string' && r.role ? r.role : 'Thá»£',
             days_worked: days,
             daily_wage: wage,
             allowance: allow,
@@ -1743,12 +1845,12 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       await db.projects.bulkAdd(next).catch(() => {});
       return true;
     } catch (err) {
-      console.warn('Project pull failed (giữ local):', err);
+      console.warn('Project pull failed (giá»¯ local):', err);
       return false;
     }
   }, [supa, user, customerMap]);
 
-  // Đồng bộ đầy đủ khi online: kéo trước, đẩy nốt bản local chưa lên.
+  // Äá»“ng bá»™ Ä‘áº§y Ä‘á»§ khi online: kÃ©o trÆ°á»›c, Ä‘áº©y ná»‘t báº£n local chÆ°a lÃªn.
   const syncProjects = useCallback(async (): Promise<void> => {
     if (!supa || !user || !isOnline) return;
     await refreshServerProjects();
@@ -1768,7 +1870,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       };
       setProjects((prev) => [...prev, newProj]);
       await db.projects.add(newProj);
-      // Đẩy lên server để remap id local -> uuid (thất bại vẫn giữ local)
+      // Äáº©y lÃªn server Ä‘á»ƒ remap id local -> uuid (tháº¥t báº¡i váº«n giá»¯ local)
       const synced = await pushProjectToServer(newProj);
       return synced ?? newProj;
     },
@@ -1782,17 +1884,17 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     if (row) void pushProjectToServer(row as Project);
   }, [pushProjectToServer]);
 
-  // Phase 2: xuất vật tư cho công trình — trừ tồn kho thật + thẻ kho export_project.
-  // Chỉ hàng goods/area (service/combo chặn); đơn giá vốn = avg_cost hiện tại.
+  // Phase 2: xuáº¥t váº­t tÆ° cho cÃ´ng trÃ¬nh â€” trá»« tá»“n kho tháº­t + tháº» kho export_project.
+  // Chá»‰ hÃ ng goods/area (service/combo cháº·n); Ä‘Æ¡n giÃ¡ vá»‘n = avg_cost hiá»‡n táº¡i.
   const exportProjectMaterial = useCallback(
     async (projectId: string, productId: string, quantity: number): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi xuất vật tư!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi xuáº¥t váº­t tÆ°!');
         setLoginOpen(true);
         return null;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Mở ca mới (F12) trước khi xuất vật tư cho công trình.');
+        alert('Ca Ä‘Ã£ Ä‘Ã³ng! Má»Ÿ ca má»›i (F12) trÆ°á»›c khi xuáº¥t váº­t tÆ° cho cÃ´ng trÃ¬nh.');
         return null;
       }
       const project = projects.find((x) => x.id === projectId);
@@ -1800,15 +1902,15 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       const product = products.find((x) => x.id === productId);
       if (!product) return null;
       if (product.product_type === 'service' || product.product_type === 'combo') {
-        alert('Hàng dịch vụ/combo không xuất trực tiếp cho công trình! Chọn hàng hóa hoặc hàng diện tích.');
+        alert('HÃ ng dá»‹ch vá»¥/combo khÃ´ng xuáº¥t trá»±c tiáº¿p cho cÃ´ng trÃ¬nh! Chá»n hÃ ng hÃ³a hoáº·c hÃ ng diá»‡n tÃ­ch.');
         return null;
       }
       if (!(quantity > 0)) {
-        alert('Số lượng xuất phải lớn hơn 0!');
+        alert('Sá»‘ lÆ°á»£ng xuáº¥t pháº£i lá»›n hÆ¡n 0!');
         return null;
       }
       if (product.stock_quantity < quantity) {
-        alert(`Tồn kho không đủ: ${product.sku} (tồn ${product.stock_quantity} ${product.unit}, cần ${quantity}).`);
+        alert(`Tá»“n kho khÃ´ng Ä‘á»§: ${product.sku} (tá»“n ${product.stock_quantity} ${product.unit}, cáº§n ${quantity}).`);
         return null;
       }
       const unit_cost = product.avg_cost || 0;
@@ -1833,7 +1935,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         quantity: -quantity,
         previous_stock: product.stock_quantity,
         new_stock: nextStock,
-        note: `Xuất cho công trình ${project.code} (${project.name})`,
+        note: `Xuáº¥t cho cÃ´ng trÃ¬nh ${project.code} (${project.name})`,
         created_at: new Date().toISOString(),
       };
       setStockMovements((prev) => [movement, ...prev]);
@@ -1850,21 +1952,21 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     [projects, products, supa, user, currentShift, setLoginOpen, setProducts]
   );
 
-  // Phase 2 (batch): xuất 1 phiếu nhiều dòng — validate hết trước, 1 lần trừ kho + 1 lần chốt đơn
+  // Phase 2 (batch): xuáº¥t 1 phiáº¿u nhiá»u dÃ²ng â€” validate háº¿t trÆ°á»›c, 1 láº§n trá»« kho + 1 láº§n chá»‘t Ä‘Æ¡n
   const exportProjectMaterialBatch = useCallback(
     async (projectId: string, lines: { productId: string; quantity: number }[]): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi xuất vật tư!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi xuáº¥t váº­t tÆ°!');
         setLoginOpen(true);
         return null;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Mở ca mới (F12) trước khi xuất vật tư cho công trình.');
+        alert('Ca Ä‘Ã£ Ä‘Ã³ng! Má»Ÿ ca má»›i (F12) trÆ°á»›c khi xuáº¥t váº­t tÆ° cho cÃ´ng trÃ¬nh.');
         return null;
       }
       const project = projects.find((x) => x.id === projectId);
       if (!project) return null;
-      // Gộp dòng trùng + validate toàn phiếu trước khi trừ (1 dòng lỗi -> hủy cả phiếu)
+      // Gá»™p dÃ²ng trÃ¹ng + validate toÃ n phiáº¿u trÆ°á»›c khi trá»« (1 dÃ²ng lá»—i -> há»§y cáº£ phiáº¿u)
       const merged = new Map<string, number>();
       for (const l of lines) merged.set(l.productId, (merged.get(l.productId) || 0) + (l.quantity || 0));
       const errors: string[] = [];
@@ -1872,29 +1974,29 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       for (const [pid, qty] of merged) {
         const product = products.find((x) => x.id === pid);
         if (!product) {
-          errors.push('Mặt hàng không tồn tại trong kho.');
+          errors.push('Máº·t hÃ ng khÃ´ng tá»“n táº¡i trong kho.');
           continue;
         }
         if (product.product_type === 'service' || product.product_type === 'combo') {
-          errors.push(`${product.sku}: dịch vụ/combo không xuất trực tiếp.`);
+          errors.push(`${product.sku}: dá»‹ch vá»¥/combo khÃ´ng xuáº¥t trá»±c tiáº¿p.`);
           continue;
         }
         if (!(qty > 0)) {
-          errors.push(`${product.sku}: số lượng phải lớn hơn 0.`);
+          errors.push(`${product.sku}: sá»‘ lÆ°á»£ng pháº£i lá»›n hÆ¡n 0.`);
           continue;
         }
         if (product.stock_quantity < qty) {
-          errors.push(`${product.sku}: tồn ${product.stock_quantity} ${product.unit}, cần ${qty}.`);
+          errors.push(`${product.sku}: tá»“n ${product.stock_quantity} ${product.unit}, cáº§n ${qty}.`);
           continue;
         }
         items.push({ product, quantity: qty });
       }
       if (items.length === 0) {
-        alert('Phiếu xuất chưa có dòng hợp lệ!' + (errors.length > 0 ? `\n${errors.join('\n')}` : ''));
+        alert('Phiáº¿u xuáº¥t chÆ°a cÃ³ dÃ²ng há»£p lá»‡!' + (errors.length > 0 ? `\n${errors.join('\n')}` : ''));
         return null;
       }
       if (errors.length > 0) {
-        alert(`Phiếu có dòng lỗi, chưa xuất:\n${errors.join('\n')}`);
+        alert(`Phiáº¿u cÃ³ dÃ²ng lá»—i, chÆ°a xuáº¥t:\n${errors.join('\n')}`);
         return null;
       }
       const now = new Date().toISOString();
@@ -1923,7 +2025,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           quantity: -quantity,
           previous_stock: prevStock,
           new_stock: nextStock,
-          note: `Xuất cho công trình ${project.code} (${project.name})`,
+          note: `Xuáº¥t cho cÃ´ng trÃ¬nh ${project.code} (${project.name})`,
           created_at: now,
         });
       }
@@ -1951,25 +2053,25 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     [projects, products, supa, user, currentShift, setLoginOpen, setProducts]
   );
 
-  // Phase 3: đưa chi phí nhân công vào công trình (thợ lấy từ hồ sơ nhân sự, link employee_id)
+  // Phase 3: Ä‘Æ°a chi phÃ­ nhÃ¢n cÃ´ng vÃ o cÃ´ng trÃ¬nh (thá»£ láº¥y tá»« há»“ sÆ¡ nhÃ¢n sá»±, link employee_id)
   const addProjectWorker = useCallback(
     async (
       projectId: string,
       worker: { worker_name: string; role: string; days_worked: number; daily_wage: number; allowance: number; employee_id?: string; employee_code?: string }
     ): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi thêm thợ!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi thÃªm thá»£!');
         setLoginOpen(true);
         return null;
       }
       const project = projects.find((x) => x.id === projectId);
       if (!project) return null;
       if (!worker.worker_name.trim()) {
-        alert('Vui lòng nhập tên thợ!');
+        alert('Vui lÃ²ng nháº­p tÃªn thá»£!');
         return null;
       }
       if (!(worker.days_worked > 0)) {
-        alert('Số ngày công phải lớn hơn 0!');
+        alert('Sá»‘ ngÃ y cÃ´ng pháº£i lá»›n hÆ¡n 0!');
         return null;
       }
       const line: ProjectWorker = {
@@ -1977,15 +2079,15 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         employee_id: worker.employee_id || undefined,
         employee_code: worker.employee_code || undefined,
         worker_name: worker.worker_name.trim(),
-        role: worker.role.trim() || 'Thợ',
+        role: worker.role.trim() || 'Thá»£',
         days_worked: worker.days_worked,
         daily_wage: Math.max(0, Math.round(worker.daily_wage)),
         allowance: Math.max(0, Math.round(worker.allowance)),
         total_wage: 0,
       };
       line.total_wage = Math.round(line.days_worked * line.daily_wage + line.allowance);
-      // Trùng thợ (cùng mã NV, hoặc thợ ngoài cùng tên+việc+lương) -> cộng dồn ngày công
-      // vào dòng cũ thay vì tách dòng mới
+      // TrÃ¹ng thá»£ (cÃ¹ng mÃ£ NV, hoáº·c thá»£ ngoÃ i cÃ¹ng tÃªn+viá»‡c+lÆ°Æ¡ng) -> cá»™ng dá»“n ngÃ y cÃ´ng
+      // vÃ o dÃ²ng cÅ© thay vÃ¬ tÃ¡ch dÃ²ng má»›i
       const dupIdx = project.workers.findIndex((w) =>
         line.employee_id
           ? w.employee_id === line.employee_id
@@ -2021,14 +2123,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     [projects, supa, user, setLoginOpen, pushProjectToServer]
   );
 
-  // Sửa số tài chính (dự toán/quyết toán/chi khác độc lập nhau) + tính lại lãi
+  // Sá»­a sá»‘ tÃ i chÃ­nh (dá»± toÃ¡n/quyáº¿t toÃ¡n/chi khÃ¡c Ä‘á»™c láº­p nhau) + tÃ­nh láº¡i lÃ£i
   const updateProjectFinance = useCallback(
     async (
       projectId: string,
       finance: { estimated_revenue?: number; settled_revenue?: number; other_costs?: number }
     ): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi sửa công trình!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi sá»­a cÃ´ng trÃ¬nh!');
         setLoginOpen(true);
         return null;
       }
@@ -2055,17 +2157,17 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     [projects, supa, user, setLoginOpen, pushProjectToServer]
   );
 
-  // Thu cọc/tạm ứng chủ đầu tư: phiếu thu deposit theo mã CT + cộng dồn deposit_amount.
-  // (Cọc không trừ vào lãi — lãi = quyết toán − tổng chi; còn phải thu = quyết toán − đã cọc.)
+  // Thu cá»c/táº¡m á»©ng chá»§ Ä‘áº§u tÆ°: phiáº¿u thu deposit theo mÃ£ CT + cá»™ng dá»“n deposit_amount.
+  // (Cá»c khÃ´ng trá»« vÃ o lÃ£i â€” lÃ£i = quyáº¿t toÃ¡n âˆ’ tá»•ng chi; cÃ²n pháº£i thu = quyáº¿t toÃ¡n âˆ’ Ä‘Ã£ cá»c.)
   const collectProjectDeposit = useCallback(
     async (projectId: string, amount: number, paymentMethod: 'cash' | 'transfer'): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi thu cọc!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi thu cá»c!');
         setLoginOpen(true);
         return null;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Mở ca mới (F12) trước khi thu cọc công trình.');
+        alert('Ca Ä‘Ã£ Ä‘Ã³ng! Má»Ÿ ca má»›i (F12) trÆ°á»›c khi thu cá»c cÃ´ng trÃ¬nh.');
         return null;
       }
       const project = projects.find((x) => x.id === projectId);
@@ -2079,7 +2181,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         amount: Math.round(amount),
         reference_order_code: project.code,
         partner_name: project.customer_name,
-        note: `Thu cọc công trình ${project.code} (${project.name})`,
+        note: `Thu cá»c cÃ´ng trÃ¬nh ${project.code} (${project.name})`,
         created_at: new Date().toISOString(),
       };
       setCashbook((prev) => [entry, ...prev]);
@@ -2109,7 +2211,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const removeProjectLine = useCallback(
     async (projectId: string, kind: 'material' | 'worker', lineKey: string): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi sửa công trình!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi sá»­a cÃ´ng trÃ¬nh!');
         setLoginOpen(true);
         return null;
       }
@@ -2117,7 +2219,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       if (!project) return null;
       if (kind === 'material') {
         if (currentShift.status !== 'open') {
-          alert('Ca đã đóng! Mở ca mới (F12) trước khi hoàn vật tư về kho.');
+          alert('Ca Ä‘Ã£ Ä‘Ã³ng! Má»Ÿ ca má»›i (F12) trÆ°á»›c khi hoÃ n váº­t tÆ° vá» kho.');
           return null;
         }
         const idx = Number(lineKey);
@@ -2137,7 +2239,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
             quantity: line.quantity,
             previous_stock: product.stock_quantity,
             new_stock: nextStock,
-            note: `Hoàn vật tư từ công trình ${project.code} (${project.name})`,
+            note: `HoÃ n váº­t tÆ° tá»« cÃ´ng trÃ¬nh ${project.code} (${project.name})`,
             created_at: new Date().toISOString(),
           };
           setStockMovements((prev) => [movement, ...prev]);
@@ -2175,28 +2277,28 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
   const closeShift = useCallback(
     async (countedCash: number): Promise<boolean> => {
-      // Fix thu ngân: bắt buộc đăng nhập + ca đang mở mới được kết ca.
+      // Fix thu ngÃ¢n: báº¯t buá»™c Ä‘Äƒng nháº­p + ca Ä‘ang má»Ÿ má»›i Ä‘Æ°á»£c káº¿t ca.
       if (supa && !user) {
-        alert('Vui lòng đăng nhập thu ngân trước khi kết ca!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p thu ngÃ¢n trÆ°á»›c khi káº¿t ca!');
         setLoginOpen(true);
         return false;
       }
       if (currentShift.status !== 'open') {
-        alert('Không có ca đang mở! Ca này đã được kết trước đó.');
+        alert('KhÃ´ng cÃ³ ca Ä‘ang má»Ÿ! Ca nÃ y Ä‘Ã£ Ä‘Æ°á»£c káº¿t trÆ°á»›c Ä‘Ã³.');
         return false;
       }
       if (!Number.isFinite(countedCash) || countedCash < 0) {
-        alert('Số tiền kiểm đếm không hợp lệ!');
+        alert('Sá»‘ tiá»n kiá»ƒm Ä‘áº¿m khÃ´ng há»£p lá»‡!');
         return false;
       }
-      // Gắn ca với người mở: chỉ chủ ca hoặc Admin/Quản lý được kết ca hộ.
-      // (Bỏ qua ở chế độ local-only vì không có tài khoản.)
+      // Gáº¯n ca vá»›i ngÆ°á»i má»Ÿ: chá»‰ chá»§ ca hoáº·c Admin/Quáº£n lÃ½ Ä‘Æ°á»£c káº¿t ca há»™.
+      // (Bá» qua á»Ÿ cháº¿ Ä‘á»™ local-only vÃ¬ khÃ´ng cÃ³ tÃ i khoáº£n.)
       if (supa && user) {
         const isOwner = currentShift.cashier_name === cashierName;
         const canOverride = profile?.role === 'admin' || profile?.role === 'manager';
         if (!isOwner && !canOverride) {
           alert(
-            `Ca này do "${currentShift.cashier_name}" mở — bạn (${cashierName}) không thể kết ca hộ để khỏi lẫn trách nhiệm két tiền. Nhờ đúng người hoặc Admin/Quản lý kết ca.`
+            `Ca nÃ y do "${currentShift.cashier_name}" má»Ÿ â€” báº¡n (${cashierName}) khÃ´ng thá»ƒ káº¿t ca há»™ Ä‘á»ƒ khá»i láº«n trÃ¡ch nhiá»‡m kÃ©t tiá»n. Nhá» Ä‘Ãºng ngÆ°á»i hoáº·c Admin/Quáº£n lÃ½ káº¿t ca.`
           );
           return false;
         }
@@ -2204,13 +2306,13 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       // Invariant 4 & OFF-ERR-01 Check:
       if (!isOnline || pendingQueue.length > 0) {
         alert(
-          'LỖI OFF-ERR-01: Không thể đóng ca làm việc khi thiết bị đang Ngoại tuyến (Offline) hoặc còn đơn hàng chờ đồng bộ!'
+          'Lá»–I OFF-ERR-01: KhÃ´ng thá»ƒ Ä‘Ã³ng ca lÃ m viá»‡c khi thiáº¿t bá»‹ Ä‘ang Ngoáº¡i tuyáº¿n (Offline) hoáº·c cÃ²n Ä‘Æ¡n hÃ ng chá» Ä‘á»“ng bá»™!'
         );
         return false;
       }
 
-      // P1: server hóa ca — id UUID (từ RPC) thì chốt qua close_shift để đa máy thấy + chống kết 2 lần.
-      // Ca local cũ (id 'shift-...') hoặc chưa cấu hình Supabase -> chốt local như trước.
+      // P1: server hÃ³a ca â€” id UUID (tá»« RPC) thÃ¬ chá»‘t qua close_shift Ä‘á»ƒ Ä‘a mÃ¡y tháº¥y + chá»‘ng káº¿t 2 láº§n.
+      // Ca local cÅ© (id 'shift-...') hoáº·c chÆ°a cáº¥u hÃ¬nh Supabase -> chá»‘t local nhÆ° trÆ°á»›c.
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentShift.id);
       if (supa && user && isOnline && isUuid) {
         try {
@@ -2220,7 +2322,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           });
           if (error) throw new Error(error.message);
         } catch (err: any) {
-          alert(`Kết ca server thất bại — giữ nguyên ca để thử lại: ${vietnamizeError(err)}`);
+          alert(`Káº¿t ca server tháº¥t báº¡i â€” giá»¯ nguyÃªn ca Ä‘á»ƒ thá»­ láº¡i: ${vietnamizeError(err)}`);
           return false;
         }
       }
@@ -2228,7 +2330,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       const diff = countedCash - currentShift.expected_cash;
       const closedShift: Shift = {
         ...currentShift,
-        // Giữ nguyên cashier_name người MỞ ca để truy vết (không ghi đè người kết ca hộ)
+        // Giá»¯ nguyÃªn cashier_name ngÆ°á»i Má»ž ca Ä‘á»ƒ truy váº¿t (khÃ´ng ghi Ä‘Ã¨ ngÆ°á»i káº¿t ca há»™)
         status: 'closed',
         closed_at: new Date().toISOString(),
         counted_cash: countedCash,
@@ -2245,20 +2347,20 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const openNewShift = useCallback(
     async (startingCash: number) => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi mở ca!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi má»Ÿ ca!');
         setLoginOpen(true);
         return;
       }
       if (currentShift.status === 'open') {
-        alert('Ca hiện tại vẫn đang mở! Hãy kết ca (F12) trước khi mở ca mới.');
+        alert('Ca hiá»‡n táº¡i váº«n Ä‘ang má»Ÿ! HÃ£y káº¿t ca (F12) trÆ°á»›c khi má»Ÿ ca má»›i.');
         return;
       }
       if (!Number.isFinite(startingCash) || startingCash < 0) {
-        alert('Tiền đầu ca không hợp lệ!');
+        alert('Tiá»n Ä‘áº§u ca khÃ´ng há»£p lá»‡!');
         return;
       }
-      // P1: online + đã login -> mở qua RPC open_shift (server cấp uuid, chặn mở chồng ca).
-      // Offline hoặc local-only -> mở ca local như trước, lần online sau sẽ đồng bộ khi mở ca mới.
+      // P1: online + Ä‘Ã£ login -> má»Ÿ qua RPC open_shift (server cáº¥p uuid, cháº·n má»Ÿ chá»“ng ca).
+      // Offline hoáº·c local-only -> má»Ÿ ca local nhÆ° trÆ°á»›c, láº§n online sau sáº½ Ä‘á»“ng bá»™ khi má»Ÿ ca má»›i.
       if (supa && user && isOnline) {
         try {
           const { data, error } = await supa.rpc('open_shift', { p_starting_cash: startingCash });
@@ -2281,7 +2383,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           await db.shifts.add(serverShift).catch(() => db.shifts.put(serverShift));
           return;
         } catch (err: any) {
-          alert(`Mở ca server thất bại — giữ nguyên để thử lại: ${vietnamizeError(err)}`);
+          alert(`Má»Ÿ ca server tháº¥t báº¡i â€” giá»¯ nguyÃªn Ä‘á»ƒ thá»­ láº¡i: ${vietnamizeError(err)}`);
           return;
         }
       }
@@ -2304,7 +2406,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     [cashierName, supa, user, currentShift, isOnline, setLoginOpen]
   );
 
-  // P1: login/online lại -> kéo ca đang mở của mình từ server về (đa máy trạm đồng bộ).
+  // P1: login/online láº¡i -> kÃ©o ca Ä‘ang má»Ÿ cá»§a mÃ¬nh tá»« server vá» (Ä‘a mÃ¡y tráº¡m Ä‘á»“ng bá»™).
   const refreshShiftFromServer = useCallback(async (): Promise<boolean> => {
     if (!supa || !user || !isOnline) return false;
     try {
@@ -2342,8 +2444,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     }
   }, [supa, user, isOnline]);
 
-  // P1: vừa login xong hoặc vừa online lại -> đồng bộ ca đang mở từ server.
-  // (chạy trong microtask để tránh set-state-in-effect)
+  // P1: vá»«a login xong hoáº·c vá»«a online láº¡i -> Ä‘á»“ng bá»™ ca Ä‘ang má»Ÿ tá»« server.
+  // (cháº¡y trong microtask Ä‘á»ƒ trÃ¡nh set-state-in-effect)
   useEffect(() => {
     if (user && isOnline) Promise.resolve().then(() => refreshShiftFromServer());
   }, [user, isOnline, refreshShiftFromServer]);
@@ -2351,12 +2453,12 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const addCashbookEntry = useCallback(
     async (entryData: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>): Promise<boolean> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi lập phiếu thu/chi!');
+        alert('Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi láº­p phiáº¿u thu/chi!');
         setLoginOpen(true);
         return false;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Không được lập phiếu thu/chi sau khi kết ca.');
+        alert('Ca Ä‘Ã£ Ä‘Ã³ng! KhÃ´ng Ä‘Æ°á»£c láº­p phiáº¿u thu/chi sau khi káº¿t ca.');
         return false;
       }
       const code = generateOrderCode(entryData.type === 'receipt' ? 'PT' : 'PC');
@@ -2368,7 +2470,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       };
       setCashbook((prev) => [newEntry, ...prev]);
       await db.cashbook.add(newEntry);
-      // P0: xếp hàng đẩy voucher tay lên server (backup/audit); online thì đẩy ngay
+      // P0: xáº¿p hÃ ng Ä‘áº©y voucher tay lÃªn server (backup/audit); online thÃ¬ Ä‘áº©y ngay
       await enqueueOp('voucher', {
         entryId: newEntry.id,
         type: newEntry.type,
@@ -2390,17 +2492,17 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       productId: string,
       quantity: number,
       importPrice: number,
-      supplierName: string = 'Nhà Cung Cấp',
-      note: string = 'Nhập kho hàng hóa'
+      supplierName: string = 'NhÃ  Cung Cáº¥p',
+      note: string = 'Nháº­p kho hÃ ng hÃ³a'
     ) => {
-      // P2: thu ngân/worker không được nhập kho (khi có Supabase).
+      // P2: thu ngÃ¢n/worker khÃ´ng Ä‘Æ°á»£c nháº­p kho (khi cÃ³ Supabase).
       if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
-        alert('Chỉ Admin/Quản lý được nhập kho!');
+        alert('Chá»‰ Admin/Quáº£n lÃ½ Ä‘Æ°á»£c nháº­p kho!');
         return;
       }
-      // P2-3: chặn nhập kho khi ca đóng (trước đây chỉ disable nút ở POS, gọi trực tiếp vẫn lọt).
+      // P2-3: cháº·n nháº­p kho khi ca Ä‘Ã³ng (trÆ°á»›c Ä‘Ã¢y chá»‰ disable nÃºt á»Ÿ POS, gá»i trá»±c tiáº¿p váº«n lá»t).
       if (currentShift.status !== 'open') {
-        alert('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi nhập kho.');
+        alert('Ca lÃ m viá»‡c chÆ°a má»Ÿ hoáº·c Ä‘Ã£ Ä‘Ã³ng! Vui lÃ²ng má»Ÿ ca má»›i (F12) trÆ°á»›c khi nháº­p kho.');
         return;
       }
       const product = products.find((p) => p.id === productId);
@@ -2435,7 +2537,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         quantity,
         previous_stock: curStock,
         new_stock: newStock,
-        note: `${note} (${supplierName}) - MAC: ${curAvgCost.toLocaleString('vi-VN')}đ -> ${newAvgCost.toLocaleString('vi-VN')}đ`,
+        note: `${note} (${supplierName}) - MAC: ${curAvgCost.toLocaleString('vi-VN')}Ä‘ -> ${newAvgCost.toLocaleString('vi-VN')}Ä‘`,
         created_at: new Date().toISOString(),
       };
 
@@ -2450,12 +2552,12 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         amount: quantity * importPrice,
         partner_name: supplierName,
         reference_order_code: refCode,
-        note: `Thanh toán tiền nhập kho ${quantity} ${product.unit} ${product.name}`,
+        note: `Thanh toÃ¡n tiá»n nháº­p kho ${quantity} ${product.unit} ${product.name}`,
         created_at: new Date().toISOString(),
       };
       setCashbook((prev) => [expenseEntry, ...prev]);
       db.cashbook.add(expenseEntry).catch(console.warn);
-      // P0: lưu PO local + xếp hàng đẩy nhập kho & voucher chi lên server
+      // P0: lÆ°u PO local + xáº¿p hÃ ng Ä‘áº©y nháº­p kho & voucher chi lÃªn server
       const poSingle: PurchaseOrder = {
         id: `po-${Date.now()}`,
         code: refCode,
@@ -2502,22 +2604,22 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     [products, supa, profile, currentShift, setProducts, syncPendingOps]
   );
 
-  // Nhập 1 phiếu nhiều dòng cùng NCC: chung 1 mã NH + 1 phiếu chi tổng.
-  // Dòng trùng 1 mặt hàng được cộng dồn (MAC tính nối tiếp theo thứ tự dòng).
+  // Nháº­p 1 phiáº¿u nhiá»u dÃ²ng cÃ¹ng NCC: chung 1 mÃ£ NH + 1 phiáº¿u chi tá»•ng.
+  // DÃ²ng trÃ¹ng 1 máº·t hÃ ng Ä‘Æ°á»£c cá»™ng dá»“n (MAC tÃ­nh ná»‘i tiáº¿p theo thá»© tá»± dÃ²ng).
   const importStockBatch = useCallback(
     async (
       lines: { productId: string; quantity: number; importPrice: number }[],
-      supplierName: string = 'Nhà Cung Cấp',
-      note: string = 'Nhập kho hàng hóa'
+      supplierName: string = 'NhÃ  Cung Cáº¥p',
+      note: string = 'Nháº­p kho hÃ ng hÃ³a'
     ): Promise<boolean> => {
-      // P2: thu ngân/worker không được nhập kho (khi có Supabase).
+      // P2: thu ngÃ¢n/worker khÃ´ng Ä‘Æ°á»£c nháº­p kho (khi cÃ³ Supabase).
       if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
-        alert('Chỉ Admin/Quản lý được nhập kho!');
+        alert('Chá»‰ Admin/Quáº£n lÃ½ Ä‘Æ°á»£c nháº­p kho!');
         return false;
       }
-      // P2-3: chặn nhập kho khi ca đóng (trước đây chỉ disable nút ở POS, gọi trực tiếp vẫn lọt).
+      // P2-3: cháº·n nháº­p kho khi ca Ä‘Ã³ng (trÆ°á»›c Ä‘Ã¢y chá»‰ disable nÃºt á»Ÿ POS, gá»i trá»±c tiáº¿p váº«n lá»t).
       if (currentShift.status !== 'open') {
-        alert('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi nhập kho.');
+        alert('Ca lÃ m viá»‡c chÆ°a má»Ÿ hoáº·c Ä‘Ã£ Ä‘Ã³ng! Vui lÃ²ng má»Ÿ ca má»›i (F12) trÆ°á»›c khi nháº­p kho.');
         return false;
       }
       const clean = lines.filter((l) => {
@@ -2525,12 +2627,12 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         return p && l.quantity > 0 && l.importPrice > 0;
       });
       if (clean.length === 0) {
-        alert('Phiếu nhập chưa có dòng hàng hợp lệ (chọn hàng, SL và đơn giá > 0)!');
+        alert('Phiáº¿u nháº­p chÆ°a cÃ³ dÃ²ng hÃ ng há»£p lá»‡ (chá»n hÃ ng, SL vÃ  Ä‘Æ¡n giÃ¡ > 0)!');
         return false;
       }
       const refCode = generateOrderCode('NH');
       const now = new Date().toISOString();
-      // Tính MAC nối tiếp trên bản sao (đúng cả khi 1 hàng xuất hiện nhiều dòng)
+      // TÃ­nh MAC ná»‘i tiáº¿p trÃªn báº£n sao (Ä‘Ãºng cáº£ khi 1 hÃ ng xuáº¥t hiá»‡n nhiá»u dÃ²ng)
       const running = new Map(products.map((p) => [p.id, { ...p }]));
       const movements: StockMovement[] = [];
       let totalAmount = 0;
@@ -2554,7 +2656,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           quantity: l.quantity,
           previous_stock: prevStock,
           new_stock: newStock,
-          note: `${note} (${supplierName}) - MAC: ${prevCost.toLocaleString('vi-VN')}đ -> ${newAvgCost.toLocaleString('vi-VN')}đ`,
+          note: `${note} (${supplierName}) - MAC: ${prevCost.toLocaleString('vi-VN')}Ä‘ -> ${newAvgCost.toLocaleString('vi-VN')}Ä‘`,
           created_at: now,
         });
       }
@@ -2586,12 +2688,12 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         amount: totalAmount,
         partner_name: supplierName,
         reference_order_code: refCode,
-        note: `Thanh toán tiền nhập kho ${movements.length} dòng hàng (${supplierName})`,
+        note: `Thanh toÃ¡n tiá»n nháº­p kho ${movements.length} dÃ²ng hÃ ng (${supplierName})`,
         created_at: now,
       };
       setCashbook((prev) => [expenseEntry, ...prev]);
       db.cashbook.add(expenseEntry).catch(console.warn);
-      // P0: lưu PO local để trace + xếp hàng đẩy nhập kho & voucher chi lên server
+      // P0: lÆ°u PO local Ä‘á»ƒ trace + xáº¿p hÃ ng Ä‘áº©y nháº­p kho & voucher chi lÃªn server
       const poRecord: PurchaseOrder = {
         id: `po-${Date.now()}`,
         code: refCode,
@@ -2683,6 +2785,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     checkoutActiveOrder,
     refreshServerOrders,
     refreshServerStockMovements,
+    refreshServerCashbook,
     syncPendingOrders,
     resolveServerOrderId,
     cancelOrder,
@@ -2716,3 +2819,4 @@ export function useTransactions(): TransactionsSlice {
   if (!ctx) throw new Error('useTransactions must be used within TransactionsProvider');
   return ctx;
 }
+
