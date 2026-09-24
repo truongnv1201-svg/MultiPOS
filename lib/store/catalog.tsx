@@ -137,6 +137,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
                   phone: item.payload.phone ?? null,
                   address: item.payload.address ?? null,
                   tax_code: item.payload.tax_code ?? null,
+                  credit_limit: item.payload.credit_limit ?? null,
                   current_debt: item.payload.current_debt ?? 0,
                 };
           result = await supa.from(item.entity === 'product' ? 'products' : item.entity === 'customer' ? 'customers' : 'suppliers')
@@ -290,6 +291,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         phone: row.phone ?? '',
         address: row.address ?? undefined,
         tax_code: row.tax_code ?? undefined,
+        credit_limit: row.credit_limit != null ? Number(row.credit_limit) : undefined,
         current_debt: Number(row.current_debt) || 0,
       }));
       // Không để lần refresh server làm mất các bản ghi còn đang chờ replay.
@@ -587,6 +589,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
             phone: data.phone || null,
             address: data.address || null,
             tax_code: data.tax_code || null,
+            credit_limit: data.credit_limit ?? null,
             current_debt: data.current_debt || 0,
           })
           .select('*')
