@@ -155,7 +155,10 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         setSearchQuery('');
         setDimensionModalItem(createBlankAreaItem(selectedProduct, quantity));
       } else {
+        // UX: commit tên hàng được chọn vào ô tìm kiếm (thay text dở chừng).
+        // Lần 2 Enter thêm giỏ sẽ resetSearch() dọn sạch như cũ.
         setIsDropdownOpen(false);
+        setSearchQuery(selectedProduct.name);
         quantityInputRef.current?.focus();
         quantityInputRef.current?.select();
       }
