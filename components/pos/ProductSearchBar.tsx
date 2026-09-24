@@ -4,7 +4,7 @@ import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react'
 import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
 import { Search, PackagePlus } from 'lucide-react';
-import { QuickCreateProductModal } from '@/components/pos/QuickCreateProductModal';
+import { AddProductFormModal } from '@/components/products/AddProductFormModal';
 import { formatVND } from '@/lib/format';
 
 function createBlankAreaItem(product: Product, quantity: number) {
@@ -365,11 +365,12 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         </div>
       )}
 
-      {/* Modal tạo nhanh hàng hóa — mở từ dropdown/Enter khi không thấy kết quả */}
-      <QuickCreateProductModal
+      {/* Tạo nhanh hàng hóa — dùng đúng form "Thêm Hàng Hóa Mới" của Danh mục,
+          seed Tên/SKU từ chuỗi đang tìm; remount theo key=seq mỗi lần mở */}
+      <AddProductFormModal
         key={quickCreateSeq}
         open={quickCreateOpen}
-        initialQuery={quickCreateSeed}
+        seedQuery={quickCreateSeed}
         onClose={() => setQuickCreateOpen(false)}
         onCreated={handleQuickCreated}
       />

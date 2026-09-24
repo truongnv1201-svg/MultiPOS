@@ -25,47 +25,9 @@ import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, pri
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
 import { DataTableShell } from '@/components/common/DataTableShell';
+import { AddProductFormModal, UNIT_OPTIONS } from '@/components/products/AddProductFormModal';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
-
-const UNIT_OPTIONS = [
-  {
-    label: 'Vật liệu & kích thước',
-    options: [
-      { value: 'm²', label: 'm² — mét vuông' },
-      { value: 'md', label: 'md — mét dài' },
-      { value: 'm', label: 'm — mét' },
-      { value: 'cây', label: 'cây' },
-      { value: 'kg', label: 'kg — kilôgam' },
-      { value: 'tấn', label: 'tấn' },
-    ],
-  },
-  {
-    label: 'Hàng hóa & phụ kiện',
-    options: [
-      { value: 'cái', label: 'cái' },
-      { value: 'chiếc', label: 'chiếc' },
-      { value: 'bộ', label: 'bộ' },
-      { value: 'cặp', label: 'cặp' },
-      { value: 'chai', label: 'chai' },
-      { value: 'cuộn', label: 'cuộn' },
-      { value: 'thùng', label: 'thùng' },
-      { value: 'bao', label: 'bao' },
-      { value: 'hộp', label: 'hộp' },
-      { value: 'gói', label: 'gói' },
-      { value: 'viên', label: 'viên' },
-    ],
-  },
-  {
-    label: 'Dịch vụ',
-    options: [
-      { value: 'chuyến', label: 'chuyến' },
-      { value: 'công', label: 'công' },
-      { value: 'giờ', label: 'giờ' },
-      { value: 'lần', label: 'lần' },
-    ],
-  },
-] as const;
 
 export function ProductsView() {
   const { products, orders, addProduct, updateProduct, deleteProduct } = useStore();
@@ -157,16 +119,6 @@ export function ProductsView() {
     setPage(1);
   };
 
-  // New product form state
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('Nhôm Kính & Tấm');
-  const [unit, setUnit] = useState('m²');
-  const [productType, setProductType] = useState<ProductType>('area');
-  const [retailPrice, setRetailPrice] = useState(350000);
-  const [importPrice, setImportPrice] = useState(260000);
-  const [stockQuantity, setStockQuantity] = useState(100);
-  const [wasteFactor, setWasteFactor] = useState(5);
-  const [defaultGrindingPrice, setDefaultGrindingPrice] = useState(20000);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -343,32 +295,6 @@ export function ProductsView() {
       notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {
       setImporting(false);
-    }
-  };
-
-  const handleCreateProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-
-    try {
-      await addProduct({
-        name: name.trim(),
-        category,
-        unit,
-        product_type: productType,
-        retail_price: retailPrice,
-        import_price: importPrice,
-        avg_cost: importPrice, // INT-ERR-01
-        stock_quantity: stockQuantity,
-        waste_factor: productType === 'area' ? wasteFactor : undefined,
-        default_grinding_price: productType === 'area' ? defaultGrindingPrice : undefined,
-      });
-
-      setIsAddModalOpen(false);
-      setName('');
-      notify('Thêm mới sản phẩm thành công!', 'success');
-    } catch (err: any) {
-      notify(`Không thể tạo sản phẩm: ${err?.message || 'Lỗi không xác định'}`, 'error');
     }
   };
 
@@ -647,160 +573,8 @@ export function ProductsView() {
         </DataTableShell>
       </div>
 
-      {/* Add Product Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <form
-            onSubmit={handleCreateProduct}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <Plus className="w-4 h-4 text-emerald-400" />
-                Thêm Hàng Hóa Mới (Tự Sinh Mã SP0000xx)
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3 text-xs">
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Tên sản phẩm *</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Vd: Kính dán an toàn 8.38mm trắng trong"
-                  className="w-full h-8 px-2.5 border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Loại sản phẩm</label>
-                  <select
-                    value={productType}
-                    onChange={(e) => {
-                      const val = e.target.value as ProductType;
-                      setProductType(val);
-                      if (val === 'area') setUnit('m²');
-                      else if (val === 'combo') setUnit('bộ');
-                    }}
-                    className="w-full h-8 px-2 border border-slate-300 rounded"
-                  >
-                    <option value="area">Diện tích (Kính, Tấm alu, MDF)</option>
-                    <option value="goods">Thường (Cây nhôm, Phụ kiện)</option>
-                    <option value="combo">Combo trọn bộ (Trừ kho con)</option>
-                    <option value="service">Dịch vụ (Công lắp đặt)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Đơn vị tính</label>
-                  <select
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    aria-label="Đơn vị tính"
-                    className="w-full h-8 px-2.5 border border-slate-300 rounded bg-white"
-                  >
-                    {UNIT_OPTIONS.map((group) => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.options.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Giá bán (đ)</label>
-                  <NumberInput
-                    value={retailPrice}
-                    onChange={(val) => setRetailPrice(val)}
-                    placeholder="0"
-                    className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
-                  />
-                </div>
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Giá vốn nhập (đ)</label>
-                  <NumberInput
-                    value={importPrice}
-                    onChange={(val) => setImportPrice(val)}
-                    placeholder="0"
-                    className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
-                  />
-                </div>
-              </div>
-
-              {productType === 'area' && (
-                <div className="grid grid-cols-2 gap-2 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-                  <div>
-                    <label className="font-semibold text-amber-900 block mb-1">
-                      Hệ số hao hụt phôi (%)
-                    </label>
-                    <NumberInput
-                      allowDecimals={true}
-                      value={wasteFactor}
-                      onChange={(val) => setWasteFactor(val)}
-                      placeholder="5"
-                      className="w-full h-8 px-2.5 border border-amber-300 rounded font-mono bg-white focus:border-amber-500 focus:outline-hidden"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold text-amber-900 block mb-1">
-                      Giá mài mặc định (đ/md)
-                    </label>
-                    <NumberInput
-                      value={defaultGrindingPrice}
-                      onChange={(val) => setDefaultGrindingPrice(val)}
-                      placeholder="20.000"
-                      className="w-full h-8 px-2.5 border border-amber-300 rounded font-mono bg-white focus:border-amber-500 focus:outline-hidden"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {productType !== 'service' && productType !== 'combo' && (
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Số lượng tồn kho ban đầu</label>
-                  <NumberInput
-                    value={stockQuantity}
-                    onChange={(val) => setStockQuantity(val)}
-                    placeholder="0"
-                    className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-xs"
-              >
-                Lưu sản phẩm
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {/* Add Product Modal — form dùng chung với POS quick-create (AddProductFormModal) */}
+      <AddProductFormModal open={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
 
       {/* Edit Product Modal */}
       {editingProduct && (
