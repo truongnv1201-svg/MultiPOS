@@ -68,6 +68,7 @@ export function SuppliersView() {
   const [taxCode, setTaxCode] = useState('');
   const [category, setCategory] = useState('K�nh & Guong nguy�n kh?');
   const [initialDebt, setInitialDebt] = useState(0);
+  const [creditLimit, setCreditLimit] = useState(100000000);
   const [importing, setImporting] = useState(false);
   // Edit supplier modal
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -75,6 +76,7 @@ export function SuppliersView() {
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editTaxCode, setEditTaxCode] = useState('');
+  const [editCreditLimit, setEditCreditLimit] = useState(0);
 
   const openEditSupplier = (s: Supplier) => {
     setEditingSupplier(s);
@@ -82,6 +84,7 @@ export function SuppliersView() {
     setEditPhone(s.phone || '');
     setEditAddress(s.address || '');
     setEditTaxCode(s.tax_code || '');
+    setEditCreditLimit(s.credit_limit ?? 0);
   };
 
   const handleUpdateSupplier = async (e: React.FormEvent) => {
@@ -93,6 +96,7 @@ export function SuppliersView() {
         phone: editPhone.trim(),
         address: editAddress.trim(),
         tax_code: editTaxCode.trim() || undefined,
+        credit_limit: Math.max(0, Math.round(editCreditLimit)),
       });
       if (payingSupplier?.id === editingSupplier.id) {
         setPayingSupplier({ ...payingSupplier, name: editName.trim() });
@@ -250,6 +254,7 @@ export function SuppliersView() {
       phone: (s) => s.phone,
       address: (s) => s.address,
       tax_code: (s) => s.tax_code,
+      credit_limit: (s) => s.credit_limit ?? 0,
       current_debt: (s) => s.current_debt,
     };
     const get = getters[supSortKey];
@@ -270,7 +275,7 @@ export function SuppliersView() {
         address: address.trim() || undefined,
         tax_code: taxCode.trim() || undefined,
         current_debt: initialDebt || 0,
-        credit_limit: 100000000,
+        credit_limit: Math.max(0, Math.round(creditLimit)),
       });
 
       setSelectedSupplier(created);
@@ -279,6 +284,7 @@ export function SuppliersView() {
       setPhone('');
       setAddress('');
       setTaxCode('');
+      setCreditLimit(100000000);
       setInitialDebt(0);
       notify(`Đã thêm nhà cung cấp "${created.name}" thành công!`, 'success');
     } catch (err: any) {
@@ -507,6 +513,7 @@ export function SuppliersView() {
                       <SortableTh className="py-2.5 px-3" label="Số Điện Thoại" sortKey="phone" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
                       <SortableTh className="py-2.5 px-3" label="Địa Chỉ" sortKey="address" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
                       <SortableTh className="py-2.5 px-3" label="Mã Số Thuế" sortKey="tax_code" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
+                      <SortableTh className="py-2.5 px-3 text-right" label="Hạn Mức Nợ" sortKey="credit_limit" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
                       <SortableTh className="py-2.5 px-3 text-right" label="Dư Nợ Phải Trả" sortKey="current_debt" activeKey={supSortKey} dir={supSortDir} onSort={toggleSupSort} />
                       <th className="py-2.5 px-3 text-center">Thao Tác</th>
                     </tr>
@@ -514,7 +521,7 @@ export function SuppliersView() {
                   <tbody className="divide-y divide-slate-100">
                     {paginatedSuppliers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400">
+                        <td colSpan={8} className="py-12 text-center text-slate-400">
                           Không tìm thấy nhà cung cấp nào phù hợp với bộ lọc.
                         </td>
                       </tr>
@@ -534,6 +541,9 @@ export function SuppliersView() {
                             {sup.address || '-'}
                           </td>
                           <td className="py-2.5 px-3 font-mono text-slate-500">{sup.tax_code || '-'}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                            {sup.credit_limit ? formatVND(sup.credit_limit) : '—'}
+                          </td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold">
                             {sup.current_debt > 0 ? (
                               <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
@@ -819,6 +829,19 @@ export function SuppliersView() {
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Hạn mức nợ (0 = không giới hạn)
+                </label>
+                <NumberInput
+                  min={0}
+                  value={creditLimit}
+                  onChange={(val) => setCreditLimit(val)}
+                  placeholder="100.000.000"
+                  className="w-full h-8 px-2.5 text-xs font-mono border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Dư nợ ban đầu (nếu có)
                 </label>
                 <NumberInput
@@ -911,6 +934,17 @@ export function SuppliersView() {
                   value={editAddress}
                   onChange={(e) => setEditAddress(e.target.value)}
                   className="w-full h-8 px-2.5 text-xs border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Hạn mức nợ (0 = không giới hạn)</label>
+                <NumberInput
+                  min={0}
+                  value={editCreditLimit}
+                  onChange={(val) => setEditCreditLimit(val)}
+                  placeholder="100.000.000"
+                  className="w-full h-8 px-2.5 text-xs font-mono border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
                 />
               </div>
 
