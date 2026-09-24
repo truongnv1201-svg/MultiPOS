@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useDeferredValue } from 'react';
 import { useStore } from '@/lib/store';
 import { formatVND } from '@/lib/format';
 import {
@@ -176,7 +176,21 @@ function CashflowDonut({ receipt, expense }: { receipt: number; expense: number 
 }
 
 export function ReportsView() {
-  const { orders, products, customers, suppliers, cashbook } = useStore();
+  const _s = useStore();
+  // Báo cáo gom 5 nguồn (đơn/kho/KH/NCC/sổ quỹ) về muộn không cùng lúc sau mỗi pull
+  // realtime -> thẻ + biểu đồ nhấp nháy qua các giá trị trung gian. Defer để UI
+  // render 1 khung nhất quán khi dữ liệu đã ổn định.
+  const orders = useDeferredValue(_s.orders);
+  const products = useDeferredValue(_s.products);
+  const customers = useDeferredValue(_s.customers);
+  const suppliers = useDeferredValue(_s.suppliers);
+  const cashbook = useDeferredValue(_s.cashbook);
+  const isLiveStale =
+    orders !== _s.orders ||
+    products !== _s.products ||
+    customers !== _s.customers ||
+    suppliers !== _s.suppliers ||
+    cashbook !== _s.cashbook;
   const [activeTab, setActiveTab] = useState<ReportTab>('overview');
   // Kỳ báo cáo tab Tổng quan: dùng DateFilter chung (có Tùy chọn ngày)
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
@@ -665,6 +679,15 @@ export function ReportsView() {
           <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded whitespace-nowrap">
             {tabBadge}
           </span>
+          {isLiveStale && (
+            <span
+              className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 font-mono rounded whitespace-nowrap"
+              role="status"
+              aria-live="polite"
+            >
+              Đang cập nhật số liệu…
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

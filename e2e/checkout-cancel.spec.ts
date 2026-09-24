@@ -17,16 +17,30 @@ async function loginAsCashier(page: Page) {
 }
 
 async function ensureShiftOpen(page: Page) {
-  await page.locator('#header-shift-btn').click();
-  await expect(page.locator('#shift-modal-overlay')).toBeVisible({ timeout: 10_000 });
+  // Trạng thái ca hydrate async từ server: form mở/đóng có thể flip sau khi modal hiện.
+  // Chờ ổn định rồi quyết định, retry khi flip đúng lúc click.
+  const overlay = page.locator('#shift-modal-overlay');
   const openBtn = page.locator('#btn-confirm-open-shift');
-  if (await openBtn.isVisible()) {
-    await openBtn.click();
-    await expect(page.locator('#shift-modal-overlay')).toBeHidden({ timeout: 15_000 });
-  } else {
-    await page.locator('#shift-modal-container button').first().click();
-    await expect(page.locator('#shift-modal-overlay')).toBeHidden({ timeout: 10_000 });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.locator('#header-shift-btn').click();
+    await expect(overlay).toBeVisible({ timeout: 10_000 });
+    await page.waitForTimeout(2000);
+    const needsOpen = await openBtn.isVisible().catch(() => false);
+    if (!needsOpen) {
+      if (await overlay.isVisible().catch(() => false)) {
+        await page.locator('#shift-modal-container button').first().click().catch(() => {});
+      }
+      return;
+    }
+    try {
+      await openBtn.click({ timeout: 8000 });
+      await expect(overlay).toBeHidden({ timeout: 15_000 });
+      return;
+    } catch {
+      // Flip giữa chừng -> vòng sau đọc lại trạng thái mới.
+    }
   }
+  throw new Error('không ổn định được trạng thái ca sau 3 lần thử');
 }
 
 async function addGoodsToCart(page: Page) {
