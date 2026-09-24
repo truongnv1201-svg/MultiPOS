@@ -215,7 +215,7 @@ export function GlobalHeader() {
         <button
           id="flyout-menu-trigger"
           onClick={() => setFlyoutMenuOpen((prev) => !prev)}
-          className={`flex h-7 items-center justify-center gap-2 px-2.5 rounded-lg leading-none border text-xs font-semibold transition-all ${
+          className={`flex h-8 items-center justify-center gap-2 px-2.5 rounded-lg leading-none border text-xs font-semibold transition-all ${
             flyoutMenuOpen
               ? 'bg-blue-600 border-blue-500 text-white'
               : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
@@ -276,12 +276,12 @@ export function GlobalHeader() {
           <button
             id="btn-goto-pos"
             onClick={() => setCurrentScreen('pos')}
-            className="flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-600 rounded-md text-[11px] font-bold transition-all shrink-0"
+            className="flex h-8 items-center justify-center gap-1.5 px-2.5 leading-none bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-600 rounded-md text-[11px] font-bold transition-all shrink-0"
             title="Vào màn hình Bán hàng (F2)"
           >
             <ShoppingCart className="w-3.5 h-3.5" />
             <span>BÁN HÀNG</span>
-            <kbd className="px-1 text-[9px] font-mono bg-emerald-800 text-emerald-100 rounded">F2</kbd>
+            <kbd className="inline-flex h-4 shrink-0 items-center justify-center px-1 text-[9px] font-mono leading-none bg-emerald-800 text-emerald-100 rounded">F2</kbd>
           </button>
         )}
 
@@ -295,7 +295,7 @@ export function GlobalHeader() {
             refreshNow();
           }}
           disabled={isSyncing || !isOnline}
-          className={`flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors ${
+          className={`flex h-8 items-center justify-center gap-1.5 px-2.5 leading-none border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors ${
             !isOnline
               ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
               : lastSyncError
@@ -316,18 +316,13 @@ export function GlobalHeader() {
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-300' : !isOnline ? 'text-slate-500' : lastSyncError ? 'text-rose-300' : 'text-slate-300'}`} />
           <span className="hidden lg:inline font-semibold">Làm mới</span>
-          {lastSyncAt !== null && isOnline && !lastSyncError && (
-            <span className="hidden xl:inline font-mono text-[10px] text-slate-400">
-              {new Date(lastSyncAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
         </button>
 
         {/* Trạng thái mạng — chỉ đọc từ trình duyệt */}
         <div className="flex items-center">
           <div
             id="network-status-toggle"
-            className={`flex h-7 items-center justify-center gap-1 px-2 rounded-md leading-none text-[11px] font-medium transition-colors ${
+            className={`flex h-8 items-center justify-center gap-1 px-2 rounded-md leading-none text-[11px] font-medium transition-colors ${
               isOnline
                 ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 hover:bg-emerald-900'
                 : 'bg-rose-950/90 text-rose-300 border border-rose-700 animate-pulse'
@@ -343,14 +338,14 @@ export function GlobalHeader() {
         <button
           id="header-shift-btn"
           onClick={() => setShiftModalOpen(true)}
-          className="flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors"
+          className="flex h-8 items-center justify-center gap-1.5 px-2.5 leading-none bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors"
           title={`Kiểm đếm két / Đóng ca (F12) — ${currentShift.status === 'open' ? `Ca đang mở từ ${new Date(currentShift.opened_at).toLocaleString('vi-VN')}` : 'Ca đã đóng'}`}
         >
           <Clock className="w-3.5 h-3.5 text-amber-400" />
           <span className={`hidden lg:inline font-semibold ${currentShift.status === 'open' ? 'text-emerald-300' : 'text-slate-400'}`}>
             {currentShift.status === 'open' ? 'Ca mở' : 'Ca đóng'}
           </span>
-          <kbd className="px-1 text-[9px] font-mono bg-slate-900 text-amber-400 border border-amber-400/30 rounded">
+          <kbd className="inline-flex h-4 shrink-0 items-center justify-center px-1 text-[9px] font-mono leading-none bg-slate-900 text-amber-400 border border-amber-400/30 rounded">
             F12
           </kbd>
         </button>
@@ -360,7 +355,7 @@ export function GlobalHeader() {
           <button
             id="header-user-btn"
             onClick={() => setLoginOpen(true)}
-            className="flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800 rounded-md text-[11px] text-emerald-300 transition-colors"
+            className="flex h-8 items-center justify-center gap-1.5 px-2.5 leading-none bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800 rounded-md text-[11px] text-emerald-300 transition-colors"
             title={`${profile?.full_name || user.email} (${ROLE_LABEL_HEADER[profile?.role || ''] || profile?.role || '...'}) — Click để xem phiên / đổi tài khoản`}
           >
             <User className="w-3.5 h-3.5" />
@@ -368,7 +363,7 @@ export function GlobalHeader() {
               {profile?.full_name || user.email}
             </span>
             {profile?.role === 'admin' && (
-              <span className="hidden xl:inline px-1 py-0.2 text-[9px] font-bold bg-emerald-800 text-emerald-100 rounded">
+              <span className="hidden xl:inline-flex h-4 items-center px-1 text-[9px] font-bold leading-none bg-emerald-800 text-emerald-100 rounded">
                 Admin
               </span>
             )}
@@ -377,7 +372,7 @@ export function GlobalHeader() {
           <button
             id="btn-header-login"
             onClick={() => setLoginOpen(true)}
-            className="flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors"
+            className="flex h-8 items-center justify-center gap-1.5 px-2.5 leading-none bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors"
             title="Đăng nhập thu ngân / quản trị"
           >
             <User className="w-3.5 h-3.5 text-slate-400" />
@@ -395,7 +390,7 @@ export function GlobalHeader() {
             }
             setCurrentScreen('settings');
           }}
-          className="flex h-7 w-7 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
+          className="flex h-8 w-8 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
           title="Cài đặt hệ thống & nhân viên (Alt + S)"
         >
           <Settings className="w-3.5 h-3.5" />
@@ -405,7 +400,7 @@ export function GlobalHeader() {
         <button
           id="header-fullscreen-btn"
           onClick={toggleFullscreen}
-          className="hidden sm:flex h-7 w-7 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
+          className="hidden sm:flex h-8 w-8 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
           title="Toàn màn hình (F11)"
         >
           {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
