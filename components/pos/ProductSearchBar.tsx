@@ -3,7 +3,8 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
-import { Search } from 'lucide-react';
+import { Search, PackagePlus } from 'lucide-react';
+import { QuickCreateProductModal } from '@/components/pos/QuickCreateProductModal';
 import { formatVND } from '@/lib/format';
 
 function createBlankAreaItem(product: Product, quantity: number) {
@@ -72,6 +73,18 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
+  // Tạo nhanh hàng hóa khi tìm/quét mã không thấy trong danh mục.
+  // quickCreateSeq làm key: mở lần nào form cũng remount về giá trị seed (không cần effect reset).
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickCreateSeed, setQuickCreateSeed] = useState('');
+  const [quickCreateSeq, setQuickCreateSeq] = useState(0);
+  const openQuickCreate = (q: string) => {
+    setQuickCreateSeed(q);
+    setQuickCreateSeq((s) => s + 1);
+    setIsDropdownOpen(false);
+    setQuickCreateOpen(true);
+  };
+
   // Dùng controlled hoặc internal
   const quantity = isControlled ? externalQuantity : internalQuantity;
   const setQuantity = isControlled
@@ -107,7 +120,14 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
 
   // ENTER LẦN 1: phân nhánh — hàng m² mở ngay F3, hàng thường nhảy sang ô SL
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (filteredProducts.length === 0) return;
+    if (filteredProducts.length === 0) {
+      // Không có kết quả: Enter mở nhanh form tạo hàng hóa mới từ chuỗi đang tìm
+      if (e.key === 'Enter' && searchQuery.trim()) {
+        e.preventDefault();
+        openQuickCreate(searchQuery);
+      }
+      return;
+    }
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -182,6 +202,20 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     }
   };
 
+  // Tạo mới xong: nhánh như chọn sản phẩm thường (nhập kho / m² mở F3 / thêm giỏ)
+  const handleQuickCreated = (product: Product) => {
+    setQuickCreateOpen(false);
+    if (onPickProduct) {
+      onPickProduct(product, quantity > 0 ? quantity : 1);
+    } else if (product.product_type === 'area') {
+      setDimensionModalItem(createBlankAreaItem(product, quantity > 0 ? quantity : 1));
+    } else {
+      addItemToCart(product, quantity > 0 ? quantity : 1);
+    }
+    resetSearch();
+    searchInputRef.current?.focus();
+  };
+
   // Expose handleQuantityKeyDown cho parent khi ô SL render bên ngoài
   useImperativeHandle(ref, () => ({ handleQuantityKeyDown }));
 
@@ -236,13 +270,18 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       )}
 
       {/* Dropdown kết quả */}
-      {isDropdownOpen && filteredProducts.length > 0 && (
+      {isDropdownOpen && searchQuery.trim().length > 0 && (
         <div
           ref={dropdownRef}
           id="search-results-dropdown"
           className="absolute top-11 left-0 right-0 bg-white text-slate-800 shadow-2xl rounded-lg border border-slate-200 overflow-hidden z-50 animate-in fade-in-50 duration-100"
         >
           <div className="p-1.5 max-h-72 overflow-y-auto divide-y divide-slate-100">
+            {filteredProducts.length === 0 && (
+              <div className="px-3 py-3 text-center text-xs text-slate-500">
+                Không tìm thấy <span className="font-semibold text-slate-700">&quot;{searchQuery.trim()}&quot;</span> trong danh mục.
+              </div>
+            )}
             {filteredProducts.map((prod, idx) => {
               const isSelected = idx === selectedIndex;
               const isArea = prod.product_type === 'area';
@@ -299,6 +338,22 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
                 </div>
               );
             })}
+            <div
+              id="btn-quick-create-product"
+              onClick={() => openQuickCreate(searchQuery)}
+              className="mt-1 p-2 rounded-md flex items-center gap-2.5 cursor-pointer bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
+              title="Tạo hàng hóa mới từ chuỗi đang tìm"
+            >
+              <div className="w-7 h-7 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center">
+                <PackagePlus className="w-4 h-4" />
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-semibold text-amber-800">
+                  Tạo hàng hóa mới: &quot;{searchQuery.trim()}&quot;
+                </div>
+                <div className="text-[11px] text-amber-600">Thêm vào danh mục rồi bán ngay (Enter)</div>
+              </div>
+            </div>
           </div>
           <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-500 flex items-center justify-between">
             <span>Dùng phím ↑ ↓ để chọn • Enter lần 1 phân nhánh • Esc để hủy</span>
@@ -306,6 +361,15 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           </div>
         </div>
       )}
+
+      {/* Modal tạo nhanh hàng hóa — mở từ dropdown/Enter khi không thấy kết quả */}
+      <QuickCreateProductModal
+        key={quickCreateSeq}
+        open={quickCreateOpen}
+        initialQuery={quickCreateSeed}
+        onClose={() => setQuickCreateOpen(false)}
+        onCreated={handleQuickCreated}
+      />
     </div>
   );
   } // end forwardRef render function
