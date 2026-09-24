@@ -11,6 +11,7 @@ import type { CartTab } from '../types';
 import { DEFAULT_TAB } from '../cart';
 import { recomputeOrderItem } from '../../db';
 import { calcCartTotals } from '../../pricing';
+import { notify } from '@/components/common/Toast';
 
 export interface TxCart {
   posMode: 'standard' | 'fast';
@@ -60,7 +61,7 @@ export function useTxCart(cashRounding: number): TxCart {
   // Tab operations — tab mới ăn theo mặc định POS trong Cài đặt
   const createCartTab = useCallback(() => {
     if (cartTabs.length >= 5) {
-      alert('Chỉ được mở tối đa 5 hóa đơn cùng lúc! Hãy thanh toán hoặc đóng bớt tab.');
+      notify('Chỉ được mở tối đa 5 hóa đơn cùng lúc! Hãy thanh toán hoặc đóng bớt tab.', 'error');
       return;
     }
     const newId = `tab-${Date.now()}`;

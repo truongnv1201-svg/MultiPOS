@@ -223,7 +223,7 @@ export function AttendancePayrollTab({
                 disabled={busy || run?.status === 'paid'}
                 onClick={async () => {
                   if (run && run.status === 'paid') {
-                    alert(`Tháng ${monthKey} đã chi lương — không tạo lại được!`);
+                    notify(`Tháng ${monthKey} đã chi lương — không tạo lại được!`, 'error');
                     return;
                   }
                   setBusy(true);

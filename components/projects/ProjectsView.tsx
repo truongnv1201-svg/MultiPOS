@@ -334,7 +334,7 @@ export function ProjectsView() {
 
   const handlePrint = () => {
     if (!currentProject) {
-      alert('Chọn 1 công trình để in quyết toán!');
+      notify('Chọn 1 công trình để in quyết toán!', 'error');
       return;
     }
     const p = currentProject;

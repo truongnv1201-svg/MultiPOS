@@ -66,6 +66,9 @@ function AppContent() {
   const landedFor = useRef<string | null>(null);
   useEffect(() => {
     if (!user || !profile || landedFor.current === user.id) return;
+    // Chỉ redirect lần đầu đăng nhập, không khi reload (đã restore từ localStorage)
+    const restored = typeof window !== 'undefined' ? localStorage.getItem('multipos_last_screen') : null;
+    if (restored) return; // đã có màn hình lưu -> không ép về POS
     landedFor.current = user.id;
     const home = roleHomeScreen(profile.role);
     Promise.resolve().then(() => setCurrentScreen(home));

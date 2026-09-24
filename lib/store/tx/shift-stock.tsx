@@ -12,6 +12,7 @@ import { db, generateOrderCode } from '../../db';
 import { enqueueOp, EMPTY_SHIFT } from './constants';
 import { stableNext } from '../stable';
 import { vietnamizeError } from '../../error-vi';
+import { notify } from '@/components/common/Toast';
 
 export interface TxShiftStockDeps {
   syncPendingOpsRef: { current: () => Promise<{ synced: number; failed: number }> };
@@ -176,16 +177,16 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
     async (countedCash: number): Promise<boolean> => {
       // Fix thu ngân: bắt buộc đăng nhập + ca đang mở mới được kết ca.
       if (supa && !user) {
-        alert('Vui lòng đăng nhập thu ngân trước khi kết ca!');
+        notify('Vui lòng đăng nhập thu ngân trước khi kết ca!', 'error');
         setLoginOpen(true);
         return false;
       }
       if (currentShift.status !== 'open') {
-        alert('Không có ca đang mở! Ca này đã được kết trước đó.');
+        notify('Không có ca đang mở! Ca này đã được kết trước đó.', 'error');
         return false;
       }
       if (!Number.isFinite(countedCash) || countedCash < 0) {
-        alert('Số tiền kiểm đếm không hợp lệ!');
+        notify('Số tiền kiểm đếm không hợp lệ!', 'error');
         return false;
       }
       // Gắn ca với người mở: chỉ chủ ca hoặc Admin/Quản lý được kết ca hộ.
@@ -194,17 +195,17 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         const isOwner = currentShift.cashier_name === cashierName;
         const canOverride = profile?.role === 'admin' || profile?.role === 'manager';
         if (!isOwner && !canOverride) {
-          alert(
+          notify(
             `Ca này do "${currentShift.cashier_name}" mở — bạn (${cashierName}) không thể kết ca hộ để khỏi lẫn trách nhiệm két tiền. Nhờ đúng người hoặc Admin/Quản lý kết ca.`
-          );
+          , 'error');
           return false;
         }
       }
       // Invariant 4 & OFF-ERR-01 Check:
       if (!isOnline || pendingQueueRef.current.length > 0) {
-        alert(
+        notify(
           'LỖI OFF-ERR-01: Không thể đóng ca làm việc khi thiết bị đang Ngoại tuyến (Offline) hoặc còn đơn hàng chờ đồng bộ!'
-        );
+        , 'error');
         return false;
       }
 
@@ -219,7 +220,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           });
           if (error) throw new Error(error.message);
         } catch (err: any) {
-          alert(`Kết ca server thất bại — giữ nguyên ca để thử lại: ${vietnamizeError(err)}`);
+          notify(`Kết ca server thất bại — giữ nguyên ca để thử lại: ${vietnamizeError(err)}`, 'error');
           return false;
         }
       }
@@ -244,16 +245,16 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
   const openNewShift = useCallback(
     async (startingCash: number) => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi mở ca!');
+        notify('Vui lòng đăng nhập trước khi mở ca!', 'error');
         setLoginOpen(true);
         return;
       }
       if (currentShift.status === 'open') {
-        alert('Ca hiện tại vẫn đang mở! Hãy kết ca (F12) trước khi mở ca mới.');
+        notify('Ca hiện tại vẫn đang mở! Hãy kết ca (F12) trước khi mở ca mới.', 'error');
         return;
       }
       if (!Number.isFinite(startingCash) || startingCash < 0) {
-        alert('Tiền đầu ca không hợp lệ!');
+        notify('Tiền đầu ca không hợp lệ!', 'error');
         return;
       }
       // P1: online + đã login -> mở qua RPC open_shift (server cấp uuid, chặn mở chồng ca).
@@ -280,7 +281,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           await db.shifts.add(serverShift).catch(() => db.shifts.put(serverShift));
           return;
         } catch (err: any) {
-          alert(`Mở ca server thất bại — giữ nguyên để thử lại: ${vietnamizeError(err)}`);
+          notify(`Mở ca server thất bại — giữ nguyên để thử lại: ${vietnamizeError(err)}`, 'error');
           return;
         }
       }
@@ -350,12 +351,12 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
   const addCashbookEntry = useCallback(
     async (entryData: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>): Promise<boolean> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi lập phiếu thu/chi!');
+        notify('Vui lòng đăng nhập trước khi lập phiếu thu/chi!', 'error');
         setLoginOpen(true);
         return false;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Không được lập phiếu thu/chi sau khi kết ca.');
+        notify('Ca đã đóng! Không được lập phiếu thu/chi sau khi kết ca.', 'error');
         return false;
       }
       const code = generateOrderCode(entryData.type === 'receipt' ? 'PT' : 'PC');
@@ -394,12 +395,12 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
     ) => {
       // P2: thu ngân/worker không được nhập kho (khi có Supabase).
       if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
-        alert('Chỉ Admin/Quản lý được nhập kho!');
+        notify('Chỉ Admin/Quản lý được nhập kho!', 'error');
         return;
       }
       // P2-3: chặn nhập kho khi ca đóng (trước đây chỉ disable nút ở POS, gọi trực tiếp vẫn lọt).
       if (currentShift.status !== 'open') {
-        alert('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi nhập kho.');
+        notify('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi nhập kho.', 'error');
         return;
       }
       const product = products.find((p) => p.id === productId);
@@ -516,12 +517,12 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
     ): Promise<boolean> => {
       // P2: thu ngân/worker không được nhập kho (khi có Supabase).
       if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
-        alert('Chỉ Admin/Quản lý được nhập kho!');
+        notify('Chỉ Admin/Quản lý được nhập kho!', 'error');
         return false;
       }
       // P2-3: chặn nhập kho khi ca đóng (trước đây chỉ disable nút ở POS, gọi trực tiếp vẫn lọt).
       if (currentShift.status !== 'open') {
-        alert('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi nhập kho.');
+        notify('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi nhập kho.', 'error');
         return false;
       }
       const clean = lines.filter((l) => {
@@ -529,7 +530,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         return p && l.quantity > 0 && l.importPrice > 0;
       });
       if (clean.length === 0) {
-        alert('Phiếu nhập chưa có dòng hàng hợp lệ (chọn hàng, SL và đơn giá > 0)!');
+        notify('Phiếu nhập chưa có dòng hàng hợp lệ (chọn hàng, SL và đơn giá > 0)!', 'error');
         return false;
       }
       const refCode = generateOrderCode('NH');

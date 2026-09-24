@@ -51,18 +51,18 @@ export function ShiftModalF12() {
 
   const handleConfirmClose = async () => {
     if (needLogin) {
-      alert('Vui lòng đăng nhập thu ngân trước khi kết ca!');
+      notify('Vui lòng đăng nhập thu ngân trước khi kết ca!', 'error');
       setLoginOpen(true);
       return;
     }
     if (blockedForeign) {
-      alert(
+      notify(
         `Ca này do "${currentShift.cashier_name}" mở — bạn (${cashierName}) không thể kết ca hộ. Nhờ đúng người hoặc Admin/Quản lý kết ca.`
-      );
+      , 'error');
       return;
     }
     if (isLocked) {
-      alert('LỖI OFF-ERR-01: Thiết bị đang Offline hoặc còn đơn hàng ngoại tuyến chưa đồng bộ!');
+      notify('LỖI OFF-ERR-01: Thiết bị đang Offline hoặc còn đơn hàng ngoại tuyến chưa đồng bộ!', 'error');
       return;
     }
     setIsClosing(true);
@@ -78,7 +78,7 @@ export function ShiftModalF12() {
 
   const handleStartNewShift = async () => {
     if (needLogin) {
-      alert('Vui lòng đăng nhập trước khi mở ca!');
+      notify('Vui lòng đăng nhập trước khi mở ca!', 'error');
       setLoginOpen(true);
       return;
     }

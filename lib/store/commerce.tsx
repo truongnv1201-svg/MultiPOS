@@ -15,6 +15,7 @@ import {
 } from './shop';
 import type { ShopSettings, GrindingService } from './shop';
 import { vietnamizeError } from '../error-vi';
+import { notify } from '@/components/common/Toast';
 
 export interface CommerceSlice {
   shop: ShopSettings;
@@ -79,7 +80,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     // P2: chỉ Admin được đổi thông tin cửa hàng (manager cũng bị chặn).
     // Local-only (chưa cấu hình Supabase) vẫn cho đổi để demo/cài đặt máy trạm.
     if (supa && profile?.role !== 'admin') {
-      alert('Chỉ tài khoản Admin được đổi thông tin cửa hàng.');
+      notify('Chỉ tài khoản Admin được đổi thông tin cửa hàng.', 'error');
       return;
     }
     setShop((prev) => {
@@ -141,7 +142,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
   const updateVietqr = useCallback((patch: Partial<VietqrConfig>) => {
     // P2: chỉ Admin được đổi VietQR.
     if (supa && profile?.role !== 'admin') {
-      alert('Chỉ tài khoản Admin được đổi VietQR.');
+      notify('Chỉ tài khoản Admin được đổi VietQR.', 'error');
       return;
     }
     setVietqr((prev) => {

@@ -234,7 +234,7 @@ export function OrdersView() {
   // P2-1: mở modal trả hàng (cho cả đơn hoàn tất lẫn đơn cọc — server 0032 tách nhánh cọc)
   const handleReturnOrder = (order: Order) => {
     if (order.status !== 'completed' && order.status !== 'deposit_order') {
-      alert('Chỉ đơn hàng đã hoàn tất / đơn cọc mới có thể thực hiện trả hàng!');
+      notify('Chỉ đơn hàng đã hoàn tất / đơn cọc mới có thể thực hiện trả hàng!', 'error');
       return;
     }
     const init: Record<string, { checked: boolean; qty: number }> = {};
@@ -259,13 +259,13 @@ export function OrdersView() {
     if (!returnTarget) return;
     const picked = returnTarget.items.filter((it) => returnSel[it.id]?.checked && returnSel[it.id].qty > 0);
     if (picked.length === 0) {
-      alert('Chưa chọn dòng hàng nào để trả!');
+      notify('Chưa chọn dòng hàng nào để trả!', 'error');
       return;
     }
     for (const it of picked) {
       const q = returnSel[it.id].qty;
       if (!(q > 0) || q > it.quantity) {
-        alert(`SL trả của "${it.name}" không hợp lệ (tối đa ${it.quantity} ${it.unit})!`);
+        notify(`SL trả của "${it.name}" không hợp lệ (tối đa ${it.quantity} ${it.unit})!`, 'error');
         return;
       }
     }

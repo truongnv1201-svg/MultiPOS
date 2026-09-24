@@ -10,6 +10,7 @@ import type { Order, CashbookEntry, Shift } from '../../types';
 import type { ReturnResult, RestockLine, ReturnSkipped } from '../types';
 import { db, generateOrderCode } from '../../db';
 import { vietnamizeError } from '../../error-vi';
+import { notify } from '@/components/common/Toast';
 
 export interface TxOrderReturnsDeps {
   orders: Order[];
@@ -44,12 +45,12 @@ export function useTxOrderReturns({
   const cancelOrder = useCallback(
     async (orderId: string): Promise<boolean> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi hủy đơn!');
+        notify('Vui lòng đăng nhập trước khi hủy đơn!', 'error');
         setLoginOpen(true);
         return false;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Không được hủy/trả đơn sau khi kết ca.');
+        notify('Ca đã đóng! Không được hủy/trả đơn sau khi kết ca.', 'error');
         return false;
       }
       const order = orders.find((o) => o.id === orderId);
@@ -57,7 +58,7 @@ export function useTxOrderReturns({
 
       const serverId = await resolveServerOrderId(order);
       if (serverId && !isOnline) {
-        alert('Đơn này đã đồng bộ server nhưng đang ngoại tuyến — không thể hủy lúc này để tránh lệch kho/nợ. Hãy online rồi thử lại.');
+        notify('Đơn này đã đồng bộ server nhưng đang ngoại tuyến — không thể hủy lúc này để tránh lệch kho/nợ. Hãy online rồi thử lại.', 'error');
         return false;
       }
       if (serverId && supa) {
@@ -65,7 +66,7 @@ export function useTxOrderReturns({
           const { error } = await supa.rpc('cancel_order', { p_order_id: serverId });
           if (error) throw new Error(error.message);
         } catch (err: any) {
-          alert(`Hủy đơn server thất bại — giữ nguyên đơn để thử lại: ${vietnamizeError(err)}`);
+          notify(`Hủy đơn server thất bại — giữ nguyên đơn để thử lại: ${vietnamizeError(err)}`, 'error');
           return false;
         }
       }
@@ -163,19 +164,19 @@ export function useTxOrderReturns({
     async (orderId: string, refundItems: { itemId: string; quantity: number; amount: number }[]): Promise<ReturnResult> => {
       const fail: ReturnResult = { ok: false, restocked: [], skipped: [] };
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi trả hàng!');
+        notify('Vui lòng đăng nhập trước khi trả hàng!', 'error');
         setLoginOpen(true);
         return fail;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Không được hủy/trả đơn sau khi kết ca.');
+        notify('Ca đã đóng! Không được hủy/trả đơn sau khi kết ca.', 'error');
         return fail;
       }
       const order = orders.find((o) => o.id === orderId);
       if (!order) return fail;
       // 0026: chỉ đơn hiệu lực mới trả được (chặn trả lặp cả khi gọi trực tiếp hàm)
       if (order.status !== 'completed' && order.status !== 'deposit_order') {
-        alert('Đơn này đã hủy/trả rồi — không xử lý lặp.');
+        notify('Đơn này đã hủy/trả rồi — không xử lý lặp.', 'error');
         return fail;
       }
 
@@ -207,7 +208,7 @@ export function useTxOrderReturns({
       // hoàn kho, local mirror theo đúng số server trả về). Đơn server mà offline -> CHẶN.
       const serverId = await resolveServerOrderId(order);
       if (serverId && !isOnline) {
-        alert('Đơn này đã đồng bộ server nhưng đang ngoại tuyến — không thể trả hàng lúc này để tránh lệch nợ. Hãy online rồi thử lại.');
+        notify('Đơn này đã đồng bộ server nhưng đang ngoại tuyến — không thể trả hàng lúc này để tránh lệch nợ. Hãy online rồi thử lại.', 'error');
         return fail;
       }
       let srvDebtCut: number | null = null;
@@ -241,7 +242,7 @@ export function useTxOrderReturns({
               .map((e: any) => ({ sku: e.sku as string, reason: String(e.reason || 'server từ chối') }));
           }
         } catch (err: any) {
-          alert(`Trả hàng server thất bại — giữ nguyên đơn để thử lại: ${vietnamizeError(err)}`);
+          notify(`Trả hàng server thất bại — giữ nguyên đơn để thử lại: ${vietnamizeError(err)}`, 'error');
           return fail;
         }
       }

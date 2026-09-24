@@ -9,6 +9,7 @@ import { useNetwork } from './network';
 import type { Product, Customer, Supplier } from '../types';
 import { db, generateMasterCode, type PendingMasterData } from '../db';
 import { stableNext } from './stable';
+import { notify } from '@/components/common/Toast';
 
 export interface CatalogSlice {
   products: Product[];
@@ -217,16 +218,24 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     return { synced, failed };
   }, [supa, user, isOnline]);
 
-  // P3: tải catalog từ server (anon SELECT, RLS read-only). Thất bại -> giữ local.
+  // P3: tải catalog từ server. Đã login (authenticated) -> bảng products đủ cột;
+  // chưa login (anon, RLS 0051 chặn giá vốn) -> view catalog_public an toàn.
+  // Thất bại -> giữ local (offline-first).
   const refreshCatalog = useCallback(async (): Promise<boolean> => {
     if (!supa) return false;
     try {
-      const [productsResult, customersResult, suppliersResult, comboResult] = await Promise.all([
+      const [productsPrimary, customersResult, suppliersResult, comboResult] = await Promise.all([
         supa.from('products').select('*').order('sku'),
         supa.from('customers').select('*').order('code'),
         supa.from('suppliers').select('*').order('code'),
         supa.from('combo_items').select('combo_product_id,child_product_id,child_sku,quantity'),
       ]);
+      let productsResult = productsPrimary;
+      if (productsResult.error) {
+        // Anon bị chặn bảng gốc (0051) -> đọc view public không giá vốn
+        const fallback = await supa.from('catalog_public').select('*').order('sku');
+        if (!fallback.error && fallback.data) productsResult = fallback as typeof productsPrimary;
+      }
       const { data, error } = productsResult;
       if (error || !data || customersResult.error || suppliersResult.error || comboResult.error) return false;
       const comboItemsByProduct = new Map<string, { product_id: string; sku: string; name: string; quantity: number }[]>();
@@ -250,11 +259,13 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         category: row.category,
         unit: row.unit,
         product_type: row.product_type,
-        retail_price: Number(row.retail_price),
+        retail_price: Number(row.retail_price ?? 0),
         trade_price: row.trade_price != null ? Number(row.trade_price) : undefined,
-        import_price: Number(row.import_price),
-        avg_cost: Number(row.avg_cost),
-        stock_quantity: Number(row.stock_quantity),
+        // View catalog_public (anon, 0051) không có cột giá vốn -> 0, chỉ dùng hiển thị;
+        // số liệu vốn/tồn chuẩn vẫn do authenticated tải từ bảng gốc.
+        import_price: Number(row.import_price ?? 0),
+        avg_cost: Number(row.avg_cost ?? row.import_price ?? 0),
+        stock_quantity: Number(row.stock_quantity ?? 0),
         min_stock: row.min_stock != null ? Number(row.min_stock) : undefined,
         waste_factor: row.waste_factor != null ? Number(row.waste_factor) : undefined,
         default_grinding_price: row.default_grinding_price != null ? Number(row.default_grinding_price) : undefined,
@@ -364,7 +375,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const addProduct = useCallback(
     async (data: Omit<Product, 'id' | 'sku'> & { sku?: string }): Promise<Product> => {
       if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
-        alert('Chỉ Admin/Quản lý được thêm hàng hóa!');
+        notify('Chỉ Admin/Quản lý được thêm hàng hóa!', 'error');
         throw new Error('Forbidden: cần quyền quản lý');
       }
       const autoSku = !data.sku;
@@ -442,7 +453,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
 
   const updateProduct = useCallback(async (id: string, updates: Partial<Product>) => {
     if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
-      alert('Chỉ Admin/Quản lý được sửa hàng hóa/giá vốn!');
+      notify('Chỉ Admin/Quản lý được sửa hàng hóa/giá vốn!', 'error');
       return;
     }
     if (supa) {

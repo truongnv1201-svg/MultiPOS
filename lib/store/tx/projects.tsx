@@ -9,6 +9,7 @@ import type { Project, ProjectMaterial, ProjectWorker, CashbookEntry, Shift, Sto
 import { db, generateOrderCode } from '../../db';
 import { asUuidOrNull } from './constants';
 import { stableNext } from '../stable';
+import { notify } from '@/components/common/Toast';
 
 // Tính lại tổng công trình từ dòng (mirror công thức P&L ở ProjectsView)
 function recalcProjectTotals(p: Project): Project {
@@ -288,12 +289,12 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
   const exportProjectMaterial = useCallback(
     async (projectId: string, productId: string, quantity: number): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi xuất vật tư!');
+        notify('Vui lòng đăng nhập trước khi xuất vật tư!', 'error');
         setLoginOpen(true);
         return null;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Mở ca mới (F12) trước khi xuất vật tư cho công trình.');
+        notify('Ca đã đóng! Mở ca mới (F12) trước khi xuất vật tư cho công trình.', 'error');
         return null;
       }
       const project = projects.find((x) => x.id === projectId);
@@ -301,15 +302,15 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       const product = products.find((x) => x.id === productId);
       if (!product) return null;
       if (product.product_type === 'service' || product.product_type === 'combo') {
-        alert('Hàng dịch vụ/combo không xuất trực tiếp cho công trình! Chọn hàng hóa hoặc hàng diện tích.');
+        notify('Hàng dịch vụ/combo không xuất trực tiếp cho công trình! Chọn hàng hóa hoặc hàng diện tích.', 'error');
         return null;
       }
       if (!(quantity > 0)) {
-        alert('Số lượng xuất phải lớn hơn 0!');
+        notify('Số lượng xuất phải lớn hơn 0!', 'error');
         return null;
       }
       if (product.stock_quantity < quantity) {
-        alert(`Tồn kho không đủ: ${product.sku} (tồn ${product.stock_quantity} ${product.unit}, cần ${quantity}).`);
+        notify(`Tồn kho không đủ: ${product.sku} (tồn ${product.stock_quantity} ${product.unit}, cần ${quantity}).`, 'error');
         return null;
       }
       const unit_cost = product.avg_cost || 0;
@@ -355,12 +356,12 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
   const exportProjectMaterialBatch = useCallback(
     async (projectId: string, lines: { productId: string; quantity: number }[]): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi xuất vật tư!');
+        notify('Vui lòng đăng nhập trước khi xuất vật tư!', 'error');
         setLoginOpen(true);
         return null;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Mở ca mới (F12) trước khi xuất vật tư cho công trình.');
+        notify('Ca đã đóng! Mở ca mới (F12) trước khi xuất vật tư cho công trình.', 'error');
         return null;
       }
       const project = projects.find((x) => x.id === projectId);
@@ -391,11 +392,11 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         items.push({ product, quantity: qty });
       }
       if (items.length === 0) {
-        alert('Phiếu xuất chưa có dòng hợp lệ!' + (errors.length > 0 ? `\n${errors.join('\n')}` : ''));
+        notify('Phiếu xuất chưa có dòng hợp lệ!' + (errors.length > 0 ? `\n${errors.join('\n')}` : ''), 'error');
         return null;
       }
       if (errors.length > 0) {
-        alert(`Phiếu có dòng lỗi, chưa xuất:\n${errors.join('\n')}`);
+        notify(`Phiếu có dòng lỗi, chưa xuất:\n${errors.join('\n')}`, 'error');
         return null;
       }
       const now = new Date().toISOString();
@@ -459,18 +460,18 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       worker: { worker_name: string; role: string; days_worked: number; daily_wage: number; allowance: number; employee_id?: string; employee_code?: string }
     ): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi thêm thợ!');
+        notify('Vui lòng đăng nhập trước khi thêm thợ!', 'error');
         setLoginOpen(true);
         return null;
       }
       const project = projects.find((x) => x.id === projectId);
       if (!project) return null;
       if (!worker.worker_name.trim()) {
-        alert('Vui lòng nhập tên thợ!');
+        notify('Vui lòng nhập tên thợ!', 'error');
         return null;
       }
       if (!(worker.days_worked > 0)) {
-        alert('Số ngày công phải lớn hơn 0!');
+        notify('Số ngày công phải lớn hơn 0!', 'error');
         return null;
       }
       const line: ProjectWorker = {
@@ -529,7 +530,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       finance: { estimated_revenue?: number; settled_revenue?: number; other_costs?: number }
     ): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi sửa công trình!');
+        notify('Vui lòng đăng nhập trước khi sửa công trình!', 'error');
         setLoginOpen(true);
         return null;
       }
@@ -561,12 +562,12 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
   const collectProjectDeposit = useCallback(
     async (projectId: string, amount: number, paymentMethod: 'cash' | 'transfer'): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi thu cọc!');
+        notify('Vui lòng đăng nhập trước khi thu cọc!', 'error');
         setLoginOpen(true);
         return null;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Mở ca mới (F12) trước khi thu cọc công trình.');
+        notify('Ca đã đóng! Mở ca mới (F12) trước khi thu cọc công trình.', 'error');
         return null;
       }
       const project = projects.find((x) => x.id === projectId);
@@ -611,7 +612,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
   const removeProjectLine = useCallback(
     async (projectId: string, kind: 'material' | 'worker', lineKey: string): Promise<Project | null> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi sửa công trình!');
+        notify('Vui lòng đăng nhập trước khi sửa công trình!', 'error');
         setLoginOpen(true);
         return null;
       }
@@ -619,7 +620,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       if (!project) return null;
       if (kind === 'material') {
         if (currentShift.status !== 'open') {
-          alert('Ca đã đóng! Mở ca mới (F12) trước khi hoàn vật tư về kho.');
+          notify('Ca đã đóng! Mở ca mới (F12) trước khi hoàn vật tư về kho.', 'error');
           return null;
         }
         const idx = Number(lineKey);

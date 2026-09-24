@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import { useStore } from '@/lib/store';
+import { notify } from '@/components/common/Toast';
 import { User, X } from 'lucide-react';
 
 export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -13,7 +14,7 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
 
   const handleSaveQuickCustomer = async () => {
     if (!newCustName.trim() || !newCustPhone.trim()) {
-      alert('Vui lòng nhập họ tên và số điện thoại khách hàng');
+      notify('Vui lòng nhập họ tên và số điện thoại khách hàng', 'error');
       return;
     }
     const newCust = await addCustomer({

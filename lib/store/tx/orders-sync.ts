@@ -11,6 +11,7 @@ import { toRpcItems } from '../rpc';
 import { stableNext } from '../stable';
 import { db } from '../../db';
 import { SERVER_ORDERS_WINDOW_DAYS, SERVER_ORDERS_PAGE_SIZE, SERVER_ORDERS_MAX_PAGES, SERVER_ITEMS_BATCH_SIZE } from './constants';
+import { notify } from '@/components/common/Toast';
 
 export interface TxOrdersSyncDeps {
   setCashbook: React.Dispatch<React.SetStateAction<CashbookEntry[]>>;
@@ -238,7 +239,7 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
       }
       setPendingQueue(remaining);
       if (failures.length > 0) {
-        alert(`Đồng bộ ${failures.length} đơn offline thất bại, giữ lại để thử sau:\n${failures.slice(0, 5).join('\n')}${failures.length > 5 ? `\n...và ${failures.length - 5} đơn nữa` : ''}`);
+        notify(`Đồng bộ ${failures.length} đơn offline thất bại, giữ lại để thử sau:\n${failures.slice(0, 5).join('\n')}${failures.length > 5 ? `\n...và ${failures.length - 5} đơn nữa` : ''}`, 'error');
       }
       if (syncedIds.length > 0) {
         setOrders((prev) =>

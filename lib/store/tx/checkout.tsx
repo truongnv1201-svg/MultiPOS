@@ -64,12 +64,12 @@ export function useTxCheckout({
       if (activeCart.items.length === 0) return null;
       // Fix thu ngân: bắt buộc đăng nhập (khi có Supabase) + ca đang mở mới được bán.
       if (supa && !user) {
-        alert('Vui lòng đăng nhập thu ngân trước khi thanh toán!');
+        notify('Vui lòng đăng nhập thu ngân trước khi thanh toán!', 'error');
         setLoginOpen(true);
         return null;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi bán hàng.');
+        notify('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi bán hàng.', 'error');
         setShiftModalOpen(true);
         return null;
       }
@@ -81,8 +81,9 @@ export function useTxCheckout({
         profile?.role !== 'admin' &&
         profile?.role !== 'manager'
       ) {
-        alert(
-          `Ca đang mở đứng tên "${currentShift.cashier_name}", không phải bạn (${cashierName}). Hãy kết ca cũ (F12) / nhờ Admin rồi mở ca mới trước khi bán.`
+        notify(
+          `Ca đang mở đứng tên "${currentShift.cashier_name}", không phải bạn (${cashierName}). Hãy kết ca cũ (F12) / nhờ Admin rồi mở ca mới trước khi bán.`,
+          'error',
         );
         setShiftModalOpen(true);
         return null;
@@ -188,7 +189,7 @@ export function useTxCheckout({
           actualDebt = Number(res.debt_amount);
           effChange = Number(res.change_amount);
         } catch (err: any) {
-          alert(`Lỗi commit server — giữ nguyên giỏ để thử lại: ${vietnamizeError(err)}`);
+          notify(`Lỗi commit server — giữ nguyên giỏ để thử lại: ${vietnamizeError(err)}`, 'error');
           return null;
         }
       }
@@ -275,7 +276,7 @@ export function useTxCheckout({
       }
       // Kiểm tra linh kiện combo con thiếu theo tên để báo rõ
       if (insufficient.length > 0) {
-        alert(`Tồn kho không đủ, không thể bán:\n${insufficient.join('\n')}\nHãy giảm SL hoặc nhập kho thêm.`);
+        notify(`Tồn kho không đủ, không thể bán:\n${insufficient.join('\n')}\nHãy giảm SL hoặc nhập kho thêm.`, 'error');
         return null;
       }
 

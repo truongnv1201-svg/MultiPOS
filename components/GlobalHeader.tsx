@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/lib/store';
+import { notify } from '@/components/common/Toast';
 import {
   Menu,
   Wifi,
@@ -65,11 +66,11 @@ export function GlobalHeader() {
       // Cài đặt: Admin toàn quyền + Manager quản lý NV (cấu hình hệ thống vẫn khóa trong view).
       const canAccessSettings = profile?.role === 'admin' || profile?.role === 'manager';
       const blockRestricted = () => {
-        alert('Tài khoản thu ngân không có quyền vào phân hệ này!');
+        notify('Tài khoản thu ngân không có quyền vào phân hệ này!', 'error');
         return;
       };
       const blockNotAdmin = () => {
-        alert('Chỉ Admin/Quản lý được vào Cài đặt (Quản lý chỉ quản lý nhân viên, cấu hình hệ thống vẫn chỉ Admin)!');
+        notify('Chỉ Admin/Quản lý được vào Cài đặt (Quản lý chỉ quản lý nhân viên, cấu hình hệ thống vẫn chỉ Admin)!', 'error');
         return;
       };
       // F1: Focus Search Input (ở topbar danh sách hàng hóa)
@@ -389,7 +390,7 @@ export function GlobalHeader() {
           id="header-settings-btn"
           onClick={() => {
             if (profile?.role !== 'admin' && profile?.role !== 'manager') {
-              alert('Chỉ Admin/Quản lý được vào Cài đặt!');
+              notify('Chỉ Admin/Quản lý được vào Cài đặt!', 'error');
               return;
             }
             setCurrentScreen('settings');

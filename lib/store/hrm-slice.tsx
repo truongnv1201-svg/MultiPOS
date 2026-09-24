@@ -94,12 +94,12 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
   const requireHrmManager = useCallback(
     (action: string): boolean => {
       if (!supa || !user) {
-        alert('Vui lòng đăng nhập!');
+        notify('Vui lòng đăng nhập!', 'error');
         setLoginOpen(true);
         return false;
       }
       if (profile?.role !== 'admin' && profile?.role !== 'manager') {
-        alert(`Chỉ Admin/Quản lý được ${action}!`);
+        notify(`Chỉ Admin/Quản lý được ${action}!`, 'error');
         return false;
       }
       return true;
@@ -302,11 +302,11 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
     async (input: EmployeeInput): Promise<boolean> => {
       if (!requireHrmManager('thêm/sửa nhân viên')) return false;
       if (!input.full_name.trim()) {
-        alert('Nhập tên nhân viên!');
+        notify('Nhập tên nhân viên!', 'error');
         return false;
       }
       if (!isOnline || !supa || !user) {
-        alert('Cần Online mới thêm/sửa nhân viên được!');
+        notify('Cần Online mới thêm/sửa nhân viên được!', 'error');
         return false;
       }
       const cols = employeeCols(input);
@@ -366,7 +366,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         }
         return true;
       } catch (err: any) {
-        alert(`Lưu nhân viên thất bại: ${vietnamizeError(err)}`);
+        notify(`Lưu nhân viên thất bại: ${vietnamizeError(err)}`, 'error');
         return false;
       }
     },
@@ -382,14 +382,14 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       role: string
     ): Promise<{ id: string; email: string; full_name: string; role: string } | null> => {
       if (!isOnline || !supa || !user) {
-        alert('Cần Online mới tạo tài khoản được!');
+        notify('Cần Online mới tạo tài khoản được!', 'error');
         return null;
       }
       try {
         const { data: sess } = await supa.auth.getSession();
         const token = sess.session?.access_token;
         if (!token) {
-          alert('Phiên đăng nhập hết hạn — vui lòng đăng nhập lại.');
+          notify('Phiên đăng nhập hết hạn — vui lòng đăng nhập lại.', 'error');
           setLoginOpen(true);
           return null;
         }
@@ -400,14 +400,14 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
-          alert(json.error || 'Tạo tài khoản thất bại.');
+          notify(json.error || 'Tạo tài khoản thất bại.', 'error');
           return null;
         }
         const rec = { id: json.id as string, email: email.trim(), full_name: fullName.trim(), role };
         setAccounts((prev) => (prev.some((a) => a.id === rec.id) ? prev : [...prev, rec]));
         return rec;
       } catch (err: any) {
-        alert(vietnamizeError(err));
+        notify(vietnamizeError(err), 'error');
         return null;
       }
     },
@@ -420,19 +420,19 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
     async (emp: EmployeeInput, acct: { password: string; role: string }): Promise<boolean> => {
       if (!requireHrmManager('thêm nhân viên')) return false;
       if (!emp.full_name.trim()) {
-        alert('Nhập tên nhân viên!');
+        notify('Nhập tên nhân viên!', 'error');
         return false;
       }
       if (acct.password.trim().length < 6) {
-        alert('Mật khẩu phải từ 6 ký tự trở lên!');
+        notify('Mật khẩu phải từ 6 ký tự trở lên!', 'error');
         return false;
       }
       if (profile?.role !== 'admin' && acct.role !== 'cashier' && acct.role !== 'worker') {
-        alert('Quản lý chỉ được tạo tài khoản Thu ngân / Thợ!');
+        notify('Quản lý chỉ được tạo tài khoản Thu ngân / Thợ!', 'error');
         return false;
       }
       if (!isOnline || !supa || !user) {
-        alert('Cần Online mới thêm nhân viên được!');
+        notify('Cần Online mới thêm nhân viên được!', 'error');
         return false;
       }
       try {
@@ -468,7 +468,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         db.employees.add(rec).catch(() => {});
         return true;
       } catch (err: any) {
-        alert(vietnamizeError(err));
+        notify(vietnamizeError(err), 'error');
         return false;
       }
     },
@@ -482,15 +482,15 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       const emp = employees.find((e) => e.id === employeeId);
       if (!emp) return false;
       if (!isOnline || !supa) {
-        alert('Cần Online mới tạo được!');
+        notify('Cần Online mới tạo được!', 'error');
         return false;
       }
       if (acct.password.trim().length < 6) {
-        alert('Mật khẩu phải từ 6 ký tự trở lên!');
+        notify('Mật khẩu phải từ 6 ký tự trở lên!', 'error');
         return false;
       }
       if (profile?.role !== 'admin' && acct.role !== 'cashier' && acct.role !== 'worker') {
-        alert('Quản lý chỉ được tạo tài khoản Thu ngân / Thợ!');
+        notify('Quản lý chỉ được tạo tài khoản Thu ngân / Thợ!', 'error');
         return false;
       }
       const acc = await createLoginAccount(employeeLoginEmail(emp.code), acct.password, emp.full_name, acct.role);
@@ -502,7 +502,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         db.employees.put({ ...emp, user_id: acc.id }).catch(() => {});
         return true;
       } catch (err: any) {
-        alert(`Gắn tài khoản thất bại: ${vietnamizeError(err)}`);
+        notify(`Gắn tài khoản thất bại: ${vietnamizeError(err)}`, 'error');
         return false;
       }
     },
@@ -515,22 +515,22 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       if (!requireHrmManager('đặt lại mật khẩu')) return false;
       const emp = employees.find((e) => e.id === employeeId);
       if (!emp?.user_id) {
-        alert('Hồ sơ này chưa có tài khoản đăng nhập!');
+        notify('Hồ sơ này chưa có tài khoản đăng nhập!', 'error');
         return false;
       }
       if (newPassword.trim().length < 6) {
-        alert('Mật khẩu phải từ 6 ký tự trở lên!');
+        notify('Mật khẩu phải từ 6 ký tự trở lên!', 'error');
         return false;
       }
       if (!isOnline || !supa) {
-        alert('Cần Online mới đặt lại được!');
+        notify('Cần Online mới đặt lại được!', 'error');
         return false;
       }
       try {
         const { data: sess } = await supa.auth.getSession();
         const token = sess.session?.access_token;
         if (!token) {
-          alert('Phiên đăng nhập hết hạn — vui lòng đăng nhập lại.');
+          notify('Phiên đăng nhập hết hạn — vui lòng đăng nhập lại.', 'error');
           setLoginOpen(true);
           return false;
         }
@@ -541,13 +541,13 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
-          alert(json.error || 'Đặt lại mật khẩu thất bại.');
+          notify(json.error || 'Đặt lại mật khẩu thất bại.', 'error');
           return false;
         }
         notify(`Đã đặt lại mật khẩu cho ${emp.code} — ${emp.full_name}.`, 'success');
         return true;
       } catch (err: any) {
-        alert(vietnamizeError(err));
+        notify(vietnamizeError(err), 'error');
         return false;
       }
     },
@@ -566,25 +566,25 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       if (!requireHrmManager('ghi tạm ứng')) return false;
       const emp = employees.find((e) => e.id === input.employee_id);
       if (!emp || emp.status !== 'active') {
-        alert('Chọn nhân viên đang làm việc!');
+        notify('Chọn nhân viên đang làm việc!', 'error');
         return false;
       }
       const amount = Math.max(0, Math.round(Number(input.amount) || 0));
       if (amount <= 0) {
-        alert('Nhập số tiền tạm ứng!');
+        notify('Nhập số tiền tạm ứng!', 'error');
         return false;
       }
       if (!input.advance_date) {
-        alert('Chọn ngày ứng!');
+        notify('Chọn ngày ứng!', 'error');
         return false;
       }
       if (!isOnline || !supa || !user) {
-        alert('Cần Online mới ghi tạm ứng được!');
+        notify('Cần Online mới ghi tạm ứng được!', 'error');
         return false;
       }
       const month = input.advance_date.slice(0, 7);
       if (payrollLocks.includes(month)) {
-        alert(`Tháng ${month} đã chốt lương — không ghi tạm ứng được!`);
+        notify(`Tháng ${month} đã chốt lương — không ghi tạm ứng được!`, 'error');
         return false;
       }
       try {
@@ -637,7 +637,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         markPayrollStale(month);
         return true;
       } catch (err: any) {
-        alert(`Ghi tạm ứng thất bại: ${vietnamizeError(err)}`);
+        notify(`Ghi tạm ứng thất bại: ${vietnamizeError(err)}`, 'error');
         return false;
       }
     },
@@ -652,11 +652,11 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       if (!adv) return false;
       const run = payrollRuns.find((r) => r.month === adv.month);
       if ((run && run.status !== 'draft') || payrollLocks.includes(adv.month)) {
-        alert(`Tháng ${adv.month} đã chốt/chi lương — không xóa tạm ứng được!`);
+        notify(`Tháng ${adv.month} đã chốt/chi lương — không xóa tạm ứng được!`, 'error');
         return false;
       }
       if (!isOnline || !supa) {
-        alert('Cần Online mới xóa được!');
+        notify('Cần Online mới xóa được!', 'error');
         return false;
       }
       if (!await confirmDialog(`Xóa lần tạm ứng ${adv.amount.toLocaleString('vi-VN')}đ của ${adv.employee_name || ''} ngày ${adv.advance_date}? (Xóa luôn phiếu chi ${adv.cashbook_code || ''})`)) return false;
@@ -672,7 +672,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         markPayrollStale(adv.month);
         return true;
       } catch (err: any) {
-        alert(`Xóa tạm ứng thất bại: ${vietnamizeError(err)}`);
+        notify(`Xóa tạm ứng thất bại: ${vietnamizeError(err)}`, 'error');
         return false;
       }
     },
@@ -686,33 +686,33 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
     async (input: { employee_id: string; amount: number; fund_type: 'cash' | 'bank'; note?: string }): Promise<boolean> => {
       if (!requireHrmManager('ghi tạm ứng')) return false;
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước!');
+        notify('Vui lòng đăng nhập trước!', 'error');
         setLoginOpen(true);
         return false;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Mở ca mới trước khi lập phiếu.');
+        notify('Ca đã đóng! Mở ca mới trước khi lập phiếu.', 'error');
         return false;
       }
       const emp = employees.find((e) => e.id === input.employee_id);
       if (!emp || emp.status !== 'active') {
-        alert('Chọn nhân viên đang làm việc!');
+        notify('Chọn nhân viên đang làm việc!', 'error');
         return false;
       }
       const amount = Math.max(0, Math.round(Number(input.amount) || 0));
       if (amount <= 0) {
-        alert('Nhập số tiền tạm ứng!');
+        notify('Nhập số tiền tạm ứng!', 'error');
         return false;
       }
       if (!isOnline || !supa || !user) {
-        alert('Cần Online mới ghi tạm ứng được!');
+        notify('Cần Online mới ghi tạm ứng được!', 'error');
         return false;
       }
       const now = new Date();
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const month = todayStr.slice(0, 7);
       if (payrollLocks.includes(month)) {
-        alert(`Tháng ${month} đã chốt lương — không ghi tạm ứng được!`);
+        notify(`Tháng ${month} đã chốt lương — không ghi tạm ứng được!`, 'error');
         return false;
       }
       try {
@@ -765,7 +765,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         markPayrollStale(month);
         return true;
       } catch (err: any) {
-        alert(`Ghi tạm ứng thất bại: ${vietnamizeError(err)}`);
+        notify(`Ghi tạm ứng thất bại: ${vietnamizeError(err)}`, 'error');
         return false;
       }
     },
@@ -777,7 +777,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
     async (id: string, status: 'active' | 'inactive'): Promise<boolean> => {
       if (!requireHrmManager(status === 'inactive' ? 'cho nhân viên nghỉ việc' : 'kích hoạt lại nhân viên')) return false;
       if (!isOnline || !supa) {
-        alert('Cần Online mới đổi trạng thái được!');
+        notify('Cần Online mới đổi trạng thái được!', 'error');
         return false;
       }
       if (status === 'inactive' && !(await confirmDialog('Cho nhân viên này nghỉ việc? (Giữ lại lịch sử công/lương)', { title: 'Cho nghỉ việc', confirmLabel: 'Cho nghỉ việc' }))) return false;
@@ -789,7 +789,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         if (cur) db.employees.put({ ...cur, status }).catch(() => {});
         return true;
       } catch (err: any) {
-        alert(`Đổi trạng thái thất bại: ${vietnamizeError(err)}`);
+        notify(`Đổi trạng thái thất bại: ${vietnamizeError(err)}`, 'error');
         return false;
       }
     },
@@ -813,7 +813,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         }
         return true;
       } catch (err: any) {
-        alert(`Chốt/mở bảng công thất bại: ${vietnamizeError(err)}`);
+        notify(`Chốt/mở bảng công thất bại: ${vietnamizeError(err)}`, 'error');
         return false;
       }
     },
@@ -827,7 +827,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       if (!requireHrmManager('chấm công')) return false;
       const lockMonth = (input.work_date || '').slice(0, 7);
       if (lockMonth && payrollLocks.includes(lockMonth)) {
-        alert(`Bảng công tháng ${lockMonth} đã chốt lương — liên hệ Admin để mở khóa!`);
+        notify(`Bảng công tháng ${lockMonth} đã chốt lương — liên hệ Admin để mở khóa!`, 'error');
         return false;
       }
       const canWriteServer = !!supa && !!user && isOnline;
@@ -843,7 +843,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         if (found.synced && isUuid(found.id) && canWriteServer && supa) {
           const { error } = await supa.from('attendance_days').update(serverCols).eq('id', found.id);
           if (error) {
-            alert(`Lưu server thất bại: ${vietnamizeError(error)}`);
+            notify(`Lưu server thất bại: ${vietnamizeError(error)}`, 'error');
             return false;
           }
           updated.synced = true;
@@ -887,17 +887,17 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       if (!rec) return false;
       const lockMonth = (rec.work_date || '').slice(0, 7);
       if (lockMonth && payrollLocks.includes(lockMonth)) {
-        alert(`Bảng công tháng ${lockMonth} đã chốt lương — liên hệ Admin để mở khóa!`);
+        notify(`Bảng công tháng ${lockMonth} đã chốt lương — liên hệ Admin để mở khóa!`, 'error');
         return false;
       }
       if (rec.synced && isUuid(id)) {
         if (!supa || !isOnline) {
-          alert('Dòng này đã đồng bộ server — cần Online mới xóa được!');
+          notify('Dòng này đã đồng bộ server — cần Online mới xóa được!', 'error');
           return false;
         }
         const { error } = await supa.from('attendance_days').delete().eq('id', id);
         if (error) {
-          alert(`Xóa server thất bại: ${vietnamizeError(error)}`);
+          notify(`Xóa server thất bại: ${vietnamizeError(error)}`, 'error');
           return false;
         }
       }
@@ -1053,12 +1053,12 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
     async (month: string): Promise<boolean> => {
       if (!requireHrmManager('lập bảng lương')) return false;
       if (!isOnline || !supa || !user) {
-        alert('Cần Online mới lập bảng lương được!');
+        notify('Cần Online mới lập bảng lương được!', 'error');
         return false;
       }
       const existing = payrollRuns.find((r) => r.month === month);
       if (existing?.status === 'paid') {
-        alert(`Tháng ${month} đã chi lương — không tạo lại được!`);
+        notify(`Tháng ${month} đã chi lương — không tạo lại được!`, 'error');
         return false;
       }
       if (existing && !await confirmDialog(`Tạo lại bảng lương tháng ${month}? (Xóa bản hiện tại)`)) return false;
@@ -1069,7 +1069,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         setPayrollStaleMonths((prev) => prev.filter((m) => m !== month));
         return true;
       } catch (err: any) {
-        alert(`Lập bảng lương thất bại: ${vietnamizeError(err)}`);
+        notify(`Lập bảng lương thất bại: ${vietnamizeError(err)}`, 'error');
         return false;
       }
     },
@@ -1081,12 +1081,12 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
     async (month: string): Promise<boolean> => {
       if (!requireHrmManager('chốt tháng')) return false;
       if (!isOnline || !supa || !user) {
-        alert('Cần Online mới chốt được!');
+        notify('Cần Online mới chốt được!', 'error');
         return false;
       }
       const existing = payrollRuns.find((r) => r.month === month);
       if (existing?.status === 'paid') {
-        alert(`Tháng ${month} đã chi lương — không chốt lại được!`);
+        notify(`Tháng ${month} đã chi lương — không chốt lại được!`, 'error');
         return false;
       }
       if (!await confirmDialog(`Chốt tháng ${month}? (Dựng lại bảng lương từ số mới nhất, khóa chấm công + chốt lương)`)) return false;
@@ -1104,7 +1104,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         setPayrollStaleMonths((prev) => prev.filter((m) => m !== month));
         return true;
       } catch (err: any) {
-        alert(`Chốt tháng thất bại: ${vietnamizeError(err)}`);
+        notify(`Chốt tháng thất bại: ${vietnamizeError(err)}`, 'error');
         return false;
       }
     },
@@ -1117,7 +1117,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       if (!requireHrmManager('mở lại bảng lương') || !supa) return false;
       const run = payrollRuns.find((r) => r.id === runId);
       if (!run || run.status !== 'finalized') {
-        alert('Chỉ mở lại được bảng đã chốt (chưa chi)!');
+        notify('Chỉ mở lại được bảng đã chốt (chưa chi)!', 'error');
         return false;
       }
       if (!await confirmDialog(`Mở lại bảng lương tháng ${run.month} để sửa? (Mở khóa chấm công)`)) return false;
@@ -1125,7 +1125,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       if (!unlocked) return false;
       const { error } = await supa.from('payroll_runs').update({ status: 'draft', finalized_at: null }).eq('id', runId);
       if (error) {
-        alert(`Mở lại thất bại: ${vietnamizeError(error)}`);
+        notify(`Mở lại thất bại: ${vietnamizeError(error)}`, 'error');
         return false;
       }
       await refreshHrm();
@@ -1145,12 +1145,12 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       if (!requireHrmManager('chi lương') || !supa) return false;
       const run = payrollRuns.find((r) => r.id === runId);
       if (!run || run.status !== 'finalized') {
-        alert('Chỉ chi được bảng đã chốt!');
+        notify('Chỉ chi được bảng đã chốt!', 'error');
         return false;
       }
       const items = payrollItems.filter((i) => i.run_id === runId && !i.paid && i.net > 0);
       if (items.length === 0) {
-        alert('Không còn dòng lương nào cần chi!');
+        notify('Không còn dòng lương nào cần chi!', 'error');
         return false;
       }
       if (!await confirmDialog(`Chi lương tháng ${run.month} cho ${items.length} người (${formatPayrollTotal(items)}) qua ${fund === 'cash' ? 'Tiền mặt' : 'Ngân hàng'}?`)) return false;
@@ -1182,7 +1182,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         await refreshHrm();
         return true;
       } catch (err: any) {
-        alert(`Chi lương thất bại: ${vietnamizeError(err)}`);
+        notify(`Chi lương thất bại: ${vietnamizeError(err)}`, 'error');
         await refreshHrm();
         return false;
       }

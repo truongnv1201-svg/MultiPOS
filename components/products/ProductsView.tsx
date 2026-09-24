@@ -124,17 +124,17 @@ export function ProductsView() {
 
   const handleDeleteProduct = async (p: Product) => {
     if (p.stock_quantity > 0 && p.product_type !== 'service') {
-      alert(`Không thể xóa "${p.name}" vì còn tồn kho (${p.stock_quantity} ${p.unit}). Hãy xả hết tồn (bán/xuất điều chỉnh) trước khi xóa.`);
+      notify(`Không thể xóa "${p.name}" vì còn tồn kho (${p.stock_quantity} ${p.unit}). Hãy xả hết tồn (bán/xuất điều chỉnh) trước khi xóa.`, 'error');
       return;
     }
     const usedInOrder = orders.some((o) => o.items.some((it) => it.product_id === p.id));
     if (usedInOrder) {
-      alert(`Không thể xóa "${p.name}" vì đã phát sinh trong đơn hàng (cần giữ lịch sử đối soát).`);
+      notify(`Không thể xóa "${p.name}" vì đã phát sinh trong đơn hàng (cần giữ lịch sử đối soát).`, 'error');
       return;
     }
     const usedInCombo = products.some((x) => x.combo_items?.some((c) => c.product_id === p.id));
     if (usedInCombo) {
-      alert(`Không thể xóa "${p.name}" vì đang là linh kiện trong combo. Gỡ khỏi combo trước.`);
+      notify(`Không thể xóa "${p.name}" vì đang là linh kiện trong combo. Gỡ khỏi combo trước.`, 'error');
       return;
     }
     const ok = await confirmDialog(`Xóa vĩnh viễn "${p.name}" khỏi danh mục?\nThao tác đồng bộ lên server và không thể hoàn tác.`, {
@@ -338,7 +338,7 @@ export function ProductsView() {
           }
         }
       }
-      alert(`Nhập xong: ${created} tạo mới, ${updated} cập nhật${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`);
+      notify(`Nhập xong: ${created} tạo mới, ${updated} cập nhật${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`, 'info');
     } catch (err: any) {
       notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {

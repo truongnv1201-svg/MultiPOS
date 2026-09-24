@@ -339,7 +339,13 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   } = useCatalog();
 
   // Navigation
-  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>('pos');
+  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('multipos_last_screen');
+      if (saved) return saved as ActiveScreen;
+    }
+    return 'pos';
+  });
   const [flyoutMenuOpen, setFlyoutMenuOpen] = useState<boolean>(false);
 
   // State nghiệp vụ còn lại ở StoreInner: điều hướng + khởi tạo DB + facade. Master data ở Catalog, tiền/kho/POS ở Transactions, nhân sự ở Hrm.
@@ -684,9 +690,19 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     }
   }, [setCustomers, setProducts, setSuppliers, setCashbook, setCurrentShift, setOrders, setPendingQueue, setProjects, setStockMovements, setAccounts, setAdvances, setAttendanceDays, setEmployees, setHrmError, setPayrollItems, setPayrollLocks, setPayrollRuns, setPayrollStaleMonths]);
 
+  const setCurrentScreenWithPersist = useCallback((screen: ActiveScreen | ((prev: ActiveScreen) => ActiveScreen)) => {
+    setCurrentScreen((prev) => {
+      const next = typeof screen === 'function' ? screen(prev) : screen;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('multipos_last_screen', next);
+      }
+      return next;
+    });
+  }, []);
+
   const value = {
     currentScreen,
-    setCurrentScreen,
+    setCurrentScreen: setCurrentScreenWithPersist,
     flyoutMenuOpen,
     setFlyoutMenuOpen,
     products,

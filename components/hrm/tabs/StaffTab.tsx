@@ -226,7 +226,7 @@ export function StaffTab({
           }
         }
       }
-      alert(`Nhập xong: ${created} tạo mới, ${updated} cập nhật (hồ sơ chưa gắn tài khoản — vào Sửa để tạo).${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`);
+      notify(`Nhập xong: ${created} tạo mới, ${updated} cập nhật (hồ sơ chưa gắn tài khoản — vào Sửa để tạo).${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`, 'info');
     } catch (err: any) {
       notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {

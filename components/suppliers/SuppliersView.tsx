@@ -106,7 +106,7 @@ export function SuppliersView() {
 
   const handleDeleteSupplier = async (s: Supplier) => {
     if (s.current_debt > 0) {
-      alert(`Không thể xóa "${s.name}" vì còn nợ ${formatVND(s.current_debt)}. Hãy trả hết nợ trước khi xóa.`);
+      notify(`Không thể xóa "${s.name}" vì còn nợ ${formatVND(s.current_debt)}. Hãy trả hết nợ trước khi xóa.`, 'error');
       return;
     }
     const ok = await confirmDialog(`Xóa vĩnh viễn "${s.name}" khỏi danh sách?\nThao tác đồng bộ lên server và không thể hoàn tác.`, {
@@ -234,7 +234,7 @@ export function SuppliersView() {
           }
         }
       }
-      alert(`Nhập xong: ${created} tạo mới, ${updated} cập nhật${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`);
+      notify(`Nhập xong: ${created} tạo mới, ${updated} cập nhật${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`, 'info');
     } catch (err: any) {
       notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {

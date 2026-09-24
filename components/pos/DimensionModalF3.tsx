@@ -6,6 +6,7 @@ import { DimensionDetail, OrderItem } from '@/lib/types';
 import { HOLE_PRICE, CORNER_PRICE } from '@/lib/mock-data';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { calculateDimensionRow } from '@/lib/db';
+import { notify } from '@/components/common/Toast';
 import { Plus, Trash2, Settings2, RefreshCw, X, Check, HelpCircle } from 'lucide-react';
 
 interface DialogProps {
@@ -145,7 +146,7 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
   // Remove row
   const handleRemoveRow = (id: string) => {
     if (rows.length <= 1) {
-      alert('Đơn hàng m² bắt buộc có ít nhất 1 dòng quy cách!');
+      notify('Đơn hàng m² bắt buộc có ít nhất 1 dòng quy cách!', 'error');
       return;
     }
     setRows((prev) => prev.filter((r) => r.id !== id));
@@ -181,7 +182,7 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
     // Chặn dòng thiếu kích thước (ô đang để trống/0)
     const badIdx = rows.findIndex((r) => !(r.length > 0 && r.width > 0 && r.quantity > 0));
     if (badIdx >= 0) {
-      alert(`Dòng ${badIdx + 1} chưa đủ kích thước! Dài, Rộng và Số tấm phải lớn hơn 0.`);
+      notify(`Dòng ${badIdx + 1} chưa đủ kích thước! Dài, Rộng và Số tấm phải lớn hơn 0.`, 'error');
       return;
     }
 

@@ -179,11 +179,11 @@ export function CashbookView() {
     // Tạm ứng lương: bắt buộc chọn nhân viên để link vào bảng lương
     if (isAdvanceVoucher) {
       if (!isManager) {
-        alert('Chỉ Admin/Quản lý được ghi tạm ứng lương!');
+        notify('Chỉ Admin/Quản lý được ghi tạm ứng lương!', 'error');
         return;
       }
       if (!advanceEmpId) {
-        alert('Chọn nhân viên nhận tạm ứng để đưa vào bảng lương!');
+        notify('Chọn nhân viên nhận tạm ứng để đưa vào bảng lương!', 'error');
         return;
       }
       const ok = await addAdvanceVoucher({

@@ -143,7 +143,7 @@ export function POSScreen() {
   const addImportLine = useCallback(
     (product: Product, qty: number) => {
       if (product.product_type === 'service' || product.product_type === 'combo') {
-        alert('Hàng dịch vụ/combo không nhập kho! Chọn hàng hóa hoặc hàng diện tích.');
+        notify('Hàng dịch vụ/combo không nhập kho! Chọn hàng hóa hoặc hàng diện tích.', 'error');
         return;
       }
       const q = qty > 0 ? qty : 1;
@@ -181,7 +181,7 @@ export function POSScreen() {
 
   const handleImportCommit = useCallback(async () => {
     if (impLines.length === 0) {
-      alert('Phiếu nhập chưa có dòng hàng nào!');
+      notify('Phiếu nhập chưa có dòng hàng nào!', 'error');
       return;
     }
 
@@ -193,7 +193,7 @@ export function POSScreen() {
     }
 
     if ((impPaymentMethod === 'debt' || impPaymentMethod === 'partial') && !impSupplier.trim()) {
-      alert('Vui lòng chọn hoặc nhập tên Nhà cung cấp để ghi nợ!');
+      notify('Vui lòng chọn hoặc nhập tên Nhà cung cấp để ghi nợ!', 'error');
       return;
     }
 
@@ -253,12 +253,12 @@ export function POSScreen() {
 
   const handleCheckout = useCallback(async () => {
     if (activeCart.items.length === 0) {
-      alert('Giỏ hàng chưa có sản phẩm nào!');
+      notify('Giỏ hàng chưa có sản phẩm nào!', 'error');
       return;
     }
     // Tiền mặt: bắt buộc nhập tiền khách đưa (ô trống không được coi là trả đủ)
     if (activeCart.payment_method === 'cash' && (!activeCart.tendered_amount || activeCart.tendered_amount <= 0)) {
-      alert('Vui lòng nhập Số tiền khách đưa (F9) khi thanh toán bằng tiền mặt!');
+      notify('Vui lòng nhập Số tiền khách đưa (F9) khi thanh toán bằng tiền mặt!', 'error');
       tenderedInputRef.current?.focus();
       tenderedInputRef.current?.select();
       return;
@@ -268,7 +268,7 @@ export function POSScreen() {
     // (Tính nợ hiệu dụng y hệt checkout — chung lib/pricing, cấm implement riêng)
     const effPaid = resolvePaidAmount(calculatedTotals.payable, activeCart.payment_method, activeCart.tendered_amount || 0);
     if (calculatedTotals.payable - effPaid > 0 && !activeCart.customer_id) {
-      alert('Không thể ghi nợ cho khách lẻ chưa có hồ sơ! Vui lòng chọn hoặc thêm khách hàng (F4) trước khi thanh toán.');
+      notify('Không thể ghi nợ cho khách lẻ chưa có hồ sơ! Vui lòng chọn hoặc thêm khách hàng (F4) trước khi thanh toán.', 'error');
       customerInputRef.current?.focus();
       customerInputRef.current?.select();
       return;
@@ -285,18 +285,18 @@ export function POSScreen() {
 
   const handleDepositOrder = useCallback(async () => {
     if (activeCart.items.length === 0) {
-      alert('Giỏ hàng chưa có sản phẩm nào để nhận cọc!');
+      notify('Giỏ hàng chưa có sản phẩm nào để nhận cọc!', 'error');
       return;
     }
     const depositAmount = activeCart.tendered_amount;
     if (!depositAmount || depositAmount <= 0) {
-      alert('Vui lòng nhập Số tiền cọc khách đưa (F9) trước khi tạo đơn Đặt hàng / Nhận cọc!');
+      notify('Vui lòng nhập Số tiền cọc khách đưa (F9) trước khi tạo đơn Đặt hàng / Nhận cọc!', 'error');
       tenderedInputRef.current?.focus();
       return;
     }
     // Đơn cọc luôn còn phần phải thu -> cũng bắt buộc có hồ sơ KH
     if (!activeCart.customer_id) {
-      alert('Đơn đặt hàng / nhận cọc bắt buộc phải có hồ sơ khách hàng! Vui lòng chọn hoặc thêm khách hàng (F4).');
+      notify('Đơn đặt hàng / nhận cọc bắt buộc phải có hồ sơ khách hàng! Vui lòng chọn hoặc thêm khách hàng (F4).', 'error');
       customerInputRef.current?.focus();
       customerInputRef.current?.select();
       return;

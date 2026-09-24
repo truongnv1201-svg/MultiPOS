@@ -10,6 +10,7 @@ import { db, generateOrderCode } from '../../db';
 import type { PendingOp } from '../../db';
 import { asUuidOrNull, enqueueOp } from './constants';
 import { vietnamizeError } from '../../error-vi';
+import { notify } from '@/components/common/Toast';
 
 export interface TxDebtsDeps {
   currentShift: Shift;
@@ -39,12 +40,12 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       note: string
     ): Promise<boolean> => {
       if (supa && !user) {
-        alert('Vui lòng đăng nhập trước khi thu nợ!');
+        notify('Vui lòng đăng nhập trước khi thu nợ!', 'error');
         setLoginOpen(true);
         return false;
       }
       if (currentShift.status !== 'open') {
-        alert('Ca đã đóng! Không được thu nợ sau khi kết ca. Vui lòng mở ca mới (F12).');
+        notify('Ca đã đóng! Không được thu nợ sau khi kết ca. Vui lòng mở ca mới (F12).', 'error');
         return false;
       }
       const customer = customers.find((c) => c.id === customerId);
@@ -54,7 +55,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       // local mirror theo số server trả về + refresh truth). KH server mà offline -> CHẶN.
       const serverCustId = customerMap[customerId] ?? null;
       if (serverCustId && !isOnline) {
-        alert('Khách hàng đã đồng bộ server nhưng đang ngoại tuyến — không thể thu nợ lúc này để tránh lệch công nợ. Hãy online rồi thử lại.');
+        notify('Khách hàng đã đồng bộ server nhưng đang ngoại tuyến — không thể thu nợ lúc này để tránh lệch công nợ. Hãy online rồi thử lại.', 'error');
         return false;
       }
       let serverCollected: number | null = null;
@@ -70,14 +71,14 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
           const got = Number((data as any)?.collected);
           if (Number.isFinite(got)) serverCollected = got;
         } catch (err: any) {
-          alert(`Thu nợ server thất bại — giữ nguyên để thử lại: ${vietnamizeError(err)}`);
+          notify(`Thu nợ server thất bại — giữ nguyên để thử lại: ${vietnamizeError(err)}`, 'error');
           return false;
         }
       }
 
       const actualCollect = serverCollected ?? Math.min(amount, customer.current_debt);
       if (actualCollect <= 0) {
-        alert('Không còn nợ phải thu (server báo KH đã hết nợ).');
+        notify('Không còn nợ phải thu (server báo KH đã hết nợ).', 'info');
         return false;
       }
       const nextDebt = customer.current_debt - actualCollect;
@@ -141,12 +142,12 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
   // được bỏ qua — đếm vào skipped để UI báo rõ.
   const syncDebtsFromServer = useCallback(async (): Promise<{ updated: number; skipped: number }> => {
     if (!supa || !user) {
-      alert('Vui lòng đăng nhập trước khi đồng bộ công nợ!');
+      notify('Vui lòng đăng nhập trước khi đồng bộ công nợ!', 'error');
       setLoginOpen(true);
       return { updated: 0, skipped: 0 };
     }
     if (!isOnline) {
-      alert('Đang ngoại tuyến — không thể đồng bộ công nợ. Hãy online rồi thử lại.');
+      notify('Đang ngoại tuyến — không thể đồng bộ công nợ. Hãy online rồi thử lại.', 'error');
       return { updated: 0, skipped: 0 };
     }
     const linked = customers.filter((c) => c.id !== 'cust-1' && customerMap[c.id]);
@@ -194,7 +195,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       }
       return { updated, skipped };
     } catch (err: any) {
-      alert(`Đồng bộ công nợ thất bại: ${vietnamizeError(err)}`);
+      notify(`Đồng bộ công nợ thất bại: ${vietnamizeError(err)}`, 'error');
       return { updated: 0, skipped };
     }
   }, [supa, user, isOnline, customers, customerMap, setLoginOpen, setCustomers]);
@@ -327,7 +328,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
     async (supplierId: string, amount: number, paymentMethod: 'cash' | 'transfer', note: string): Promise<boolean> => {
       // P2: thu ngân/worker không được chi trả NCC
       if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
-        alert('Chỉ Admin/Quản lý được chi trả nợ NCC!');
+        notify('Chỉ Admin/Quản lý được chi trả nợ NCC!', 'error');
         return false;
       }
       const supplier = suppliers.find((s) => s.id === supplierId);
