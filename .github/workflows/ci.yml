@@ -37,8 +37,10 @@ jobs:
   live:
     runs-on: ubuntu-latest
     needs: static
-    # Suite RPC live (đọc catalog, checkout, VAT, KH, nợ, trả hàng) — chỉ chạy khi đủ secrets.
-    if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' && secrets.SUPABASE_ACCESS_TOKEN != '' }}
+    # secrets KHÔNG dùng được trong `if` (GitHub báo Unrecognized named-value).
+    # Công tắc là repo variable RUN_LIVE_TESTS=true (Settings → Variables);
+    # secrets bên dưới chỉ map trong env (cho phép).
+    if: ${{ vars.RUN_LIVE_TESTS == 'true' }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -59,8 +61,8 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     needs: static
-    # E2E Playwright trên backend live — cần secrets + tài khoản seed (E2E_*).
-    if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' }}
+    # Như job live: công tắc vars (E2E_* lấy từ secrets trong env).
+    if: ${{ vars.RUN_LIVE_TESTS == 'true' }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

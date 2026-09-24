@@ -25,8 +25,12 @@ node scripts/verify-cancel-return-debt.mjs NV0001 <matkhau>
 |---|---|---|
 | `static` | mọi push/PR | không |
 | `parity` | sau static | không bắt buộc (`SUPABASE_ACCESS_TOKEN` để fuzz ghi+dọn) |
-| `live` | đủ 3 secrets | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_ACCESS_TOKEN` |
-| `e2e` | đủ URL+ANON | trên + `E2E_LOGIN_ID`, `E2E_LOGIN_PASSWORD` (tài khoản seed) |
+| `live` | khi `vars.RUN_LIVE_TESTS == 'true'` | 3 secrets URL/ANON/TOKEN (map trong `env`) |
+| `e2e` | khi `vars.RUN_LIVE_TESTS == 'true'` | trên + `E2E_LOGIN_ID`, `E2E_LOGIN_PASSWORD` |
+
+> Lưu ý GitHub: context `secrets` **không dùng được trong `if`** (parser báo
+> `Unrecognized named-value`) — nên công tắc là repo **variable**
+> `RUN_LIVE_TESTS=true` (Settings → Variables), secrets chỉ map trong `env`.
 
 E2E live tự dọn: checkout rồi hủy qua UI; HRM chỉ điều hướng đọc.
 
