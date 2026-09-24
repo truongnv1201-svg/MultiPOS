@@ -94,6 +94,8 @@ test.describe('checkout -> hủy (live, tự dọn)', () => {
     expect(code).toBeTruthy();
     await page.locator('#receipt-modal-container button', { hasText: 'Đóng' }).click();
     await expect(page.locator('#receipt-modal-overlay')).toBeHidden({ timeout: 10_000 });
+    // Đơn mới phải trắng khách hàng (không dính tên KH đơn cũ).
+    await expect(page.locator('#f4-customer-input')).toHaveValue('Khách Lẻ Mua Tại Quầy', { timeout: 10_000 });
 
     // Sang Đơn hàng, tìm đúng đơn vừa bán rồi hủy.
     await page.keyboard.press('Alt+m');

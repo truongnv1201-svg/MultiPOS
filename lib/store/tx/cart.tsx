@@ -196,19 +196,28 @@ export function useTxCart(cashRounding: number): TxCart {
     [updateActiveTab]
   );
 
+  // Xóa giỏ về tab trắng tương đương tab mới (giữ id/name): reset cả KHÁCH HÀNG
+  // (bán nhầm sang đơn mới gây ghi nợ sai người), VAT + phương thức + bảng giá về
+  // mặc định cửa hàng. Trước đây chỉ reset hàng/CK/ship -> tên KH cũ dính sang đơn mới.
   const clearActiveCart = useCallback(() => {
     updateActiveTab({
       items: [],
+      customer_id: undefined,
+      customer_name: 'Khách Lẻ Mua Tại Quầy',
+      customer_phone: undefined,
       discount_amount: 0,
       discount_percent: 0,
       shipping_fee: 0,
       shipping_type: 'vnd',
       shipping_percent: 0,
+      vat_percent: shop.defaultVat ?? 0,
+      price_book: 'retail',
       tendered_amount: 0,
+      payment_method: shop.defaultPayment ?? 'cash',
       note: '',
       is_deposit_mode: false,
     });
-  }, [updateActiveTab]);
+  }, [updateActiveTab, shop.defaultVat, shop.defaultPayment]);
 
   // Calculations for current active order
   // Tổng giỏ dùng chung lib/pricing (single source, có unit test) — khớp server từng đồng.

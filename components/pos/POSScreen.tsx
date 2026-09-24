@@ -76,6 +76,17 @@ export function POSScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [customerSearch, setCustomerSearch] = useState<string>('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState<boolean>(false);
+  // Checkout xong (hóa đơn hiện) thì ô tìm KH phải trắng theo giỏ mới — trước đây
+  // chữ gõ dở còn đọng lại, che mất tên "Khách Lẻ Mua Tại Quầy" của đơn mới.
+  // (defer microtask theo idiom chung của repo để khỏi set-state-in-effect)
+  useEffect(() => {
+    if (receiptModalOrder) {
+      Promise.resolve().then(() => {
+        setCustomerSearch('');
+        setIsCustomerDropdownOpen(false);
+      });
+    }
+  }, [receiptModalOrder]);
   const [discountType, setDiscountType] = useState<'vnd' | 'percent'>('percent');
   const [shippingType, setShippingType] = useState<'vnd' | 'percent'>('vnd');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -200,6 +211,8 @@ export function POSScreen() {
       );
       if (ok) {
         setImpLines([]);
+        setImpSupplier('');
+        setImpNote('');
         setImpPaidAmount(0);
         notify('Nhập kho thành công! Tồn kho, MAC, công nợ và sổ quỹ đã cập nhật.', 'success');
       }
