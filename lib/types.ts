@@ -29,7 +29,8 @@ export interface Product {
   sku: string; // e.g. SP000001
   barcode?: string;
   name: string;
-  category: string;
+  /** @deprecated Đã bỏ Danh mục khỏi UI (dùng product_type). Server vẫn giữ cột với default 'Chung'. */
+  category?: string;
   unit: string; // m², cây, cái, bộ, mét dài
   product_type: ProductType;
   retail_price: number;

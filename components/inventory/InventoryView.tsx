@@ -32,7 +32,6 @@ export function InventoryView() {
 
   // Stocks filter & pagination state
   const [stockSearch, setStockSearch] = useState('');
-  const [stockCategoryFilter, setStockCategoryFilter] = useState<string>('all');
   const [stockStatusFilter, setStockStatusFilter] = useState<string>('all');
   const [stockPage, setStockPage] = useState<number>(1);
   const [stockPageSize, setStockPageSize] = useState<number>(25);
@@ -74,7 +73,6 @@ export function InventoryView() {
         rows: sortedProducts.map((p) => ({
           'Mã SKU': p.sku,
           'Tên hàng': p.name,
-          'Danh mục': p.category,
           'ĐVT': p.unit,
           'Tồn kho': p.stock_quantity,
           'Giá vốn BQ': Math.round(p.avg_cost),
@@ -167,26 +165,18 @@ export function InventoryView() {
     });
   };
 
-  // Unique categories
-  const categories = new Set<string>();
-  products.forEach((p) => {
-    if (p.category) categories.add(p.category);
-  });
-  const categoriesArray = Array.from(categories);
-
   // Filtered products
   const filteredProducts = products.filter((p) => {
     if (p.product_type === 'service') return false;
     const matchesSearch =
       p.name.toLowerCase().includes(stockSearch.toLowerCase()) ||
       p.sku.toLowerCase().includes(stockSearch.toLowerCase());
-    const matchesCategory = stockCategoryFilter === 'all' || p.category === stockCategoryFilter;
     let matchesStatus = true;
     if (stockStatusFilter === 'low') matchesStatus = p.stock_quantity <= 15 && p.stock_quantity > 0;
     else if (stockStatusFilter === 'out') matchesStatus = p.stock_quantity <= 0;
     else if (stockStatusFilter === 'in_stock') matchesStatus = p.stock_quantity > 15;
 
-    return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch && matchesStatus;
   });
 
   // Sorted products
@@ -196,7 +186,6 @@ export function InventoryView() {
     const getters: Record<string, (p: Product) => unknown> = {
       sku: (p) => p.sku,
       name: (p) => p.name,
-      category: (p) => p.category,
       unit: (p) => p.unit,
       stock_quantity: (p) => p.stock_quantity,
       avg_cost: (p) => p.avg_cost,
@@ -320,23 +309,6 @@ export function InventoryView() {
                 />
               </div>
 
-              {/* Category Filter */}
-              <select
-                value={stockCategoryFilter}
-                onChange={(e) => {
-                  setStockCategoryFilter(e.target.value);
-                  setStockPage(1);
-                }}
-                className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
-              >
-                <option value="all">Tất cả danh mục ({categoriesArray.length})</option>
-                {categoriesArray.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-
               {/* Stock status filter */}
               <select
                 value={stockStatusFilter}
@@ -370,7 +342,6 @@ export function InventoryView() {
                 <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
                   <SortableTh className="py-2.5 px-3" label="Mã SKU" sortKey="sku" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
                   <SortableTh className="py-2.5 px-3" label="Tên hàng / Quy cách" sortKey="name" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
-                  <SortableTh className="py-2.5 px-3" label="Loại vật tư" sortKey="category" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
                   <SortableTh className="py-2.5 px-3 text-center" label="ĐVT" sortKey="unit" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
                   <SortableTh className="py-2.5 px-3 text-right" label="Số lượng tồn" sortKey="stock_quantity" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
                   <SortableTh className="py-2.5 px-3 text-right" label="Giá vốn MAC" sortKey="avg_cost" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
@@ -382,7 +353,7 @@ export function InventoryView() {
               <tbody className="divide-y divide-slate-100">
                 {paginatedProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                    <td colSpan={8} className="py-12 text-center text-slate-400">
                       Không tìm thấy vật tư nào phù hợp với bộ lọc.
                     </td>
                   </tr>
@@ -395,7 +366,6 @@ export function InventoryView() {
                       <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                         <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{p.sku}</td>
                         <td className="py-2.5 px-3 font-semibold text-slate-800">{p.name}</td>
-                        <td className="py-2.5 px-3 text-slate-600">{p.category}</td>
                         <td className="py-2.5 px-3 text-center font-mono">{p.unit}</td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-sm">
                           <span

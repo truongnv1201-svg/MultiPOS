@@ -34,7 +34,6 @@ export function ProductsView() {
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [stockStatusFilter, setStockStatusFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
@@ -43,7 +42,6 @@ export function ProductsView() {
   // Sửa hàng hóa: prefill từ bản ghi, không cho đụng tồn kho/vốn BQ (đi luồng nhập kho)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editName, setEditName] = useState('');
-  const [editCategory, setEditCategory] = useState('');
   const [editUnit, setEditUnit] = useState('cái');
   const [editProductType, setEditProductType] = useState<ProductType>('goods');
   const [editRetailPrice, setEditRetailPrice] = useState(0);
@@ -54,7 +52,6 @@ export function ProductsView() {
   const openEditProduct = (p: Product) => {
     setEditingProduct(p);
     setEditName(p.name);
-    setEditCategory(p.category);
     setEditUnit(p.unit);
     setEditProductType(p.product_type);
     setEditRetailPrice(p.retail_price);
@@ -69,7 +66,6 @@ export function ProductsView() {
     try {
       await updateProduct(editingProduct.id, {
         name: editName.trim(),
-        category: editCategory.trim() || 'Chưa phân loại',
         unit: editUnit,
         product_type: editProductType,
         retail_price: Math.max(0, Math.round(editRetailPrice)),
@@ -120,38 +116,27 @@ export function ProductsView() {
   };
 
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => {
-      if (p.category) set.add(p.category);
-    });
-    return Array.from(set);
-  }, [products]);
-
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const matchesSearch =
         p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.sku.toLowerCase().includes(search.toLowerCase()) ||
-        p.category.toLowerCase().includes(search.toLowerCase());
+        p.sku.toLowerCase().includes(search.toLowerCase());
       const matchesType = typeFilter === 'all' || p.product_type === typeFilter;
-      const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter;
 
       let matchesStock = true;
       if (stockStatusFilter === 'low') matchesStock = p.product_type !== 'service' && p.stock_quantity <= 15 && p.stock_quantity > 0;
       else if (stockStatusFilter === 'out') matchesStock = p.product_type !== 'service' && p.stock_quantity <= 0;
       else if (stockStatusFilter === 'in_stock') matchesStock = p.product_type !== 'service' && p.stock_quantity > 15;
 
-      return matchesSearch && matchesType && matchesCategory && matchesStock;
+      return matchesSearch && matchesType && matchesStock;
     });
-  }, [products, search, typeFilter, categoryFilter, stockStatusFilter]);
+  }, [products, search, typeFilter, stockStatusFilter]);
 
   const sortedProducts = useMemo(() => {
     if (!sortKey) return filteredProducts;
     const getters: Record<string, (p: Product) => unknown> = {
       sku: (p) => p.sku,
       name: (p) => p.name,
-      category: (p) => p.category,
       product_type: (p) => p.product_type,
       unit: (p) => p.unit,
       retail_price: (p) => p.retail_price,
@@ -171,12 +156,11 @@ export function ProductsView() {
   }, [sortedProducts, page, pageSize]);
 
   // ---- Xuất / Nhập / In Excel ----
-  const PRODUCT_TEMPLATE = ['Mã SKU', 'Tên hàng *', 'Danh mục', 'ĐVT', 'Loại (goods/area/combo/service)', 'Giá bán', 'Giá vốn nhập', 'Tồn kho', 'Tồn tối thiểu', 'Hao hụt (%)'];
+  const PRODUCT_TEMPLATE = ['Mã SKU', 'Tên hàng *', 'ĐVT', 'Loại (goods/area/combo/service)', 'Giá bán', 'Giá vốn nhập', 'Tồn kho', 'Tồn tối thiểu', 'Hao hụt (%)'];
 
   const productToRow = (p: Product): Record<string, unknown> => ({
     'Mã SKU': p.sku,
     'Tên hàng': p.name,
-    'Danh mục': p.category,
     'ĐVT': p.unit,
     'Loại': p.product_type,
     'Giá bán': p.retail_price,
@@ -203,7 +187,6 @@ export function ProductsView() {
     const rows = sortedProducts.slice(0, 1000).map((p) => [
       p.sku,
       p.name,
-      p.category,
       p.unit,
       String(p.retail_price).replace(/\B(?=(\d{3})+(?!\d))/g, '.'),
       String(p.stock_quantity),
@@ -214,7 +197,6 @@ export function ProductsView() {
       columns: [
         { header: 'Mã SKU' },
         { header: 'Tên hàng' },
-        { header: 'Danh mục' },
         { header: 'ĐVT', align: 'center' },
         { header: 'Giá bán', align: 'right' },
         { header: 'Tồn kho', align: 'right' },
@@ -227,7 +209,6 @@ export function ProductsView() {
     downloadExcelTemplate('hang-hoa', PRODUCT_TEMPLATE, {
       'Mã SKU': '',
       'Tên hàng *': 'Kính cường lực 10mm',
-      'Danh mục': 'Nhôm Kính & Tấm',
       'ĐVT': 'm²',
       'Loại (goods/area/combo/service)': 'area',
       'Giá bán': 350000,
@@ -261,7 +242,6 @@ export function ProductsView() {
           const priceRaw = r['Giá bán'] ?? r['Giá bán lẻ'] ?? 0;
           const payload = {
             name,
-            category: (r['Danh mục'] || 'Chưa phân loại').trim(),
             unit: (r['ĐVT'] || 'cái').trim(),
             product_type,
             retail_price: Math.max(0, Math.round(parseExcelNum(priceRaw))),
@@ -345,27 +325,10 @@ export function ProductsView() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Tìm theo Tên hàng, Mã SKU, Danh mục..."
+            placeholder="Tìm theo Tên hàng, Mã SKU..."
             className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
           />
         </div>
-
-        {/* Category Filter */}
-        <select
-          value={categoryFilter}
-          onChange={(e) => {
-            setCategoryFilter(e.target.value);
-            setPage(1);
-          }}
-          className="h-8 px-2 text-xs bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
-        >
-          <option value="all">Tất cả danh mục ({categories.length})</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
 
         {/* Stock Status Filter */}
         <select
@@ -438,7 +401,6 @@ export function ProductsView() {
               <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
                 <SortableTh className="py-2.5 px-3" label="Mã SKU" sortKey="sku" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3" label="Tên sản phẩm" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3" label="Danh mục" sortKey="category" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-center" label="Loại hàng" sortKey="product_type" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-center" label="ĐVT" sortKey="unit" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableTh className="py-2.5 px-3 text-right" label="Giá bán" sortKey="retail_price" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
@@ -472,7 +434,6 @@ export function ProductsView() {
                           </div>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-600">{p.category}</td>
                       <td className="py-2.5 px-3 text-center">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -649,21 +610,6 @@ export function ProductsView() {
                 </div>
               </div>
 
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Danh mục</label>
-                <input
-                  type="text"
-                  value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
-                  list="edit-product-categories"
-                  className="w-full h-8 px-2.5 border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
-                />
-                <datalist id="edit-product-categories">
-                  {categories.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>

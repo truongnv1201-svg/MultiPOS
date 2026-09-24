@@ -35,6 +35,15 @@ import {
   Check,
 } from 'lucide-react';
 
+// Tab lọc lưới sản phẩm theo Loại hàng (thay cho tab Danh mục đã bỏ)
+const PRODUCT_TYPE_TABS: { key: string; label: string }[] = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'area', label: 'Diện tích' },
+  { key: 'goods', label: 'Thường' },
+  { key: 'combo', label: 'Combo lắp ráp' },
+  { key: 'service', label: 'Dịch vụ' },
+];
+
 export function POSScreen() {
   const {
     products,
@@ -73,7 +82,7 @@ export function POSScreen() {
     addSupplier,
   } = useStore();
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
   const [customerSearch, setCustomerSearch] = useState<string>('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState<boolean>(false);
   // Checkout xong (hóa đơn hiện) thì ô tìm KH phải trắng theo giỏ mới — trước đây
@@ -407,17 +416,11 @@ export function POSScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cartTabs, activeTabId, activeCart.items, dimensionModalItem, receiptModalOrder, shiftModalOpen, setPosMode, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit]);
 
-  // Categories list
-  const categories = React.useMemo(() => {
-    const cats = Array.from(new Set(products.map((p) => p.category)));
-    return ['all', ...cats];
-  }, [products]);
-
-  // Filtered products for grid
+  // Filtered products for grid — lọc theo Loại hàng (Danh mục đã bỏ, dùng product_type)
   const displayedProducts = React.useMemo(() => {
-    if (selectedCategory === 'all') return products;
-    return products.filter((p) => p.category === selectedCategory);
-  }, [products, selectedCategory]);
+    if (selectedType === 'all') return products;
+    return products.filter((p) => p.product_type === selectedType);
+  }, [products, selectedType]);
 
   // Filtered customers
   const filteredCustomers = React.useMemo(() => {
@@ -822,19 +825,19 @@ export function POSScreen() {
         {/* Bottom Panel: If in Standard Mode, show Products Grid */}
         {posMode === 'standard' && (
           <div id="product-grid-section" className="h-64 border-t border-slate-200 bg-slate-50 flex flex-col">
-            {/* Category tabs */}
+            {/* Product-type tabs — thay cho tab Danh mục (đã bỏ) */}
             <div className="px-3 py-1.5 bg-slate-200/70 border-b border-slate-200 flex items-center gap-1.5 overflow-x-auto">
-              {categories.map((cat) => (
+              {PRODUCT_TYPE_TABS.map((t) => (
                 <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+                  key={t.key}
+                  onClick={() => setSelectedType(t.key)}
                   className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
-                    selectedCategory === cat
+                    selectedType === t.key
                       ? 'bg-blue-600 text-white shadow-2xs'
                       : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
                   }`}
                 >
-                  {cat === 'all' ? 'Tất cả danh mục' : cat}
+                  {t.label}
                 </button>
               ))}
             </div>

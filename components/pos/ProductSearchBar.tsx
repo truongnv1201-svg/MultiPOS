@@ -105,8 +105,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         (p) =>
           p.name.toLowerCase().includes(q) ||
           p.sku.toLowerCase().includes(q) ||
-          (p.barcode && p.barcode.includes(q)) ||
-          p.category.toLowerCase().includes(q)
+          (p.barcode && p.barcode.includes(q))
       )
       .slice(0, 8);
   }, [products, searchQuery]);
@@ -322,8 +321,6 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
                         <span>{prod.sku}</span>
                         <span>•</span>
                         <span>Tồn: {prod.stock_quantity} {prod.unit}</span>
-                        <span>•</span>
-                        <span>{prod.category}</span>
                       </div>
                     </div>
                   </div>

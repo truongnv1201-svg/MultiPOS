@@ -60,10 +60,7 @@ interface AddProductFormModalProps {
 }
 
 export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: AddProductFormModalProps) {
-  const { addProduct, products } = useStore();
-
-  // Danh mục: gợi ý từ các danh mục đã có (giống form Sửa hàng hóa)
-  const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort();
+  const { addProduct } = useStore();
 
   // Form state — mặc định giống form gốc của Danh mục hàng hóa.
   // SKU để trống -> addProduct tự sinh SP... (giống form Danh mục);
@@ -73,7 +70,6 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
     const q = seedQuery?.trim() ?? '';
     return /^\d{6,}$/.test(q) ? q : '';
   });
-  const [category, setCategory] = useState('Nhôm Kính & Tấm');
   const [unit, setUnit] = useState('m²');
   const [productType, setProductType] = useState<ProductType>('area');
   const [retailPrice, setRetailPrice] = useState(350000);
@@ -91,8 +87,6 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
     try {
       const created = await addProduct({
         name: name.trim(),
-        // Để trống danh mục -> về 'Chưa phân loại' (nhất quán với form Sửa)
-        category: category.trim() || 'Chưa phân loại',
         unit,
         product_type: productType,
         retail_price: retailPrice,
@@ -197,23 +191,6 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
                 ))}
               </select>
             </div>
-          </div>
-
-          <div>
-            <label className="font-semibold text-slate-700 block mb-1">Danh mục</label>
-            <input
-              type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              list="add-product-categories"
-              placeholder="Vd: Nhôm Kính & Tấm"
-              className="w-full h-8 px-2.5 border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
-            />
-            <datalist id="add-product-categories">
-              {categories.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
