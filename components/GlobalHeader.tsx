@@ -294,12 +294,12 @@ export function GlobalHeader() {
             refreshNow();
           }}
           disabled={isSyncing || !isOnline}
-          className={`flex items-center gap-1.5 px-2 py-1 border rounded-md text-[11px] transition-colors ${
+          className={`flex items-center gap-1.5 px-2.5 py-1 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors ${
             !isOnline
-              ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
+              ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
               : lastSyncError
                 ? 'bg-rose-950/80 border-rose-700 text-rose-300 hover:bg-rose-900'
-                : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                : 'bg-slate-800 hover:bg-slate-700'
           } ${isSyncing ? 'cursor-wait' : ''}`}
             title={
               !isOnline
@@ -314,6 +314,7 @@ export function GlobalHeader() {
             }
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-300' : !isOnline ? 'text-slate-500' : lastSyncError ? 'text-rose-300' : 'text-slate-300'}`} />
+          <span className="hidden lg:inline font-semibold">Làm mới</span>
           {lastSyncAt !== null && isOnline && !lastSyncError && (
             <span className="hidden xl:inline font-mono text-[10px] text-slate-400">
               {new Date(lastSyncAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
