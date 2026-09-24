@@ -62,9 +62,14 @@ interface AddProductFormModalProps {
 export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: AddProductFormModalProps) {
   const { addProduct } = useStore();
 
-  // Form state — mặc định giống form gốc của Danh mục hàng hóa
+  // Form state — mặc định giống form gốc của Danh mục hàng hóa.
+  // SKU để trống -> addProduct tự sinh SP... (giống form Danh mục);
+  // chỉ seed sẵn SKU khi chuỗi tìm/quét có dạng mã vạch (toàn số, ≥ 6 chữ số).
   const [name, setName] = useState(seedQuery?.trim() ?? '');
-  const [sku, setSku] = useState(seedQuery?.trim() ?? '');
+  const [sku, setSku] = useState(() => {
+    const q = seedQuery?.trim() ?? '';
+    return /^\d{6,}$/.test(q) ? q : '';
+  });
   // Form gốc không có ô danh mục — giữ giá trị mặc định như trước (category đi kèm payload)
   const [category] = useState('Nhôm Kính & Tấm');
   const [unit, setUnit] = useState('m²');
