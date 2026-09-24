@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+
+  parity:
+    runs-on: ubuntu-latest
+    needs: static
+    # Fuzz local-vs-server: phần ghi + dọn đơn fuzz cần token, không có thì SKIP an toàn.
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:parity
+
+  live:
+    runs-on: ubuntu-latest
+    needs: static
+    # Suite RPC live (đọc catalog, checkout, VAT, KH, nợ, trả hàng) — chỉ chạy khi đủ secrets.
+    if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' && secrets.SUPABASE_ACCESS_TOKEN != '' }}
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # verify-*.mjs đọc .env.local — dựng file từ secrets (không commit, chỉ trong runner).
+      - run: |
+          printf 'NEXT_PUBLIC_SUPABASE_URL="%s"\nNEXT_PUBLIC_SUPABASE_ANON_KEY="%s"\n' \
+            "$NEXT_PUBLIC_SUPABASE_URL" "$NEXT_PUBLIC_SUPABASE_ANON_KEY" > .env.local
+      - run: npm run test:live
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: static
+    # E2E Playwright trên backend live — cần secrets + tài khoản seed (E2E_*).
+    if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' }}
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      E2E_LOGIN_ID: ${{ secrets.E2E_LOGIN_ID }}
+      E2E_LOGIN_PASSWORD: ${{ secrets.E2E_LOGIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium --only-shell
+      - run: |
+          printf 'NEXT_PUBLIC_SUPABASE_URL="%s"\nNEXT_PUBLIC_SUPABASE_ANON_KEY="%s"\n' \
+            "$NEXT_PUBLIC_SUPABASE_URL" "$NEXT_PUBLIC_SUPABASE_ANON_KEY" > .env.local
+      - run: npm run test:e2e

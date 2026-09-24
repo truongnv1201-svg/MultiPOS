@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 import { fetchCatalog, goodsItem, pickGoods } from './verify-catalog.mjs';
 
 // Verify 0023 VAT riêng bằng ANON key (đúng quyền app POS):
-// 1) goods + VAT 8% + cash -> VAT, rounding, total, change khớp công thức local
-//    2 chai keo 62k = 124000; VAT 8% = 9920; raw = 133920; rounding = 420; total = 133500
-//    cash 150000 -> change = 16500
+// 1) goods + VAT 8% + cash -> VAT, rounding, total, change khớp công thức server
+//    (server làm tròn floor: total = raw - raw % denom, đọc denom từ settings;
+//    VD denom 500, raw 133920 -> rounding 420 -> total 133500)
+//    cash tendered = total + 16500 -> change = 16500
 // 2) goods + VAT 10% + ship 15000 + transfer đủ -> không làm tròn
-//    62000 + 6200 + 15000 = 83200
+// 3) VAT tính trên (tiền hàng - CK bill), không gồm ship
+// 2) goods + VAT 10% + ship 15000 + transfer đủ -> không làm tròn
+//    total = price + price*10% + 15000 (tính từ giá catalog live)
 // Yêu cầu: đã apply migration 0023_vat_support.sql. Nếu FAIL "Could not find the function"
 // nghĩa là server chưa migrate.
 function loadEnv() {
@@ -53,15 +56,25 @@ async function rpc(body) {
 }
 const catalog = await fetchCatalog(URL, H);
 const goods = pickGoods(catalog);
+// P4b: đọc denom GCF làm tròn từ settings (giống server 0023/0028: floor về denom),
+// thay vì hardcode 500 — script pass với mọi giá catalog.
+let denom = 500;
+try {
+  const rs = await fetch(`${URL}/rest/v1/settings?select=value&key=eq.cash_rounding`, { headers: H });
+  const js = await rs.json();
+  denom = Number(js?.[0]?.value?.denominator) || 500;
+} catch {
+  /* giữ default 500 */
+}
+const floorDenom = (value) => value - (value % denom);
 const price = Number(goods.retail_price);
 const item = (qty) => goodsItem(goods, qty);
-const round500 = (value) => Math.round(value / 500) * 500;
 
 let r = await fetch(`${URL}/rest/v1/products?select=stock_quantity&sku=eq.${goods.sku}`, { headers: H });
 const stockBefore = Number((await r.json())[0].stock_quantity);
 const base2 = price * 2;
 const vat8 = base2 * 0.08;
-const total8 = round500(base2 + vat8);
+const total8 = floorDenom(base2 + vat8);
 const total10Ship = price + price * 0.1 + 15000;
 const discountedBase = base2 - 24000;
 const totalDiscounted = discountedBase + discountedBase * 0.08;

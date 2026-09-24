@@ -48,10 +48,16 @@ Lệnh khác: `npm run build` (lint chặn build — 0 errors), `npm run lint`, 
 - Apply 1 file: `SUPABASE_ACCESS_TOKEN=sbp_... node scripts/apply-one.mjs 0024_cancel_reverse.sql`
 - Verify e2e (đọc `.env.local`, dọn dữ liệu test sau chạy):
   `node scripts/verify-pos-checkout.mjs` (catalog, tiền thừa, trừ kho, hàng m²),
-  `node scripts/verify-vat-checkout.mjs` (VAT 8/10%, ship, CK bill),
+  `node scripts/verify-vat-checkout.mjs` (VAT 8/10%, ship, CK bill — denom đọc từ
+  settings, floor như server),
   `node scripts/verify-customer-sync.mjs` (sync KH, guard nợ),
   `node scripts/verify-cancel-return-debt.mjs [user] [pass]` (hủy/trả/thu nợ — cần tài khoản
   `authenticated`, mặc định `cashier@multipos.local` từ `scripts/seed-users.mjs`).
+- Chuỗi live: `npm run test:live` (pos+vat+customer+debt+return, tự dọn).
+  E2E Playwright: `npm run test:e2e` (login, POS, checkout→hủy tự dọn, offline badge,
+  HRM chỉ đọc). Unit: `npm test` (pricing + HRM).
+- CI (`.github/workflows/ci.yml`): static mọi push/PR; parity/live/e2e khi đủ secrets.
+  Runbook sự cố + dựng project mới: `docs/16-runbook-ky-thuat.md`.
 
 ## Cấu trúc
 

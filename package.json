@@ -8,8 +8,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test scripts/pricing.test.mjs",
+    "test": "node --test scripts/pricing.test.mjs scripts/hrm.test.mjs",
     "test:parity": "node scripts/verify-pricing-parity.mjs 25",
+    "test:e2e": "playwright test",
+    "test:live:pos": "node scripts/verify-pos-checkout.mjs",
+    "test:live:vat": "node scripts/verify-vat-checkout.mjs",
+    "test:live:cancel": "node scripts/verify-cancel-return-debt.mjs",
+    "test:live:customer": "node scripts/verify-customer-sync.mjs",
+    "test:live:debt": "node scripts/verify-debt-sync.mjs",
+    "test:live:return": "node scripts/verify-return-restock.mjs",
+    "test:live": "npm run test:live:pos && npm run test:live:vat && npm run test:live:customer && npm run test:live:debt && npm run test:live:return",
     "clean": "next clean"
   },
   "dependencies": {
@@ -27,6 +35,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "4.1.11",
     "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^20",
