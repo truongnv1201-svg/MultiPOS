@@ -8,6 +8,7 @@ import { useNetwork } from '../network';
 import type { Project, ProjectMaterial, ProjectWorker, CashbookEntry, Shift, StockMovement } from '../../types';
 import { db, generateOrderCode } from '../../db';
 import { asUuidOrNull } from './constants';
+import { stableNext } from '../stable';
 
 // Tính lại tổng công trình từ dòng (mirror công thức P&L ở ProjectsView)
 function recalcProjectTotals(p: Project): Project {
@@ -238,7 +239,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       const pushedCodes = new Set(withLocalIds.map((m) => m.code));
       const neverPushed = localRows.filter((p) => !p.server_id && !pushedCodes.has(p.code));
       const next = [...withLocalIds, ...neverPushed];
-      setProjects(next);
+      setProjects((prev) => stableNext(prev, next));
       await db.projects.clear().catch(() => {});
       await db.projects.bulkAdd(next).catch(() => {});
       return true;

@@ -55,10 +55,22 @@ export function OrdersView() {
   // (vừa khỏi stale sau hủy/trả, vừa không cần setState trong effect).
   // Reset lựa chọn khi đổi bộ lọc/trang làm trực tiếp trong các handler bên dưới.
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(orders[0]?.id ?? null);
+  // P3-loop fix: pull realtime thay hàng local (id nội bộ) bằng hàng server
+  // (id `server-<uuid>`) nên tìm đúng id có thể rớt lựa chọn ngay khi user đang xem.
+  // Giữ thêm order_code để bám theo đơn qua biên đồng bộ (mã đơn bất biến).
+  const [selectedOrderCode, setSelectedOrderCode] = useState<string | null>(orders[0]?.order_code ?? null);
+  const pickOrder = (id: string, code: string) => {
+    setSelectedOrderId(id);
+    setSelectedOrderCode(code);
+  };
   const selectedOrder = useMemo(() => {
-    if (!selectedOrderId) return null;
-    return orders.find((o) => o.id === selectedOrderId) ?? null;
-  }, [orders, selectedOrderId]);
+    if (!selectedOrderId && !selectedOrderCode) return null;
+    return (
+      orders.find((o) => o.id === selectedOrderId || o.server_id === selectedOrderId) ??
+      orders.find((o) => o.order_code === selectedOrderCode) ??
+      null
+    );
+  }, [orders, selectedOrderId, selectedOrderCode]);
 
   // P2-1: modal trả 1 phần — chọn dòng + SL trả, tiền hoàn phân bổ theo tỉ trọng dòng
   const [returnTarget, setReturnTarget] = useState<Order | null>(null);
@@ -122,24 +134,28 @@ export function OrdersView() {
     setSearch(val);
     setCurrentPage(1);
     setSelectedOrderId(null);
+    setSelectedOrderCode(null);
   };
 
   const handleStatusChange = (val: string) => {
     setStatusFilter(val);
     setCurrentPage(1);
     setSelectedOrderId(null);
+    setSelectedOrderCode(null);
   };
 
   const handlePaymentChange = (val: string) => {
     setPaymentFilter(val);
     setCurrentPage(1);
     setSelectedOrderId(null);
+    setSelectedOrderCode(null);
   };
 
   const handleDateChange = (val: DateFilterState) => {
     setDateFilter(val);
     setCurrentPage(1);
     setSelectedOrderId(null);
+    setSelectedOrderCode(null);
   };
 
   const handleCancelOrder = async (orderId: string) => {
@@ -401,7 +417,7 @@ export function OrdersView() {
                     return (
                       <tr
                         key={ord.id}
-                        onClick={() => setSelectedOrderId(ord.id)}
+                        onClick={() => pickOrder(ord.id, ord.order_code)}
                         className={`cursor-pointer transition-colors ${
                           isSelected ? 'bg-blue-50/80 font-medium' : 'hover:bg-slate-50'
                         }`}
@@ -465,11 +481,13 @@ export function OrdersView() {
                 onPageChange={(p) => {
                   setCurrentPage(p);
                   setSelectedOrderId(null);
+                  setSelectedOrderCode(null);
                 }}
                 onPageSizeChange={(s) => {
                   setPageSize(s);
                   setCurrentPage(1);
                   setSelectedOrderId(null);
+                  setSelectedOrderCode(null);
                 }}
                 itemName="hóa đơn"
               />

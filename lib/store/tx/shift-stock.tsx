@@ -10,6 +10,7 @@ import { useNetwork } from '../network';
 import type { CashbookEntry, Order, PurchaseOrder, Shift, StockMovement } from '../../types';
 import { db, generateOrderCode } from '../../db';
 import { enqueueOp, EMPTY_SHIFT } from './constants';
+import { stableNext } from '../stable';
 import { vietnamizeError } from '../../error-vi';
 
 export interface TxShiftStockDeps {
@@ -86,7 +87,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           created_at: row.created_at,
         };
       });
-      setStockMovements(mapped);
+      setStockMovements((prev) => stableNext(prev, mapped));
       return true;
     } catch (error) {
       console.warn('Stock movement sync failed:', error);
@@ -161,7 +162,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       const next = [...mapped, ...keptLocal].sort((a, b) =>
         a.created_at < b.created_at ? 1 : -1
       );
-      setCashbook(next);
+      setCashbook((prev) => stableNext(prev, next));
       await db.cashbook.clear().catch(() => {});
       await db.cashbook.bulkAdd(next).catch(() => {});
       return true;
@@ -332,7 +333,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         cash_difference: row.cash_difference != null ? Number(row.cash_difference) : undefined,
         order_count: Number(row.order_count ?? 0),
       };
-      setCurrentShift(serverShift);
+      setCurrentShift((prev) => stableNext(prev, serverShift));
       await db.shifts.put(serverShift).catch(() => {});
       return true;
     } catch {

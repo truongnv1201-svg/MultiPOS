@@ -8,6 +8,7 @@ import { useAuth } from './auth';
 import { useNetwork } from './network';
 import type { Product, Customer, Supplier } from '../types';
 import { db, generateMasterCode, type PendingMasterData } from '../db';
+import { stableNext } from './stable';
 
 export interface CatalogSlice {
   products: Product[];
@@ -300,9 +301,11 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       const nextProducts = mergePending(mapped, pendingProducts);
       const nextCustomers = mergePending(mappedCustomers, pendingCustomers);
       const nextSuppliers = mergePending(mappedSuppliers, pendingSuppliers);
-      setProducts(nextProducts);
-      setCustomers(nextCustomers);
-      setSuppliers(nextSuppliers);
+      // P3-loop fix: giữ identity khi server không có gì mới để cắt vòng lặp
+      // effect-pull -> setState -> callback mới -> effect chạy lại.
+      setProducts((prev) => stableNext(prev, nextProducts));
+      setCustomers((prev) => stableNext(prev, nextCustomers));
+      setSuppliers((prev) => stableNext(prev, nextSuppliers));
       setCatalogSource('server');
       try {
         await db.products.clear();

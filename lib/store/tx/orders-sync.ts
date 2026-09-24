@@ -8,6 +8,7 @@ import { useCatalog } from '../catalog';
 import { useNetwork } from '../network';
 import type { Order, OrderItem, ProductType, CashbookEntry } from '../../types';
 import { toRpcItems } from '../rpc';
+import { stableNext } from '../stable';
 import { db } from '../../db';
 import { SERVER_ORDERS_WINDOW_DAYS, SERVER_ORDERS_PAGE_SIZE, SERVER_ORDERS_MAX_PAGES, SERVER_ITEMS_BATCH_SIZE } from './constants';
 
@@ -114,7 +115,7 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
 
       setOrders((previous) => {
         const pendingLocal = previous.filter((order) => order.is_offline && !order.server_id);
-        return [...pendingLocal, ...mapped];
+        return stableNext(previous, [...pendingLocal, ...mapped]);
       });
       await db.orders.bulkPut(mapped);
       return true;

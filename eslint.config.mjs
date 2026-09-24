@@ -6,7 +6,11 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default defineConfig([{
+export default defineConfig([
+  // P3-loop fix: bỏ qua output sinh tự động (Playwright trace viewer, test artifacts, build)
+  // để lint chỉ quét source — trước đây trace assets từng gây 188 lỗi giả.
+  { ignores: ["playwright-report/**", "test-results/**", ".next/**", "node_modules/**"] },
+  {
     extends: [...next],
     // TODO(P3): React Compiler bỏ qua tối ưu vài useMemo (Inventory/Suppliers) nhưng memo tay
     // vẫn chạy đúng ở runtime — chỉ là gợi ý tối ưu, không phải bug. Tạm warn để build không
@@ -14,4 +18,5 @@ export default defineConfig([{
     rules: {
         "react-hooks/preserve-manual-memoization": "warn",
     },
-}]);
+  },
+]);
