@@ -215,7 +215,7 @@ export function GlobalHeader() {
         <button
           id="flyout-menu-trigger"
           onClick={() => setFlyoutMenuOpen((prev) => !prev)}
-          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+          className={`flex h-7 items-center justify-center gap-2 px-2.5 rounded-lg leading-none border text-xs font-semibold transition-all ${
             flyoutMenuOpen
               ? 'bg-blue-600 border-blue-500 text-white'
               : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
@@ -262,7 +262,7 @@ export function GlobalHeader() {
             <button
               id="pending-queue-badge"
               onClick={() => syncPendingOrders()}
-              className="min-w-6 px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-slate-900 rounded-full hover:bg-amber-400 text-center transition-colors"
+              className="flex h-6 min-w-6 items-center justify-center px-1.5 text-[10px] font-bold leading-none bg-amber-500 text-slate-900 rounded-full hover:bg-amber-400 text-center transition-colors"
               title={`${pendingQueue.length} đơn hàng chưa đồng bộ${pendingQueue.some((order) => order.sync_last_error) ? ' — có đơn lỗi, xem thông báo sau khi đồng bộ' : ''} (Click để sync)`}
             >
               {pendingQueue.length}
@@ -276,7 +276,7 @@ export function GlobalHeader() {
           <button
             id="btn-goto-pos"
             onClick={() => setCurrentScreen('pos')}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-600 rounded-md text-[11px] font-bold transition-all shrink-0"
+            className="flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-600 rounded-md text-[11px] font-bold transition-all shrink-0"
             title="Vào màn hình Bán hàng (F2)"
           >
             <ShoppingCart className="w-3.5 h-3.5" />
@@ -295,7 +295,7 @@ export function GlobalHeader() {
             refreshNow();
           }}
           disabled={isSyncing || !isOnline}
-          className={`flex items-center gap-1.5 px-2.5 py-1 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors ${
+          className={`flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors ${
             !isOnline
               ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
               : lastSyncError
@@ -327,7 +327,7 @@ export function GlobalHeader() {
         <div className="flex items-center">
           <div
             id="network-status-toggle"
-            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
+            className={`flex h-7 items-center justify-center gap-1 px-2 rounded-md leading-none text-[11px] font-medium transition-colors ${
               isOnline
                 ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 hover:bg-emerald-900'
                 : 'bg-rose-950/90 text-rose-300 border border-rose-700 animate-pulse'
@@ -343,7 +343,7 @@ export function GlobalHeader() {
         <button
           id="header-shift-btn"
           onClick={() => setShiftModalOpen(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors"
+          className="flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors"
           title={`Kiểm đếm két / Đóng ca (F12) — ${currentShift.status === 'open' ? `Ca đang mở từ ${new Date(currentShift.opened_at).toLocaleString('vi-VN')}` : 'Ca đã đóng'}`}
         >
           <Clock className="w-3.5 h-3.5 text-amber-400" />
@@ -360,7 +360,7 @@ export function GlobalHeader() {
           <button
             id="header-user-btn"
             onClick={() => setLoginOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800 rounded-md text-[11px] text-emerald-300 transition-colors"
+            className="flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800 rounded-md text-[11px] text-emerald-300 transition-colors"
             title={`${profile?.full_name || user.email} (${ROLE_LABEL_HEADER[profile?.role || ''] || profile?.role || '...'}) — Click để xem phiên / đổi tài khoản`}
           >
             <User className="w-3.5 h-3.5" />
@@ -377,7 +377,7 @@ export function GlobalHeader() {
           <button
             id="btn-header-login"
             onClick={() => setLoginOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors"
+            className="flex h-7 items-center justify-center gap-1.5 px-2.5 leading-none bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors"
             title="Đăng nhập thu ngân / quản trị"
           >
             <User className="w-3.5 h-3.5 text-slate-400" />
@@ -395,7 +395,7 @@ export function GlobalHeader() {
             }
             setCurrentScreen('settings');
           }}
-          className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
+          className="flex h-7 w-7 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
           title="Cài đặt hệ thống & nhân viên (Alt + S)"
         >
           <Settings className="w-3.5 h-3.5" />
@@ -405,7 +405,7 @@ export function GlobalHeader() {
         <button
           id="header-fullscreen-btn"
           onClick={toggleFullscreen}
-          className="hidden sm:block p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
+          className="hidden sm:flex h-7 w-7 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
           title="Toàn màn hình (F11)"
         >
           {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
