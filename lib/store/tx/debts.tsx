@@ -28,7 +28,7 @@ export interface TxDebts {
 export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDebtsDeps): TxDebts {
   const { supa, user } = useAuth();
   const { profile, setLoginOpen } = useAuth();
-  const { suppliers, setSuppliers, customers, setCustomers, customerMap } = useCatalog();
+  const { suppliers, setSuppliers, customers, setCustomers, customerMap, refreshCatalog } = useCatalog();
   const { isOnline } = useNetwork();
 
   // Collect Customer Debt (FIN-ERR-02)
@@ -241,6 +241,33 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
             p_debt: p.debt ?? 0,
           });
           if (error) throw error;
+          // Mirror truth nợ NCC sau khi server ghi phiếu nhập (như op supplier_payment):
+          // server có thể clamp/tự tạo NCC theo tên -> tránh mirror local lệch tới lần
+          // refreshCatalog sau. NCC chưa có ở máy này -> kéo catalog về luôn.
+          try {
+            const matched =
+              suppliers.find((s) => s.id === p.supplierId) ||
+              suppliers.find((s) => s.name.toLowerCase() === p.supplierName.toLowerCase());
+            const sid = matched ? asUuidOrNull(matched.id) : null;
+            if (sid && matched) {
+              const { data: srow } = await supa
+                .from('suppliers')
+                .select('current_debt')
+                .eq('id', sid)
+                .maybeSingle();
+              const truth = Number((srow as { current_debt?: unknown } | null)?.current_debt);
+              if (Number.isFinite(truth)) {
+                setSuppliers((prev) =>
+                  prev.map((s) => (s.id === matched.id ? { ...s, current_debt: truth } : s))
+                );
+                await db.suppliers.update(matched.id, { current_debt: truth });
+              }
+            } else {
+              void refreshCatalog();
+            }
+          } catch {
+            /* giữ số mirror hiện có */
+          }
         } else if (op.kind === 'voucher') {
           const p = op.payload as {
             entryId: string;
@@ -320,7 +347,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       }
     }
     return { synced, failed };
-  }, [supa, user, isOnline, suppliers, setSuppliers, setCashbook]);
+  }, [supa, user, isOnline, suppliers, setSuppliers, setCashbook, refreshCatalog]);
 
   // Master Data Add/Update hàng hóa/KH/NCC sống ở CatalogProvider (useCatalog) —
   // ở đây chỉ còn nghiệp vụ chi trả NCC (đụng sổ quỹ -> thuộc tầng Transactions).

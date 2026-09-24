@@ -620,6 +620,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         refreshServerOrders(),
         refreshServerStockMovements(),
         refreshServerCashbook(),
+        refreshCatalog(),
       ]).then((rs) => {
         if (rs.every((r) => r.status === 'fulfilled' && r.value === true)) {
           setLastSyncAt(Date.now());
@@ -637,7 +638,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [isOnline, supabaseReady, isSyncing, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook]);
+  }, [isOnline, supabaseReady, isSyncing, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshCatalog]);
 
   // Active Cart Tab
 
