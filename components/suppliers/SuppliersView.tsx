@@ -3,8 +3,7 @@
 import React, { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { Supplier } from '@/lib/types';
-import type { StockMovement } from '@/lib/types';
-import { formatVND, formatNumber } from '@/lib/format';
+import { formatVND } from '@/lib/format';
 import {
   Truck,
   Plus,
@@ -13,12 +12,9 @@ import {
   Building2,
   MapPin,
   DollarSign,
-  AlertCircle,
-  FileText,
   CreditCard,
   CheckCircle2,
   X,
-  History,
   Edit2,
   Trash2,
 } from 'lucide-react';
@@ -26,7 +22,6 @@ import { NumberInput } from '@/components/common/NumberInput';
 import { TableTools } from '@/components/common/TableTools';
 import { DataTableShell } from '@/components/common/DataTableShell';
 import { PaginationBar } from '@/components/common/PaginationBar';
-import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/common/DateFilter';
 import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
@@ -34,22 +29,13 @@ import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 
 export function SuppliersView() {
-  const { suppliers, addSupplier, updateSupplier, deleteSupplier, paySupplierDebt, stockMovements, cashbook } = useStore();
+  const { suppliers, addSupplier, updateSupplier, deleteSupplier, paySupplierDebt } = useStore();
 
   const [search, setSearch] = useState('');
   const [debtFilter, setDebtFilter] = useState<'all' | 'debt' | 'clean'>('all');
-  const [activeTab, setActiveTab] = useState<'list' | 'history'>('list');
-  // Phân trang 2 bảng (chuẩn Don hàng / Khách hàng)
   const [supPage, setSupPage] = useState(1);
   const [supPageSize, setSupPageSize] = useState(25);
-  const [impPage, setImpPage] = useState(1);
-  const [impPageSize, setImpPageSize] = useState(25);
-  // Tìm kiếm + lọc ngày cho tab lịch sử nhập (chuẩn các bảng khác)
-  const [impSearch, setImpSearch] = useState('');
-  const [impDate, setImpDate] = useState<DateFilterState>({ preset: 'all' });
-  // Sắp xếp 2 bảng: bấm header để đảo chiều
   const { sortKey: supSortKey, sortDir: supSortDir, toggleSort: toggleSupSort } = useSortState();
-  const { sortKey: impSortKey, sortDir: impSortDir, toggleSort: toggleImpSort } = useSortState();
 
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(suppliers[0] || null);
   const liveSelectedSupplier = suppliers.find((s) => s.id === selectedSupplier?.id) || selectedSupplier || suppliers[0] || null;
@@ -310,87 +296,6 @@ export function SuppliersView() {
     }
   };
 
-  const importMovements = stockMovements.filter((m) => m.movement_type === 'import');
-
-  const filteredImports = importMovements.filter((m) => {
-    const q = impSearch.toLowerCase().trim();
-    const matchesSearch =
-      !q ||
-      m.reference_code.toLowerCase().includes(q) ||
-      m.product_name.toLowerCase().includes(q) ||
-      (m.note || '').toLowerCase().includes(q);
-    return matchesSearch && matchesDateFilter(m.created_at, impDate);
-  });
-
-  const sortedImports = (() => {
-    if (!impSortKey) return filteredImports;
-    const getters: Record<string, (m: StockMovement) => unknown> = {
-      created_at: (m) => m.created_at,
-      reference_code: (m) => m.reference_code,
-      product_name: (m) => m.product_name,
-      quantity: (m) => m.quantity,
-      previous_stock: (m) => m.previous_stock,
-      new_stock: (m) => m.new_stock,
-      note: (m) => m.note,
-    };
-    const get = getters[impSortKey];
-    if (!get) return filteredImports;
-    return sortRows(filteredImports, get, impSortDir);
-  })();
-
-  const paginatedImports = sortedImports.slice((impPage - 1) * impPageSize, impPage * impPageSize);
-
-  // ---- Xuất Excel / In lịch sử nhập kho ----
-  const handleExportImports = () => {
-    if (sortedImports.length === 0) {
-      notify('Không có dữ liệu để xuất!', 'error');
-      return;
-    }
-    exportToExcel('lich-su-nhap-kho', [
-      {
-        name: 'LichSuNhap',
-        rows: sortedImports.map((m) => ({
-          'Thời gian': new Date(m.created_at).toLocaleString('vi-VN'),
-          'Mã phiếu nhập': m.reference_code,
-          'Hàng hóa vật tư': m.product_name,
-          'Số lượng': m.quantity,
-          'Tồn trước': m.previous_stock,
-          'Tồn sau': m.new_stock,
-          'Ghi chú & đối tác': m.note,
-        })),
-      },
-    ]);
-  };
-
-  const handlePrintImports = () => {
-    if (sortedImports.length === 0) {
-      notify('Không có dữ liệu để in!', 'error');
-      return;
-    }
-    printTable({
-      title: 'Lịch sử nhập kho',
-      meta: [`${sortedImports.length} phiếu nhập`],
-      columns: [
-        { header: 'Thời gian' },
-        { header: 'Mã phiếu' },
-        { header: 'Hàng hóa vật tư' },
-        { header: 'Số lượng', align: 'right' },
-        { header: 'Tồn trước', align: 'right' },
-        { header: 'Tồn sau', align: 'right' },
-        { header: 'Ghi chú' },
-      ],
-      rows: sortedImports.slice(0, 1000).map((m) => [
-        new Date(m.created_at).toLocaleString('vi-VN'),
-        m.reference_code,
-        m.product_name,
-        String(m.quantity),
-        String(m.previous_stock),
-        String(m.new_stock),
-        m.note,
-      ]),
-    });
-  };
-
   return (
     <div id="suppliers-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
       {/* Top Bar */}
@@ -415,25 +320,6 @@ export function SuppliersView() {
             <span className="font-bold font-mono text-rose-700">{formatVND(totalDebt)}</span>
           </div>
 
-          <div className="flex items-center bg-slate-100 p-1 rounded-lg">
-            <button
-              onClick={() => setActiveTab('list')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                activeTab === 'list' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Danh sách ({suppliers.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                activeTab === 'history' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Lịch sử nhập ({importMovements.length})
-            </button>
-          </div>
-
           <button
             id="btn-add-supplier"
             onClick={() => setIsAddModalOpen(true)}
@@ -442,23 +328,17 @@ export function SuppliersView() {
             <Plus className="w-4 h-4" />
             <span>Thêm NCC mới</span>
           </button>
-          {activeTab === 'list' && (
-            <TableTools
-              onExportExcel={handleExportExcel}
-              onPrint={handlePrint}
-              onImportExcel={handleImportExcel}
-              onDownloadTemplate={handleDownloadTemplate}
-              importing={importing}
-            />
-          )}
-          {activeTab === 'history' && (
-            <TableTools onExportExcel={handleExportImports} onPrint={handlePrintImports} />
-          )}
+          <TableTools
+            onExportExcel={handleExportExcel}
+            onPrint={handlePrint}
+            onImportExcel={handleImportExcel}
+            onDownloadTemplate={handleDownloadTemplate}
+            importing={importing}
+          />
         </div>
       </div>
 
-      {activeTab === 'list' && (
-        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
           {/* Left: Table Section */}
           <div className="flex-1 flex flex-col min-h-0 p-4 overflow-hidden">
             <DataTableShell>
@@ -669,97 +549,6 @@ export function SuppliersView() {
             </div>
           )}
         </div>
-      )}
-
-      {activeTab === 'history' && (
-        <div className="flex-1 p-4 overflow-hidden min-h-0">
-          <DataTableShell>
-            {/* Filter Bar — tìm theo mã phiếu / tên hàng / ghi chú + lọc ngày */}
-            <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
-              <div className="relative flex-1 min-w-[180px]">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={impSearch}
-                  onChange={(e) => {
-                    setImpSearch(e.target.value);
-                    setImpPage(1);
-                  }}
-                  placeholder="Tìm theo mã phiếu, tên hàng, ghi chú..."
-                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-              <DateFilter
-                value={impDate}
-                onChange={(v) => {
-                  setImpDate(v);
-                  setImpPage(1);
-                }}
-              />
-            </div>
-            <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
-              <span>
-                Tìm thấy <strong className="text-slate-900 font-mono">{filteredImports.length}</strong> / {importMovements.length} phiếu nhập kho
-              </span>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                    <SortableTh className="py-2.5 px-3" label="Thời Gian" sortKey="created_at" activeKey={impSortKey} dir={impSortDir} onSort={toggleImpSort} />
-                    <SortableTh className="py-2.5 px-3" label="Mã Phiếu Nhập" sortKey="reference_code" activeKey={impSortKey} dir={impSortDir} onSort={toggleImpSort} />
-                    <SortableTh className="py-2.5 px-3" label="Hàng Hóa Vật Tư" sortKey="product_name" activeKey={impSortKey} dir={impSortDir} onSort={toggleImpSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Số Lượng" sortKey="quantity" activeKey={impSortKey} dir={impSortDir} onSort={toggleImpSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Tồn Trước" sortKey="previous_stock" activeKey={impSortKey} dir={impSortDir} onSort={toggleImpSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Tồn Sau" sortKey="new_stock" activeKey={impSortKey} dir={impSortDir} onSort={toggleImpSort} />
-                    <SortableTh className="py-2.5 px-3" label="Ghi Chú & Đối Tác" sortKey="note" activeKey={impSortKey} dir={impSortDir} onSort={toggleImpSort} />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {paginatedImports.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400">
-                        Chưa có lịch sử nhập kho nào
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedImports.map((m) => (
-                      <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 px-3 text-slate-500 font-mono">
-                          {new Date(m.created_at).toLocaleString('vi-VN')}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{m.reference_code}</td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-800">{m.product_name}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600">
-                          +{formatNumber(m.quantity)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-500">
-                          {formatNumber(m.previous_stock)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-700">
-                          {formatNumber(m.new_stock)}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-600">{m.note}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <PaginationBar
-              currentPage={impPage}
-              totalItems={sortedImports.length}
-              pageSize={impPageSize}
-              onPageChange={setImpPage}
-              onPageSizeChange={(s) => {
-                setImpPageSize(s);
-                setImpPage(1);
-              }}
-              itemName="phiếu nhập"
-            />
-          </DataTableShell>
-        </div>
-      )}
 
       {/* Modal Add Supplier */}
       {isAddModalOpen && (
