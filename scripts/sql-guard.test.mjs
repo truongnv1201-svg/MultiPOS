@@ -129,8 +129,9 @@ describe('alert() blocking đã thay bằng Toast', () => {
       const p = join(dir, e.name);
       if (e.isDirectory()) { walk(p); continue; }
       if (!/\.(tsx?|ts)$/.test(e.name)) continue;
-      if (p.includes('components\\common\\Toast.tsx')) continue; // fallback có chủ đích
-      if (p.includes('scripts\\sql-guard.test.mjs')) continue; // test file
+      const normalizedPath = p.replace(/\\/g, '/');
+      if (normalizedPath.endsWith('/components/common/Toast.tsx')) continue;
+      if (normalizedPath.endsWith('/scripts/sql-guard.test.mjs')) continue;
       const src = readFileSync(p, 'utf8');
       const lines = src.split('\n');
       lines.forEach((line, i) => {
