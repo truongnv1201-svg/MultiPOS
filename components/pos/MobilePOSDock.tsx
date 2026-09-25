@@ -23,6 +23,7 @@ export function MobilePOSDock({
   onPrimaryAction,
 }: MobilePOSDockProps) {
   const PrimaryIcon = isImportFlow ? Truck : CheckCircle2;
+  const hasItems = itemCount > 0;
 
   return (
     <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 pt-2 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur safe-bottom">
@@ -58,12 +59,16 @@ export function MobilePOSDock({
           type="button"
           disabled={disabled}
           onClick={onPrimaryAction}
-          className={`flex h-12 min-w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-extrabold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-            isImportFlow ? 'bg-emerald-600 active:bg-emerald-700' : 'bg-blue-700 active:bg-blue-800'
+          className={`flex h-12 min-w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-extrabold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+            disabled
+              ? 'bg-slate-400 active:bg-slate-500'
+              : isImportFlow
+                ? 'bg-emerald-600 active:bg-emerald-700'
+                : 'bg-blue-700 active:bg-blue-800'
           }`}
         >
           <PrimaryIcon className="h-4 w-4" />
-          <span>{isImportFlow ? 'Lưu phiếu' : 'Thanh toán'}</span>
+          <span>{isImportFlow ? 'Lưu phiếu' : hasItems ? 'Thanh toán' : 'Thêm hàng'}</span>
         </button>
       </div>
     </div>

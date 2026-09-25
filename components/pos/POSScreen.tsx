@@ -123,6 +123,12 @@ export function POSScreen() {
   // Hydration guard: authReady=false ở cả server lẫn client lần đầu render,
   // nên nút Bán/Nhập render giống nhau hai phía (false -> ẩn), hiện sau khi auth resolve.
   const canImport = authReady && (!supabaseReady || profile?.role === 'admin' || profile?.role === 'manager');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      setPosMode('standard');
+    }
+  }, [setPosMode]);
   interface ImportLine {
     key: string;
     productId: string;
@@ -570,11 +576,11 @@ export function POSScreen() {
             <button
               id="btn-toggle-pos-mode"
               onClick={() => setPosMode(posMode === 'standard' ? 'fast' : 'standard')}
-              className="w-36 px-2 h-9 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-medium flex items-center justify-center gap-1.5 border border-slate-200"
+              className="w-10 sm:w-36 px-1 sm:px-2 h-9 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-medium flex items-center justify-center gap-1.5 border border-slate-200"
               title="Đổi chế độ bán hàng (F2)"
             >
               {posMode === 'standard' ? <Grid className="w-3.5 h-3.5 text-blue-500" /> : <ListFilter className="w-3.5 h-3.5 text-amber-500" />}
-              <span>{posMode === 'standard' ? 'Chế độ Thẻ (F2)' : 'Chế độ Nhanh (F2)'}</span>
+              <span className="hidden sm:inline">{posMode === 'standard' ? 'Chế độ Thẻ (F2)' : 'Chế độ Nhanh (F2)'}</span>
             </button>
           </div>
         </div>
@@ -583,11 +589,11 @@ export function POSScreen() {
         {posFlow === 'import' ? (
         <div id="import-table-container" className="flex-1 overflow-auto p-2">
           {impLines.length === 0 ? (
-            <div className="h-full min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-6">
-              <Truck className="w-12 h-12 text-slate-300 mb-2 stroke-1" />
-              <p className="text-sm font-medium text-slate-600">Phiếu nhập chưa có dòng hàng</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm text-center">
-                Nhấn <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono text-slate-700 font-bold">F1</kbd> để tìm / quét mã vạch rồi Enter, hoặc bấm hàng trong danh mục phía dưới.
+            <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
+              <Truck className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mb-2 stroke-1" />
+              <p className="text-sm font-medium text-slate-600">Chưa có dòng nhập hàng</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-xs text-center">
+                Tìm hoặc quét mã vạch để thêm hàng vào phiếu.
               </p>
             </div>
           ) : (
@@ -673,11 +679,11 @@ export function POSScreen() {
         ) : (
         <div id="cart-table-container" className="flex-1 overflow-auto p-2">
           {activeCart.items.length === 0 ? (
-            <div className="h-full min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-6">
-              <ShoppingBag className="w-12 h-12 text-slate-300 mb-2 stroke-1" />
-              <p className="text-sm font-medium text-slate-600">Giỏ hàng chưa có sản phẩm</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm text-center">
-                Nhấn <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono text-slate-700 font-bold">F1</kbd> để tìm kiếm sản phẩm hoặc quét mã vạch, hoặc chọn sản phẩm trong danh mục phía dưới.
+            <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
+              <ShoppingBag className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mb-2 stroke-1" />
+              <p className="text-sm font-medium text-slate-600">Chưa có sản phẩm trong giỏ</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-xs text-center">
+                Tìm hoặc quét mã vạch để bắt đầu bán hàng.
               </p>
             </div>
           ) : (
@@ -1133,13 +1139,20 @@ export function POSScreen() {
         </div>
       ) : (
         <>
-        <div className="space-y-3">
+        {activeCart.items.length === 0 && (
+          <div className="sm:hidden rounded-xl border border-blue-100 bg-blue-50 p-4 text-center">
+            <ShoppingBag className="mx-auto h-8 w-8 text-blue-500" />
+            <p className="mt-2 text-sm font-semibold text-slate-800">Thêm sản phẩm để thanh toán</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Thông tin khách và phương thức thanh toán sẽ hiện ở đây.</p>
+          </div>
+        )}
+        <div className={`space-y-3 ${activeCart.items.length === 0 ? 'max-sm:hidden' : ''}`}>
           {/* Customer Selection [F4] */}
           <div className="relative">
             <label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5 mb-1">
               <User className="w-3.5 h-3.5 text-blue-600" />
               Khách hàng
-              <kbd className="px-1 py-0.2 text-[9px] font-mono bg-slate-200 rounded text-slate-600">
+              <kbd className="hidden sm:inline-flex px-1 py-0.2 text-[9px] font-mono bg-slate-200 rounded text-slate-600">
                 F4
               </kbd>
             </label>
@@ -1233,7 +1246,7 @@ export function POSScreen() {
               <div className="flex items-center gap-1.5 text-slate-600">
                 <Percent className="w-3.5 h-3.5 text-blue-600" />
                 <span>Giảm giá đơn:</span>
-                <kbd className="px-1 text-[9px] font-mono bg-slate-100 rounded text-slate-500">F8</kbd>
+                <kbd className="hidden sm:inline-flex px-1 text-[9px] font-mono bg-slate-100 rounded text-slate-500">F8</kbd>
               </div>
               <div className="flex items-center gap-1 w-36">
                 <input
@@ -1278,7 +1291,7 @@ export function POSScreen() {
               <div className="flex items-center gap-1.5 text-slate-600">
                 <Truck className="w-3.5 h-3.5 text-blue-600" />
                 <span>Phụ phí / Vận chuyển:</span>
-                <kbd className="px-1 text-[9px] font-mono bg-slate-100 rounded text-slate-500">F6</kbd>
+                <kbd className="hidden sm:inline-flex px-1 text-[9px] font-mono bg-slate-100 rounded text-slate-500">F6</kbd>
               </div>
               <div className="flex items-center gap-1 w-36">
                 <input
@@ -1479,7 +1492,7 @@ export function POSScreen() {
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
                 <span>Tiền khách đưa:</span>
-                <kbd className="px-1 text-[9px] font-mono bg-slate-200 rounded text-slate-600">F9</kbd>
+                <kbd className="hidden sm:inline-flex px-1 text-[9px] font-mono bg-slate-200 rounded text-slate-600">F9</kbd>
               </div>
               <input
                 ref={tenderedInputRef}

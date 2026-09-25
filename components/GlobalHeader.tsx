@@ -240,7 +240,7 @@ export function GlobalHeader() {
           <div className="flex flex-col">
             <span className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5 leading-none">
               MultiPOS
-              <span className="text-[10px] font-semibold px-1 py-0.2 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded">
+              <span className="hidden sm:inline-flex text-[10px] font-semibold px-1 py-0.2 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded">
                 v2.13
               </span>
             </span>

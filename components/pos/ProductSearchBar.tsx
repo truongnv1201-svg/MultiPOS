@@ -242,7 +242,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
             if (searchQuery.trim()) setIsDropdownOpen(true);
           }}
           onKeyDown={handleSearchKeyDown}
-          placeholder="Tìm theo Tên SP, SKU, Quét Mã Vạch (F1)..."
+           placeholder="Tìm hàng hoặc quét mã..."
           title="Tìm sản phẩm (F1)"
           className="w-full h-10 sm:h-9 pl-8 pr-3 text-xs bg-white text-slate-800 placeholder-slate-400 border border-slate-300 rounded-lg focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
