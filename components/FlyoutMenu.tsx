@@ -84,12 +84,12 @@ export function FlyoutMenu() {
   return (
     <div
       id="flyout-overlay"
-      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-start justify-start transition-opacity"
+      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-start sm:justify-start transition-opacity"
       onClick={() => setFlyoutMenuOpen(false)}
     >
       <div
         id="flyout-menu-container"
-        className="w-80 max-w-[90vw] h-full bg-white shadow-2xl border-r border-slate-200 flex flex-col animate-in slide-in-from-left duration-200"
+        className="w-full max-w-none sm:w-80 sm:max-w-[90vw] max-h-[85dvh] sm:max-h-none sm:h-full bg-white shadow-2xl border border-b-0 sm:border-b sm:border-r-0 sm:border-r sm:rounded-none rounded-t-2xl flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-left duration-200 safe-bottom"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -123,7 +123,7 @@ export function FlyoutMenu() {
                   setCurrentScreen(item.screen);
                   setFlyoutMenuOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-3 sm:py-2.5 rounded-lg text-xs font-medium transition-all ${
                   isActive
                     ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200'
                     : 'text-slate-700 hover:bg-slate-100'
@@ -139,7 +139,7 @@ export function FlyoutMenu() {
                       {item.badge}
                     </span>
                   )}
-                  <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 border border-slate-200 rounded text-slate-500">
+                  <kbd className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 border border-slate-200 rounded text-slate-500">
                     {item.shortcut}
                   </kbd>
                 </div>
@@ -162,7 +162,7 @@ export function FlyoutMenu() {
               <LogOut className="w-4 h-4 text-amber-600" />
               <span>Đóng ca làm việc / Đếm két</span>
             </div>
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-amber-100 border border-amber-200 rounded text-amber-800">
+            <kbd className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-amber-100 border border-amber-200 rounded text-amber-800">
               F12
             </kbd>
           </button>

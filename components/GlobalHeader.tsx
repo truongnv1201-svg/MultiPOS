@@ -215,7 +215,7 @@ export function GlobalHeader() {
         <button
           id="flyout-menu-trigger"
           onClick={() => setFlyoutMenuOpen((prev) => !prev)}
-          className={`flex h-8 items-center justify-center gap-2 px-2.5 rounded-lg leading-none border text-xs font-semibold transition-all ${
+          className={`flex h-9 w-9 sm:h-8 sm:w-auto items-center justify-center gap-2 px-2.5 rounded-lg leading-none border text-xs font-semibold transition-all ${
             flyoutMenuOpen
               ? 'bg-blue-600 border-blue-500 text-white'
               : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
@@ -255,7 +255,7 @@ export function GlobalHeader() {
       <div className="flex-1" />
 
       {/* RIGHT: Status, Branch, Shift, Actions — cuộn ngang trên màn hẹp, không vỡ layout */}
-      <div className="flex items-center gap-1.5 sm:gap-2 ml-2 min-w-0 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 ml-1 sm:ml-2 min-w-0 max-w-full max-sm:overflow-visible overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
         {/* Đồng bộ đơn offline — đứng đầu dãy nút, giữ sẵn chỗ cố định nên hiện/ẩn không xô nút khác */}
         <span className="inline-flex w-8 items-center justify-center" aria-live="polite">
           {pendingQueue.length > 0 ? (
@@ -276,7 +276,7 @@ export function GlobalHeader() {
           <button
             id="btn-goto-pos"
             onClick={() => setCurrentScreen('pos')}
-            className="flex h-8 items-center justify-center gap-1.5 px-2.5 leading-none bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-600 rounded-md text-[11px] font-bold transition-all shrink-0"
+            className="hidden sm:flex h-8 items-center justify-center gap-1.5 px-2.5 leading-none bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-600 rounded-md text-[11px] font-bold transition-all shrink-0"
             title="Vào màn hình Bán hàng (F2)"
           >
             <ShoppingCart className="w-3.5 h-3.5" />
@@ -345,7 +345,7 @@ export function GlobalHeader() {
           <span className={`hidden lg:inline font-semibold ${currentShift.status === 'open' ? 'text-emerald-300' : 'text-slate-400'}`}>
             {currentShift.status === 'open' ? 'Ca mở' : 'Ca đóng'}
           </span>
-          <kbd className="inline-flex h-4 shrink-0 items-center justify-center px-1 text-[9px] font-mono leading-none bg-slate-900 text-amber-400 border border-amber-400/30 rounded">
+          <kbd className="hidden sm:inline-flex h-4 shrink-0 items-center justify-center px-1 text-[9px] font-mono leading-none bg-slate-900 text-amber-400 border border-amber-400/30 rounded">
             F12
           </kbd>
         </button>
@@ -390,7 +390,7 @@ export function GlobalHeader() {
             }
             setCurrentScreen('settings');
           }}
-          className="flex h-8 w-8 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
+          className="hidden sm:flex h-8 w-8 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
           title="Cài đặt hệ thống & nhân viên (Alt + S)"
         >
           <Settings className="w-3.5 h-3.5" />

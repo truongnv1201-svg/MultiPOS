@@ -12,6 +12,20 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 1023px) {
+  .mobile-main-bottom-space {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+
+  .pos-mobile-bottom-space {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+}
+
 @media (max-width: 640px) {
   /* iOS tự zoom khi focus input chữ < 16px -> khóa ở 16px trên điện thoại */
   input, select, textarea {

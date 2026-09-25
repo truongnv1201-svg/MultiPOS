@@ -222,7 +222,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   useImperativeHandle(ref, () => ({ handleQuantityKeyDown }));
 
   return (
-    <div className="relative flex-1 min-w-[280px] flex items-center gap-1.5">
+    <div className="relative flex-1 min-w-0 w-full lg:min-w-[280px] flex items-center gap-1.5">
       {/* Ô tìm kiếm [F1] */}
       <div className="relative flex-1 min-w-0">
         <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
@@ -244,7 +244,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           onKeyDown={handleSearchKeyDown}
           placeholder="Tìm theo Tên SP, SKU, Quét Mã Vạch (F1)..."
           title="Tìm sản phẩm (F1)"
-          className="w-full h-9 pl-8 pr-3 text-xs bg-white text-slate-800 placeholder-slate-400 border border-slate-300 rounded-lg focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          className="w-full h-10 sm:h-9 pl-8 pr-3 text-xs bg-white text-slate-800 placeholder-slate-400 border border-slate-300 rounded-lg focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -266,7 +266,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
             onKeyDown={handleQuantityKeyDown}
             placeholder="1"
             title="Số lượng nhanh (Enter để thêm vào giỏ)"
-            className="w-full h-9 px-2 text-center text-xs font-bold bg-white text-amber-600 border border-slate-300 rounded-lg focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+            className="w-full h-10 sm:h-9 px-2 text-center text-xs font-bold bg-white text-amber-600 border border-slate-300 rounded-lg focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
           />
         </div>
       )}

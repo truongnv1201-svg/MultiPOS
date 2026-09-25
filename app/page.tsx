@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { StoreProvider, useStore } from '@/lib/store';
 import type { ActiveScreen } from '@/lib/types';
 import { GlobalHeader } from '@/components/GlobalHeader';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { FlyoutMenu } from '@/components/FlyoutMenu';
 import { POSScreen } from '@/components/pos/POSScreen';
 import { DimensionModalF3 } from '@/components/pos/DimensionModalF3';
@@ -108,7 +109,7 @@ function AppContent() {
       <FlyoutMenu />
 
       {/* Dynamic Screen View */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <main className={`flex-1 flex flex-col min-h-0 overflow-hidden ${currentScreen === 'pos' ? '' : 'mobile-main-bottom-space'}`}>
         {currentScreen === 'pos' && <POSScreen />}
         {currentScreen === 'orders' && <OrdersView />}
         {currentScreen === 'products' && <ProductsView />}
@@ -121,6 +122,8 @@ function AppContent() {
         {currentScreen === 'reports' && <ReportsView />}
         {currentScreen === 'settings' && <SettingsView />}
       </main>
+
+      <MobileBottomNav />
 
       {/* Global Modals */}
       <DimensionModalF3 />

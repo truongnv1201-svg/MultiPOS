@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { Product, OrderItem } from '@/lib/types';
 import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
+import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import { POSQuickCustomerModal } from '@/components/pos/POSQuickCustomerModal';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -70,6 +71,7 @@ export function POSScreen() {
     setPosMode,
     posFlow,
     setPosFlow,
+    setFlyoutMenuOpen,
     vietqr,
     currentShift,
     user,
@@ -439,7 +441,7 @@ export function POSScreen() {
   };
 
   return (
-    <div id="pos-screen" className="flex-1 flex flex-col lg:flex-row h-full min-h-0 bg-slate-100 overflow-hidden">
+    <div id="pos-screen" className="flex-1 flex flex-col lg:flex-row h-full min-h-0 bg-slate-100 overflow-hidden pos-mobile-bottom-space">
       {/* LEFT COLUMN: Order Tabs + Cart Items Table + Product Grid (if standard) */}
       <div className="flex-1 flex flex-col border-r border-slate-200 min-w-0 bg-white">
         {/* Toolbar: CSS Grid 3 cột — [search+qty | tabs (1fr) | controls] */}
@@ -458,7 +460,7 @@ export function POSScreen() {
               onPickProduct={isImportFlow ? addImportLine : undefined}
             />
             {/* Ô số lượng nhanh */}
-            <div className="w-20 shrink-0">
+            <div className="w-16 sm:w-20 shrink-0">
               <input
                 ref={quickQuantityRef}
                 id="quick-quantity-input"
@@ -474,7 +476,7 @@ export function POSScreen() {
                 onKeyDown={(e) => searchBarRef.current?.handleQuantityKeyDown(e)}
                 placeholder="1"
                 title="Số lượng nhanh (Enter để thêm vào giỏ)"
-                className="w-full h-9 px-2 text-center text-xs font-bold bg-white text-amber-600 border border-slate-300 rounded-lg focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                className="w-full h-10 sm:h-9 px-2 text-center text-xs font-bold bg-white text-amber-600 border border-slate-300 rounded-lg focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
               />
             </div>
           </div>
@@ -847,9 +849,11 @@ export function POSScreen() {
               {displayedProducts.map((prod) => {
                 const isArea = prod.product_type === 'area';
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={prod.id}
                     id={`pos-product-card-${prod.sku}`}
+                    aria-label={`Thêm ${prod.name}`}
                     onClick={() => {
                       if (isImportFlow) {
                         // Luồng nhập: mọi loại hàng (kể cả m²) thêm theo SL ô nhanh, giá = giá nhập
@@ -908,9 +912,9 @@ export function POSScreen() {
                       <span className="text-[10px] text-slate-400">
                         Kho: {prod.stock_quantity}
                       </span>
-                    </div>
-                  </div>
-                );
+                     </div>
+                   </button>
+                 );
               })}
             </div>
           </div>
@@ -1638,6 +1642,23 @@ export function POSScreen() {
       </>
       )}
       </div>
+
+      <MobilePOSDock
+        isImportFlow={isImportFlow}
+        itemCount={isImportFlow ? impLines.length : activeCart.items.length}
+        total={isImportFlow ? impTotal : calculatedTotals.payable}
+        disabled={
+          isImportFlow
+            ? isProcessing || impLines.length === 0 || currentShift.status !== 'open' || needLogin
+            : isProcessing || activeCart.items.length === 0 || currentShift.status !== 'open' || needLogin
+        }
+        onOpenMenu={() => setFlyoutMenuOpen(true)}
+        onOpenCart={() => {
+          const target = document.getElementById(isImportFlow ? 'import-table-container' : 'cart-table-container');
+          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+        onPrimaryAction={isImportFlow ? handleImportCommit : handleCheckout}
+      />
 
       {/* Quick Customer Creation Modal */}
       <POSQuickCustomerModal open={isQuickCustomerModalOpen} onClose={() => setIsQuickCustomerModalOpen(false)} />
