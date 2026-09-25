@@ -94,7 +94,7 @@ export interface TransactionsSlice {
   ) => Promise<Project | null>;
   refreshServerProjects: () => Promise<boolean>;
   syncProjects: () => Promise<void>;
-  syncPendingOps: () => Promise<{ synced: number; failed: number }>;
+  syncPendingOps: (retryFailed?: boolean) => Promise<{ synced: number; failed: number }>;
   closeShift: (countedCash: number) => Promise<boolean>;
   openNewShift: (startingCash: number) => Promise<void>;
   refreshShiftFromServer: () => Promise<boolean>;
@@ -120,7 +120,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const cart = useTxCart(cashRounding);
   // Back-edges qua ref để tránh phụ thuộc vòng tròn lúc khởi tạo:
   // shift-stock cần pendingQueue (orders, tạo sau) + syncPendingOps (debts, tạo sau).
-  const syncPendingOpsRef = useRef<() => Promise<{ synced: number; failed: number }>>(async () => ({ synced: 0, failed: 0 }));
+  const syncPendingOpsRef = useRef<(retryFailed?: boolean) => Promise<{ synced: number; failed: number }>>(async () => ({ synced: 0, failed: 0 }));
   const pendingQueueRef = useRef<Order[]>([]);
   const shiftStock = useTxShiftStock({ syncPendingOpsRef, pendingQueueRef });
   const debts = useTxDebts({

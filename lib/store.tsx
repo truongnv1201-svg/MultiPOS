@@ -232,7 +232,7 @@ interface StoreContextType {
   ) => Promise<Project | null>;
   refreshServerProjects: () => Promise<boolean>;
   syncProjects: () => Promise<void>;
-  syncPendingOps: () => Promise<{ synced: number; failed: number }>;
+  syncPendingOps: (retryFailed?: boolean) => Promise<{ synced: number; failed: number }>;
   closeShift: (countedCash: number) => Promise<boolean>;
   openNewShift: (startingCash: number) => Promise<void>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
@@ -461,6 +461,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [localDataReady, setLocalDataReady] = useState(false);
   const refreshNow = useCallback(async (): Promise<boolean> => {
     if (!isOnline || !supabaseReady) {
       setLastSyncError(
@@ -470,6 +471,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     }
     setIsSyncing(true);
     try {
+      await syncMasterData();
+      await syncPendingOps(true);
       const results = await Promise.all([
         refreshServerOrders(),
         refreshServerStockMovements(),
@@ -490,7 +493,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     } finally {
       setIsSyncing(false);
     }
-  }, [isOnline, supabaseReady, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshCatalog]);
+  }, [isOnline, supabaseReady, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshCatalog, syncMasterData, syncPendingOps]);
 
   // Realtime đa máy (0049): 1 channel 'multipos-live' nghe 10 bảng publication,
   // event nào cũng chỉ xếp hàng rồi debounce gọi lại đúng hàm refresh tương ứng
@@ -553,12 +556,15 @@ function StoreInner({ children }: { children: React.ReactNode }) {
 
   // Initialize DB on mount
   useEffect(() => {
-    initializeDatabase().then(async () => {
+    initializeDatabase()
+      .then(async () => {
       try {
         const storedProducts = await db.products.toArray();
         if (storedProducts.length > 0) setProducts(storedProducts);
         const storedCustomers = await db.customers.toArray();
         if (storedCustomers.length > 0) setCustomers(storedCustomers);
+        const storedSuppliers = await db.suppliers.toArray();
+        if (storedSuppliers.length > 0) setSuppliers(storedSuppliers);
         const storedOrders = await db.orders.toArray();
         if (storedOrders.length > 0) setOrders(storedOrders);
         const storedProjects = await db.projects.toArray();
@@ -585,8 +591,12 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.warn('DB load error:', err);
       }
-    });
-  }, [setCustomers, setProducts, setCashbook, setOrders, setPendingQueue, setProjects, setAttendanceDays, setEmployees]);
+    })
+      .catch((err) => {
+        console.warn('DB initialize error:', err);
+      })
+      .finally(() => setLocalDataReady(true));
+  }, [setCustomers, setProducts, setSuppliers, setCashbook, setOrders, setPendingQueue, setProjects, setAttendanceDays, setEmployees]);
 
 
   // P3: có mạng -> kéo catalog từ server (re-sync tồn/giá khi vừa online lại)
@@ -594,22 +604,26 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   // Thương mại: kéo giá mài + làm tròn server
   // (chạy trong microtask để tránh set-state-in-effect)
   useEffect(() => {
-    if (isOnline) {
-      Promise.resolve().then(() => {
-        syncPendingOrders().then(() => {
-          syncMasterData().then(() => refreshCatalog());
-          refreshServerOrders();
-          refreshServerStockMovements();
-          refreshServerCashbook();
-          syncCustomers();
-          syncProjects();
-          syncPendingOps();
-          refreshGrinding();
-          refreshCashRounding();
-        });
-      });
+    if (isOnline && localDataReady) {
+      Promise.resolve()
+        .then(async () => {
+          const masterResult = await syncMasterData();
+          if (masterResult.failed === 0) await refreshCatalog();
+          await syncPendingOrders();
+          await syncPendingOps();
+          await Promise.allSettled([
+            refreshServerOrders(),
+            refreshServerStockMovements(),
+            refreshServerCashbook(),
+            syncCustomers(),
+            syncProjects(),
+            refreshGrinding(),
+            refreshCashRounding(),
+          ]);
+        })
+        .catch(() => {});
     }
-  }, [isOnline, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, syncCustomers, syncProjects, syncPendingOps, refreshGrinding, refreshCashRounding]);
+  }, [isOnline, localDataReady, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, syncCustomers, syncProjects, syncPendingOps, refreshGrinding, refreshCashRounding]);
 
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;

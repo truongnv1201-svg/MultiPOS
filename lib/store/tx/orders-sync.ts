@@ -237,7 +237,7 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
           setOrders((prev) => prev.map((ord) => (ord.id === o.id ? failedOrder : ord)));
         }
       }
-      setPendingQueue(remaining);
+      setPendingQueue((prev) => stableNext(prev, remaining));
       if (failures.length > 0) {
         notify(`Đồng bộ ${failures.length} đơn offline thất bại, giữ lại để thử sau:\n${failures.slice(0, 5).join('\n')}${failures.length > 5 ? `\n...và ${failures.length - 5} đơn nữa` : ''}`, 'error');
       }

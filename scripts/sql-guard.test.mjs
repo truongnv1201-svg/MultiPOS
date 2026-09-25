@@ -69,6 +69,50 @@ describe('0051: catalog public ẩn giá vốn', () => {
   });
 });
 
+describe('0053: supplier debt guard', () => {
+  const sql = read('supabase/migrations/0053_supplier_debt_owner_guard.sql');
+
+  it('tồn tại migration 0053', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0053_supplier_debt_owner_guard.sql')));
+  });
+
+  it('tính và kiểm tra tổng, tiền trả, tiền nợ từ dữ liệu phiếu', () => {
+    assert.match(sql, /v_actual_total := v_actual_total \+ v_qty \* v_price/);
+    assert.match(sql, /Tổng tiền phiếu không khớp dòng hàng/);
+    assert.match(sql, /Số tiền còn nợ không khớp tổng phiếu/);
+  });
+
+  it('rollback toàn bộ khi một dòng hàng không resolve được', () => {
+    assert.match(sql, /Không tìm thấy hàng hóa trong danh mục server/);
+    assert.ok(!/if v_qty <= 0 or v_price <= 0 then continue/.test(sql));
+    assert.ok(sql.indexOf('v_actual_total') < sql.indexOf('insert into public.purchase_orders'));
+  });
+
+  it('chặn nợ vô chủ, xử lý trùng client_ref và giới hạn quyền nhập kho', () => {
+    assert.match(sql, /if not public\.is_manager\(\)/);
+    assert.match(sql, /Nợ vô chủ/);
+    assert.match(sql, /exception when unique_violation then/);
+    assert.match(sql, /duplicate', true/);
+    assert.match(sql, /create or replace function public\.pay_supplier_debt/);
+    assert.match(sql, /p_amount::text in \('NaN', 'Infinity', '-Infinity'\)/);
+    assert.match(sql, /purchase_orders_write[\s\S]*public\.is_manager\(\)/);
+    assert.match(sql, /drop function if exists public\.sync_stock_import\(text, text, uuid, text, jsonb, numeric\)/);
+  });
+
+  it('client giữ op chưa đủ điều kiện và tuần tự hóa sync', () => {
+    const debts = read('lib/store/tx/debts.tsx');
+    const shiftStock = read('lib/store/tx/shift-stock.tsx');
+    const store = read('lib/store.tsx');
+    const database = read('lib/db.ts');
+    assert.match(debts, /syncLockRef/);
+    assert.match(debts, /if \(debt > 0 && !serverSupplierId\) \{/);
+    assert.match(shiftStock, /const importQueued = await enqueueOp\('import'/);
+    assert.match(shiftStock, /roundMoney/);
+    assert.match(database, /generateImportCode/);
+    assert.match(store, /storedSuppliers/);
+  });
+});
+
 describe('error boundary chống trắng trang', () => {
   it('có app/error.tsx và app/global-error.tsx', () => {
     assert.ok(existsSync(join(ROOT, 'app/error.tsx')), 'thiếu app/error.tsx');

@@ -3,7 +3,7 @@
 // khi checkout/hủy/nhập kho. Phụ thuộc duy nhất: AuthSlice (supa/profile) cho RBAC + sync.
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { useAuth } from './auth';
 import { useNetwork } from './network';
 import type { Product, Customer, Supplier } from '../types';
@@ -37,6 +37,37 @@ export interface CatalogSlice {
 // P1 Sửa/Xóa: id uuid server (= đã đồng bộ), id local còn lại (= chưa lên server).
 const IS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+async function remapPendingCatalogReferences(
+  entity: PendingMasterData['entity'],
+  localId: string,
+  mappedId: string,
+  row: Record<string, unknown>,
+) {
+  const ops = await db.pendingOps.toArray();
+  for (const op of ops) {
+    const payload = { ...op.payload };
+    let changed = false;
+    if (entity === 'product' && op.kind === 'import' && Array.isArray(payload.lines)) {
+      payload.lines = (payload.lines as Record<string, unknown>[]).map((line) => {
+        if (line.productId !== localId) return line;
+        changed = true;
+        return { ...line, productId: mappedId, sku: typeof row.sku === 'string' ? row.sku : line.sku };
+      });
+    }
+    if (entity === 'supplier' && (op.kind === 'import' || op.kind === 'supplier_payment')) {
+      if (payload.supplierId === localId) {
+        payload.supplierId = mappedId;
+        payload.supplierName = row.name ?? payload.supplierName;
+        changed = true;
+      }
+    }
+    if (changed) await db.pendingOps.update(op.id, { payload });
+  }
+  if (entity === 'supplier') {
+    await db.purchaseOrders.where('supplier_id').equals(localId).modify({ supplier_id: mappedId }).catch(() => {});
+  }
+}
+
 const CatalogContext = createContext<CatalogSlice | null>(null);
 
 // 0009: map id KH local -> uuid server, persist localStorage (sống qua reload)
@@ -46,6 +77,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const { supa, user, profile } = useAuth();
   const { isOnline } = useNetwork();
 
+  const masterSyncLockRef = useRef<Promise<{ synced: number; failed: number }> | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -89,7 +121,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const syncMasterData = useCallback(async (): Promise<{ synced: number; failed: number }> => {
+  const syncMasterDataWorker = useCallback(async (): Promise<{ synced: number; failed: number }> => {
     if (!supa || !user || !isOnline) return { synced: 0, failed: 0 };
     const queue = await db.pendingMasterData.orderBy('created_at').toArray();
     let synced = 0;
@@ -175,17 +207,23 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         if (result.error || !result.data) throw new Error(result.error?.message || 'Server không trả về dữ liệu.');
         const row = result.data;
         if (item.operation === 'insert') localToServer.set(item.local_id, row.id);
-        const mappedId = row.id || serverId;
+        const mappedId = String(row.id || serverId);
+        if (item.entity === 'product' || item.entity === 'supplier') {
+          await remapPendingCatalogReferences(item.entity, item.local_id, mappedId, row as Record<string, unknown>);
+        }
         if (item.entity === 'product') {
-          await db.products.delete(item.local_id).catch(() => {});
-          await db.products.put({
-            ...(item.payload as unknown as Product),
+          const localProduct = await db.products.get(item.local_id).catch(() => undefined);
+          const mappedProduct: Product = {
+            ...(localProduct || (item.payload as unknown as Product)),
             id: mappedId,
-            sku: row.sku,
-            avg_cost: Number(row.avg_cost),
-            stock_quantity: Number(row.stock_quantity),
-          });
-          setProducts((prev) => prev.map((p) => (p.id === item.local_id ? { ...p, id: mappedId, sku: row.sku } : p)));
+            sku: row.sku || localProduct?.sku || item.payload.sku,
+            avg_cost: localProduct?.avg_cost ?? Number(row.avg_cost ?? item.payload.avg_cost ?? 0),
+            stock_quantity: localProduct?.stock_quantity ?? Number(row.stock_quantity ?? item.payload.stock_quantity ?? 0),
+            import_price: localProduct?.import_price ?? Number(row.import_price ?? item.payload.import_price ?? 0),
+          };
+          await db.products.delete(item.local_id).catch(() => {});
+          await db.products.put(mappedProduct);
+          setProducts((prev) => prev.map((p) => (p.id === item.local_id ? mappedProduct : p)));
         } else if (item.entity === 'customer') {
           await db.customers.delete(item.local_id).catch(() => {});
           const mapped = { ...(item.payload as unknown as Customer), id: mappedId, code: row.code, created_at: row.created_at };
@@ -201,9 +239,17 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
             return next;
           });
         } else {
+          const localSupplier = await db.suppliers.get(item.local_id).catch(() => undefined);
+          const mappedSupplier: Supplier = {
+            ...(localSupplier || (item.payload as unknown as Supplier)),
+            id: mappedId,
+            code: row.code || localSupplier?.code || item.payload.code,
+            name: row.name || localSupplier?.name || item.payload.name,
+            current_debt: localSupplier?.current_debt ?? Number(row.current_debt ?? item.payload.current_debt ?? 0),
+          };
           await db.suppliers.delete(item.local_id).catch(() => {});
-          await db.suppliers.put({ ...(item.payload as unknown as Supplier), id: mappedId, code: row.code });
-          setSuppliers((prev) => prev.map((s) => (s.id === item.local_id ? { ...s, id: mappedId, code: row.code } : s)));
+          await db.suppliers.put(mappedSupplier);
+          setSuppliers((prev) => prev.map((s) => (s.id === item.local_id ? mappedSupplier : s)));
         }
         await db.pendingMasterData.delete(item.id);
         synced += 1;
@@ -218,6 +264,21 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     }
     return { synced, failed };
   }, [supa, user, isOnline]);
+
+  const syncMasterData = useCallback((): Promise<{ synced: number; failed: number }> => {
+    const startSync = () => {
+      const activeSync = masterSyncLockRef.current;
+      if (activeSync) return activeSync;
+      let task: Promise<{ synced: number; failed: number }>;
+      task = syncMasterDataWorker().finally(() => {
+        if (masterSyncLockRef.current === task) masterSyncLockRef.current = null;
+      });
+      masterSyncLockRef.current = task;
+      return task;
+    };
+    const activeSync = masterSyncLockRef.current;
+    return activeSync ? activeSync.then(startSync) : startSync();
+  }, [syncMasterDataWorker]);
 
   // P3: tải catalog từ server. Đã login (authenticated) -> bảng products đủ cột;
   // chưa login (anon, RLS 0051 chặn giá vốn) -> view catalog_public an toàn.
@@ -272,7 +333,6 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         default_grinding_price: row.default_grinding_price != null ? Number(row.default_grinding_price) : undefined,
         combo_items: comboItemsByProduct.get(row.id),
       }));
-      setProducts(mapped);
       const mappedCustomers: Customer[] = (customersResult.data as any[]).map((row) => ({
         id: row.id,
         code: row.code,
@@ -294,26 +354,83 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         credit_limit: row.credit_limit != null ? Number(row.credit_limit) : undefined,
         current_debt: Number(row.current_debt) || 0,
       }));
-      // Không để lần refresh server làm mất các bản ghi còn đang chờ replay.
-      const pending = await db.pendingMasterData.toArray();
-      const pendingIds = new Set(pending.map((item) => item.local_id));
-      const [localProducts, localCustomers, localSuppliers] = await Promise.all([
-        db.products.bulkGet([...pendingIds]),
-        db.customers.bulkGet([...pendingIds]),
-        db.suppliers.bulkGet([...pendingIds]),
+      const [pendingMaster, pendingOps, localProducts, localCustomers, localSuppliers] = await Promise.all([
+        db.pendingMasterData.toArray(),
+        db.pendingOps.toArray(),
+        db.products.toArray(),
+        db.customers.toArray(),
+        db.suppliers.toArray(),
       ]);
-      const pendingProducts = localProducts.filter((row): row is Product => Boolean(row));
-      const pendingCustomers = localCustomers.filter((row): row is Customer => Boolean(row));
-      const pendingSuppliers = localSuppliers.filter((row): row is Supplier => Boolean(row));
+      const masterProductIds = new Set(pendingMaster.filter((item) => item.entity === 'product').map((item) => item.local_id));
+      const masterCustomerIds = new Set(pendingMaster.filter((item) => item.entity === 'customer').map((item) => item.local_id));
+      const masterSupplierIds = new Set(pendingMaster.filter((item) => item.entity === 'supplier').map((item) => item.local_id));
+      const pendingProducts = localProducts.filter((row) => masterProductIds.has(row.id));
+      const pendingCustomers = localCustomers.filter((row) => masterCustomerIds.has(row.id));
+      const pendingSuppliers = localSuppliers.filter((row) => masterSupplierIds.has(row.id));
+      const pendingProductIds = new Set<string>();
+      const pendingProductSkus = new Set<string>();
+      const pendingSupplierIds = new Set<string>();
+      const pendingSupplierNames = new Set<string>();
+      const normalizeName = (value: unknown) => String(value || '').trim().toLowerCase();
+      for (const op of pendingOps) {
+        const payload = op.payload;
+        if (op.kind === 'import') {
+          if (Array.isArray(payload.lines)) {
+            for (const line of payload.lines as Record<string, unknown>[]) {
+              if (typeof line.productId === 'string') pendingProductIds.add(line.productId);
+              if (typeof line.sku === 'string' && line.sku.trim()) pendingProductSkus.add(line.sku.trim().toLowerCase());
+            }
+          }
+          if (typeof payload.supplierId === 'string') pendingSupplierIds.add(payload.supplierId);
+          if (typeof payload.supplierName === 'string' && payload.supplierName.trim()) {
+            pendingSupplierNames.add(normalizeName(payload.supplierName));
+          }
+        } else if (op.kind === 'supplier_payment') {
+          if (typeof payload.supplierId === 'string') pendingSupplierIds.add(payload.supplierId);
+          if (typeof payload.supplierName === 'string' && payload.supplierName.trim()) {
+            pendingSupplierNames.add(normalizeName(payload.supplierName));
+          }
+        }
+      }
       const mergePending = <T extends { id: string }>(serverRows: T[], localRows: T[]) => {
         const localById = new Map(localRows.map((row) => [row.id, row]));
         return serverRows.map((row) => localById.get(row.id) || row).concat(
           localRows.filter((row) => !serverRows.some((serverRow) => serverRow.id === row.id))
         );
       };
-      const nextProducts = mergePending(mapped, pendingProducts);
+      const localProductsById = new Map(localProducts.map((row) => [row.id, row]));
+      const localProductsBySku = new Map(localProducts.map((row) => [row.sku.trim().toLowerCase(), row]));
+      const overlayProducts = localProducts.length > 0
+        ? (row: Product) => {
+            const sku = row.sku.trim().toLowerCase();
+            if (!pendingProductIds.has(row.id) && !pendingProductSkus.has(sku)) return row;
+            const local = localProductsById.get(row.id) || localProductsBySku.get(sku);
+            return local ? { ...row, ...local, id: row.id, sku: row.sku } : row;
+          }
+        : (row: Product) => row;
+      const localSuppliersById = new Map(localSuppliers.map((row) => [row.id, row]));
+      const localSuppliersByName = new Map<string, Supplier[]>();
+      for (const localSupplier of localSuppliers) {
+        const name = normalizeName(localSupplier.name);
+        localSuppliersByName.set(name, [...(localSuppliersByName.get(name) || []), localSupplier]);
+      }
+      const serverSupplierNameCounts = new Map<string, number>();
+      for (const supplier of mappedSuppliers) {
+        const name = normalizeName(supplier.name);
+        serverSupplierNameCounts.set(name, (serverSupplierNameCounts.get(name) || 0) + 1);
+      }
+      const overlaySuppliers = localSuppliers.length > 0
+        ? (row: Supplier) => {
+            const name = normalizeName(row.name);
+            if (!pendingSupplierIds.has(row.id) && !pendingSupplierNames.has(name)) return row;
+            const nameMatches = localSuppliersByName.get(name) || [];
+            const local = localSuppliersById.get(row.id) || (serverSupplierNameCounts.get(name) === 1 && nameMatches.length === 1 ? nameMatches[0] : undefined);
+            return local ? { ...row, ...local, id: row.id, code: row.code, name: row.name } : row;
+          }
+        : (row: Supplier) => row;
+      const nextProducts = mergePending(mapped.map(overlayProducts), pendingProducts);
       const nextCustomers = mergePending(mappedCustomers, pendingCustomers);
-      const nextSuppliers = mergePending(mappedSuppliers, pendingSuppliers);
+      const nextSuppliers = mergePending(mappedSuppliers.map(overlaySuppliers), pendingSuppliers);
       // P3-loop fix: giữ identity khi server không có gì mới để cắt vòng lặp
       // effect-pull -> setState -> callback mới -> effect chạy lại.
       setProducts((prev) => stableNext(prev, nextProducts));
@@ -321,12 +438,14 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       setSuppliers((prev) => stableNext(prev, nextSuppliers));
       setCatalogSource('server');
       try {
-        await db.products.clear();
-        await db.products.bulkAdd(nextProducts);
-        await db.customers.clear();
-        await db.customers.bulkAdd(nextCustomers);
-        await db.suppliers.clear();
-        await db.suppliers.bulkAdd(nextSuppliers);
+        await db.transaction('rw', [db.products, db.customers, db.suppliers], async () => {
+          await db.products.clear();
+          await db.products.bulkAdd(nextProducts);
+          await db.customers.clear();
+          await db.customers.bulkAdd(nextCustomers);
+          await db.suppliers.clear();
+          await db.suppliers.bulkAdd(nextSuppliers);
+        });
       } catch {
         /* cache best-effort */
       }

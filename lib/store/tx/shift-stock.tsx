@@ -8,14 +8,14 @@ import { useAuth } from '../auth';
 import { useCatalog } from '../catalog';
 import { useNetwork } from '../network';
 import type { CashbookEntry, Order, PurchaseOrder, Shift, StockMovement } from '../../types';
-import { db, generateOrderCode } from '../../db';
-import { enqueueOp, EMPTY_SHIFT } from './constants';
+import { db, generateImportCode, generateOrderCode } from '../../db';
+import { enqueueOp, EMPTY_SHIFT, resolveSupplierReference, roundMoney } from './constants';
 import { stableNext } from '../stable';
 import { vietnamizeError } from '../../error-vi';
 import { notify } from '@/components/common/Toast';
 
 export interface TxShiftStockDeps {
-  syncPendingOpsRef: { current: () => Promise<{ synced: number; failed: number }> };
+  syncPendingOpsRef: { current: (retryFailed?: boolean) => Promise<{ synced: number; failed: number }> };
   pendingQueueRef: { current: Order[] };
 }
 
@@ -362,23 +362,30 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       const code = generateOrderCode(entryData.type === 'receipt' ? 'PT' : 'PC');
       const newEntry: CashbookEntry = {
         ...entryData,
-        id: `cb-${Date.now()}`,
+        id: `cb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         code,
         created_at: new Date().toISOString(),
       };
+      try {
+        await db.transaction('rw', [db.cashbook, db.pendingOps], async () => {
+          await db.cashbook.add(newEntry);
+          const voucherQueued = await enqueueOp('voucher', {
+            entryId: newEntry.id,
+            type: newEntry.type,
+            fund: newEntry.fund_type,
+            category: newEntry.category,
+            amount: newEntry.amount,
+            partner: newEntry.partner_name || '',
+            reference: newEntry.reference_order_code || '',
+            note: newEntry.note || '',
+          });
+          if (!voucherQueued) throw new Error('Không lưu được phiếu thu/chi vào hàng đợi.');
+        });
+      } catch (err) {
+        notify(`Không lưu được phiếu thu/chi: ${err instanceof Error ? err.message : 'lỗi không rõ'}`, 'error');
+        return false;
+      }
       setCashbook((prev) => [newEntry, ...prev]);
-      await db.cashbook.add(newEntry);
-      // P0: xếp hàng đẩy voucher tay lên server (backup/audit); online thì đẩy ngay
-      await enqueueOp('voucher', {
-        entryId: newEntry.id,
-        type: newEntry.type,
-        fund: newEntry.fund_type,
-        category: newEntry.category,
-        amount: newEntry.amount,
-        partner: newEntry.partner_name || '',
-        reference: newEntry.reference_order_code || '',
-        note: newEntry.note || '',
-      });
       void syncPendingOpsRef.current();
       return true;
     },
@@ -425,7 +432,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         import_price: importPrice,
       });
 
-      const refCode = generateOrderCode('NH');
+      const refCode = generateImportCode();
       const movement: StockMovement = {
         id: `sm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         reference_code: refCode,
@@ -468,26 +475,30 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
             name: product.name,
             quantity,
             unit_price: importPrice,
-            subtotal: Math.round(quantity * importPrice),
+            subtotal: roundMoney(quantity * importPrice),
           },
         ],
-        subtotal: Math.round(quantity * importPrice),
+        subtotal: roundMoney(quantity * importPrice),
         discount_amount: 0,
-        total_amount: Math.round(quantity * importPrice),
-        paid_amount: Math.round(quantity * importPrice),
+        total_amount: roundMoney(quantity * importPrice),
+        paid_amount: roundMoney(quantity * importPrice),
         debt_amount: 0,
         status: 'completed',
         created_at: new Date().toISOString(),
       };
       db.purchaseOrders.add(poSingle).catch(console.warn);
-      await enqueueOp('import', {
+      const importQueued = await enqueueOp('import', {
         clientRef: `imp-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
         code: refCode,
         supplierName,
-        total: Math.round(quantity * importPrice),
+        total: roundMoney(quantity * importPrice),
         lines: [{ productId: product.id, sku: product.sku, quantity, importPrice }],
       });
-      await enqueueOp('voucher', {
+      if (!importQueued) {
+        notify('Không lưu được phiếu nhập vào hàng đợi đồng bộ. Hãy thử lại.', 'error');
+        return;
+      }
+      const voucherQueued = await enqueueOp('voucher', {
         entryId: expenseEntry.id,
         type: expenseEntry.type,
         fund: expenseEntry.fund_type,
@@ -497,6 +508,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         reference: expenseEntry.reference_order_code || '',
         note: expenseEntry.note || '',
       });
+      if (!voucherQueued) notify('Phiếu nhập đã lưu nhưng chưa xếp được phiếu chi để đồng bộ.', 'error');
       void syncPendingOpsRef.current();
     },
     [products, supa, profile, currentShift, setProducts, syncPendingOpsRef]
@@ -527,17 +539,18 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       }
       const clean = lines.filter((l) => {
         const p = products.find((x) => x.id === l.productId);
-        return p && l.quantity > 0 && l.importPrice > 0;
+        return p && Number.isFinite(l.quantity) && Number.isFinite(l.importPrice) && l.quantity > 0 && l.importPrice > 0;
       });
       if (clean.length === 0) {
         notify('Phiếu nhập chưa có dòng hàng hợp lệ (chọn hàng, SL và đơn giá > 0)!', 'error');
         return false;
       }
-      const refCode = generateOrderCode('NH');
+      const refCode = generateImportCode();
       const now = new Date().toISOString();
 
       const paymentMethod = paymentOptions?.paymentMethod || 'transfer';
-      const supplierId = paymentOptions?.supplierId || '';
+      const supplierRef = resolveSupplierReference(paymentOptions?.supplierId, supplierName, suppliers);
+      const resolvedSupplierName = supplierRef?.name || supplierName.trim() || 'Nhà Cung Cấp';
 
       // Tính MAC nối tiếp trên bản sao (đúng cả khi 1 hàng xuất hiện nhiều dòng)
       const running = new Map(products.map((p) => [p.id, { ...p }]));
@@ -563,7 +576,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           quantity: l.quantity,
           previous_stock: prevStock,
           new_stock: newStock,
-          note: `${note} (${supplierName}) - MAC: ${prevCost.toLocaleString('vi-VN')}đ -> ${newAvgCost.toLocaleString('vi-VN')}đ`,
+          note: `${note} (${resolvedSupplierName}) - MAC: ${prevCost.toLocaleString('vi-VN')}đ -> ${newAvgCost.toLocaleString('vi-VN')}đ`,
           created_at: now,
         });
       }
@@ -571,84 +584,27 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
 
       let paidAmount = 0;
       if (paymentMethod === 'cash' || paymentMethod === 'transfer') {
-        paidAmount = Math.round(totalAmount);
+        paidAmount = roundMoney(totalAmount);
       } else if (paymentMethod === 'debt') {
         paidAmount = 0;
       } else if (paymentMethod === 'partial') {
-        paidAmount = Math.max(0, Math.min(Math.round(totalAmount), Math.round(paymentOptions?.paidAmount || 0)));
+        paidAmount = Math.max(0, Math.min(roundMoney(totalAmount), roundMoney(paymentOptions?.paidAmount || 0)));
       }
-      const debtAmount = Math.max(0, Math.round(totalAmount) - paidAmount);
+      const debtAmount = roundMoney(Math.max(0, totalAmount - paidAmount));
+
+      if (debtAmount > 0 && !supplierRef) {
+        notify(`Nhà cung cấp "${supplierName}" chưa có trong danh mục. Bấm nút (+) tạo NCC trước khi ghi nợ!`, 'error');
+        return false;
+      }
+      const targetSupId = supplierRef?.id || '';
 
       const updatedList = products.map((p) => running.get(p.id) || p);
-      setProducts(updatedList);
-      try {
-        for (const p of running.values()) {
-          const orig = products.find((x) => x.id === p.id);
-          if (orig && (orig.stock_quantity !== p.stock_quantity || orig.avg_cost !== p.avg_cost)) {
-            await db.products.update(p.id, {
-              stock_quantity: p.stock_quantity,
-              avg_cost: p.avg_cost,
-              import_price: p.import_price,
-            });
-          }
-        }
-      } catch {
-        /* best-effort */
-      }
-      setStockMovements((prev) => [...movements.reverse(), ...prev]);
-
-      // 1) Nếu paidAmount > 0: tạo phiếu chi Cashbook
-      if (paidAmount > 0) {
-        const expenseEntry: CashbookEntry = {
-          id: `cb-${Date.now()}-import`,
-          code: generateOrderCode('PC'),
-          type: 'expense',
-          fund_type: paymentMethod === 'cash' ? 'cash' : 'bank',
-          category: 'material',
-          amount: paidAmount,
-          partner_name: supplierName,
-          reference_order_code: refCode,
-          note: `Thanh toán tiền nhập kho ${movements.length} dòng hàng (${supplierName})`,
-          created_at: now,
-        };
-        setCashbook((prev) => [expenseEntry, ...prev]);
-        db.cashbook.add(expenseEntry).catch(console.warn);
-        await enqueueOp('voucher', {
-          entryId: expenseEntry.id,
-          type: expenseEntry.type,
-          fund: expenseEntry.fund_type,
-          category: expenseEntry.category,
-          amount: expenseEntry.amount,
-          partner: expenseEntry.partner_name || '',
-          reference: expenseEntry.reference_order_code || '',
-          note: expenseEntry.note || '',
-        });
-      }
-
-      // 2) Nếu debtAmount > 0: tăng nợ nhà cung cấp
-      if (debtAmount > 0) {
-        let targetSupId = supplierId;
-        if (!targetSupId) {
-          const found = suppliers.find((s) => s.name.toLowerCase() === supplierName.toLowerCase());
-          if (found) targetSupId = found.id;
-        }
-        if (targetSupId) {
-          setSuppliers((prev) =>
-            prev.map((s) => (s.id === targetSupId ? { ...s, current_debt: s.current_debt + debtAmount } : s))
-          );
-          db.suppliers.get(targetSupId).then((s) => {
-            if (s) db.suppliers.update(targetSupId, { current_debt: s.current_debt + debtAmount });
-          }).catch(console.warn);
-        }
-      }
-
-      // 3) Ghi PurchaseOrder local
       const poStatus: PurchaseOrder['status'] = debtAmount <= 0 ? 'completed' : paidAmount <= 0 ? 'debt' : 'partial';
       const poRecord: PurchaseOrder = {
-        id: `po-${Date.now()}`,
+        id: `po-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         code: refCode,
-        supplier_id: supplierId,
-        supplier_name: supplierName,
+        supplier_id: targetSupId,
+        supplier_name: resolvedSupplierName,
         items: clean.map((l) => {
           const p = products.find((x) => x.id === l.productId);
           return {
@@ -657,33 +613,105 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
             name: p?.name || '',
             quantity: l.quantity,
             unit_price: l.importPrice,
-            subtotal: Math.round(l.quantity * l.importPrice),
+            subtotal: roundMoney(l.quantity * l.importPrice),
           };
         }),
-        subtotal: Math.round(totalAmount),
+        subtotal: roundMoney(totalAmount),
         discount_amount: 0,
-        total_amount: Math.round(totalAmount),
+        total_amount: roundMoney(totalAmount),
         paid_amount: paidAmount,
         debt_amount: debtAmount,
         status: poStatus,
         created_at: now,
       };
-      db.purchaseOrders.add(poRecord).catch(console.warn);
-
-      // 4) Hàng đợi đẩy import op lên server
-      await enqueueOp('import', {
-        clientRef: `imp-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+      let expenseEntry: CashbookEntry | null = null;
+      if (paidAmount > 0) {
+        expenseEntry = {
+          id: `cb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-import`,
+          code: generateOrderCode('PC'),
+          type: 'expense',
+          fund_type: paymentMethod === 'cash' ? 'cash' : 'bank',
+          category: 'material',
+          amount: paidAmount,
+          partner_name: resolvedSupplierName,
+          reference_order_code: refCode,
+          note: `Thanh toán tiền nhập kho ${movements.length} dòng hàng (${resolvedSupplierName})`,
+          created_at: now,
+        };
+      }
+      const importPayload = {
+        clientRef: `imp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         code: refCode,
-        supplierId,
-        supplierName,
-        total: Math.round(totalAmount),
+        supplierId: targetSupId,
+        supplierName: resolvedSupplierName,
+        total: roundMoney(totalAmount),
         paid: paidAmount,
         debt: debtAmount,
         lines: clean.map((l) => {
           const p = products.find((x) => x.id === l.productId);
           return { productId: l.productId, sku: p?.sku || '', quantity: l.quantity, importPrice: l.importPrice };
         }),
-      });
+      };
+      const voucherPayload = expenseEntry
+        ? {
+            entryId: expenseEntry.id,
+            type: expenseEntry.type,
+            fund: expenseEntry.fund_type,
+            category: expenseEntry.category,
+            amount: expenseEntry.amount,
+            partner: expenseEntry.partner_name || '',
+            reference: expenseEntry.reference_order_code || '',
+            note: expenseEntry.note || '',
+          }
+        : null;
+
+      try {
+        await db.transaction(
+          'rw',
+          [db.products, db.suppliers, db.cashbook, db.purchaseOrders, db.pendingOps],
+          async () => {
+            for (const p of running.values()) {
+              const orig = products.find((x) => x.id === p.id);
+              if (orig && (orig.stock_quantity !== p.stock_quantity || orig.avg_cost !== p.avg_cost)) {
+                const changes = await db.products.update(p.id, {
+                  stock_quantity: p.stock_quantity,
+                  avg_cost: p.avg_cost,
+                  import_price: p.import_price,
+                });
+                if (changes === 0) throw new Error('Không cập nhật được tồn hàng hóa cục bộ.');
+              }
+            }
+            if (expenseEntry) await db.cashbook.add(expenseEntry);
+            if (debtAmount > 0 && supplierRef?.local) {
+              const currentSupplier = await db.suppliers.get(supplierRef.local.id);
+              if (!currentSupplier) throw new Error('Không tìm thấy nhà cung cấp cục bộ.');
+              await db.suppliers.update(supplierRef.local.id, {
+                current_debt: roundMoney(currentSupplier.current_debt + debtAmount),
+              });
+            }
+            await db.purchaseOrders.add(poRecord);
+            const importQueued = await enqueueOp('import', importPayload);
+            if (!importQueued) throw new Error('Không lưu được phiếu nhập vào hàng đợi.');
+            if (voucherPayload) {
+              const voucherQueued = await enqueueOp('voucher', voucherPayload);
+              if (!voucherQueued) throw new Error('Không lưu được phiếu chi vào hàng đợi.');
+            }
+          },
+        );
+      } catch (err) {
+        notify(`Không lưu được phiếu nhập: ${err instanceof Error ? err.message : 'lỗi không rõ'}`, 'error');
+        return false;
+      }
+
+      setProducts(updatedList);
+      setStockMovements((prev) => [...movements].reverse().concat(prev));
+      if (expenseEntry) setCashbook((prev) => [expenseEntry, ...prev]);
+      if (debtAmount > 0 && supplierRef?.local) {
+        const localSupplier = supplierRef.local;
+        setSuppliers((prev) =>
+          prev.map((s) => (s.id === localSupplier.id ? { ...s, current_debt: roundMoney(s.current_debt + debtAmount) } : s))
+        );
+      }
       void syncPendingOpsRef.current();
       return true;
     },

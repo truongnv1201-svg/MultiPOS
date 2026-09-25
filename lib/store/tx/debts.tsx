@@ -1,14 +1,15 @@
 // P3-tx/debts: công nợ KH/NCC + hàng đợi pendingOps (tách verbatim từ transactions.tsx).
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useAuth } from '../auth';
 import { useCatalog } from '../catalog';
 import { useNetwork } from '../network';
 import type { CashbookEntry, Shift } from '../../types';
 import { db, generateOrderCode } from '../../db';
 import type { PendingOp } from '../../db';
-import { asUuidOrNull, enqueueOp } from './constants';
+import { asUuidOrNull, enqueueOp, normalizeSupplierName, resolveSupplierReference, roundMoney } from './constants';
+import type { SupplierReference } from './constants';
 import { vietnamizeError } from '../../error-vi';
 import { notify } from '@/components/common/Toast';
 
@@ -22,7 +23,7 @@ export interface TxDebts {
   collectDebt: (customerId: string, amount: number, paymentMethod: 'cash' | 'transfer', note: string) => Promise<boolean>;
   syncDebtsFromServer: () => Promise<{ updated: number; skipped: number }>;
   paySupplierDebt: (supplierId: string, amount: number, paymentMethod: 'cash' | 'transfer', note: string) => Promise<boolean>;
-  syncPendingOps: () => Promise<{ synced: number; failed: number }>;
+  syncPendingOps: (retryFailed?: boolean) => Promise<{ synced: number; failed: number }>;
 }
 
 export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDebtsDeps): TxDebts {
@@ -30,6 +31,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
   const { profile, setLoginOpen } = useAuth();
   const { suppliers, setSuppliers, customers, setCustomers, customerMap, refreshCatalog } = useCatalog();
   const { isOnline } = useNetwork();
+  const syncLockRef = useRef<Promise<{ synced: number; failed: number }> | null>(null);
 
   // Collect Customer Debt (FIN-ERR-02)
   const collectDebt = useCallback(
@@ -200,86 +202,135 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
     }
   }, [supa, user, isOnline, customers, customerMap, setLoginOpen, setCustomers]);
 
-  // P0: quét hàng đợi kho/quỹ/NCC — FIFO khi online. Server dedupe bằng client_ref
-  // nên replay an toàn; supplier_payment còn kéo truth nợ về mirror như thu nợ KH.
-  const syncPendingOps = useCallback(async (): Promise<{ synced: number; failed: number }> => {
+  const syncPendingOpsWorker = useCallback(async (retryFailed = false): Promise<{ synced: number; failed: number }> => {
     if (!supa || !user || !isOnline) return { synced: 0, failed: 0 };
-    const pendings = await db.pendingOps
-      .where('status')
-      .equals('pending')
-      .sortBy('created_at')
-      .catch(() => [] as PendingOp[]);
+    type ImportPayload = {
+      clientRef: string;
+      code: string;
+      supplierId?: string;
+      supplierName: string;
+      total: number;
+      paid?: number;
+      debt?: number;
+      lines: { productId: string; sku: string; quantity: number; importPrice: number }[];
+    };
+    type VoucherPayload = {
+      entryId: string;
+      type: string;
+      fund: string;
+      category: string;
+      amount: number;
+      partner: string;
+      reference: string;
+      note: string;
+    };
+    type SupplierPaymentPayload = {
+      supplierId: string;
+      supplierName?: string;
+      amount: number;
+      method: string;
+      note: string;
+      entryId: string;
+    };
+    type RpcResult = { ok?: boolean; imported?: boolean; duplicate?: boolean; debt?: number; paid?: number } | null;
+
+    let allOps = await db.pendingOps.toArray().catch(() => [] as PendingOp[]);
+    if (retryFailed) {
+      for (const op of allOps.filter((item) => item.status === 'failed')) {
+        await db.pendingOps.update(op.id, { status: 'pending', attempts: 0, last_error: undefined }).catch(() => {});
+      }
+      allOps = await db.pendingOps.toArray().catch(() => [] as PendingOp[]);
+    }
+    const activeOps = allOps.filter((op) => op.status === 'pending' || op.status === 'failed');
+    const pendings = allOps
+      .filter((op) => op.status === 'pending')
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+
+    const resolvePendingSupplier = async (supplierId?: string, supplierName?: string): Promise<SupplierReference | null> => {
+      const current = resolveSupplierReference(supplierId, supplierName, suppliers);
+      if (current) return current;
+      if (supplierId) {
+        const stored = await db.suppliers.get(supplierId).catch(() => undefined);
+        if (stored) return resolveSupplierReference(supplierId, supplierName, [stored, ...suppliers]);
+      }
+      return null;
+    };
+
+    const mirrorSupplierDebt = async (supplier: SupplierReference | null, serverId: string) => {
+      const { data: srow, error: mirrorError } = await supa
+        .from('suppliers')
+        .select('current_debt')
+        .eq('id', serverId)
+        .maybeSingle();
+      if (mirrorError || !srow) return;
+      const truth = Number((srow as { current_debt?: unknown }).current_debt);
+      if (!Number.isFinite(truth)) return;
+      const local = supplier?.local || suppliers.find((s) => s.id === serverId);
+      if (!local) {
+        void refreshCatalog();
+        return;
+      }
+      setSuppliers((prev) => prev.map((s) => (s.id === local.id ? { ...s, current_debt: truth } : s)));
+      await db.suppliers.update(local.id, { current_debt: truth }).catch(() => {});
+    };
+
+    const completedImportCodes = new Set<string>();
+    const holdOp = async (op: PendingOp, reason: string) => {
+      if (op.last_error === reason) return;
+      await db.pendingOps.update(op.id, { last_error: reason }).catch(() => {});
+      notify(reason, 'info');
+    };
+
     let synced = 0;
     let failed = 0;
     for (const op of pendings) {
       try {
         if (op.kind === 'import') {
-          const p = op.payload as {
-            clientRef: string;
-            code: string;
-            supplierId?: string;
-            supplierName: string;
-            total: number;
-            paid?: number;
-            debt?: number;
-            lines: { productId: string; sku: string; quantity: number; importPrice: number }[];
-          };
-          const supUuid = p.supplierId && /^[0-9a-fA-F-]{36}$/.test(p.supplierId) ? p.supplierId : null;
-          const { error } = await supa.rpc('sync_stock_import', {
+          const p = op.payload as ImportPayload;
+          const total = Number(p.total);
+          const paid = p.paid == null ? total : Number(p.paid);
+          const debt = p.debt == null ? Math.max(0, total - paid) : Number(p.debt);
+          if (!Number.isFinite(total) || total < 0 || !Number.isFinite(paid) || paid < 0 || paid > total || !Number.isFinite(debt) || debt < 0) {
+            throw new Error('Số tiền phiếu nhập không hợp lệ.');
+          }
+          const supplier = await resolvePendingSupplier(p.supplierId, p.supplierName);
+          const serverSupplierId = supplier?.uuid || asUuidOrNull(p.supplierId);
+          if (debt > 0 && !serverSupplierId) {
+            await holdOp(op, `Phiếu nhập ${p.code} đang chờ đồng bộ nhà cung cấp "${p.supplierName}".`);
+            continue;
+          }
+          const result = await supa.rpc('sync_stock_import', {
             p_client_ref: p.clientRef,
             p_code: p.code,
-            p_supplier_id: supUuid,
-            p_supplier_name: p.supplierName,
+            p_supplier_id: serverSupplierId,
+            p_supplier_name: supplier?.name || p.supplierName,
             p_lines: p.lines.map((l) => ({
               sku: l.sku,
               product_id: asUuidOrNull(l.productId),
               quantity: l.quantity,
               import_price: l.importPrice,
             })),
-            p_total: p.total,
-            p_paid: p.paid ?? p.total,
-            p_debt: p.debt ?? 0,
+            p_total: roundMoney(total),
+            p_paid: roundMoney(paid),
+            p_debt: roundMoney(debt),
           });
-          if (error) throw error;
-          // Mirror truth nợ NCC sau khi server ghi phiếu nhập (như op supplier_payment):
-          // server có thể clamp/tự tạo NCC theo tên -> tránh mirror local lệch tới lần
-          // refreshCatalog sau. NCC chưa có ở máy này -> kéo catalog về luôn.
-          try {
-            const matched =
-              suppliers.find((s) => s.id === p.supplierId) ||
-              suppliers.find((s) => s.name.toLowerCase() === p.supplierName.toLowerCase());
-            const sid = matched ? asUuidOrNull(matched.id) : null;
-            if (sid && matched) {
-              const { data: srow } = await supa
-                .from('suppliers')
-                .select('current_debt')
-                .eq('id', sid)
-                .maybeSingle();
-              const truth = Number((srow as { current_debt?: unknown } | null)?.current_debt);
-              if (Number.isFinite(truth)) {
-                setSuppliers((prev) =>
-                  prev.map((s) => (s.id === matched.id ? { ...s, current_debt: truth } : s))
-                );
-                await db.suppliers.update(matched.id, { current_debt: truth });
-              }
-            } else {
-              void refreshCatalog();
-            }
-          } catch {
-            /* giữ số mirror hiện có */
+          if (result.error) throw new Error(result.error.message);
+          const response = result.data as RpcResult;
+          if (response?.ok === false || (response?.imported === false && response?.duplicate !== true)) {
+            throw new Error('Server không nhận phiếu nhập.');
           }
+          completedImportCodes.add(p.code);
+          if (serverSupplierId) await mirrorSupplierDebt(supplier, serverSupplierId);
+          else void refreshCatalog();
         } else if (op.kind === 'voucher') {
-          const p = op.payload as {
-            entryId: string;
-            type: string;
-            fund: string;
-            category: string;
-            amount: number;
-            partner: string;
-            reference: string;
-            note: string;
-          };
-          const { error } = await supa.rpc('record_cashbook_voucher', {
+          const p = op.payload as VoucherPayload;
+          const importIsPending = activeOps.some((candidate) => {
+            if (candidate.kind !== 'import') return false;
+            const importPayload = candidate.payload as ImportPayload;
+            return importPayload.code === p.reference && !completedImportCodes.has(importPayload.code);
+          });
+          if (importIsPending) continue;
+          const result = await supa.rpc('record_cashbook_voucher', {
             p_client_ref: p.entryId,
             p_type: p.type,
             p_fund_type: p.fund,
@@ -289,48 +340,65 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
             p_reference: p.reference || null,
             p_note: p.note || null,
           });
-          if (error) throw error;
+          if (result.error) throw new Error(result.error.message);
+          const response = result.data as RpcResult;
+          if (response?.ok === false) throw new Error('Server không nhận phiếu chi.');
           await db.cashbook.update(p.entryId, { synced: true }).catch(() => {});
           setCashbook((prev) => prev.map((e) => (e.id === p.entryId ? { ...e, synced: true } : e)));
         } else {
-          const p = op.payload as {
-            supplierId: string;
-            amount: number;
-            method: string;
-            note: string;
-            entryId: string;
-          };
-          const supplier = suppliers.find((s) => s.id === p.supplierId);
-          const serverSid = supplier ? asUuidOrNull(supplier.id) : null;
-          if (!serverSid) continue; // NCC chưa đồng bộ master -> giữ hàng đợi
-          const { data, error } = await supa.rpc('pay_supplier_debt', {
+          const p = op.payload as SupplierPaymentPayload;
+          const supplier = await resolvePendingSupplier(p.supplierId, p.supplierName);
+          const serverSupplierId = supplier?.uuid || asUuidOrNull(p.supplierId);
+          if (!serverSupplierId) {
+            await holdOp(op, `Phiếu trả nợ đang chờ đồng bộ nhà cung cấp "${p.supplierName || p.supplierId}".`);
+            continue;
+          }
+          const supplierName = supplier?.name || p.supplierName || '';
+          const importIsPending = activeOps.some((candidate) => {
+            if (candidate.kind !== 'import' || candidate.status !== 'pending') return false;
+            const importPayload = candidate.payload as ImportPayload;
+            const importDebt = Number(importPayload.debt ?? Math.max(0, Number(importPayload.total) - Number(importPayload.paid ?? importPayload.total)));
+            if (!(importDebt > 0) || completedImportCodes.has(importPayload.code)) return false;
+            return (
+              (p.supplierId && importPayload.supplierId === p.supplierId) ||
+              (supplierName && normalizeSupplierName(importPayload.supplierName) === normalizeSupplierName(supplierName)) ||
+              (supplier?.uuid && importPayload.supplierId === supplier.uuid)
+            );
+          });
+          if (importIsPending) continue;
+          const result = await supa.rpc('pay_supplier_debt', {
             p_client_ref: p.entryId,
-            p_supplier_id: serverSid,
+            p_supplier_id: serverSupplierId,
             p_amount: p.amount,
             p_method: p.method,
             p_note: p.note || null,
           });
-          if (error) throw error;
-          // Mirror truth nợ NCC từ server (server clamp theo nợ thật)
-          try {
-            const { data: srow } = await supa
-              .from('suppliers')
-              .select('current_debt')
-              .eq('id', serverSid)
-              .maybeSingle();
-            const truth = Number((srow as { current_debt?: unknown } | null)?.current_debt);
-            if (Number.isFinite(truth)) {
-              setSuppliers((prev) =>
-                prev.map((s) => (s.id === p.supplierId ? { ...s, current_debt: truth } : s))
-              );
-              await db.suppliers.update(p.supplierId, { current_debt: truth });
+          if (result.error) throw new Error(result.error.message);
+          const response = result.data as RpcResult;
+          if (response?.ok === false) throw new Error('Server không nhận phiếu trả nợ NCC.');
+          const actualPaid = Number(response?.paid);
+          if (response?.duplicate !== true && Number.isFinite(actualPaid)) {
+            if (actualPaid <= 0) {
+              await db.cashbook.delete(p.entryId).catch(() => {});
+              setCashbook((prev) => prev.filter((e) => e.id !== p.entryId));
+              notify('Server xác nhận nhà cung cấp đã không còn nợ; phiếu chi cục bộ đã được loại bỏ.', 'info');
+            } else if (actualPaid !== p.amount) {
+              await db.cashbook.update(p.entryId, { amount: actualPaid, synced: true }).catch(() => {});
+              setCashbook((prev) => prev.map((e) => (e.id === p.entryId ? { ...e, amount: actualPaid, synced: true } : e)));
             }
-          } catch {
-            /* giữ số mirror */
+          }
+          const truth = Number(response?.debt);
+          if (Number.isFinite(truth)) {
+            const local = supplier?.local || suppliers.find((s) => s.id === serverSupplierId);
+            if (local) {
+              setSuppliers((prev) => prev.map((s) => (s.id === local.id ? { ...s, current_debt: truth } : s)));
+              await db.suppliers.update(local.id, { current_debt: truth }).catch(() => {});
+            } else {
+              void refreshCatalog();
+            }
           }
           await db.cashbook.update(p.entryId, { synced: true }).catch(() => {});
           setCashbook((prev) => prev.map((e) => (e.id === p.entryId ? { ...e, synced: true } : e)));
-          void data;
         }
         await db.pendingOps.delete(op.id);
         synced += 1;
@@ -349,6 +417,21 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
     return { synced, failed };
   }, [supa, user, isOnline, suppliers, setSuppliers, setCashbook, refreshCatalog]);
 
+  const syncPendingOps = useCallback((retryFailed = false): Promise<{ synced: number; failed: number }> => {
+    const startSync = () => {
+      const activeSync = syncLockRef.current;
+      if (activeSync) return activeSync;
+      let task: Promise<{ synced: number; failed: number }>;
+      task = syncPendingOpsWorker(retryFailed).finally(() => {
+        if (syncLockRef.current === task) syncLockRef.current = null;
+      });
+      syncLockRef.current = task;
+      return task;
+    };
+    const activeSync = syncLockRef.current;
+    return activeSync ? activeSync.then(startSync) : startSync();
+  }, [syncPendingOpsWorker]);
+
   // Master Data Add/Update hàng hóa/KH/NCC sống ở CatalogProvider (useCatalog) —
   // ở đây chỉ còn nghiệp vụ chi trả NCC (đụng sổ quỹ -> thuộc tầng Transactions).
   const paySupplierDebt = useCallback(
@@ -361,31 +444,47 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       const supplier = suppliers.find((s) => s.id === supplierId);
       if (!supplier || amount <= 0) return false;
 
-      const newDebt = Math.max(0, supplier.current_debt - amount);
-      setSuppliers((prev) => prev.map((s) => (s.id === supplierId ? { ...s, current_debt: newDebt } : s)));
-      await db.suppliers.update(supplierId, { current_debt: newDebt });
-
-      const expenseEntry: CashbookEntry = {
-        id: `cb-${Date.now()}-suppay`,
-        code: generateOrderCode('PC'),
-        type: 'expense',
-        fund_type: paymentMethod === 'cash' ? 'cash' : 'bank',
-        category: 'supplier_payment',
-        amount,
-        partner_name: supplier.name,
-        note: `Chi trả nợ NCC ${supplier.name}: ${note}`,
-        created_at: new Date().toISOString(),
-      };
-      setCashbook((prev) => [expenseEntry, ...prev]);
-      await db.cashbook.add(expenseEntry);
-      // P0: xếp hàng đẩy trả NCC lên server (clamp + truth ở sweep); online thì đẩy ngay
-      await enqueueOp('supplier_payment', {
-        supplierId,
-        amount,
-        method: paymentMethod,
-        note,
-        entryId: expenseEntry.id,
-      });
+      if (!Number.isFinite(amount) || amount <= 0 || supplier.current_debt <= 0) return false;
+      let expenseEntry: CashbookEntry | null = null;
+      let paidAmount = 0;
+      let nextDebt = supplier.current_debt;
+      try {
+        await db.transaction('rw', [db.suppliers, db.cashbook, db.pendingOps], async () => {
+          const currentSupplier = await db.suppliers.get(supplierId);
+          if (!currentSupplier) throw new Error('Không tìm thấy nhà cung cấp cục bộ.');
+          paidAmount = Math.max(0, Math.min(roundMoney(amount), roundMoney(currentSupplier.current_debt)));
+          if (paidAmount <= 0) throw new Error('Nhà cung cấp không còn nợ để thanh toán.');
+          nextDebt = roundMoney(currentSupplier.current_debt - paidAmount);
+          expenseEntry = {
+            id: `cb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-suppay`,
+            code: generateOrderCode('PC'),
+            type: 'expense',
+            fund_type: paymentMethod === 'cash' ? 'cash' : 'bank',
+            category: 'supplier_payment',
+            amount: paidAmount,
+            partner_name: supplier.name,
+            note: `Chi trả nợ NCC ${supplier.name}: ${note}`,
+            created_at: new Date().toISOString(),
+          };
+          await db.suppliers.update(supplierId, { current_debt: nextDebt });
+          await db.cashbook.add(expenseEntry);
+          const paymentQueued = await enqueueOp('supplier_payment', {
+            supplierId,
+            supplierName: supplier.name,
+            amount: paidAmount,
+            method: paymentMethod,
+            note,
+            entryId: expenseEntry.id,
+          });
+          if (!paymentQueued) throw new Error('Không lưu được phiếu trả nợ vào hàng đợi.');
+        });
+      } catch (err) {
+        notify(`Không lưu được phiếu trả nợ: ${err instanceof Error ? err.message : 'lỗi không rõ'}`, 'error');
+        return false;
+      }
+      if (!expenseEntry) return false;
+      setSuppliers((prev) => prev.map((s) => (s.id === supplierId ? { ...s, current_debt: nextDebt } : s)));
+      setCashbook((prev) => [expenseEntry as CashbookEntry, ...prev]);
       void syncPendingOps();
       return true;
     },

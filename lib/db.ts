@@ -150,6 +150,10 @@ export function generateOrderCode(prefix: 'HD' | 'TH' | 'NH' | 'CT' | 'PQ' | 'PT
   return `${prefix}-${yy}${mm}${dd}-${String(orderSeq).padStart(4, '0')}`;
 }
 
+export function generateImportCode(): string {
+  return `${generateOrderCode('NH')}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export function generateMasterCode(prefix: string = 'SP', length: number = 6): string {
   masterSeq += 1;
   return `${prefix}${String(masterSeq).padStart(length, '0')}`;

@@ -2,24 +2,61 @@
 // Tách verbatim từ lib/store/transactions.tsx để composer + sub-hooks dùng chung.
 import { db } from '../../db';
 import type { PendingOp } from '../../db';
-import type { Shift } from '../../types';
+import type { Shift, Supplier } from '../../types';
 
-// P0: nhận diện uuid server (dùng chung cho project/NCC/vật tư khi đồng bộ).
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 export const asUuidOrNull = (v?: string | null) => (v && UUID_RE.test(v) ? v : null);
 
-// P0: xếp hàng đợi đẩy kho/quỹ/NCC (dedupe server bằng client_ref nên replay an toàn)
-export async function enqueueOp(kind: PendingOp['kind'], payload: Record<string, unknown>) {
-  await db.pendingOps
-    .add({
+export interface SupplierReference {
+  id: string;
+  name: string;
+  uuid: string | null;
+  local: Supplier | null;
+}
+
+export const normalizeSupplierName = (value: string | null | undefined) => (value || '').trim().toLowerCase();
+
+export function resolveSupplierReference(
+  supplierId: string | null | undefined,
+  supplierName: string | null | undefined,
+  suppliers: Supplier[],
+): SupplierReference | null {
+  const requestedId = (supplierId || '').trim();
+  const requestedName = (supplierName || '').trim();
+  const local = requestedId ? suppliers.find((supplier) => supplier.id === requestedId) : undefined;
+  if (local) {
+    return { id: local.id, name: local.name, uuid: asUuidOrNull(local.id), local };
+  }
+
+  const directUuid = asUuidOrNull(requestedId);
+  if (directUuid) {
+    return { id: directUuid, name: requestedName, uuid: directUuid, local: null };
+  }
+
+  const normalizedName = normalizeSupplierName(requestedName);
+  if (!normalizedName) return null;
+  const matches = suppliers.filter((supplier) => normalizeSupplierName(supplier.name) === normalizedName);
+  if (matches.length !== 1) return null;
+  const matched = matches[0];
+  return { id: matched.id, name: matched.name, uuid: asUuidOrNull(matched.id), local: matched };
+}
+
+export async function enqueueOp(kind: PendingOp['kind'], payload: Record<string, unknown>): Promise<boolean> {
+  try {
+    await db.pendingOps.add({
       id: `op-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
       kind,
       payload,
       created_at: new Date().toISOString(),
       attempts: 0,
       status: 'pending',
-    })
-    .catch(console.warn);
+    });
+    return true;
+  } catch (error) {
+    console.warn('Pending operation enqueue failed:', error);
+    return false;
+  }
 }
 
 // P0-scale: cửa sổ + phân trang pull đơn server (trần ~1000 dòng/request của
