@@ -54,6 +54,11 @@ interface ProductSearchBarProps {
   quantityInputRef?: React.RefObject<HTMLInputElement | null>;
   /** Chế độ nhập kho: khi có, chọn hàng sẽ gọi callback này thay vì thêm vào giỏ bán */
   onPickProduct?: (product: Product, quantity: number) => void;
+  /**
+   * Ô số lượng do parent render (POS muốn nằm ngoài component để gắn phím tắt).
+   * Khi có, component render nó đúng vị trí: sau ô tìm kiếm, trước cụm nút quét mã/bàn phím.
+   */
+  quantitySlot?: React.ReactNode;
 }
 
 
@@ -65,6 +70,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       onQuantityChange,
       quantityInputRef: externalQuantityRef,
       onPickProduct,
+      quantitySlot,
     }: ProductSearchBarProps,
     ref
   ) {
@@ -339,37 +345,9 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         />
       </div>
 
-      {/* Nút quét mã vạch bằng camera (mobile-first; desktop vẫn dùng máy quét Wedge) */}
-      <button
-        type="button"
-        id="btn-pos-scan-barcode"
-        onClick={() => setScannerOpen(true)}
-        className="shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 active:bg-slate-100"
-        title="Quét mã vạch bằng camera"
-        aria-label="Quét mã vạch bằng camera"
-      >
-        <ScanLine className="w-4 h-4" />
-      </button>
-
-      {/* Chế độ bàn phím: tự nhận mã từ máy quét gõ nhanh, không cần bấm Enter */}
-      <button
-        type="button"
-        id="btn-pos-wedge-mode"
-        onClick={toggleWedgeMode}
-        aria-pressed={wedgeMode}
-        className={`shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border active:bg-slate-100 ${
-          wedgeMode
-            ? 'border-amber-400 bg-amber-50 text-amber-700'
-            : 'border-slate-300 bg-white text-slate-600'
-        }`}
-        title={wedgeMode ? 'Đang bật chế độ bàn phím — quét xong tự thêm vào giỏ' : 'Bật chế độ bàn phím (máy quét gõ nhanh)'}
-        aria-label="Chế độ bàn phím quét nhanh"
-      >
-        <Keyboard className="w-4 h-4" />
-      </button>
-
-      {/* Ô số lượng nhanh — chỉ render ở đây nếu showQuantityInput=true (default) */}
-      {showQuantityInput && (
+      {/* Ô số lượng: parent tự render (POS) hoặc component tự vẽ — luôn nằm TRƯỚC
+          cụm nút quét mã/bàn phím để toolbar đọc theo thứ tự: tìm → số lượng → công cụ. */}
+      {showQuantityInput ? (
         <div className="w-20 shrink-0">
           <input
             ref={quantityInputRef}
@@ -395,7 +373,38 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
             className="w-full h-10 sm:h-9 px-2 text-center text-xs font-bold bg-white text-amber-600 border border-slate-300 rounded-lg focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
           />
         </div>
+      ) : (
+        quantitySlot
       )}
+
+      {/* Nút quét mã vạch bằng camera (mobile-first; desktop dùng cho quầy có webcam/máy cảm ứng) */}
+      <button
+        type="button"
+        id="btn-pos-scan-barcode"
+        onClick={() => setScannerOpen(true)}
+        className="shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 active:bg-slate-100"
+        title="Quét mã vạch bằng camera"
+        aria-label="Quét mã vạch bằng camera"
+      >
+        <ScanLine className="w-4 h-4" />
+      </button>
+
+      {/* Chế độ bàn phím: máy quét USB/BT gõ nhanh thì tự thêm hàng, không cần bấm Enter */}
+      <button
+        type="button"
+        id="btn-pos-wedge-mode"
+        onClick={toggleWedgeMode}
+        aria-pressed={wedgeMode}
+        className={`shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border active:bg-slate-100 ${
+          wedgeMode
+            ? 'border-amber-400 bg-amber-50 text-amber-700'
+            : 'border-slate-300 bg-white text-slate-600'
+        }`}
+        title={wedgeMode ? 'Đang bật chế độ bàn phím — quét xong tự thêm vào giỏ' : 'Bật chế độ bàn phím (máy quét gõ nhanh)'}
+        aria-label="Chế độ bàn phím quét nhanh"
+      >
+        <Keyboard className="w-4 h-4" />
+      </button>
 
       {/* Dropdown kết quả — chiều cao cố định để danh sách không nhảy khi gõ từng ký tự */}
       {isDropdownOpen && searchQuery.trim().length > 0 && (

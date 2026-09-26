@@ -477,6 +477,8 @@ export function POSScreen() {
         >
           {/* CỘT 1: Search + Ô SL — kích thước cố định, không bị ảnh hưởng bởi tabs */}
           <div className="flex items-center gap-1.5">
+            {/* Ô số lượng nhanh — nhập được số thập phân (2,15 kg).
+                Truyền qua quantitySlot để nằm GIỮA ô tìm kiếm và cụm nút quét mã/bàn phím. */}
             <ProductSearchBar
               ref={searchBarRef}
               showQuantityInput={false}
@@ -484,33 +486,34 @@ export function POSScreen() {
               onQuantityChange={setQuickQuantity}
               quantityInputRef={quickQuantityRef}
               onPickProduct={isImportFlow ? addImportLine : undefined}
+              quantitySlot={(
+                <div className="w-20 sm:w-24 shrink-0">
+                  <input
+                    ref={quickQuantityRef}
+                    id="quick-quantity-input"
+                    type="text"
+                    inputMode="decimal"
+                    value={quickQtyText !== '' ? quickQtyText : formatQty(quickQuantity)}
+                    onChange={(e) => {
+                      setQuickQtyText(e.target.value);
+                      setQuickQuantity(parseQtyInput(e.target.value));
+                    }}
+                    onFocus={(e) => {
+                      setQuickQtyText(String(quickQuantity));
+                      e.target.select();
+                    }}
+                    onBlur={() => {
+                      setQuickQuantity((q) => (q > 0 ? q : 1));
+                      setQuickQtyText('');
+                    }}
+                    onKeyDown={(e) => searchBarRef.current?.handleQuantityKeyDown(e)}
+                    placeholder="1"
+                    title="Số lượng nhanh (Enter để thêm vào giỏ) — hàng bán theo kg có thể nhập 2,15"
+                    className="w-full h-10 sm:h-9 px-2 text-center text-xs font-bold bg-white text-amber-600 border border-slate-300 rounded-lg focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              )}
             />
-            {/* Ô số lượng nhanh — nhập được số thập phân (2,15 kg) */}
-            <div className="w-20 sm:w-24 shrink-0">
-              <input
-                ref={quickQuantityRef}
-                id="quick-quantity-input"
-                type="text"
-                inputMode="decimal"
-                value={quickQtyText !== '' ? quickQtyText : formatQty(quickQuantity)}
-                onChange={(e) => {
-                  setQuickQtyText(e.target.value);
-                  setQuickQuantity(parseQtyInput(e.target.value));
-                }}
-                onFocus={(e) => {
-                  setQuickQtyText(String(quickQuantity));
-                  e.target.select();
-                }}
-                onBlur={() => {
-                  setQuickQuantity((q) => (q > 0 ? q : 1));
-                  setQuickQtyText('');
-                }}
-                onKeyDown={(e) => searchBarRef.current?.handleQuantityKeyDown(e)}
-                placeholder="1"
-                title="Số lượng nhanh (Enter để thêm vào giỏ) — hàng bán theo kg có thể nhập 2,15"
-                className="w-full h-10 sm:h-9 px-2 text-center text-xs font-bold bg-white text-amber-600 border border-slate-300 rounded-lg focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-              />
-            </div>
           </div>
 
           {/* CỘT 2: Tabs hóa đơn (chỉ luồng bán; luồng nhập để trống cho gọn) */}
