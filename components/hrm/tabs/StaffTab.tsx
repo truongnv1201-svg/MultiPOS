@@ -113,6 +113,21 @@ export function StaffTab({
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [employees, search, typeFilter, showInactive]);
 
+  // Tổng lương/phụ cấp theo đúng tập đang lọc — đưa vào metric strip chung.
+  const metrics = useMemo(
+    () =>
+      list.reduce(
+        (acc, e) => {
+          acc.daily += e.salary_type === 'daily' ? e.daily_wage || 0 : 0;
+          acc.monthly += e.salary_type === 'monthly' ? e.monthly_salary || 0 : 0;
+          acc.allowance += e.allowance_default || 0;
+          return acc;
+        },
+        { daily: 0, monthly: 0, allowance: 0 }
+      ),
+    [list]
+  );
+
   // ---- Xuất / Nhập / In Excel ----
   const staffToRow = (e: Employee): Record<string, unknown> => ({
     'Mã NV': e.code,
@@ -249,46 +264,73 @@ export function StaffTab({
               className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
             />
           </div>
-        <div className="flex bg-slate-100 rounded-md p-0.5 gap-0.5" role="group" aria-label="Lọc hình thức lương">
-          {(
-            [
-              ['all', 'Tất cả'],
-              ['daily', 'Ngày'],
-              ['monthly', 'Tháng'],
-            ] as const
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              onClick={() => setTypeFilter(v)}
-              aria-pressed={typeFilter === v}
-              className={`px-2.5 py-1 text-xs font-semibold rounded transition cursor-pointer ${typeFilter === v ? 'bg-white shadow-xs text-blue-700' : 'text-slate-700 hover:bg-slate-200'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
-            className="w-4 h-4 accent-blue-600 cursor-pointer"
-          />
-          Hiện nghỉ việc
-        </label>
-        <span className="text-xs text-slate-400 tabular-nums">{list.length} người</span>
-        <TableTools
-          onExportExcel={handleExportExcel}
-          onPrint={handlePrint}
-          onImportExcel={isManager ? handleImportExcel : undefined}
-          onDownloadTemplate={isManager ? handleDownloadTemplate : undefined}
-          importing={importing}
-        />
-        {isManager && (
-          <button onClick={() => setEditing('new')} className={`${BTN_P} ml-auto`}>
-            <Plus className="w-4 h-4" /> Thêm nhân viên
+
+          {/* Lọc hình thức lương — select h-8 như các trang khác */}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as 'all' | 'daily' | 'monthly')}
+            aria-label="Lọc hình thức lương"
+            className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
+          >
+            <option value="all">Tất cả hình thức lương</option>
+            <option value="daily">Lương ngày</option>
+            <option value="monthly">Lương tháng</option>
+          </select>
+
+          {/* Lọc trạng thái — pill toggle cùng nhịp h-8 của bộ lọc chung */}
+          <button
+            type="button"
+            onClick={() => setShowInactive((prev) => !prev)}
+            aria-pressed={showInactive}
+            className={`inline-flex h-8 items-center gap-1.5 px-2.5 rounded-md border text-xs font-medium transition-colors ${
+              showInactive
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+            }`}
+            title="Bật để xem cả nhân viên đã nghỉ việc"
+          >
+            <span className={`h-3 w-3 rounded-sm border flex items-center justify-center ${showInactive ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'}`}>
+              {showInactive && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
+            </span>
+            Hiện nghỉ việc
           </button>
-        )}
+
+          <TableTools
+            onExportExcel={handleExportExcel}
+            onPrint={handlePrint}
+            onImportExcel={isManager ? handleImportExcel : undefined}
+            onDownloadTemplate={isManager ? handleDownloadTemplate : undefined}
+            importing={importing}
+          />
+          {isManager && (
+            <button onClick={() => setEditing('new')} className={BTN_P}>
+              <Plus className="w-4 h-4" /> Thêm nhân viên
+            </button>
+          )}
+        </div>
+
+        {/* Metric strip — chuẩn các trang danh sách: số lượng + tổng lương/phụ cấp đang lọc */}
+        <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+          <span>
+            Tìm thấy <strong className="text-slate-900 font-mono">{list.length}</strong> nhân viên
+            {list.length !== employees.length && (
+              <span className="text-slate-400"> (trong tổng {employees.length})</span>
+            )}
+          </span>
+          <span className="flex items-center gap-4">
+            <span>
+              Tổng lương ngày:{' '}
+              <strong className="font-mono text-slate-900">{formatVND(metrics.daily)}</strong>
+            </span>
+            <span>
+              Tổng lương tháng:{' '}
+              <strong className="font-mono text-slate-900">{formatVND(metrics.monthly)}</strong>
+            </span>
+            <span>
+              Tổng phụ cấp:{' '}
+              <strong className="font-mono text-emerald-700">{formatVND(metrics.allowance)}</strong>
+            </span>
+          </span>
         </div>
 
         <div className="overflow-x-auto">
