@@ -71,7 +71,7 @@ test.describe('số lượng thập phân', () => {
     }
   });
 
-  test('form hàng hóa có cờ "số lượng thập phân" và tự gợi ý khi chọn đơn vị kg', async ({ page }) => {
+  test('form hàng hóa: mặc định Thường + để trống giá + cờ thập phân đã bật', async ({ page }) => {
     // Bảng giá chỉ Admin/Quản lý vào được -> login bằng admin ngay từ đầu
     await page.goto('/');
     await expect(page.locator('#login-modal-overlay')).toBeVisible();
@@ -87,11 +87,19 @@ test.describe('số lượng thập phân', () => {
 
     const dialog = page.getByRole('dialog', { name: 'Thêm hàng hóa' });
     await expect(dialog).toBeVisible();
-    const decimalToggle = dialog.getByText('Cho phép bán số lượng thập phân');
-    await expect(decimalToggle).toBeVisible();
 
-    // Chọn loại "Thường" + đơn vị kg -> cờ được gợi ý bật
-    await dialog.locator('select').first().selectOption('goods');
+    // Mặc định: Loại = Thường, cờ thập phân đã tick
+    await expect(dialog.locator('select').first()).toHaveValue('goods');
+    await expect(dialog.getByText('Cho phép bán số lượng thập phân')).toBeVisible();
+    await expect(dialog.locator('input[type="checkbox"]').first()).toBeChecked();
+
+    // Giá bán / giá nhập / tồn để trống (không điền sẵn)
+    const priceInputs = dialog.locator('input[inputmode="numeric"], input[inputmode="decimal"]');
+    for (let i = 0; i < (await priceInputs.count()); i++) {
+      await expect(priceInputs.nth(i)).toHaveValue('');
+    }
+
+    // Chọn đơn vị kg vẫn giữ cờ thập phân bật
     await dialog.locator('select').nth(1).selectOption('kg');
     await expect(dialog.locator('input[type="checkbox"]').first()).toBeChecked();
   });

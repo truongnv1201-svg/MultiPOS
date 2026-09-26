@@ -60,7 +60,7 @@ export function ProductsView() {
     setEditImportPrice(p.import_price);
     setEditWasteFactor(p.waste_factor ?? 0);
     setEditGrindingPrice(p.default_grinding_price ?? 0);
-    setEditAllowDecimal(p.allow_decimal === true || p.product_type === 'area');
+    setEditAllowDecimal(p.product_type === 'area' || p.allow_decimal !== false);
   };
 
   const handleUpdateProduct = async (e: React.FormEvent) => {

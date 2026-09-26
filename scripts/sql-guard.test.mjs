@@ -124,6 +124,15 @@ describe('0054: số lượng thập phân theo mặt hàng', () => {
     assert.match(sql, /add column if not exists allow_decimal boolean not null default false/);
   });
 
+  it('0055 đổi mặc định sang true và backfill mặt hàng hiện có', () => {
+    const sql55 = read('supabase/migrations/0055_decimal_default_true.sql');
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0055_decimal_default_true.sql')));
+    assert.match(sql55, /alter column allow_decimal set default true/);
+    assert.match(sql55, /update public\.products set allow_decimal = true where allow_decimal = false/);
+    // Client cũng phải coi "chưa có cờ" là được phép thập phân
+    assert.match(read('lib/quantity.ts'), /return input\.allow_decimal !== false;/);
+  });
+
   it('catalog_public dựng lại kèm cột mới và KHÔNG lộ giá vốn', () => {
     assert.match(sql, /CREATE OR REPLACE VIEW public\.catalog_public as/i);
     const view = sql.slice(sql.toLowerCase().indexOf('create or replace view'), sql.indexOf('grant select'));

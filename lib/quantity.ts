@@ -15,11 +15,15 @@ export function isAreaProduct(productType?: string): boolean {
   return productType === 'area';
 }
 
-/** Mặt hàng có được bán số lượng thập phân không. */
+/**
+ * Mặt hàng có được bán số lượng thập phân không.
+ * Mặc định là CÓ (2,15 kg) — kể cả mặt hàng cũ chưa có cờ trong DB/local cache.
+ * Chỉ ép về số nguyên khi mặt hàng được tắt cờ `allow_decimal = false`.
+ */
 export function allowsDecimalQty(input?: { product_type?: string; allow_decimal?: boolean } | null): boolean {
-  if (!input) return false;
-  if (isAreaProduct(input.product_type)) return true;
-  return input.allow_decimal === true;
+    if (!input) return false;
+    if (isAreaProduct(input.product_type)) return true;
+    return input.allow_decimal !== false;
 }
 
 /** Gợi ý tick cờ khi đơn vị là kg/l... (không tự động bật, chỉ để form pre-check). */

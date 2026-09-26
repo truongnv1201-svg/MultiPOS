@@ -62,11 +62,15 @@ describe('snapQty — chuẩn hoá trước khi lưu', () => {
 });
 
 describe('cờ cho phép bán số lượng thập phân', () => {
-  it('bật khi có cờ, hoặc hàng m² (luôn tính thập phân)', () => {
+  it('mặc định là CÓ (kể cả mặt hàng cũ chưa có cờ trong DB/cache)', () => {
+    assert.equal(allowsDecimalQty({ product_type: 'goods' }), true);
     assert.equal(allowsDecimalQty({ product_type: 'goods', allow_decimal: true }), true);
-    assert.equal(allowsDecimalQty({ product_type: 'goods', allow_decimal: false }), false);
-    assert.equal(allowsDecimalQty({ product_type: 'goods' }), false);
     assert.equal(allowsDecimalQty({ product_type: 'area' }), true);
+  });
+
+  it('chỉ ép về số nguyên khi mặt hàng được tắt cờ', () => {
+    assert.equal(allowsDecimalQty({ product_type: 'goods', allow_decimal: false }), false);
+    assert.equal(allowsDecimalQty({ product_type: 'area', allow_decimal: false }), true);
     assert.equal(allowsDecimalQty(null), false);
   });
 

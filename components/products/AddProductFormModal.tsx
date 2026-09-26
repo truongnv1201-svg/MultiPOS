@@ -9,7 +9,7 @@ import { useStore } from '@/lib/store';
 import { notify } from '@/components/common/Toast';
 import { Product, ProductType } from '@/lib/types';
 import { NumberInput } from '@/components/common/NumberInput';
-import { QTY_MAX_DECIMALS, suggestDecimalForUnit } from '@/lib/quantity';
+import { QTY_MAX_DECIMALS, roundQty, suggestDecimalForUnit } from '@/lib/quantity';
 import { SheetShell } from '@/components/common/SheetShell';
 import { Plus } from 'lucide-react';
 
@@ -72,12 +72,13 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
     const q = seedQuery?.trim() ?? '';
     return /^\d{6,}$/.test(q) ? q : '';
   });
-  const [unit, setUnit] = useState('m²');
-  const [productType, setProductType] = useState<ProductType>('area');
-  const [retailPrice, setRetailPrice] = useState(350000);
-  const [importPrice, setImportPrice] = useState(260000);
-  const [stockQuantity, setStockQuantity] = useState(100);
-  const [allowDecimal, setAllowDecimal] = useState(false);
+  const [unit, setUnit] = useState('cái');
+  const [productType, setProductType] = useState<ProductType>('goods');
+  const [retailPrice, setRetailPrice] = useState<number | ''>('');
+  const [importPrice, setImportPrice] = useState<number | ''>('');
+  const [stockQuantity, setStockQuantity] = useState<number | ''>('');
+  // Mặc định cho phép số lượng thập phân (2,15 kg) — tắt thủ công cho hàng đếm theo cái
+  const [allowDecimal, setAllowDecimal] = useState(true);
   const [wasteFactor, setWasteFactor] = useState(5);
   const [defaultGrindingPrice, setDefaultGrindingPrice] = useState(20000);
   const [saving, setSaving] = useState(false);
@@ -92,10 +93,10 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
         name: name.trim(),
         unit,
         product_type: productType,
-        retail_price: retailPrice,
-        import_price: importPrice,
-        avg_cost: importPrice, // INT-ERR-01
-        stock_quantity: stockQuantity,
+        retail_price: Math.max(0, Math.round(retailPrice || 0)),
+        import_price: Math.max(0, Math.round(importPrice || 0)),
+        avg_cost: Math.max(0, Math.round(importPrice || 0)), // INT-ERR-01
+        stock_quantity: Math.max(0, roundQty(stockQuantity || 0)),
         allow_decimal: productType === 'area' ? true : allowDecimal,
         waste_factor: productType === 'area' ? wasteFactor : undefined,
         default_grinding_price: productType === 'area' ? defaultGrindingPrice : undefined,
@@ -158,8 +159,11 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
                 onChange={(e) => {
                   const val = e.target.value as ProductType;
                   setProductType(val);
+                  // Đổi loại hàng thì chọn luôn đơn vị mặc định hợp lý
                   if (val === 'area') setUnit('m²');
                   else if (val === 'combo') setUnit('bộ');
+                  else if (val === 'service') setUnit('công');
+                  else if (unit === 'm²' || unit === 'bộ' || unit === 'công') setUnit('cái');
                 }}
                 className="w-full h-8 px-2 border border-slate-300 rounded"
               >

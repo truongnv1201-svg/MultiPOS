@@ -61,11 +61,12 @@ const total = Math.round(price * QTY);
 const stockBefore = Number(goods.stock_quantity);
 const note = 'verify-decimal-qty';
 
-// 2) bật cờ cho mặt hàng này
-await dbq(`update public.products set allow_decimal = true where sku = '${goods.sku}'`);
+// 2) bật cờ cho mặt hàng này (ghi nhớ trạng thái cũ để cleanup khôi phục đúng)
 let r = await fetch(`${URL}/rest/v1/products?select=sku,allow_decimal,unit,product_type&sku=eq.${goods.sku}`, { headers: H });
 const flagRow = (await r.json())[0];
-assert('bật được cờ allow_decimal trên server', flagRow?.allow_decimal === true, JSON.stringify(flagRow));
+const allowDecimalBefore = flagRow?.allow_decimal !== false;
+assert('đọc được cờ allow_decimal trên server', 'allow_decimal' in (flagRow || {}), JSON.stringify(flagRow));
+await dbq(`update public.products set allow_decimal = true where sku = '${goods.sku}'`);
 
 // 3) checkout 2.15 kg
 r = await fetch(`${URL}/rest/v1/rpc/pos_checkout`, {
@@ -98,7 +99,7 @@ assert('trừ kho đúng 2.150 (không làm tròn về số nguyên)', Number(af
 // cleanup: xoá đơn, khôi phục tồn + cờ
 await dbq(`delete from public.cashbook_entries where reference_order_code in (select order_code from public.orders where note = '${note}')`);
 await dbq(`delete from public.orders where note = '${note}'`);
-await dbq(`update public.products set stock_quantity = ${stockBefore}, allow_decimal = false where sku = '${goods.sku}'`);
+await dbq(`update public.products set stock_quantity = ${stockBefore}, allow_decimal = ${allowDecimalBefore} where sku = '${goods.sku}'`);
 const chk = await dbq(`select count(*) from public.orders where note = '${note}'`);
 assert('cleanup sạch đơn verify', chk.includes('0'), chk.slice(0, 120));
 const chk2 = await dbq(`select stock_quantity, allow_decimal from public.products where sku = '${goods.sku}'`);
