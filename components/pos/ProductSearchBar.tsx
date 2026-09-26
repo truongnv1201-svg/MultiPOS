@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
+import { useClickOutside } from '@/lib/useClickOutside';
 import { Search, PackagePlus, ScanLine, Keyboard } from 'lucide-react';
 import { AddProductFormModal } from '@/components/products/AddProductFormModal';
 import { BarcodeScannerSheet } from '@/components/pos/BarcodeScannerSheet';
@@ -97,10 +98,18 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const internalQuantityRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = externalQuantityRef ?? internalQuantityRef;
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Vùng bao ô tìm + dropdown: bấm ra ngoài thì đóng dropdown (trước đây bị kẹt).
+  const searchWrapRef = useRef<HTMLDivElement>(null);
   // Chế độ bàn phím: máy quét Wedge/USB-BT gõ nhanh rồi không bấm Enter.
   const wedgeTimerRef = useRef<number | null>(null);
   const lastKeyAtRef = useRef(0);
   const [wedgeMode, setWedgeMode] = useState(false);
+
+  const closeDropdown = useCallback(() => {
+    setIsDropdownOpen(false);
+  }, []);
+
+  useClickOutside(searchWrapRef, isDropdownOpen, closeDropdown);
 
 
   const filteredProducts = React.useMemo(() => {
@@ -291,7 +300,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   useImperativeHandle(ref, () => ({ handleQuantityKeyDown }));
 
   return (
-    <div className="relative flex-1 min-w-0 w-full lg:min-w-[280px] flex items-center gap-1.5">
+    <div ref={searchWrapRef} className="relative flex-1 min-w-0 w-full lg:min-w-[280px] flex items-center gap-1.5">
       {/* Ô tìm kiếm [F1] */}
       <div className="relative flex-1 min-w-0">
         <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">

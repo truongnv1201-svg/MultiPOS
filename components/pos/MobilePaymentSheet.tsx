@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Banknote, CheckCircle2, CreditCard, FileSpreadsheet, Plus, QrCode, User, X } from 'lucide-react';
 import { formatVND } from '@/lib/format';
+import { useClickOutside } from '@/lib/useClickOutside';
 import type { Customer } from '@/lib/types';
 
 export type MobilePaymentMethod = 'cash' | 'transfer' | 'card' | 'debt';
@@ -76,6 +77,10 @@ export default function MobilePaymentSheet({
     onCheckout,
 }: MobilePaymentSheetProps) {
     const [customerQuery, setCustomerQuery] = useState('');
+    const customerWrapRef = useRef<HTMLDivElement>(null);
+    // Bấm ra ngoài thì đóng danh sách gợi ý khách hàng
+    const closeCustomerList = useCallback(() => setCustomerQuery(''), []);
+    useClickOutside(customerWrapRef, customerQuery.trim() !== '', closeCustomerList);
 
     const matches = useMemo(() => {
         const q = customerQuery.trim().toLowerCase();
@@ -139,7 +144,7 @@ export default function MobilePaymentSheet({
                         </div>
                     )}
 
-                    <div>
+                    <div ref={customerWrapRef} className="relative">
                         <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 mb-1">
                             <User className="w-3.5 h-3.5 text-blue-600" />
                             Khách hàng
@@ -181,7 +186,7 @@ export default function MobilePaymentSheet({
                                     </button>
                                 </div>
                                 {customerQuery.trim() !== '' && (
-                                    <div className="mt-1 max-h-44 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+                                    <div id="mobile-payment-customer-list" className="mt-1 max-h-44 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
                                         {matches.length === 0 ? (
                                             <p className="px-3 py-3 text-[11px] text-slate-400">Không tìm thấy khách hàng.</p>
                                         ) : (

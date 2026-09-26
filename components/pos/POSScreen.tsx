@@ -15,6 +15,7 @@ import { isVietqrReady, buildVietqrUrl, vietqrAddInfo } from '@/lib/vietqr';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
 import { resolvePaidAmount } from '@/lib/pricing';
+import { useClickOutside } from '@/lib/useClickOutside';
 import {
   Plus,
   X,
@@ -270,9 +271,14 @@ export function POSScreen() {
 
   // Input refs for keyboard shortcuts
   const customerInputRef = useRef<HTMLInputElement>(null);
+  const customerWrapRef = useRef<HTMLDivElement>(null);
   const shippingInputRef = useRef<HTMLInputElement>(null);
   const discountInputRef = useRef<HTMLInputElement>(null);
   const tenderedInputRef = useRef<HTMLInputElement>(null);
+
+  // Bấm ra ngoài thì đóng dropdown khách hàng (trước đây kẹt mở, che giỏ hàng)
+  const closeCustomerDropdown = useCallback(() => setIsCustomerDropdownOpen(false), []);
+  useClickOutside(customerWrapRef, isCustomerDropdownOpen, closeCustomerDropdown);
 
   const handleCheckout = useCallback(async () => {
     if (activeCart.items.length === 0) {
@@ -1204,7 +1210,7 @@ export function POSScreen() {
         )}
         <div className={`space-y-3 ${activeCart.items.length === 0 ? 'max-sm:hidden' : ''}`}>
           {/* Customer Selection [F4] */}
-          <div className="relative">
+          <div ref={customerWrapRef} className="relative">
             <label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5 mb-1">
               <User className="w-3.5 h-3.5 text-blue-600" />
               Khách hàng
@@ -1225,6 +1231,9 @@ export function POSScreen() {
                     setIsCustomerDropdownOpen(true);
                   }}
                   onFocus={() => setIsCustomerDropdownOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setIsCustomerDropdownOpen(false);
+                  }}
                   placeholder="Tìm khách theo Tên / SĐT (F4)..."
                   className="w-full h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
                 />
@@ -1254,7 +1263,10 @@ export function POSScreen() {
 
             {/* Customer Dropdown */}
             {isCustomerDropdownOpen && (
-              <div className="absolute top-14 left-0 right-0 bg-white border border-slate-200 rounded-md shadow-xl z-30 max-h-48 overflow-y-auto">
+              <div
+                id="customer-search-dropdown"
+                className="absolute top-14 left-0 right-0 bg-white border border-slate-200 rounded-md shadow-xl z-30 max-h-48 overflow-y-auto"
+              >
                 {filteredCustomers.map((cust) => (
                   <div
                     key={cust.id}

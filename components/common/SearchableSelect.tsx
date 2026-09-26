@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, Check, X } from 'lucide-react';
+import { useClickOutside } from '@/lib/useClickOutside';
 
 export interface SearchOption {
   value: string;
@@ -54,18 +55,11 @@ export function SearchableSelect({
     setActiveIdx(0);
   };
 
-  // Click ra ngoài thì đóng
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setFocused(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open ]);
+  // Click ra ngoài thì đóng (dùng chung hook với các ô tìm kiếm POS)
+  useClickOutside(wrapRef, open, () => {
+    setOpen(false);
+    setFocused(false);
+  });
 
   const display = focused ? query : selected?.label || (allowCustom ? value : '');
 
