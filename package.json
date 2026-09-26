@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test scripts/pricing.test.mjs scripts/hrm.test.mjs scripts/sql-guard.test.mjs scripts/mobile-guard.test.mjs",
+    "test": "node --test scripts/pricing.test.mjs scripts/quantity.test.mjs scripts/hrm.test.mjs scripts/sql-guard.test.mjs scripts/mobile-guard.test.mjs",
     "test:parity": "node scripts/verify-pricing-parity.mjs 25",
     "test:e2e": "playwright test",
     "icons:pwa": "node scripts/generate-pwa-icons.mjs",

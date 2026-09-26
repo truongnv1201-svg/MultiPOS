@@ -15,6 +15,7 @@ import { isVietqrReady, buildVietqrUrl, vietqrAddInfo } from '@/lib/vietqr';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
 import { resolvePaidAmount } from '@/lib/pricing';
+import { allowsDecimalQty, formatQty, parseQtyInput, roundQty, snapQty, qtyStep, QTY_MAX_DECIMALS } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
 import {
   Plus,
@@ -116,6 +117,7 @@ export function POSScreen() {
   // Ô số lượng nhanh được lift lên đây để render ở vị trí cố định trong toolbar
   // (tránh bị đẩy khi thêm/xóa tab hóa đơn)
   const [quickQuantity, setQuickQuantity] = useState<number>(1);
+  const [quickQtyText, setQuickQtyText] = useState<string>('');
   const quickQuantityRef = useRef<HTMLInputElement>(null);
   /** Ref đến ProductSearchBar để gọi handleQuantityKeyDown khi ô SL render ở ngoài */
   const searchBarRef = useRef<ProductSearchBarHandle>(null);
@@ -170,7 +172,7 @@ export function POSScreen() {
         notify('Hàng dịch vụ/combo không nhập kho! Chọn hàng hóa hoặc hàng diện tích.', 'error');
         return;
       }
-      const q = qty > 0 ? qty : 1;
+      const q = snapQty(qty > 0 ? qty : 1, allowsDecimalQty(product));
       setImpLines((prev) => {
         const found = prev.find((l) => l.productId === product.id);
         if (found) return prev.map((l) => (l.productId === product.id ? { ...l, qty: l.qty + q } : l));
@@ -451,6 +453,12 @@ export function POSScreen() {
     );
   }, [customers, customerSearch]);
 
+  // Tra nhanh mặt hàng theo id (kiểm tra cờ số lượng thập phân khi sửa giỏ)
+  const productById = React.useCallback(
+    (id: string) => products.find((p) => p.id === id),
+    [products]
+  );
+
   const activeCustomer = customers.find((c) => c.id === activeCart.customer_id);
 
   // Quick tender presets
@@ -477,23 +485,29 @@ export function POSScreen() {
               quantityInputRef={quickQuantityRef}
               onPickProduct={isImportFlow ? addImportLine : undefined}
             />
-            {/* Ô số lượng nhanh */}
-            <div className="w-16 sm:w-20 shrink-0">
+            {/* Ô số lượng nhanh — nhập được số thập phân (2,15 kg) */}
+            <div className="w-20 sm:w-24 shrink-0">
               <input
                 ref={quickQuantityRef}
                 id="quick-quantity-input"
                 type="text"
-                inputMode="numeric"
-                value={quickQuantity}
+                inputMode="decimal"
+                value={quickQtyText !== '' ? quickQtyText : formatQty(quickQuantity)}
                 onChange={(e) => {
-                  const raw = e.target.value.replace(/[^\d]/g, '');
-                  setQuickQuantity(raw === '' ? 0 : parseInt(raw, 10));
+                  setQuickQtyText(e.target.value);
+                  setQuickQuantity(parseQtyInput(e.target.value));
                 }}
-                onFocus={(e) => e.target.select()}
-                onBlur={() => setQuickQuantity((q) => (q > 0 ? q : 1))}
+                onFocus={(e) => {
+                  setQuickQtyText(String(quickQuantity));
+                  e.target.select();
+                }}
+                onBlur={() => {
+                  setQuickQuantity((q) => (q > 0 ? q : 1));
+                  setQuickQtyText('');
+                }}
                 onKeyDown={(e) => searchBarRef.current?.handleQuantityKeyDown(e)}
                 placeholder="1"
-                title="Số lượng nhanh (Enter để thêm vào giỏ)"
+                title="Số lượng nhanh (Enter để thêm vào giỏ) — hàng bán theo kg có thể nhập 2,15"
                 className="w-full h-10 sm:h-9 px-2 text-center text-xs font-bold bg-white text-amber-600 border border-slate-300 rounded-lg focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
               />
             </div>
@@ -678,9 +692,15 @@ export function POSScreen() {
                         </td>
                         <td className="py-2.5 px-2.5">
                           <NumberInput
-                            min={0}
+                            min={0.001}
+                            allowDecimals={allowsDecimalQty(prod)}
+                            maxDecimals={QTY_MAX_DECIMALS}
                             value={line.qty}
-                            onChange={(v) => setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, qty: v } : l)))}
+                            onChange={(v) =>
+                              setImpLines((prev) =>
+                                prev.map((l) => (l.key === line.key ? { ...l, qty: snapQty(v, allowsDecimalQty(prod)) } : l))
+                              )
+                            }
                             className="w-full h-7 px-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded"
                           />
                         </td>
@@ -831,28 +851,38 @@ export function POSScreen() {
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 type="button"
-                                onClick={() => updateCartItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}
+                                onClick={() =>
+                                  updateCartItem(item.id, {
+                                    quantity: snapQty(item.quantity - qtyStep(allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
+                                  })
+                                }
                                 className="w-5 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-xs flex items-center justify-center transition-colors"
-                                title="Giảm 1"
+                                title={`Giảm ${qtyStep(allowsDecimalQty(productById(item.product_id)))}`}
                               >
                                 -
                               </button>
                               <input
                                 type="number"
-                                min="1"
+                                inputMode="decimal"
+                                min={allowsDecimalQty(productById(item.product_id)) ? 0.001 : 1}
+                                step={allowsDecimalQty(productById(item.product_id)) ? 0.001 : 1}
                                 value={item.quantity}
-                                onChange={(e) =>
-                                  updateCartItem(item.id, {
-                                    quantity: Math.max(1, parseFloat(e.target.value) || 1),
-                                  })
-                                }
-                                className="w-12 h-6 px-1 text-center font-bold font-mono bg-white border border-slate-300 rounded text-slate-800 text-xs focus:border-blue-500 focus:outline-hidden"
+                                onChange={(e) => {
+                                  const allow = allowsDecimalQty(productById(item.product_id));
+                                  const raw = parseFloat(e.target.value);
+                                  updateCartItem(item.id, { quantity: snapQty(raw, allow) });
+                                }}
+                                className="w-14 h-6 px-1 text-center font-bold font-mono bg-white border border-slate-300 rounded text-slate-800 text-xs focus:border-blue-500 focus:outline-hidden"
                               />
                               <button
                                 type="button"
-                                onClick={() => updateCartItem(item.id, { quantity: item.quantity + 1 })}
+                                onClick={() =>
+                                  updateCartItem(item.id, {
+                                    quantity: snapQty(item.quantity + qtyStep(allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
+                                  })
+                                }
                                 className="w-5 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-xs flex items-center justify-center transition-colors"
-                                title="Tăng 1"
+                                title={`Tăng ${qtyStep(allowsDecimalQty(productById(item.product_id)))}`}
                               >
                                 +
                               </button>
@@ -948,7 +978,8 @@ export function POSScreen() {
                           isNew: true,
                         });
                       } else {
-                        addItemToCart(prod, 1);
+                        // Ô số lượng nhanh áp dụng cho cả lưới thẻ (hàng kg nhập 2,15 ở đây luôn được)
+                        addItemToCart(prod, snapQty(quickQuantity > 0 ? quickQuantity : 1, allowsDecimalQty(prod)));
                       }
                     }}
                     className="p-2 bg-white rounded-lg border border-slate-200 hover:border-blue-500 hover:shadow-sm cursor-pointer flex flex-col justify-between transition-all group"
@@ -1128,7 +1159,7 @@ export function POSScreen() {
             <div className="flex items-center justify-between text-slate-600">
               <span>Tổng số lượng:</span>
               <span className="font-mono font-bold text-slate-800">
-                {impLines.reduce((s, l) => s + (l.qty || 0), 0)}
+                {formatQty(impLines.reduce((s, l) => s + (l.qty || 0), 0))}
               </span>
             </div>
             <div className="flex items-center justify-between font-bold border-t border-slate-200 pt-1.5">
@@ -1788,6 +1819,7 @@ export function POSScreen() {
         onQuantityChange={(itemId, quantity) => updateCartItem(itemId, { quantity })}
         onRemove={removeCartItem}
         onEditDimension={(item) => setDimensionModalItem({ item })}
+        allowsDecimal={(item) => allowsDecimalQty(productById(item.product_id))}
         onClear={clearActiveCart}
         onCheckout={() => {
           setIsMobileCartOpen(false);

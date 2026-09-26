@@ -39,6 +39,8 @@ export interface Product {
   avg_cost: number;
   stock_quantity: number;
   min_stock?: number;
+  /** Cho phép nhập số lượng thập phân khi bán/nhập (vd 2,15 kg). Mặc định false = số nguyên. */
+  allow_decimal?: boolean;
   waste_factor?: number; // Hệ số hao hụt phôi (%), e.g., 5%
   default_grinding_price?: number;
   combo_items?: ComboItem[]; // for combo items

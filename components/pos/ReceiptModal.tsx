@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useStore, PRINT_TEMPLATES, normalizePrintTemplate } from '@/lib/store';
 import type { PrintTemplate } from '@/lib/store';
 import { formatVND, formatNumber } from '@/lib/format';
+import { formatQty } from '@/lib/quantity';
 import { isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
 import { printElementInTab } from '@/lib/print';
 import { notify } from '@/components/common/Toast';
@@ -167,7 +168,7 @@ export function ReceiptModal() {
           <div key={idx} className="space-y-0.5">
             <div className="flex justify-between font-semibold">
               <span className="w-1/2 line-clamp-2">{it.name}</span>
-              <span className="w-1/4 text-center">{it.quantity} {it.unit}</span>
+              <span className="w-1/4 text-center">{formatQty(it.quantity)} {it.unit}</span>
               <span className="w-1/4 text-right">{formatVND(it.subtotal)}</span>
             </div>
             {shop.showDimensions && it.product_type === 'area' && it.dimension_details && (
@@ -233,7 +234,7 @@ export function ReceiptModal() {
                   {it.processing_fee > 0 && <div className={`${compact ? 'text-[9px]' : 'text-[11px]'} text-amber-700`}>Phí gia công: {formatVND(it.processing_fee)}</div>}
                 </td>
                 <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center`}>{it.unit}</td>
-                <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{it.quantity}</td>
+                <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatQty(it.quantity)}</td>
                 <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatNumber(it.unit_price)}</td>
                 <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono font-bold`}>{formatNumber(it.subtotal)}</td>
               </tr>

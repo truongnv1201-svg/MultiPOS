@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect, useCallback, useImperativeHandle, f
 import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
 import { useClickOutside } from '@/lib/useClickOutside';
+import { allowsDecimalQty, formatQty, parseQtyInput, roundQty, snapQty } from '@/lib/quantity';
+import { notify } from '@/components/common/Toast';
 import { Search, PackagePlus, ScanLine, Keyboard } from 'lucide-react';
 import { AddProductFormModal } from '@/components/products/AddProductFormModal';
 import { BarcodeScannerSheet } from '@/components/pos/BarcodeScannerSheet';
@@ -104,6 +106,8 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const wedgeTimerRef = useRef<number | null>(null);
   const lastKeyAtRef = useRef(0);
   const [wedgeMode, setWedgeMode] = useState(false);
+  // Ô số lượng: giữ chuỗi đang gõ để không mất dấu phẩy thập phân giữa các lần render
+  const [qtyText, setQtyText] = useState('');
 
   const closeDropdown = useCallback(() => {
     setIsDropdownOpen(false);
@@ -207,14 +211,27 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     }
   };
 
+  // Số lượng commit: hàng bán theo cân nặng/thể tích giữ số thập phân, hàng đếm theo
+  // cái/bao ép về số nguyên và báo lại để thu ngân không bị nhầm số lượng.
+  const commitQuantity = (product: Product): number => {
+    const raw = quantity > 0 ? quantity : 1;
+    const allow = allowsDecimalQty(product);
+    const snapped = snapQty(raw, allow);
+    if (allow ? snapped !== roundQty(raw) : snapped !== Math.round(raw)) {
+      notify(`"${product.name}" bán theo số nguyên — đã làm tròn ${formatQty(raw)} → ${formatQty(snapped, false)}`, 'info');
+    }
+    return snapped;
+  };
+
   // ENTER LẦN 2 (ô SL): thêm vào giỏ, reset về F1
   const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const selectedProduct = filteredProducts[selectedIndex] || filteredProducts[0];
       if (selectedProduct) {
-        if (onPickProduct) onPickProduct(selectedProduct, quantity > 0 ? quantity : 1);
-        else addItemToCart(selectedProduct, quantity > 0 ? quantity : 1);
+        const q = commitQuantity(selectedProduct);
+        if (onPickProduct) onPickProduct(selectedProduct, q);
+        else addItemToCart(selectedProduct, q);
       }
       resetSearch();
       searchInputRef.current?.focus();
@@ -226,7 +243,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
 
   const handleSelectProductClick = (product: Product) => {
     if (onPickProduct) {
-      onPickProduct(product, quantity > 0 ? quantity : 1);
+      onPickProduct(product, commitQuantity(product));
       resetSearch();
       searchInputRef.current?.focus();
       return;
@@ -236,7 +253,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       setSearchQuery('');
       setDimensionModalItem(createBlankAreaItem(product, 1));
     } else {
-      addItemToCart(product, quantity > 0 ? quantity : 1);
+      addItemToCart(product, commitQuantity(product));
       resetSearch();
       searchInputRef.current?.focus();
     }
@@ -246,11 +263,11 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const handleQuickCreated = (product: Product) => {
     setQuickCreateOpen(false);
     if (onPickProduct) {
-      onPickProduct(product, quantity > 0 ? quantity : 1);
+      onPickProduct(product, commitQuantity(product));
     } else if (product.product_type === 'area') {
       setDimensionModalItem(createBlankAreaItem(product, quantity > 0 ? quantity : 1));
     } else {
-      addItemToCart(product, quantity > 0 ? quantity : 1);
+      addItemToCart(product, commitQuantity(product));
     }
     resetSearch();
     searchInputRef.current?.focus();
@@ -358,17 +375,23 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
             ref={quantityInputRef}
             id="quick-quantity-input"
             type="text"
-            inputMode="numeric"
-            value={quantity}
+            inputMode="decimal"
+            value={qtyText !== '' ? qtyText : formatQty(quantity)}
             onChange={(e) => {
-              const raw = e.target.value.replace(/[^\d]/g, '');
-              setQuantity(raw === '' ? 0 : parseInt(raw, 10));
+              setQtyText(e.target.value);
+              setQuantity(parseQtyInput(e.target.value));
             }}
-            onFocus={(e) => e.target.select()}
-            onBlur={() => setQuantity(quantity > 0 ? quantity : 1)}
+            onFocus={(e) => {
+              setQtyText(String(quantity));
+              e.target.select();
+            }}
+            onBlur={() => {
+              setQuantity(quantity > 0 ? quantity : 1);
+              setQtyText('');
+            }}
             onKeyDown={handleQuantityKeyDown}
             placeholder="1"
-            title="Số lượng nhanh (Enter để thêm vào giỏ)"
+            title="Số lượng nhanh — hàng bán theo kg nhập được 2,15"
             className="w-full h-10 sm:h-9 px-2 text-center text-xs font-bold bg-white text-amber-600 border border-slate-300 rounded-lg focus:outline-hidden focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
           />
         </div>

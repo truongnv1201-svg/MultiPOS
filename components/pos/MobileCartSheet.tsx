@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { formatVND } from '@/lib/format';
+import { formatQty, parseQtyInput, qtyStep, snapQty } from '@/lib/quantity';
 import type { OrderItem } from '@/lib/types';
 
 interface MobileCartSheetProps {
@@ -14,6 +15,8 @@ interface MobileCartSheetProps {
     onQuantityChange: (itemId: string, quantity: number) => void;
     onRemove: (itemId: string) => void;
     onEditDimension: (item: OrderItem) => void;
+    /** Mặt hàng này có bán số lượng thập phân không (2,15 kg) — quyết định bước tăng/giảm và cách hiển thị. */
+    allowsDecimal: (item: OrderItem) => boolean;
     onClear: () => void;
     onCheckout: () => void;
 }
@@ -28,13 +31,13 @@ export default function MobileCartSheet({
     onQuantityChange,
     onRemove,
     onEditDimension,
+    allowsDecimal,
     onClear,
     onCheckout,
 }: MobileCartSheetProps) {
     if (!open) return null;
 
     const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
-
     return (
         <div id="cart-record-list" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Giỏ hàng">
             <button type="button" className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]" onClick={onClose} aria-label="Đóng giỏ" />
@@ -43,7 +46,7 @@ export default function MobileCartSheet({
                     <div className="min-w-0">
                         <h2 className="text-sm font-bold text-slate-900">Giỏ hàng</h2>
                         <p className="text-[11px] text-slate-500 font-medium">
-                            {items.length} món · {totalQty} tổng cộng
+                            {items.length} món · {formatQty(totalQty)} tổng cộng
                         </p>
                     </div>
                     <button
@@ -65,6 +68,8 @@ export default function MobileCartSheet({
                     ) : (
                         items.map((item) => {
                             const isArea = item.product_type === 'area';
+                            const allowDecimal = allowsDecimal(item);
+                            const step = qtyStep(allowDecimal);
                             return (
                                 <div key={item.id} className="px-4 py-3 flex items-start gap-3">
                                     <div className="flex-1 min-w-0">
@@ -78,7 +83,7 @@ export default function MobileCartSheet({
                                             {isArea ? (
                                                 <>
                                                     <span className="px-2 py-1 rounded-md bg-slate-100 text-[11px] font-mono font-bold text-slate-700">
-                                                        {item.quantity} {item.unit}
+                                                        {formatQty(item.quantity)} {item.unit}
                                                     </span>
                                                     <button
                                                         type="button"
@@ -93,18 +98,24 @@ export default function MobileCartSheet({
                                                 <div className="inline-flex items-center rounded-lg border border-slate-200 overflow-hidden">
                                                     <button
                                                         type="button"
-                                                        onClick={() => onQuantityChange(item.id, item.quantity - 1)}
+                                                        onClick={() => onQuantityChange(item.id, snapQty(item.quantity - step, allowDecimal))}
                                                         className="inline-flex h-9 w-9 items-center justify-center text-slate-600 active:bg-slate-100"
                                                         aria-label={`Giảm số lượng ${item.name}`}
                                                     >
                                                         <Minus className="w-4 h-4" />
                                                     </button>
-                                                    <span className="min-w-[38px] text-center text-xs font-mono font-bold text-slate-800">
-                                                        {item.quantity}
-                                                    </span>
+                                                    <input
+                                                        id={`cart-qty-${item.id}`}
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        value={formatQty(item.quantity, allowDecimal)}
+                                                        onChange={(e) => onQuantityChange(item.id, snapQty(parseQtyInput(e.target.value), allowDecimal))}
+                                                        aria-label={`Số lượng ${item.name}`}
+                                                        className="w-14 h-9 px-1 text-center text-xs font-mono font-bold text-slate-800 bg-white focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                                                    />
                                                     <button
                                                         type="button"
-                                                        onClick={() => onQuantityChange(item.id, item.quantity + 1)}
+                                                        onClick={() => onQuantityChange(item.id, snapQty(item.quantity + step, allowDecimal))}
                                                         className="inline-flex h-9 w-9 items-center justify-center text-slate-600 active:bg-slate-100"
                                                         aria-label={`Tăng số lượng ${item.name}`}
                                                     >

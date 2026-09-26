@@ -49,6 +49,7 @@ export function ProductsView() {
   const [editImportPrice, setEditImportPrice] = useState(0);
   const [editWasteFactor, setEditWasteFactor] = useState(0);
   const [editGrindingPrice, setEditGrindingPrice] = useState(0);
+  const [editAllowDecimal, setEditAllowDecimal] = useState(false);
 
   const openEditProduct = (p: Product) => {
     setEditingProduct(p);
@@ -59,6 +60,7 @@ export function ProductsView() {
     setEditImportPrice(p.import_price);
     setEditWasteFactor(p.waste_factor ?? 0);
     setEditGrindingPrice(p.default_grinding_price ?? 0);
+    setEditAllowDecimal(p.allow_decimal === true || p.product_type === 'area');
   };
 
   const handleUpdateProduct = async (e: React.FormEvent) => {
@@ -72,6 +74,7 @@ export function ProductsView() {
         retail_price: Math.max(0, Math.round(editRetailPrice)),
         import_price: Math.max(0, Math.round(editImportPrice)),
         waste_factor: editProductType === 'area' ? Math.max(0, editWasteFactor) : undefined,
+        allow_decimal: editProductType === 'area' ? true : editAllowDecimal,
         default_grinding_price: editProductType === 'area' ? Math.max(0, Math.round(editGrindingPrice)) : undefined,
       });
       setEditingProduct(null);
@@ -157,7 +160,7 @@ export function ProductsView() {
   }, [sortedProducts, page, pageSize]);
 
   // ---- Xuất / Nhập / In Excel ----
-  const PRODUCT_TEMPLATE = ['Mã SKU', 'Tên hàng *', 'ĐVT', 'Loại (goods/area/combo/service)', 'Giá bán', 'Giá vốn nhập', 'Tồn kho', 'Tồn tối thiểu', 'Hao hụt (%)'];
+  const PRODUCT_TEMPLATE = ['Mã SKU', 'Tên hàng *', 'ĐVT', 'Loại (goods/area/combo/service)', 'Giá bán', 'Giá vốn nhập', 'Tồn kho', 'Tồn tối thiểu', 'Hao hụt (%)', 'SL thập phân (Có/Không)'];
 
   const productToRow = (p: Product): Record<string, unknown> => ({
     'Mã SKU': p.sku,
@@ -170,6 +173,7 @@ export function ProductsView() {
     'Tồn kho': p.stock_quantity,
     'Tồn tối thiểu': p.min_stock ?? '',
     'Hao hụt (%)': p.waste_factor ?? '',
+    'SL thập phân': p.allow_decimal ? 'Có' : 'Không',
   });
 
   const handleExportExcel = () => {
@@ -217,6 +221,7 @@ export function ProductsView() {
       'Tồn kho': 100,
       'Tồn tối thiểu': 10,
       'Hao hụt (%)': 5,
+      'SL thập phân (Có/Không)': 'Không',
     });
   };
 
@@ -251,6 +256,10 @@ export function ProductsView() {
             stock_quantity: Math.max(0, parseExcelNum(r['Tồn kho'])),
             min_stock: r['Tồn tối thiểu'] !== '' ? Math.max(0, parseExcelNum(r['Tồn tối thiểu'])) : undefined,
             waste_factor: r['Hao hụt (%)'] !== '' ? Math.max(0, parseExcelNum(r['Hao hụt (%)'])) : undefined,
+            // Cờ số lượng thập phân: "Có"/"Co"/"1"/"true" -> bật (hàng m² luôn bật)
+            allow_decimal:
+              product_type === 'area' ||
+              /^(c[oó]|1|true|yes)$/i.test(String(r['SL thập phân (Có/Không)'] ?? r['SL thập phân'] ?? '').trim()),
           };
           const sku = (r['Mã SKU'] || '').trim();
           const existing =
@@ -712,6 +721,18 @@ export function ProductsView() {
                   </div>
                 </div>
               )}
+
+              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={editAllowDecimal}
+                  disabled={editProductType === 'area'}
+                  onChange={(e) => setEditAllowDecimal(e.target.checked)}
+                  className="w-4 h-4 accent-blue-600"
+                />
+                Cho phép bán số lượng thập phân (vd 2,15 kg)
+                {editProductType === 'area' && <span className="text-slate-400 font-normal">— hàng m² luôn tính thập phân</span>}
+              </label>
 
               <p className="text-[11px] text-slate-400">
                 Tồn kho & giá vốn bình quân không sửa tay — thay đổi qua Nhập kho.

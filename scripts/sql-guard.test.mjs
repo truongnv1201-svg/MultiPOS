@@ -113,6 +113,44 @@ describe('0053: supplier debt guard', () => {
   });
 });
 
+describe('0054: số lượng thập phân theo mặt hàng', () => {
+  const sql = read('supabase/migrations/0054_decimal_quantity.sql');
+
+  it('tồn tại migration 0054', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0054_decimal_quantity.sql')));
+  });
+
+  it('thêm cột allow_decimal mặc định false (hàng đếm theo cái giữ số nguyên)', () => {
+    assert.match(sql, /add column if not exists allow_decimal boolean not null default false/);
+  });
+
+  it('catalog_public dựng lại kèm cột mới và KHÔNG lộ giá vốn', () => {
+    assert.match(sql, /CREATE OR REPLACE VIEW public\.catalog_public as/i);
+    const view = sql.slice(sql.toLowerCase().indexOf('create or replace view'), sql.indexOf('grant select'));
+    assert.ok(!/import_price|avg_cost|trade_price/.test(view), 'view không được chọn cột giá vốn');
+    assert.match(view, /allow_decimal/);
+  });
+
+  it('client đọc cờ allow_decimal (catalog, master data, form hàng hóa)', () => {
+    const catalog = read('lib/store/catalog.tsx');
+    assert.match(catalog, /allow_decimal: row\.allow_decimal === true/);
+    assert.match(catalog, /allow_decimal: data\.allow_decimal === true/);
+    assert.match(read('components/products/AddProductFormModal.tsx'), /Cho phép bán số lượng thập phân/);
+    assert.match(read('lib/types.ts'), /allow_decimal\?: boolean/);
+  });
+
+  it('số lượng thập phân chỉ chuẩn hoá ở client, RPC không ép số nguyên', () => {
+    assert.match(read('lib/quantity.ts'), /export function snapQty/);
+    assert.match(read('lib/quantity.ts'), /QTY_MAX_DECIMALS = 3/);
+    const checkout = read('supabase/migrations/0050_checkout_price_guard.sql');
+    assert.match(checkout, /it->>'quantity'\)::NUMERIC/);
+    assert.ok(
+      !/quantity::int|trunc\(\s*[^)]*quantity|floor\(\s*[^)]*quantity/.test(checkout),
+      'pos_checkout không được ép quantity về số nguyên'
+    );
+  });
+});
+
 describe('error boundary chống trắng trang', () => {
   it('có app/error.tsx và app/global-error.tsx', () => {
     assert.ok(existsSync(join(ROOT, 'app/error.tsx')), 'thiếu app/error.tsx');

@@ -9,6 +9,7 @@ import { useStore } from '@/lib/store';
 import { notify } from '@/components/common/Toast';
 import { Product, ProductType } from '@/lib/types';
 import { NumberInput } from '@/components/common/NumberInput';
+import { QTY_MAX_DECIMALS, suggestDecimalForUnit } from '@/lib/quantity';
 import { SheetShell } from '@/components/common/SheetShell';
 import { Plus } from 'lucide-react';
 
@@ -76,6 +77,7 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
   const [retailPrice, setRetailPrice] = useState(350000);
   const [importPrice, setImportPrice] = useState(260000);
   const [stockQuantity, setStockQuantity] = useState(100);
+  const [allowDecimal, setAllowDecimal] = useState(false);
   const [wasteFactor, setWasteFactor] = useState(5);
   const [defaultGrindingPrice, setDefaultGrindingPrice] = useState(20000);
   const [saving, setSaving] = useState(false);
@@ -94,6 +96,7 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
         import_price: importPrice,
         avg_cost: importPrice, // INT-ERR-01
         stock_quantity: stockQuantity,
+        allow_decimal: productType === 'area' ? true : allowDecimal,
         waste_factor: productType === 'area' ? wasteFactor : undefined,
         default_grinding_price: productType === 'area' ? defaultGrindingPrice : undefined,
         // SKU/Mã vạch từ quick-create POS; bỏ trống để addProduct tự sinh SP...
@@ -170,7 +173,12 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
               <label className="font-semibold text-slate-700 block mb-1">Đơn vị tính</label>
               <select
                 value={unit}
-                onChange={(e) => setUnit(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setUnit(next);
+                  // Đơn vị cân nặng/thể tích (kg, l, tạ...) -> gợi ý bật số lượng thập phân
+                  if (suggestDecimalForUnit(next) && productType !== 'area') setAllowDecimal(true);
+                }}
                 aria-label="Đơn vị tính"
                 className="w-full h-8 px-2.5 border border-slate-300 rounded bg-white"
               >
@@ -242,9 +250,22 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
               <NumberInput
                 value={stockQuantity}
                 onChange={(val) => setStockQuantity(val)}
+                allowDecimals={productType === 'area' || allowDecimal}
+                maxDecimals={QTY_MAX_DECIMALS}
                 placeholder="0"
                 className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
               />
+              <label className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={productType === 'area' ? true : allowDecimal}
+                  disabled={productType === 'area'}
+                  onChange={(e) => setAllowDecimal(e.target.checked)}
+                  className="w-4 h-4 accent-blue-600"
+                />
+                Cho phép bán số lượng thập phân (vd 2,15 kg)
+                {productType === 'area' && <span className="text-slate-400 font-normal">— hàng m² luôn tính thập phân</span>}
+              </label>
             </div>
           )}
         </div>

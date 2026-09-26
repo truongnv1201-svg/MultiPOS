@@ -150,6 +150,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
                 avg_cost: item.payload.avg_cost,
                 stock_quantity: item.payload.stock_quantity,
                 min_stock: item.payload.min_stock ?? 0,
+                allow_decimal: item.payload.allow_decimal === true,
                 waste_factor: item.payload.waste_factor ?? 0,
                 default_grinding_price: item.payload.default_grinding_price ?? 0,
               }
@@ -329,6 +330,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         avg_cost: Number(row.avg_cost ?? row.import_price ?? 0),
         stock_quantity: Number(row.stock_quantity ?? 0),
         min_stock: row.min_stock != null ? Number(row.min_stock) : undefined,
+        allow_decimal: row.allow_decimal === true,
         waste_factor: row.waste_factor != null ? Number(row.waste_factor) : undefined,
         default_grinding_price: row.default_grinding_price != null ? Number(row.default_grinding_price) : undefined,
         combo_items: comboItemsByProduct.get(row.id),
@@ -515,6 +517,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
             ...localProd,
             barcode: data.barcode ?? null,
             min_stock: data.min_stock ?? 0,
+            allow_decimal: data.allow_decimal === true,
             waste_factor: data.waste_factor ?? 0,
             default_grinding_price: data.default_grinding_price ?? 0,
           });
@@ -540,6 +543,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
               avg_cost: localProd.avg_cost,
               stock_quantity: data.stock_quantity,
               min_stock: data.min_stock ?? 0,
+              allow_decimal: data.allow_decimal === true,
               waste_factor: data.waste_factor ?? 0,
               default_grinding_price: data.default_grinding_price ?? 0,
             })

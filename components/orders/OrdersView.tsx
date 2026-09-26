@@ -690,7 +690,7 @@ export function OrdersView() {
                       type="number"
                       min={0}
                       max={it.quantity}
-                      step={it.product_type === 'area' ? 0.001 : 1}
+                      step={0.001}
                       value={sel.qty}
                       onChange={(e) =>
                         setReturnSel((prev) => ({

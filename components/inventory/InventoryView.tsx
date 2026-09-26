@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
 import { formatVND, formatNumber } from '@/lib/format';
+import { formatQty } from '@/lib/quantity';
 import {
   Boxes,
   Plus,
@@ -364,7 +365,7 @@ export function InventoryView() {
                       <div className="mt-1.5 flex items-end justify-between gap-2">
                         <div className="text-[11px] text-slate-500 font-mono">
                           <span className={isOut ? 'text-rose-600' : isLow ? 'text-amber-600' : 'text-slate-900'}>
-                            Tồn {formatNumber(p.stock_quantity)}
+                            Tồn {formatQty(p.stock_quantity, p.product_type === 'area' || p.allow_decimal === true)}
                           </span>
                           {' · '}vốn BQ {formatVND(p.avg_cost)}
                         </div>
