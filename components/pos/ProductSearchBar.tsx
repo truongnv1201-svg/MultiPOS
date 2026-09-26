@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
-import { Search, PackagePlus, ScanLine } from 'lucide-react';
+import { Search, PackagePlus, ScanLine, Keyboard } from 'lucide-react';
 import { AddProductFormModal } from '@/components/products/AddProductFormModal';
 import { BarcodeScannerSheet } from '@/components/pos/BarcodeScannerSheet';
 import { formatVND } from '@/lib/format';
@@ -97,6 +97,10 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const internalQuantityRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = externalQuantityRef ?? internalQuantityRef;
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Chế độ bàn phím: máy quét Wedge/USB-BT gõ nhanh rồi không bấm Enter.
+  const wedgeTimerRef = useRef<number | null>(null);
+  const lastKeyAtRef = useRef(0);
+  const [wedgeMode, setWedgeMode] = useState(false);
 
 
   const filteredProducts = React.useMemo(() => {
@@ -117,6 +121,29 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     setQuantity(1);
     setIsDropdownOpen(false);
     setSelectedIndex(0);
+  };
+
+  // Nạp cờ bàn phím từ máy (đọc trong effect để không lệch SSR, defer microtask như idiom repo)
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      setWedgeMode(localStorage.getItem('multipos_wedge_mode') === '1');
+    });
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (wedgeTimerRef.current !== null) window.clearTimeout(wedgeTimerRef.current);
+    },
+    []
+  );
+
+  const toggleWedgeMode = () => {
+    setWedgeMode((prev) => {
+      const next = !prev;
+      localStorage.setItem('multipos_wedge_mode', next ? '1' : '0');
+      if (next) window.setTimeout(() => searchInputRef.current?.focus(), 0);
+      return next;
+    });
   };
 
   // ENTER LẦN 1: phân nhánh — hàng m² mở ngay F3, hàng thường nhảy sang ô SL
@@ -238,6 +265,28 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     searchInputRef.current?.focus();
   };
 
+  // Máy quét Wedge gõ một mạch rồi dừng (không Enter). Ở chế độ bàn phím, coi khoảng
+  // dừng ~120ms sau >= 4 ký tự là "đã quét xong" và tự thêm hàng.
+  const handleQueryChange = (value: string) => {
+    setSearchQuery(value);
+    setIsDropdownOpen(true);
+    setSelectedIndex(0);
+    if (!wedgeMode) return;
+
+    const now = Date.now();
+    // Ngắt quãng > 400ms = lượt gõ mới (người dùng gõ tay cũng không bị bắt nhầm).
+    if (now - lastKeyAtRef.current > 400) setSearchQuery(value);
+    lastKeyAtRef.current = now;
+
+    if (wedgeTimerRef.current !== null) window.clearTimeout(wedgeTimerRef.current);
+    wedgeTimerRef.current = window.setTimeout(() => {
+      const code = value.trim();
+      if (code.length < 4) return;
+      if (Date.now() - lastKeyAtRef.current < 80) return; // vẫn đang gõ
+      handleScannedCode(code);
+    }, 160);
+  };
+
   // Expose handleQuantityKeyDown cho parent khi ô SL render bên ngoài
   useImperativeHandle(ref, () => ({ handleQuantityKeyDown }));
 
@@ -253,11 +302,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           id="f1-search-input"
           type="text"
           value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setIsDropdownOpen(true);
-            setSelectedIndex(0);
-          }}
+          onChange={(e) => handleQueryChange(e.target.value)}
           onFocus={() => {
             if (searchQuery.trim()) setIsDropdownOpen(true);
           }}
@@ -278,6 +323,23 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         aria-label="Quét mã vạch bằng camera"
       >
         <ScanLine className="w-4 h-4" />
+      </button>
+
+      {/* Chế độ bàn phím: tự nhận mã từ máy quét gõ nhanh, không cần bấm Enter */}
+      <button
+        type="button"
+        id="btn-pos-wedge-mode"
+        onClick={toggleWedgeMode}
+        aria-pressed={wedgeMode}
+        className={`shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border active:bg-slate-100 ${
+          wedgeMode
+            ? 'border-amber-400 bg-amber-50 text-amber-700'
+            : 'border-slate-300 bg-white text-slate-600'
+        }`}
+        title={wedgeMode ? 'Đang bật chế độ bàn phím — quét xong tự thêm vào giỏ' : 'Bật chế độ bàn phím (máy quét gõ nhanh)'}
+        aria-label="Chế độ bàn phím quét nhanh"
+      >
+        <Keyboard className="w-4 h-4" />
       </button>
 
       {/* Ô số lượng nhanh — chỉ render ở đây nếu showQuantityInput=true (default) */}

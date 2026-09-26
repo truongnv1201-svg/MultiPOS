@@ -5,7 +5,9 @@ import { useStore, PRINT_TEMPLATES, normalizePrintTemplate } from '@/lib/store';
 import type { PrintTemplate } from '@/lib/store';
 import { formatVND, formatNumber } from '@/lib/format';
 import { isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
-import { Printer, X, QrCode, Receipt } from 'lucide-react';
+import { printElementInTab } from '@/lib/print';
+import { notify } from '@/components/common/Toast';
+import { Printer, X, QrCode, Receipt, Share2 } from 'lucide-react';
 
 export function ReceiptModal() {
   const { receiptModalOrder, setReceiptModalOrder, shop, updateShop, vietqr } = useStore();
@@ -39,6 +41,19 @@ export function ReceiptModal() {
     };
     window.addEventListener('afterprint', cleanup);
     window.print();
+  };
+
+  // Điện thoại: kéo #print-area + CSS app ra tab in riêng (chọn máy in nhiệt / Lưu PDF).
+  const handlePrintMobile = () => {
+    const area = document.getElementById('print-area');
+    if (!area) {
+      notify('Chưa có nội dung phiếu để in.', 'error');
+      return;
+    }
+    const ok = printElementInTab(area, `Phiếu ${order.order_code}`, pageCss);
+    if (!ok) {
+      notify('Trình duyệt chặn mở tab in — cho phép popup rồi bấm lại, hoặc dùng nút In thường.', 'error');
+    }
   };
   const handlePickTemplate = (t: PrintTemplate) => {
     setTemplate(t);
@@ -323,9 +338,18 @@ export function ReceiptModal() {
         <div className="p-3 bg-white border-t border-slate-200 flex items-center justify-between gap-2">
           <button onClick={() => setReceiptModalOrder(null)} className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Đóng</button>
           <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-[11px] text-slate-600">
+            <label className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-600">
               <input type="checkbox" checked={!!shop.autoPrint} onChange={(e) => updateShop({ autoPrint: e.target.checked })} className="w-3.5 h-3.5 accent-blue-600" /> Tự in lần sau
             </label>
+            {/* Điện thoại: mở tab in riêng (nút In / Lưu PDF) vì mobile chặn auto-print iframe */}
+            <button
+              id="btn-print-receipt-mobile"
+              onClick={handlePrintMobile}
+              className="lg:hidden px-4 h-10 border border-blue-200 bg-blue-50 text-blue-700 font-bold text-xs rounded-lg flex items-center gap-1.5"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>In / Lưu PDF</span>
+            </button>
             <button id="btn-print-receipt" onClick={handlePrint} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5">
               <Printer className="w-4 h-4" /><span>In {paperLabel} × {copies}</span>
             </button>

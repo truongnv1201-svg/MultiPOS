@@ -280,20 +280,21 @@ export function ProductsView() {
   };
 
   return (
-    <div id="products-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
-      {/* Top Header */}
-      <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+    <div id="products-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
+      {/* Top Header: cuon ngang tren man hep de khong vo bo cuc */}
+      <div className="h-14 px-2 sm:px-4 bg-white border-b border-slate-200 flex items-center justify-between gap-2 shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-3 shrink-0">
+          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap">
             <Boxes className="w-5 h-5 text-blue-600" />
-            <span>Danh mục Hàng hóa & Bảng giá</span>
+            <span className="hidden sm:inline">Danh mục Hàng hóa &amp; Bảng giá</span>
+            <span className="sm:hidden">Bảng giá</span>
           </h2>
           <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
             {products.length} mặt hàng
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             id="btn-open-add-product-modal"
             onClick={() => setIsAddModalOpen(true)}
@@ -394,9 +395,72 @@ export function ProductsView() {
         </div>
       </div>
 
+      {/* Products record list (mobile) — bảng ngang chỉ dành cho desktop */}
+      <div id="product-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
+        {paginatedProducts.length === 0 ? (
+          <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy sản phẩm nào phù hợp với bộ lọc.</p>
+        ) : (
+          paginatedProducts.map((p) => {
+            const typeLabel =
+              p.product_type === 'area' ? 'Diện tích' : p.product_type === 'combo' ? 'Combo' : p.product_type === 'service' ? 'Dịch vụ' : 'Thường';
+            const typeCls =
+              p.product_type === 'area'
+                ? 'bg-amber-100 text-amber-800'
+                : p.product_type === 'combo'
+                  ? 'bg-purple-100 text-purple-800'
+                  : p.product_type === 'service'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-blue-100 text-blue-800';
+            return (
+              <div key={p.id} className="px-3 py-2.5 flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-bold text-slate-800 leading-snug">{p.name}</p>
+                    <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold ${typeCls}`}>{typeLabel}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                    {p.sku}
+                    {p.barcode ? ` · ${p.barcode}` : ''}
+                  </p>
+                  <div className="mt-1 flex items-end justify-between gap-2">
+                    <span className="text-[11px] text-slate-600 font-mono">
+                      <span className="text-blue-700 font-bold">{formatVND(p.retail_price)}</span>
+                      {p.avg_cost > 0 ? ` · vốn ${formatVND(p.avg_cost)}` : ''}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {p.product_type === 'service'
+                        ? 'Không tính kho'
+                        : p.product_type === 'combo'
+                          ? 'Trừ kho con'
+                          : `Tồn ${p.stock_quantity} ${p.unit}`}
+                    </span>
+                  </div>
+                </div>
+                <div className="shrink-0 flex flex-col gap-1.5">
+                  <button
+                    onClick={() => openEditProduct(p)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 text-blue-600 bg-blue-50 active:bg-blue-100"
+                    aria-label={`Sửa ${p.name}`}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteProduct(p)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
+                    aria-label={`Xóa ${p.name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
       {/* Products Table */}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+        <div className="hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">

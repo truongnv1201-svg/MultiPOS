@@ -90,6 +90,14 @@ test.describe('POS mobile (live backend)', () => {
       await scanDialog.locator('button[aria-label="Đóng quét mã"]').first().click();
       await expect(scanDialog).toHaveCount(0);
 
+      // Chế độ bàn phím: bật/tắt được và nhớ trên máy
+      const wedge = page.locator('#btn-pos-wedge-mode');
+      await expect(wedge).toHaveAttribute('aria-pressed', 'false');
+      await wedge.click();
+      await expect(wedge).toHaveAttribute('aria-pressed', 'true');
+      await wedge.click();
+      await expect(wedge).toHaveAttribute('aria-pressed', 'false');
+
       // Sync Center mở được từ header và đóng lại được
       await page.locator('#header-sync-center-btn').click();
       await expect(page.getByRole('dialog', { name: 'Trung tâm đồng bộ' })).toBeVisible();
@@ -147,5 +155,46 @@ test.describe('POS mobile (live backend)', () => {
     await expect(page.locator('#settings-view')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#btn-check-app-update')).toBeVisible();
     await expect(page.getByText('Hàng hóa đã cache')).toBeVisible();
+  });
+
+  test('bảng giá + khách hàng dùng record list, mở sheet chi tiết KH @ 390x844', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginAsAdmin(page);
+
+    // Bảng giá (Alt+P)
+    await page.keyboard.press('Alt+p');
+    await expect(page.locator('#products-view')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#product-record-list')).toBeVisible();
+    await expect(page.locator('#product-record-list table')).toHaveCount(0);
+
+    // Khách hàng: qua menu phân hệ
+    await page.keyboard.press('Alt+c');
+    await expect(page.locator('#customers-view')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#customer-record-list')).toBeVisible();
+    await expect(page.locator('#customer-record-list table')).toHaveCount(0);
+
+    const rows = page.locator('#customer-record-list > button');
+    if ((await rows.count()) === 0) return;
+    await rows.first().click();
+    const detail = page.getByRole('dialog', { name: 'Chi tiết khách hàng' });
+    await expect(detail).toBeVisible();
+    await expect(detail.getByRole('button', { name: 'Thu nợ' })).toBeVisible();
+    await page.locator('button[aria-label="Đóng chi tiết khách"]').click();
+    await expect(detail).toHaveCount(0);
+  });
+
+  test('mở tab in từ điện thoại được (biên nhận + bảng in) @ 390x844', async ({ page, context }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginAsCashier(page);
+
+    // In bảng: nút In của TableTools mở tab in (blob) thay vì auto-print iframe
+    await page.keyboard.press('Alt+p');
+    await expect(page.locator('#products-view')).toBeVisible({ timeout: 30_000 });
+    const printBtn = page.locator('button[title="In bảng đang xem"]').first();
+    await expect(printBtn).toBeVisible();
+    const [popup] = await Promise.all([context.waitForEvent('page', { timeout: 15_000 }), printBtn.click()]);
+    await expect(popup.locator('#mp-print-now')).toBeVisible({ timeout: 15_000 });
+    await expect(popup.locator('body')).toContainText(/DANH MỤC HÀNG HÓA/i);
+    await popup.close();
   });
 });

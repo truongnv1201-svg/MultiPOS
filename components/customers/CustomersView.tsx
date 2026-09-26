@@ -44,6 +44,8 @@ export function CustomersView() {
     setPage(1);
   };
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(customers[0] || null);
+  // Mobile: mở sheet chi tiết khi chạm 1 dòng trong record list (desktop vẫn dùng cột phải)
+  const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
 
   // Debt collection state
   const [isCollectModalOpen, setIsCollectModalOpen] = useState(false);
@@ -320,20 +322,21 @@ export function CustomersView() {
   };
 
   return (
-    <div id="customers-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
-      {/* Top Header */}
-      <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+    <div id="customers-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
+      {/* Top Header: cuon ngang tren man hep de khong vo bo cuc */}
+      <div className="h-14 px-2 sm:px-4 bg-white border-b border-slate-200 flex items-center justify-between gap-2 shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-3 shrink-0">
+          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap">
             <Users className="w-5 h-5 text-blue-600" />
-            <span>Khách hàng & Quản lý Công nợ</span>
+            <span className="hidden sm:inline">Khách hàng &amp; Quản lý Công nợ</span>
+            <span className="sm:hidden">Khách hàng</span>
           </h2>
           <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
             {customers.length} khách hàng
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleSyncDebts}
             disabled={syncingDebt}
@@ -423,7 +426,50 @@ export function CustomersView() {
             </span>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+          {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
+          <div id="customer-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
+            {paginatedCustomers.length === 0 ? (
+              <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy khách hàng nào phù hợp với bộ lọc.</p>
+            ) : (
+              paginatedCustomers.map((c) => {
+                const isOverLimit = c.debt_limit > 0 && c.current_debt > c.debt_limit;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedCustomer(c);
+                      setIsMobileDetailOpen(true);
+                    }}
+                    className={`w-full px-3 py-3 flex items-start justify-between gap-3 text-left active:bg-slate-50 ${
+                      selectedCustomer?.id === c.id ? 'bg-blue-50/70' : ''
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold text-slate-800 leading-snug">{c.name}</span>
+                      <span className="block text-[10px] text-slate-500 font-mono mt-0.5">
+                        {c.code}
+                        {c.phone ? ` · ${c.phone}` : ''}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      {c.current_debt > 0 ? (
+                        <span className="block text-[11px] font-mono font-bold text-rose-600">{formatVND(c.current_debt)}</span>
+                      ) : (
+                        <span className="block text-[11px] font-mono text-slate-500">0 đ</span>
+                      )}
+                      {isOverLimit ? (
+                        <span className="block text-[10px] font-bold text-rose-600">Vượt hạn mức</span>
+                      ) : (
+                        <span className="block text-[10px] text-slate-400 font-mono">Hạn mức {formatVND(c.debt_limit)}</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <div className="hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
@@ -519,9 +565,9 @@ export function CustomersView() {
           </DataTableShell>
         </div>
 
-        {/* Right: Selected Customer Card */}
+        {/* Right: Selected Customer Card (desktop/tablet — mobile dùng sheet bên dưới) */}
         {selectedCustomer ? (
-          <div className="w-full md:w-96 bg-slate-100 flex flex-col min-h-0">
+          <div className="hidden md:flex w-full md:w-96 bg-slate-100 flex flex-col min-h-0">
             <div className="flex-1 min-h-0 bg-white border border-slate-200 rounded-xl shadow-2xs p-3 flex flex-col overflow-y-auto">
             <div className="space-y-4 text-xs">
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
@@ -577,11 +623,89 @@ export function CustomersView() {
           </div>
           </div>
         ) : (
-          <div className="w-96 m-4 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 text-xs">
+          <div className="hidden md:flex w-96 m-4 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 text-xs">
             Chọn khách hàng để xem chi tiết
           </div>
         )}
       </div>
+
+      {/* Mobile: sheet chi tiết khách hàng */}
+      {isMobileDetailOpen && selectedCustomer && (
+        <div className="md:hidden fixed inset-0 z-50 flex items-end" role="dialog" aria-modal="true" aria-label="Chi tiết khách hàng">
+          <button type="button" className="absolute inset-0 bg-slate-900/45" onClick={() => setIsMobileDetailOpen(false)} aria-label="Đóng" />
+          <div className="relative w-full max-h-[85dvh] bg-white rounded-t-2xl shadow-2xl flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
+            <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-slate-200 shrink-0">
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono font-bold text-blue-700">{selectedCustomer.code}</p>
+                <p className="text-sm font-bold text-slate-900 leading-snug">{selectedCustomer.name}</p>
+                <p className="text-[11px] text-slate-500 font-mono">
+                  {selectedCustomer.phone || 'Chưa có SĐT'} ·{' '}
+                  {selectedCustomer.group === 'contractor' ? 'Thợ kính / Thi công' : 'Khách lẻ'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileDetailOpen(false)}
+                className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+                aria-label="Đóng chi tiết khách"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2.5">
+              <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2">
+                <p className="text-[11px] text-rose-700 font-medium">NỢ HIỆN TẠI</p>
+                <p className="text-xl font-extrabold text-rose-600 font-mono">{formatVND(selectedCustomer.current_debt)}</p>
+                <p className="text-[10px] text-slate-500 font-mono">Hạn mức: {formatVND(selectedCustomer.debt_limit)}</p>
+              </div>
+              {selectedCustomer.address && (
+                <p className="text-[11px] text-slate-600 flex items-start gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                  {selectedCustomer.address}
+                </p>
+              )}
+            </div>
+
+            <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileDetailOpen(false);
+                  openEditCustomer(selectedCustomer);
+                }}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 active:bg-slate-100"
+              >
+                <Edit2 className="w-4 h-4" />
+                Sửa
+              </button>
+              <button
+                type="button"
+                disabled={selectedCustomer.current_debt <= 0}
+                onClick={() => {
+                  setIsMobileDetailOpen(false);
+                  handleOpenCollectModal(selectedCustomer);
+                }}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-xs font-bold text-white active:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500"
+              >
+                <DollarSign className="w-4 h-4" />
+                Thu nợ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileDetailOpen(false);
+                  handleDeleteCustomer(selectedCustomer);
+                }}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white text-xs font-bold text-rose-600 active:bg-rose-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Collect Debt Modal */}
       <SheetShell

@@ -168,3 +168,52 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     assert.match(offlineCard, /id="btn-check-app-update"/);
   });
 });
+
+describe('Giai đoạn 4: icon PWA + in điện thoại + bàn phím + record list giá/KH', () => {
+  const manifest = JSON.parse(read('public/manifest.webmanifest'));
+  const print = read('lib/print.ts');
+  const excel = read('lib/excel.ts');
+  const receipt = read('components/pos/ReceiptModal.tsx');
+  const search = read('components/pos/ProductSearchBar.tsx');
+  const pro = read('components/products/ProductsView.tsx');
+  const cus = read('components/customers/CustomersView.tsx');
+
+  it('manifest có icon PNG 192/512 + maskable, script sinh icon tồn tại', () => {
+    for (const file of ['public/icons/icon-192.png', 'public/icons/icon-512.png', 'public/icons/icon-maskable-512.png']) {
+      assert.ok(existsSync(join(ROOT, file)), `thiếu ${file}`);
+    }
+    assert.ok(existsSync(join(ROOT, 'scripts/generate-pwa-icons.mjs')));
+    const sizes = manifest.icons.map((i) => i.sizes);
+    assert.ok(sizes.includes('192x192') && sizes.includes('512x512'));
+    assert.ok(manifest.icons.some((i) => i.purpose === 'maskable' && i.type === 'image/png'));
+  });
+
+  it('in từ điện thoại: helper tab in + nút trên phiếu, không đụng đường in desktop', () => {
+    assert.match(print, /export function printElementInTab/);
+    assert.match(print, /export function openPrintableTab/);
+    assert.match(print, /window\.open\(url, '_blank'\)/);
+    assert.match(print, /Đang tải hình…/, 'phải chờ ảnh QR trước khi cho in');
+    assert.match(receipt, /id="btn-print-receipt-mobile"/);
+    assert.match(receipt, /printElementInTab\(area/);
+    assert.match(receipt, /id="btn-print-receipt"/, 'giữ nguyên nút in desktop');
+    assert.match(excel, /if \(isMobileViewport\(\)\) \{\n\s+const preview = html\.replace/);
+    assert.match(excel, /printDocumentViaIframe\(html\);/);
+  });
+
+  it('chế độ bàn phím: bật/tắt được, tự thêm hàng khi gõ nhanh, nhớ trên máy', () => {
+    assert.match(search, /id="btn-pos-wedge-mode"/);
+    assert.match(search, /multipos_wedge_mode/);
+    assert.match(search, /handleQueryChange/);
+    assert.match(search, /wedgeTimerRef\.current = window\.setTimeout/);
+  });
+
+  it('bảng giá + khách hàng có record list mobile, bảng ngang ẩn trên mobile', () => {
+    assert.match(pro, /id="product-record-list" className="lg:hidden/);
+    assert.match(pro, /id="products-view" className="[^"]*h-full[^"]*min-h-0/);
+    assert.doesNotMatch(pro, /100dvh/);
+    assert.match(cus, /id="customer-record-list" className="lg:hidden/);
+    assert.match(cus, /aria-label="Chi tiết khách hàng"/);
+    assert.match(cus, /hidden md:flex w-full md:w-96/);
+    assert.doesNotMatch(cus, /100dvh/);
+  });
+});

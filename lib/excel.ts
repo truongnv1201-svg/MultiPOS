@@ -5,6 +5,7 @@
 // - In bảng dùng iframe ẩn + CSS in riêng (không đụng hệ thống in phiếu #print-area).
 
 import * as XLSX from 'xlsx';
+import { isMobileViewport, printHtmlInTab } from '@/lib/print';
 
 export interface ExcelSheet {
   name: string;
@@ -170,9 +171,23 @@ ${subtitle ? `<div class="sub">${escapeHtml(subtitle)}</div>` : ''}
 ${meta && meta.length > 0 ? `<div class="meta">${meta.map(escapeHtml).join(' &nbsp;•&nbsp; ')}</div>` : ''}
 <table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody>${tfoot}</table>
 <div class="foot"><span>In lúc: ${printedAt}</span><span>Trang <span class="pageno"></span></span></div>
-<script>window.onload = function () { window.focus(); window.print(); };<\/script>
 </body></html>`;
 
+  // Giai đoạn 4: điện thoại hay chặn auto-print trong iframe -> mở tab in có nút bấm.
+  if (isMobileViewport()) {
+    const preview = html.replace(
+      '</body>',
+      '<script>window.addEventListener("load", function () { window.focus(); window.print(); });<\/script></body>'
+    );
+    printHtmlInTab(preview, title);
+    return;
+  }
+
+  printDocumentViaIframe(html);
+}
+
+/** In tài liệu HTML tự chứa trong iframe ẩn rồi gọi print (đường in desktop). */
+export function printDocumentViaIframe(html: string): void {
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
   iframe.style.right = '0';
