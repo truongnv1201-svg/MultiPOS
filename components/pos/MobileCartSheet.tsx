@@ -2,7 +2,8 @@
 
 import { CheckCircle2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { formatVND } from '@/lib/format';
-import { formatQty, parseQtyInput, qtyStep, snapQty } from '@/lib/quantity';
+import { formatQty, qtyStep, snapQty } from '@/lib/quantity';
+import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
 import type { OrderItem } from '@/lib/types';
 
 interface MobileCartSheetProps {
@@ -104,14 +105,12 @@ export default function MobileCartSheet({
                                                     >
                                                         <Minus className="w-4 h-4" />
                                                     </button>
-                                                    <input
-                                                        id={`cart-qty-${item.id}`}
-                                                        type="text"
-                                                        inputMode="decimal"
-                                                        value={formatQty(item.quantity, allowDecimal)}
-                                                        onChange={(e) => onQuantityChange(item.id, snapQty(parseQtyInput(e.target.value), allowDecimal))}
-                                                        aria-label={`Số lượng ${item.name}`}
-                                                        className="w-14 h-9 px-1 text-center text-xs font-mono font-bold text-slate-800 bg-white focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                                                    <QtyDraftInput
+                                                        quantity={item.quantity}
+                                                        allowDecimal={allowDecimal}
+                                                        onCommit={(value) => onQuantityChange(item.id, value)}
+                                                        ariaLabel={`Số lượng ${item.name}`}
+                                                        className="w-14 h-9"
                                                     />
                                                     <button
                                                         type="button"

@@ -14,19 +14,23 @@ async function loginAsCashier(page: Page) {
   await expect(page.locator('#pos-screen')).toBeVisible({ timeout: 30_000 });
 }
 
+async function cartRowCount(page: Page) {
+  return page.locator('#cart-table-container tbody tr').count().catch(() => 0);
+}
+
 async function pickFirstProduct(page: Page) {
   const search = page.locator('#f1-search-input');
   for (const term of ['keo', 'đinh', 'ghe', 'a', 'e', 'o', '0', '1']) {
     await search.fill(term);
     try {
       await expect(page.locator('#search-results-dropdown')).toBeVisible({ timeout: 4_000 });
-      const item = page.locator('#search-results-dropdown div[id^="search-item-"]').first();
-      const isArea = (await item.innerText()).includes('Diện tích') || (await item.innerText()).includes('m²');
-      await item.click();
+      await page.locator('#search-results-dropdown div[id^="search-item-"]').first().click();
       if (await page.locator('#dimension-modal-overlay').count()) {
-        await page.locator('#btn-cancel-dimension-modal').click();
-        if (isArea) continue;
+        // Hàng m² cần bấm Xác nhận F3 mới vào giỏ
+        await page.locator('#btn-confirm-dimension-modal').click();
+        await expect(page.locator('#dimension-modal-overlay')).toHaveCount(0, { timeout: 15_000 });
       }
+      await expect(page.locator('#cart-table-container tbody tr').first()).toBeVisible({ timeout: 10_000 });
       return true;
     } catch {
       continue;
@@ -69,6 +73,24 @@ test.describe('số lượng thập phân', () => {
       await qtyInput.fill('3');
       await expect(qtyInput).toHaveValue('3');
     }
+  });
+
+  test('ô số lượng trong giỏ gõ "1.2" không bị nhảy về 0,001', async ({ page }) => {
+    await loginAsCashier(page);
+    expect(await pickFirstProduct(page)).toBe(true);
+
+    const cartQty = page.getByLabel(/^Số lượng /).first();
+    await expect(cartQty).toBeVisible();
+
+    // Gõ dấu chấm ở giữa: input type=number từng báo NaN -> rơi về 0,001
+    await cartQty.fill('');
+    await cartQty.type('1.2', { delay: 60 });
+    await expect(cartQty).toHaveValue('1.2');
+
+    // Enter để chốt -> hiển thị chuẩn hoá theo kiểu VN và giữ đúng 1,2
+    await cartQty.press('Enter');
+    await expect(cartQty).toHaveValue('1,2');
+    expect(await cartRowCount(page)).toBeGreaterThan(0);
   });
 
   test('form hàng hóa: mặc định Thường + để trống giá + cờ thập phân đã bật', async ({ page }) => {

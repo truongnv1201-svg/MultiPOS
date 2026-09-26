@@ -6,6 +6,7 @@ import { Product, OrderItem } from '@/lib/types';
 import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import MobileCartSheet from '@/components/pos/MobileCartSheet';
+import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
 import MobilePaymentSheet, { type MobilePaymentMethod } from '@/components/pos/MobilePaymentSheet';
 import { POSQuickCustomerModal } from '@/components/pos/POSQuickCustomerModal';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
@@ -864,18 +865,12 @@ export function POSScreen() {
                               >
                                 -
                               </button>
-                              <input
-                                type="number"
-                                inputMode="decimal"
-                                min={allowsDecimalQty(productById(item.product_id)) ? 0.001 : 1}
-                                step={allowsDecimalQty(productById(item.product_id)) ? 0.001 : 1}
-                                value={item.quantity}
-                                onChange={(e) => {
-                                  const allow = allowsDecimalQty(productById(item.product_id));
-                                  const raw = parseFloat(e.target.value);
-                                  updateCartItem(item.id, { quantity: snapQty(raw, allow) });
-                                }}
-                                className="w-14 h-6 px-1 text-center font-bold font-mono bg-white border border-slate-300 rounded text-slate-800 text-xs focus:border-blue-500 focus:outline-hidden"
+                              <QtyDraftInput
+                                quantity={item.quantity}
+                                allowDecimal={allowsDecimalQty(productById(item.product_id))}
+                                onCommit={(value) => updateCartItem(item.id, { quantity: value })}
+                                ariaLabel={`Số lượng ${item.name}`}
+                                className="w-14 h-6"
                               />
                               <button
                                 type="button"
