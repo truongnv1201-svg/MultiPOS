@@ -256,8 +256,8 @@ export function CashbookView() {
         </div>
       </div>
 
-      {/* Overview Metric Cards */}
-      <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white border-b border-slate-200">
+      {/* Overview Metric Cards — thẻ tổng hợp nằm thẳng trên nền trang (đồng bộ Reports) */}
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="bg-blue-50/80 p-3.5 rounded-xl border border-blue-200">
           <div className="flex items-center justify-between text-xs text-blue-800 font-semibold mb-1">
             <span>TỔNG SỐ DƯ TỒN QUỸ:</span>
