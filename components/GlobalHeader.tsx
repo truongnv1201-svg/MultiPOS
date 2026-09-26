@@ -14,7 +14,9 @@ import {
   Minimize,
   ShoppingCart,
   Clock,
+  CloudCog,
 } from 'lucide-react';
+import SyncCenterSheet from '@/components/common/SyncCenterSheet';
 
 const ROLE_LABEL_HEADER: Record<string, string> = {
   admin: 'Quản trị viên',
@@ -47,6 +49,7 @@ export function GlobalHeader() {
   } = useStore();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [syncCenterOpen, setSyncCenterOpen] = useState(false);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -287,6 +290,22 @@ export function GlobalHeader() {
 
         {/* If on POS screen: không còn nút Quản lý riêng — dùng Menu (Alt+M) để chuyển phân hệ */}
 
+        {/* Trung tâm đồng bộ — xem hàng đợi chờ/lỗi và gửi lại thao tác offline (mobile-first) */}
+        <button
+          id="header-sync-center-btn"
+          onClick={() => setSyncCenterOpen(true)}
+          className={`flex h-8 w-8 items-center justify-center border rounded-md transition-colors ${
+            lastSyncError
+              ? 'bg-rose-950/80 border-rose-700 text-rose-300 hover:bg-rose-900'
+              : pendingQueue.length > 0
+                ? 'bg-amber-950/80 border-amber-700 text-amber-300 hover:bg-amber-900'
+                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+          }`}
+          title="Trung tâm đồng bộ — hàng đợi chờ gửi, thao tác lỗi và gửi lại"
+        >
+          <CloudCog className="w-3.5 h-3.5" />
+        </button>
+
         {/* Làm mới tay — kéo đơn/sổ quỹ/kho/catalog mới nhất từ server (đa máy).
             Tự động 15s đã có; nút này để bấm ngay khi thấy số liệu lạ + hiện lỗi sync. */}
         <button
@@ -406,6 +425,8 @@ export function GlobalHeader() {
           {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
         </button>
       </div>
+
+      <SyncCenterSheet open={syncCenterOpen} onClose={() => setSyncCenterOpen(false)} />
     </header>
   );
 }

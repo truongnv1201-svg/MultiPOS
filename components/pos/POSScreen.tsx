@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store';
 import { Product, OrderItem } from '@/lib/types';
 import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
+import MobileCartSheet from '@/components/pos/MobileCartSheet';
 import { POSQuickCustomerModal } from '@/components/pos/POSQuickCustomerModal';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -105,6 +106,8 @@ export function POSScreen() {
   // nên cảnh báo "chưa đăng nhập" render giống nhau hai phía (không còn mismatch).
   // (supabaseReady/user đơn thuần khác nhau SSR vs CSR -> lỗi hydration, dev badge "1 Issue".)
   const needLogin = authReady && supabaseReady && !user;
+  // Mobile cart sheet (bán hàng) — mở từ MobilePOSDock, thay cho cuộn tới bảng ngang
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
 
   // Ô số lượng nhanh được lift lên đây để render ở vị trí cố định trong toolbar
   // (tránh bị đẩy khi thêm/xóa tab hóa đơn)
@@ -449,7 +452,7 @@ export function POSScreen() {
   return (
     <div id="pos-screen" className="flex-1 flex flex-col lg:flex-row h-full min-h-0 bg-slate-100 overflow-hidden pos-mobile-bottom-space">
       {/* LEFT COLUMN: Order Tabs + Cart Items Table + Product Grid (if standard) */}
-      <div className="flex-1 flex flex-col border-r border-slate-200 min-w-0 bg-white">
+      <div className="flex-1 flex flex-col border-r border-slate-200 min-w-0 min-h-0 bg-white">
         {/* Toolbar: CSS Grid 3 cột — [search+qty | tabs (1fr) | controls] */}
         <div
           id="pos-goods-toolbar"
@@ -597,7 +600,36 @@ export function POSScreen() {
               </p>
             </div>
           ) : (
-            <div className="border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+            <>
+              {/* Mobile: record list dòng nhập (bảng ngang chỉ dành cho desktop) */}
+              <div className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                {impLines.map((line, idx) => {
+                  const prod = products.find((p) => p.id === line.productId);
+                  if (!prod) return null;
+                  return (
+                    <div key={line.key} className="px-3 py-2.5 flex items-center gap-3">
+                      <span className="w-5 shrink-0 text-center text-[11px] font-mono text-slate-400">{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{prod.name}</p>
+                        <p className="text-[10px] text-slate-500 font-mono">
+                          {line.qty} {prod?.unit} × {formatVND(line.price)}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-xs font-mono font-bold text-slate-800">
+                        {formatVND(line.qty * line.price)}
+                      </span>
+                      <button
+                        onClick={() => setImpLines((prev) => prev.filter((l) => l.key !== line.key))}
+                        className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
+                        aria-label={`Xóa dòng nhập ${prod.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden lg:block border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
               <table className="w-full min-w-[620px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
@@ -673,11 +705,12 @@ export function POSScreen() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </div>
         ) : (
-        <div id="cart-table-container" className="flex-1 overflow-auto p-2">
+        <div id="cart-table-container" className="flex-1 min-h-0 overflow-auto p-2">
           {activeCart.items.length === 0 ? (
             <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
               <ShoppingBag className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mb-2 stroke-1" />
@@ -687,7 +720,25 @@ export function POSScreen() {
               </p>
             </div>
           ) : (
-            <div className="border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+            <>
+              {/* Mobile: tóm tắt giỏ, mở record list dạng sheet (bảng ngang chỉ dành cho desktop) */}
+              <button
+                id="btn-pos-mobile-cart-summary"
+                type="button"
+                onClick={() => setIsMobileCartOpen(true)}
+                className="lg:hidden w-full mb-2 flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 active:bg-blue-100 text-left"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-semibold text-blue-800">
+                    {activeCart.items.length} món trong giỏ
+                  </span>
+                  <span className="block text-[10px] text-blue-700/80">Chạm để xem &amp; sửa giỏ hàng</span>
+                </span>
+                <span className="shrink-0 text-sm font-mono font-black text-blue-900">
+                  {formatVND(calculatedTotals.payable)}
+                </span>
+              </button>
+              <div className="hidden lg:block border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
               <table className="w-full min-w-[620px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 select-none">
@@ -825,14 +876,15 @@ export function POSScreen() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </div>
         )}
 
         {/* Bottom Panel: If in Standard Mode, show Products Grid */}
         {posMode === 'standard' && (
-          <div id="product-grid-section" className="h-64 border-t border-slate-200 bg-slate-50 flex flex-col">
+          <div id="product-grid-section" className="h-44 sm:h-64 border-t border-slate-200 bg-slate-50 flex flex-col min-h-0">
             {/* Product-type tabs — thay cho tab Danh mục (đã bỏ) */}
             <div className="px-3 py-1.5 bg-slate-200/70 border-b border-slate-200 flex items-center gap-1.5 overflow-x-auto">
               {PRODUCT_TYPE_TABS.map((t) => (
@@ -930,7 +982,7 @@ export function POSScreen() {
       {/* RIGHT COLUMN: panel Nhập (luồng nhập) hoặc Khách + Thanh toán (luồng bán) */}
       <div
         id="pos-payment-panel"
-        className="w-full lg:w-96 bg-slate-50 p-3.5 flex flex-col justify-between border-t lg:border-t-0 border-slate-200 overflow-y-auto select-none"
+        className="w-full lg:w-96 bg-slate-50 p-3.5 flex flex-col justify-between border-t lg:border-t-0 border-slate-200 overflow-y-auto select-none min-h-0 max-h-[52dvh] lg:max-h-none"
       >
       {isImportFlow ? (
         <div className="space-y-3">
@@ -1667,10 +1719,28 @@ export function POSScreen() {
         }
         onOpenMenu={() => setFlyoutMenuOpen(true)}
         onOpenCart={() => {
-          const target = document.getElementById(isImportFlow ? 'import-table-container' : 'cart-table-container');
-          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (isImportFlow) {
+            const target = document.getElementById('import-table-container');
+            target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+          setIsMobileCartOpen(true);
         }}
         onPrimaryAction={isImportFlow ? handleImportCommit : handleCheckout}
+      />
+
+      <MobileCartSheet
+        open={isMobileCartOpen && !isImportFlow}
+        onClose={() => setIsMobileCartOpen(false)}
+        items={activeCart.items}
+        payable={calculatedTotals.payable}
+        canCheckout={!isProcessing && activeCart.items.length > 0 && currentShift.status === 'open' && !needLogin}
+        checkoutLabel={isProcessing ? 'Đang xử lý…' : needLogin ? 'Cần đăng nhập' : 'Thanh toán'}
+        onQuantityChange={(itemId, quantity) => updateCartItem(itemId, { quantity })}
+        onRemove={removeCartItem}
+        onEditDimension={(item) => setDimensionModalItem({ item })}
+        onClear={clearActiveCart}
+        onCheckout={handleCheckout}
       />
 
       {/* Quick Customer Creation Modal */}

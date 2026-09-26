@@ -110,6 +110,8 @@ interface StoreContextType {
   // Network & Offline (PWA)
   isOnline: boolean;
   pendingQueue: Order[];
+  // Sync Center bỏ hàng đợi offline: xóa db.pendingOrders rồi cập nhật badge header
+  setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;
   syncPendingOrders: () => Promise<void>;
   // P3: Supabase Source of Truth
   catalogSource: 'local' | 'server';
@@ -757,6 +759,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     cashierName,
     isOnline,
     pendingQueue,
+    setPendingQueue,
     syncPendingOrders,
     lastSyncAt,
     lastSyncError,

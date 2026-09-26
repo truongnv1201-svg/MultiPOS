@@ -243,13 +243,14 @@ export function InventoryView() {
   const totalInventoryValue = products.reduce((sum, p) => sum + (p.stock_quantity > 0 ? p.stock_quantity * p.avg_cost : 0), 0);
 
   return (
-    <div id="inventory-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
-      {/* Top bar */}
-      <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div id="inventory-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
+      {/* Top bar — cuộn ngang trên màn hẹp để không vỡ bố cục */}
+      <div className="h-14 px-2 sm:px-4 bg-white border-b border-slate-200 flex items-center justify-between gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-3 shrink-0">
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
             <Boxes className="w-5 h-5 text-blue-600" />
-            <span>Kho Hàng & Nhập Kho Vật Tư (Giá Vốn Bình Quân MAC)</span>
+            <span className="hidden md:inline">Kho Hàng &amp; Nhập Kho Vật Tư (Giá Vốn Bình Quân MAC)</span>
+            <span className="md:hidden">Kho Hàng</span>
           </h2>
         </div>
 
@@ -336,7 +337,46 @@ export function InventoryView() {
               </span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+            {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
+            <div id="stock-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
+              {paginatedProducts.length === 0 ? (
+                <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy vật tư nào phù hợp với bộ lọc.</p>
+              ) : (
+                paginatedProducts.map((p) => {
+                  const isLow = p.stock_quantity <= 15 && p.stock_quantity > 0;
+                  const isOut = p.stock_quantity <= 0;
+                  const stockValue = p.stock_quantity * p.avg_cost;
+                  return (
+                    <div key={p.id} className="px-3 py-2.5 active:bg-slate-50">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 leading-snug">{p.name}</p>
+                          <p className="text-[10px] text-slate-500 font-mono">{p.sku} · {p.unit}</p>
+                        </div>
+                        {isOut ? (
+                          <span className="shrink-0 px-2 py-0.5 bg-rose-100 text-rose-800 rounded-full text-[10px] font-bold">Hết hàng</span>
+                        ) : isLow ? (
+                          <span className="shrink-0 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold">Sắp hết</span>
+                        ) : (
+                          <span className="shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-semibold">Đủ hàng</span>
+                        )}
+                      </div>
+                      <div className="mt-1.5 flex items-end justify-between gap-2">
+                        <div className="text-[11px] text-slate-500 font-mono">
+                          <span className={isOut ? 'text-rose-600' : isLow ? 'text-amber-600' : 'text-slate-900'}>
+                            Tồn {formatNumber(p.stock_quantity)}
+                          </span>
+                          {' · '}vốn BQ {formatVND(p.avg_cost)}
+                        </div>
+                        <span className="text-xs font-mono font-bold text-slate-900">{formatVND(stockValue)}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
@@ -484,7 +524,37 @@ export function InventoryView() {
               </select>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+            {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
+            <div id="movement-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
+              {paginatedMovements.length === 0 ? (
+                <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy bút toán thẻ kho nào phù hợp với bộ lọc.</p>
+              ) : (
+                paginatedMovements.map((m) => {
+                  const isPositive = m.quantity > 0;
+                  return (
+                    <div key={m.id} className="px-3 py-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 leading-snug truncate">{m.product_name}</p>
+                          <p className="text-[10px] text-slate-500 font-mono">{m.reference_code}</p>
+                        </div>
+                        <span className={`shrink-0 text-xs font-mono font-bold ${isPositive ? 'text-emerald-700' : 'text-rose-700'}`}>
+                          {isPositive ? `+${m.quantity}` : m.quantity}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-500 font-mono">
+                        <span>{new Date(m.created_at).toLocaleString('vi-VN')}</span>
+                        <span>
+                          {m.previous_stock} → {m.new_stock}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">

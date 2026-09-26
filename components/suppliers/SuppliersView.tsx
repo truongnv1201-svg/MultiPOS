@@ -38,6 +38,8 @@ export function SuppliersView() {
   const { sortKey: supSortKey, sortDir: supSortDir, toggleSort: toggleSupSort } = useSortState();
 
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(suppliers[0] || null);
+  // Mobile: mở sheet chi tiết khi chạm 1 dòng trong record list (desktop vẫn dùng cột phải)
+  const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
   const liveSelectedSupplier = suppliers.find((s) => s.id === selectedSupplier?.id) || selectedSupplier || suppliers[0] || null;
 
   // Modals
@@ -298,23 +300,24 @@ export function SuppliersView() {
 
   return (
     <div id="suppliers-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
-      {/* Top Bar */}
-      <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
+      {/* Top Bar — cuộn ngang trên màn hẹp để không vỡ bố cục */}
+      <div className="h-14 px-2 sm:px-4 bg-white border-b border-slate-200 flex items-center justify-between gap-2 shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-3 shrink-0">
           <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
             <Truck className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              Nhà Cung Cấp & Công Nợ Mua Hàng
+            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap">
+              <span className="md:hidden">Nhà Cung Cấp</span>
+              <span className="hidden md:inline">Nhà Cung Cấp &amp; Công Nợ Mua Hàng</span>
             </h2>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 hidden md:block">
               Quản lý đối tác cung ứng vật tư nhôm, kính, phụ kiện và thanh toán công nợ
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg text-xs">
             <span className="text-rose-700 font-medium">Tổng nợ phải trả:</span>
             <span className="font-bold font-mono text-rose-700">{formatVND(totalDebt)}</span>
@@ -383,8 +386,46 @@ export function SuppliersView() {
                 </span>
               </div>
 
+              {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
+              <div id="supplier-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
+                {paginatedSuppliers.length === 0 ? (
+                  <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy nhà cung cấp nào phù hợp với bộ lọc.</p>
+                ) : (
+                  paginatedSuppliers.map((sup) => (
+                    <button
+                      key={sup.id}
+                      onClick={() => {
+                        setSelectedSupplier(sup);
+                        setIsMobileDetailOpen(true);
+                      }}
+                      className={`w-full px-3 py-3 flex items-start justify-between gap-3 text-left active:bg-slate-50 ${
+                        liveSelectedSupplier?.id === sup.id ? 'bg-blue-50/70' : ''
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-xs font-bold text-slate-800 leading-snug">{sup.name}</span>
+                        <span className="block text-[10px] text-slate-500 font-mono mt-0.5">
+                          {sup.code}
+                          {sup.phone ? ` · ${sup.phone}` : ''}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        {sup.current_debt > 0 ? (
+                          <span className="block text-[11px] font-mono font-bold text-rose-600">{formatVND(sup.current_debt)}</span>
+                        ) : (
+                          <span className="block text-[11px] font-mono text-slate-500">0 đ</span>
+                        )}
+                        <span className="block text-[10px] text-slate-400 font-mono">
+                          Hạn mức {sup.credit_limit ? formatVND(sup.credit_limit) : '—'}
+                        </span>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+
               {/* Suppliers Table */}
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+              <div className="hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
@@ -479,9 +520,9 @@ export function SuppliersView() {
             </DataTableShell>
           </div>
 
-          {/* Right: Selected Supplier Card */}
+          {/* Right: Selected Supplier Card (desktop/tablet — mobile dùng sheet bên dưới) */}
           {liveSelectedSupplier ? (
-            <div className="w-full md:w-96 bg-slate-100 flex flex-col min-h-0 p-4 pl-0">
+            <div className="hidden md:flex w-full md:w-96 bg-slate-100 flex-col min-h-0 p-4 pl-0">
               <div className="flex-1 min-h-0 bg-white border border-slate-200 rounded-xl shadow-2xs p-3 flex flex-col overflow-y-auto">
                 <div className="space-y-4 text-xs">
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
@@ -544,11 +585,92 @@ export function SuppliersView() {
               </div>
             </div>
           ) : (
-            <div className="w-96 m-4 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 text-xs">
+            <div className="hidden md:flex w-96 m-4 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 text-xs">
               Chọn nhà cung cấp để xem chi tiết
             </div>
           )}
         </div>
+
+      {/* Mobile: sheet chi tiết nhà cung cấp */}
+      {isMobileDetailOpen && liveSelectedSupplier && (
+        <div className="md:hidden fixed inset-0 z-50 flex items-end" role="dialog" aria-modal="true" aria-label="Chi tiết nhà cung cấp">
+          <button type="button" className="absolute inset-0 bg-slate-900/45" onClick={() => setIsMobileDetailOpen(false)} aria-label="Đóng" />
+          <div className="relative w-full max-h-[85dvh] bg-white rounded-t-2xl shadow-2xl flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
+            <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-slate-200 shrink-0">
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono font-bold text-blue-700">{liveSelectedSupplier.code}</p>
+                <p className="text-sm font-bold text-slate-900 leading-snug">{liveSelectedSupplier.name}</p>
+                <p className="text-[11px] text-slate-500 font-mono">
+                  {liveSelectedSupplier.phone || 'Chưa có SĐT'}
+                  {liveSelectedSupplier.tax_code ? ` · MST ${liveSelectedSupplier.tax_code}` : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileDetailOpen(false)}
+                className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+                aria-label="Đóng chi tiết"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2.5">
+              <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2">
+                <p className="text-[11px] text-rose-700 font-medium">NỢ PHẢI TRẢ HIỆN TẠI</p>
+                <p className="text-xl font-extrabold text-rose-600 font-mono">{formatVND(liveSelectedSupplier.current_debt)}</p>
+                {liveSelectedSupplier.credit_limit !== undefined && liveSelectedSupplier.credit_limit > 0 && (
+                  <p className="text-[10px] text-slate-500 font-mono">Hạn mức: {formatVND(liveSelectedSupplier.credit_limit)}</p>
+                )}
+              </div>
+              {liveSelectedSupplier.address && (
+                <p className="text-[11px] text-slate-600 flex items-start gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                  {liveSelectedSupplier.address}
+                </p>
+              )}
+            </div>
+
+            <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileDetailOpen(false);
+                  openEditSupplier(liveSelectedSupplier);
+                }}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700 active:bg-slate-100"
+              >
+                <Edit2 className="w-4 h-4" />
+                Sửa
+              </button>
+              <button
+                type="button"
+                disabled={liveSelectedSupplier.current_debt <= 0}
+                onClick={() => {
+                  setPayingSupplier(liveSelectedSupplier);
+                  setPayAmount(liveSelectedSupplier.current_debt);
+                  setIsMobileDetailOpen(false);
+                }}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-xs font-bold text-white active:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500"
+              >
+                <DollarSign className="w-4 h-4" />
+                Trả nợ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileDetailOpen(false);
+                  handleDeleteSupplier(liveSelectedSupplier);
+                }}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white text-xs font-bold text-rose-600 active:bg-rose-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Add Supplier */}
       {isAddModalOpen && (
