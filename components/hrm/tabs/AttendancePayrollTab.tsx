@@ -217,6 +217,12 @@ export function AttendancePayrollTab({
         {/* Toolbar lương — cùng khối với bảng (chuẩn bảng chung) */}
         <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-extrabold text-slate-800">Bảng lương tháng {monthKey}</h3>
+          {isStale && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 h-8" role="status">
+              <TriangleAlert className="w-3.5 h-3.5 shrink-0" />
+              Bảng lương có dữ liệu thay đổi, bấm làm mới để xem
+            </span>
+          )}
           {isManager && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <button
@@ -240,7 +246,7 @@ export function AttendancePayrollTab({
               </button>
               <button
                 onClick={() => setAdvOpen(true)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 rounded-lg px-3 py-1.5 transition cursor-pointer"
+                className="inline-flex h-8 items-center justify-center gap-1.5 px-3.5 bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 text-xs font-semibold rounded-lg transition cursor-pointer"
                 title="Ghi / xem các lần tạm ứng (mỗi lần sinh 1 phiếu chi)"
               >
                 <Wallet className="w-4 h-4" /> Tạm ứng
@@ -278,12 +284,6 @@ export function AttendancePayrollTab({
               )}
               {run && items.length > 0 && <TableTools onExportExcel={handleExportPayroll} onPrint={handlePrintPayroll} />}
             </div>
-          )}
-          {isStale && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800" role="status">
-              <TriangleAlert className="w-3.5 h-3.5 shrink-0" />
-              Bảng lương có dữ liệu thay đổi, bấm làm mới để xem
-            </span>
           )}
         </div>
         <PayrollTab

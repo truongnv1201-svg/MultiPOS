@@ -315,18 +315,20 @@ export function AttendanceTab({
         <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-extrabold text-slate-800">Chấm công tháng {monthKey}</h3>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-100 rounded-md p-0.5">
+          {/* Chọn tháng — cùng nhịp h-8 của bộ lọc chung, thay vì pill segmented cũ */}
+          <div className="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white overflow-hidden">
           <button
             onClick={() => {
               const d = new Date(year, month - 2, 1);
               onMonthChange(d.getFullYear(), d.getMonth() + 1);
             }}
-            className="p-1.5 rounded hover:bg-white transition cursor-pointer"
+            className="inline-flex h-8 w-8 items-center justify-center text-slate-600 hover:bg-slate-100 transition cursor-pointer"
             aria-label="Tháng trước"
+            title="Tháng trước"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="font-bold text-slate-800 min-w-[86px] text-center text-xs tabular-nums">
+          <span className="font-semibold text-slate-800 min-w-[84px] text-center text-xs tabular-nums border-x border-slate-200 h-full inline-flex items-center justify-center">
             T{month}/{year}
           </span>
           <button
@@ -334,23 +336,41 @@ export function AttendanceTab({
               const d = new Date(year, month, 1);
               onMonthChange(d.getFullYear(), d.getMonth() + 1);
             }}
-            className="p-1.5 rounded hover:bg-white transition cursor-pointer"
+            className="inline-flex h-8 w-8 items-center justify-center text-slate-600 hover:bg-slate-100 transition cursor-pointer"
             aria-label="Tháng sau"
+            title="Tháng sau"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-        <button onClick={gotoToday} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-blue-700 border border-slate-300 hover:border-blue-400 rounded-md px-2 h-8 transition cursor-pointer">
+        <button
+          onClick={gotoToday}
+          className="h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-md text-slate-600 hover:bg-slate-100 font-medium flex items-center gap-1 transition-colors"
+          title="Về tháng hiện tại"
+        >
           <CalendarDays className="w-3.5 h-3.5" /> Hôm nay
         </button>
         <div className="relative flex-1 min-w-[150px] sm:flex-none sm:w-52">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm nhân viên…" aria-label="Tìm nhân viên" className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden" />
         </div>
-        <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer select-none">
-          <input type="checkbox" checked={hideMarked} onChange={(e) => setHideMarked(e.target.checked)} className="w-4 h-4 accent-blue-600 cursor-pointer" />
+        {/* Lọc trạng thái — pill toggle h-8 cùng nhịp bộ lọc chung (thay checkbox lơ lỏng) */}
+        <button
+          type="button"
+          onClick={() => setHideMarked((prev) => !prev)}
+          aria-pressed={hideMarked}
+          className={`inline-flex h-8 items-center gap-1.5 px-2.5 rounded-md border text-xs font-medium transition-colors ${
+            hideMarked
+              ? 'border-blue-500 bg-blue-50 text-blue-700'
+              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+          }`}
+          title="Bật để chỉ hiện nhân viên chưa đủ công"
+        >
+          <span className={`h-3 w-3 rounded-sm border flex items-center justify-center ${hideMarked ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'}`}>
+            {hideMarked && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
+          </span>
           Chỉ hiện chưa đủ công
-        </label>
+        </button>
         <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
         {locked && (
           <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold bg-slate-800 text-amber-300" title="Đã chốt ở mục lương bên dưới — bấm Mở lại để chấm/sửa">
