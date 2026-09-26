@@ -37,6 +37,8 @@ export function SearchableSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   // Chặn blur-commit ghi đè lựa chọn vừa click/Enter (blur bắn sau pick)
   const skipCommit = useRef(false);
+  // Bấm nút Xóa xong focus lại input: bỏ qua bước mở dropdown/mền nhãn cũ
+  const justCleared = useRef(false);
 
   const selected = options.find((o) => o.value === value);
 
@@ -92,6 +94,12 @@ export function SearchableSelect({
           placeholder={placeholder}
           autoComplete="off"
           onFocus={() => {
+            // Bấm nút X xong focus lại: không mở lại danh sách và không nhảy về nhãn cũ.
+            if (justCleared.current) {
+              justCleared.current = false;
+              setFocused(true);
+              return;
+            }
             skipCommit.current = false;
             updateQuery(selected?.label || (allowCustom ? value : ''));
             setFocused(true);
@@ -143,6 +151,8 @@ export function SearchableSelect({
             onClick={() => {
               onChange('');
               updateQuery('');
+              setOpen(false);
+              justCleared.current = true;
               inputRef.current?.focus();
             }}
             className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded"
@@ -154,7 +164,7 @@ export function SearchableSelect({
       </div>
 
       {open && !disabled && (
-        <ul className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl py-1" role="listbox">
+        <ul className="absolute z-50 left-0 right-0 mt-1 h-52 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl py-1" role="listbox">
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-xs text-slate-400">
               {allowCustom && query.trim() ? (

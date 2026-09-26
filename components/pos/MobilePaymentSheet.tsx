@@ -186,7 +186,7 @@ export default function MobilePaymentSheet({
                                     </button>
                                 </div>
                                 {customerQuery.trim() !== '' && (
-                                    <div id="mobile-payment-customer-list" className="mt-1 max-h-44 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+                                    <div id="mobile-payment-customer-list" className="mt-1 h-40 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
                                         {matches.length === 0 ? (
                                             <p className="px-3 py-3 text-[11px] text-slate-400">Không tìm thấy khách hàng.</p>
                                         ) : (

@@ -1230,7 +1230,12 @@ export function POSScreen() {
                     setCustomerSearch(e.target.value);
                     setIsCustomerDropdownOpen(true);
                   }}
-                  onFocus={() => setIsCustomerDropdownOpen(true)}
+                  onFocus={(e) => {
+                    setIsCustomerDropdownOpen(true);
+                    // Ô đang hiện tên KH đã chọn (fallback) — bôi đen để gõ thay thế,
+                    // nếu không chữ gõ sẽ bị dính vào cuối tên và tìm không ra kết quả.
+                    if (!customerSearch) e.target.select();
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') setIsCustomerDropdownOpen(false);
                   }}
@@ -1261,13 +1266,18 @@ export function POSScreen() {
               </div>
             )}
 
-            {/* Customer Dropdown */}
+            {/* Customer Dropdown — chiều cao ổn định, không nhảy theo số kết quả */}
             {isCustomerDropdownOpen && (
               <div
                 id="customer-search-dropdown"
-                className="absolute top-14 left-0 right-0 bg-white border border-slate-200 rounded-md shadow-xl z-30 max-h-48 overflow-y-auto"
+                className="absolute top-14 left-0 right-0 h-40 bg-white border border-slate-200 rounded-md shadow-xl z-30 overflow-y-auto"
               >
-                {filteredCustomers.map((cust) => (
+                {filteredCustomers.length === 0 ? (
+                  <div className="px-3 py-2.5 text-[11px] text-slate-400 leading-relaxed">
+                    Không tìm thấy khách hàng. Nhập tên rồi bấm <span className="font-bold text-slate-600">+</span> để tạo nhanh.
+                  </div>
+                ) : (
+                  filteredCustomers.map((cust) => (
                   <div
                     key={cust.id}
                     onClick={() => {
@@ -1294,7 +1304,8 @@ export function POSScreen() {
                       </span>
                     </div>
                   </div>
-                ))}
+                ))
+                )}
               </div>
             )}
           </div>

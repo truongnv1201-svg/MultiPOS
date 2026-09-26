@@ -56,6 +56,44 @@ test.describe('đóng dropdown khi bấm ra ngoài', () => {
     await expect(dropdown).toHaveCount(0, { timeout: 5_000 });
   });
 
+  test('ô khách hàng: gõ không bị dính chữ vào tên khách đã chọn', async ({ page }) => {
+    await loginAsCashier(page);
+    const input = page.locator('#f4-customer-input');
+    const dropdown = page.locator('#customer-search-dropdown');
+
+    // Chọn 1 khách trước để ô có tên hiển thị sẵn (lấy tên từ dữ liệu thật, không hardcode)
+    await input.click();
+    await input.fill('a');
+    const firstRow = dropdown.locator('> div').first();
+    await expect(firstRow).toBeVisible({ timeout: 10_000 });
+    const pickedName = (await firstRow.innerText()).split('\n')[0].trim();
+    await firstRow.click();
+    await expect(input).toHaveValue(pickedName, { timeout: 10_000 });
+
+    // Bấm lại vào ô rồi gõ: ký tự phải thay cả tên, không nối vào cuối tên
+    await input.click();
+    await page.keyboard.type('a', { delay: 40 });
+    await expect(input).toHaveValue('a', { timeout: 5_000 });
+    await expect(dropdown.locator('> div').first()).toBeVisible();
+  });
+
+  test('dropdown tìm hàng giữ nguyên chiều cao khi gõ từng ký tự', async ({ page }) => {
+    await loginAsCashier(page);
+    const search = page.locator('#f1-search-input');
+    const dropdown = page.locator('#search-results-dropdown');
+
+    await search.click();
+    const heights: number[] = [];
+    for (const ch of ['k', 'e', 'o']) {
+      await page.keyboard.type(ch, { delay: 60 });
+      await expect(dropdown).toBeVisible({ timeout: 10_000 });
+      const box = await dropdown.boundingBox();
+      heights.push(Math.round(box?.height ?? 0));
+    }
+    // Không nhảy: chiều cao khung gợi ý phải giữ nguyên khi số kết quả thay đổi
+    expect(new Set(heights).size).toBe(1);
+  });
+
   test('điện thoại: danh sách gợi ý khách trong sheet thanh toán đóng khi bấm ra ngoài', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await loginAsCashier(page);

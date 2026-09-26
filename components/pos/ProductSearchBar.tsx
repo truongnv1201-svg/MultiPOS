@@ -374,14 +374,14 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         </div>
       )}
 
-      {/* Dropdown kết quả */}
+      {/* Dropdown kết quả — chiều cao cố định để danh sách không nhảy khi gõ từng ký tự */}
       {isDropdownOpen && searchQuery.trim().length > 0 && (
         <div
           ref={dropdownRef}
           id="search-results-dropdown"
-          className="absolute top-11 left-0 right-0 bg-white text-slate-800 shadow-2xl rounded-lg border border-slate-200 overflow-hidden z-50 animate-in fade-in-50 duration-100"
+          className="absolute top-11 left-0 right-0 h-64 bg-white text-slate-800 shadow-2xl rounded-lg border border-slate-200 overflow-hidden z-50"
         >
-          <div className="p-1.5 max-h-72 overflow-y-auto divide-y divide-slate-100">
+          <div className="p-1.5 h-full overflow-y-auto divide-y divide-slate-100">
             {filteredProducts.length === 0 && (
               <div className="px-3 py-3 text-center text-xs text-slate-500">
                 Không tìm thấy <span className="font-semibold text-slate-700">&quot;{searchQuery.trim()}&quot;</span> trong danh mục.
