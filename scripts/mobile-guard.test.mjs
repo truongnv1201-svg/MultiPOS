@@ -3,7 +3,7 @@
 // Chạy: npm test (node --test ...). Chỉ đọc file nên không cần mạng/DB.
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -85,5 +85,84 @@ describe('Sync Center: mở được từ header, xem & gửi lại hàng đợi
 
   it('nút Làm mới cũ (header-refresh-btn) vẫn còn để E2E offline-sync dùng', () => {
     assert.match(header, /id="header-refresh-btn"/);
+  });
+});
+
+describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+  const pay = read('components/pos/MobilePaymentSheet.tsx');
+  const shell = read('components/common/SheetShell.tsx');
+  const scanner = read('components/pos/BarcodeScannerSheet.tsx');
+  const search = read('components/pos/ProductSearchBar.tsx');
+  const sup = read('components/suppliers/SuppliersView.tsx');
+  const cus = read('components/customers/CustomersView.tsx');
+  const pro = read('components/products/ProductsView.tsx');
+  const addPro = read('components/products/AddProductFormModal.tsx');
+  const store = read('lib/store.tsx');
+  const sw = read('public/sw.js');
+  const manifest = JSON.parse(read('public/manifest.webmanifest'));
+  const offlineCard = read('components/settings/OfflineReadyCard.tsx');
+
+  it('panel thanh toán desktop ẩn trên mobile, thay bằng thanh ghim + sheet', () => {
+    assert.match(pos, /id="pos-payment-panel"[\s\S]{0,80}?className="hidden lg:flex/);
+    assert.match(pos, /id="btn-pos-mobile-payment"/);
+    assert.match(pos, /<MobilePaymentSheet/);
+    assert.match(pos, /onPrimaryAction=\{isImportFlow \? handleImportCommit : \(\) => setIsMobilePaymentOpen\(true\)\}/);
+  });
+
+  it('sheet thanh toán có đủ phương thức, tiền khách đưa và nút thu tiền', () => {
+    assert.match(pay, /aria-label="Thanh toán"/);
+    assert.match(pay, /Tiền mặt/);
+    assert.match(pay, /VietQR/);
+    assert.match(pay, /Quẹt thẻ/);
+    assert.match(pay, /Ghi nợ/);
+    assert.match(pay, /id="mobile-payment-tendered-input"/);
+    assert.match(pay, /id="btn-pos-mobile-payment-confirm"/);
+    assert.match(pay, /pb-\[env\(safe-area-inset-bottom\)\]/);
+  });
+
+  it('SheetShell là bottom sheet trên mobile, hộp thoại trên desktop', () => {
+    assert.match(shell, /fixed inset-0 z-50 flex items-end sm:items-center/);
+    assert.match(shell, /sm:rounded-xl rounded-t-2xl/);
+    assert.match(shell, /max-h-\[92dvh\]/);
+  });
+
+  it('modal danh mục + trả nợ dùng chung SheetShell (không còn overlay copy-paste)', () => {
+    assert.match(sup, /<SheetShell/);
+    assert.match(sup, /label="Phiếu chi trả nợ nhà cung cấp"/);
+    assert.doesNotMatch(sup, /fixed inset-0 z-50 bg-slate-900\/50 flex items-center justify-center/);
+    assert.match(cus, /<SheetShell/);
+    assert.doesNotMatch(cus, /fixed inset-0 z-50 bg-slate-900\/60 backdrop-blur-xs/);
+    assert.match(pro, /<SheetShell/);
+    assert.match(addPro, /<SheetShell/);
+  });
+
+  it('quét mã vạch: BarcodeDetector + fallback nhập tay, camera được tắt khi đóng', () => {
+    assert.match(scanner, /getUserMedia/);
+    assert.match(scanner, /BarcodeDetector/);
+    assert.match(scanner, /getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
+    assert.match(scanner, /id="barcode-manual-input"/);
+    assert.match(search, /id="btn-pos-scan-barcode"/);
+    assert.match(search, /p\.barcode \|\| ''\)\.trim\(\)\.toLowerCase\(\) === normalized/);
+  });
+
+  it('PWA: service worker cache shell + manifest có icon maskable & shortcut', () => {
+    assert.match(sw, /const CACHE = 'multipos-v213-1'/);
+    assert.match(sw, /SHELL_URL = '\/'/);
+    assert.match(sw, /caches\.match\(SHELL_URL\)/);
+    assert.ok(existsSync(join(ROOT, 'public/icons/icon-maskable.svg')));
+    assert.ok(manifest.icons.some((i) => i.purpose === 'maskable'));
+    assert.ok(Array.isArray(manifest.shortcuts) && manifest.shortcuts.length >= 2);
+  });
+
+  it('shortcut /?screen= mở thẳng phân hệ tương ứng', () => {
+    assert.match(store, /URLSearchParams\(window\.location\.search\)\.get\('screen'\)/);
+  });
+
+  it('Cài đặt có card trạng thái offline (cache catalog + SW + cài app)', () => {
+    assert.match(offlineCard, /db\.products\.count\(\)/);
+    assert.match(offlineCard, /navigator\.serviceWorker\.getRegistration\(\)/);
+    assert.match(offlineCard, /beforeinstallprompt/);
+    assert.match(offlineCard, /id="btn-check-app-update"/);
   });
 });

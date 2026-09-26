@@ -4,10 +4,11 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { Customer } from '@/lib/types';
 import { formatVND } from '@/lib/format';
-import { Users, Plus, Search, DollarSign, History, AlertCircle, CheckCircle2, Phone, MapPin, Filter, RefreshCw, Edit2, Trash2, X } from 'lucide-react';
+import { Users, Plus, Search, DollarSign, History, AlertCircle, CheckCircle2, Phone, MapPin, Filter, RefreshCw, Edit2, Trash2, X, HandCoins, UserPlus } from 'lucide-react';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { NumberInput } from '@/components/common/NumberInput';
 import { TableTools } from '@/components/common/TableTools';
+import { SheetShell } from '@/components/common/SheetShell';
 import { DataTableShell } from '@/components/common/DataTableShell';
 import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
@@ -583,20 +584,19 @@ export function CustomersView() {
       </div>
 
       {/* Collect Debt Modal */}
-      {isCollectModalOpen && selectedCustomer && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <form
-            onSubmit={handleConfirmCollect}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">Thu Nợ Khách Hàng (Tạo Phiếu Thu PT)</h3>
-            </div>
-            <div className="p-4 space-y-3 text-xs">
+      <SheetShell
+        open={isCollectModalOpen && !!selectedCustomer}
+        onClose={() => setIsCollectModalOpen(false)}
+        label="Thu nợ khách hàng"
+        icon={<HandCoins className="w-4 h-4 text-emerald-400" />}
+        title="Thu Nợ Khách Hàng (Tạo Phiếu Thu PT)"
+      >
+          <form onSubmit={handleConfirmCollect} className="flex flex-col min-h-0">
+            <div className="p-4 space-y-3 text-xs overflow-y-auto">
               <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                <div className="font-semibold text-slate-800">{selectedCustomer.name}</div>
+                <div className="font-semibold text-slate-800">{selectedCustomer?.name}</div>
                 <div className="text-slate-500">
-                  Dư nợ hiện tại: <strong className="text-rose-600">{formatVND(selectedCustomer.current_debt)}</strong>
+                  Dư nợ hiện tại: <strong className="text-rose-600">{formatVND(selectedCustomer?.current_debt)}</strong>
                 </div>
               </div>
 
@@ -604,7 +604,7 @@ export function CustomersView() {
                 <label className="font-semibold text-slate-700 block mb-1">Số tiền thu nợ (đ) *</label>
                 <NumberInput
                   required
-                  max={selectedCustomer.current_debt}
+                  max={selectedCustomer?.current_debt}
                   min={1}
                   value={collectAmount}
                   onChange={(val) => setCollectAmount(val)}
@@ -648,7 +648,7 @@ export function CustomersView() {
                 />
               </div>
             </div>
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsCollectModalOpen(false)}
@@ -658,26 +658,25 @@ export function CustomersView() {
               </button>
               <button
                 type="submit"
+                id="btn-confirm-collect-customer"
                 className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold"
               >
                 Xác nhận thu nợ
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </SheetShell>
 
       {/* Add Customer Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <form
-            onSubmit={handleCreateCustomer}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">Thêm Khách Hàng Mới (Mã Tự Sinh KH000x)</h3>
-            </div>
-            <div className="p-4 space-y-3 text-xs">
+      <SheetShell
+        open={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        label="Thêm khách hàng"
+        icon={<UserPlus className="w-4 h-4 text-blue-400" />}
+        title="Thêm Khách Hàng Mới (Mã Tự Sinh KH000x)"
+      >
+          <form onSubmit={handleCreateCustomer} className="flex flex-col min-h-0">
+            <div className="p-4 space-y-3 text-xs overflow-y-auto">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Tên khách hàng / Xưởng nhôm kính *</label>
                 <input
@@ -733,7 +732,7 @@ export function CustomersView() {
                 />
               </div>
             </div>
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
@@ -743,36 +742,25 @@ export function CustomersView() {
               </button>
               <button
                 type="submit"
+                id="btn-add-customer-save"
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
               >
                 Lưu khách hàng
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </SheetShell>
 
       {/* Edit Customer Modal */}
-      {editingCustomer && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <form
-            onSubmit={handleUpdateCustomer}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-amber-400" />
-                Sửa Khách Hàng ({editingCustomer.code})
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditingCustomer(null)}
-                className="p-1 text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3 text-xs">
+      <SheetShell
+        open={!!editingCustomer}
+        onClose={() => setEditingCustomer(null)}
+        label="Sửa khách hàng"
+        icon={<Edit2 className="w-4 h-4 text-amber-400" />}
+        title={`Sửa Khách Hàng (${editingCustomer?.code ?? ''})`}
+      >
+          <form onSubmit={handleUpdateCustomer} className="flex flex-col min-h-0">
+            <div className="p-4 space-y-3 text-xs overflow-y-auto">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Tên khách hàng / Xưởng nhôm kính *</label>
                 <input
@@ -827,7 +815,7 @@ export function CustomersView() {
                 />
               </div>
             </div>
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setEditingCustomer(null)}
@@ -837,14 +825,14 @@ export function CustomersView() {
               </button>
               <button
                 type="submit"
+                id="btn-edit-customer-save"
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
               >
                 Lưu thay đổi
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </SheetShell>
     </div>
   );
 }

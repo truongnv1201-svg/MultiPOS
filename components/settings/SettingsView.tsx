@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { useStore } from '@/lib/store';
 import { createLocalBackup, downloadLocalBackup, parseLocalBackup, restoreLocalBackup } from '@/lib/backup';
+import { OfflineReadyCard } from '@/components/settings/OfflineReadyCard';
 import { VIETQR_BANKS, isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
 import { PRINT_TEMPLATES } from '@/lib/store';
 import type { PrintTemplate, PrinterWidth } from '@/lib/store';
@@ -180,6 +181,8 @@ export function SettingsView() {
         </div>
         {backupMsg && <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{backupMsg}</p>}
       </div>
+
+      <OfflineReadyCard />
 
         {/* 1. Store info (mở rộng) */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-4 text-xs">

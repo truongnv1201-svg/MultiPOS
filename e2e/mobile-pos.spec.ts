@@ -68,8 +68,27 @@ test.describe('POS mobile (live backend)', () => {
 
       await page.locator('#btn-pos-mobile-cart').click();
       await expect(page.locator('#cart-record-list')).toBeVisible();
+      // Nút Thanh toán trong sheet giỏ mở sheet thanh toán (không thu tiền thẳng)
       await page.locator('#cart-record-list button[aria-label="Đóng giỏ hàng"]').click();
       await expect(page.locator('#cart-record-list')).toHaveCount(0);
+
+      // Thanh toán ghim mở sheet: đổi phương thức, nhập tiền khách đưa, đóng lại được
+      await page.locator('#btn-pos-mobile-payment').click();
+      const payDialog = page.getByRole('dialog', { name: 'Thanh toán' });
+      await expect(payDialog).toBeVisible();
+      await expect(payDialog.getByRole('button', { name: 'Tiền mặt' })).toBeVisible();
+      await expect(page.locator('#mobile-payment-tendered-input')).toBeVisible();
+      await expect(page.locator('#btn-pos-mobile-payment-confirm')).toBeVisible();
+      await payDialog.locator('button[aria-label="Đóng thanh toán"]').first().click();
+      await expect(payDialog).toHaveCount(0);
+
+      // Quayét mã vạch: mở được sheet, camera không khả dụng thì có ô nhập tay
+      await page.locator('#btn-pos-scan-barcode').click();
+      const scanDialog = page.getByRole('dialog', { name: 'Quét mã vạch' });
+      await expect(scanDialog).toBeVisible();
+      await expect(page.locator('#barcode-manual-input')).toBeVisible();
+      await scanDialog.locator('button[aria-label="Đóng quét mã"]').first().click();
+      await expect(scanDialog).toHaveCount(0);
 
       // Sync Center mở được từ header và đóng lại được
       await page.locator('#header-sync-center-btn').click();
@@ -103,5 +122,30 @@ test.describe('POS mobile (live backend)', () => {
     await expect(page.getByRole('button', { name: 'Trả nợ' })).toBeVisible();
     await page.locator('button[aria-label="Đóng chi tiết"]').click();
     await expect(page.getByRole('dialog', { name: 'Chi tiết nhà cung cấp' })).toHaveCount(0);
+  });
+
+  test('trả nợ NCC dạng sheet + card offline trong Cài đặt @ 390x844', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginAsAdmin(page);
+
+    await page.keyboard.press('Alt+k');
+    await expect(page.locator('#suppliers-view')).toBeVisible({ timeout: 30_000 });
+    if ((await page.locator('#supplier-record-list > button').count()) === 0) return;
+
+    await page.locator('#supplier-record-list > button').first().click();
+    const trảNợ = page.getByRole('button', { name: 'Trả nợ' });
+    if (await trảNợ.isDisabled()) return;
+    await trảNợ.click();
+    const paySheet = page.getByRole('dialog', { name: 'Phiếu chi trả nợ nhà cung cấp' });
+    await expect(paySheet).toBeVisible();
+    await expect(page.locator('#btn-confirm-pay-supplier')).toBeVisible();
+    await paySheet.locator('button[aria-label="Đóng cửa sổ"]').first().click();
+    await expect(paySheet).toHaveCount(0);
+
+    // Cài đặt: card trạng thái offline báo số mặt hàng/KH/NCC đã cache
+    await page.keyboard.press('Alt+s');
+    await expect(page.locator('#settings-view')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#btn-check-app-update')).toBeVisible();
+    await expect(page.getByText('Hàng hóa đã cache')).toBeVisible();
   });
 });

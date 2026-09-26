@@ -3,8 +3,9 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
-import { Search, PackagePlus } from 'lucide-react';
+import { Search, PackagePlus, ScanLine } from 'lucide-react';
 import { AddProductFormModal } from '@/components/products/AddProductFormModal';
+import { BarcodeScannerSheet } from '@/components/pos/BarcodeScannerSheet';
 import { formatVND } from '@/lib/format';
 
 function createBlankAreaItem(product: Product, quantity: number) {
@@ -78,6 +79,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateSeed, setQuickCreateSeed] = useState('');
   const [quickCreateSeq, setQuickCreateSeq] = useState(0);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const openQuickCreate = (q: string) => {
     setQuickCreateSeed(q);
     setQuickCreateSeq((s) => s + 1);
@@ -218,6 +220,24 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     searchInputRef.current?.focus();
   };
 
+  // Mã quét từ camera: ưu tiên khớp chính xác barcode/SKU để vào giỏ thẳng,
+  // không khớp thì đổ mã vào ô tìm kiếm để thủ công chọn / tạo nhanh.
+  const handleScannedCode = (code: string) => {
+    setScannerOpen(false);
+    const normalized = code.trim().toLowerCase();
+    const matched = products.find(
+      (p) => (p.barcode || '').trim().toLowerCase() === normalized || p.sku.trim().toLowerCase() === normalized
+    );
+    if (matched) {
+      handleSelectProductClick(matched);
+      return;
+    }
+    setSearchQuery(code);
+    setIsDropdownOpen(true);
+    setSelectedIndex(0);
+    searchInputRef.current?.focus();
+  };
+
   // Expose handleQuantityKeyDown cho parent khi ô SL render bên ngoài
   useImperativeHandle(ref, () => ({ handleQuantityKeyDown }));
 
@@ -247,6 +267,18 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           className="w-full h-10 sm:h-9 pl-8 pr-3 text-xs bg-white text-slate-800 placeholder-slate-400 border border-slate-300 rounded-lg focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
       </div>
+
+      {/* Nút quét mã vạch bằng camera (mobile-first; desktop vẫn dùng máy quét Wedge) */}
+      <button
+        type="button"
+        id="btn-pos-scan-barcode"
+        onClick={() => setScannerOpen(true)}
+        className="shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 active:bg-slate-100"
+        title="Quét mã vạch bằng camera"
+        aria-label="Quét mã vạch bằng camera"
+      >
+        <ScanLine className="w-4 h-4" />
+      </button>
 
       {/* Ô số lượng nhanh — chỉ render ở đây nếu showQuantityInput=true (default) */}
       {showQuantityInput && (
@@ -361,6 +393,8 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           </div>
         </div>
       )}
+
+      <BarcodeScannerSheet open={scannerOpen} onClose={() => setScannerOpen(false)} onDetected={handleScannedCode} />
 
       {/* Tạo nhanh hàng hóa — dùng đúng form "Thêm Hàng Hóa Mới" của Danh mục,
           seed Tên/SKU từ chuỗi đang tìm; remount theo key=seq mỗi lần mở */}

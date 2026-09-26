@@ -108,7 +108,7 @@ export default function SyncCenterSheet({ open, onClose }: SyncCenterSheetProps)
 
     return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Trung tâm đồng bộ">
-            <button type="button" className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]" onClick={onClose} aria-label="Đóng trung tâm đồng bộ" />
+            <button type="button" className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]" onClick={onClose} aria-label="Đóng" />
             <div className="relative w-full sm:max-w-md max-h-[88dvh] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 shrink-0">
                     <div className="min-w-0">

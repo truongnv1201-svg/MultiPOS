@@ -343,6 +343,9 @@ function StoreInner({ children }: { children: React.ReactNode }) {
   // Navigation
   const [currentScreen, setCurrentScreen] = useState<ActiveScreen>(() => {
     if (typeof window !== 'undefined') {
+      // Shortcut PWA (manifest.webmanifest) mở thẳng phân hệ: /?screen=inventory
+      const fromUrl = new URLSearchParams(window.location.search).get('screen');
+      if (fromUrl) return fromUrl as ActiveScreen;
       const saved = localStorage.getItem('multipos_last_screen');
       if (saved) return saved as ActiveScreen;
     }

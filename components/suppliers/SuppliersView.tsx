@@ -26,6 +26,7 @@ import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, pri
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
 
 export function SuppliersView() {
@@ -673,23 +674,14 @@ export function SuppliersView() {
       )}
 
       {/* Modal Add Supplier */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <span className="font-bold text-sm flex items-center gap-2">
-                <Truck className="w-4 h-4 text-emerald-400" />
-                Thêm Nhà Cung Cấp Mới
-              </span>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSupplier} className="p-4 space-y-3">
+      <SheetShell
+        open={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        label="Thêm nhà cung cấp"
+        icon={<Truck className="w-4 h-4 text-emerald-400" />}
+        title="Thêm Nhà Cung Cấp Mới"
+      >
+            <form onSubmit={handleCreateSupplier} className="p-4 space-y-3 overflow-y-auto">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Tên Nhà Cung Cấp / Công Ty <span className="text-rose-500">*</span>
@@ -764,7 +756,7 @@ export function SuppliersView() {
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 sticky bottom-0 bg-white">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
@@ -774,34 +766,24 @@ export function SuppliersView() {
                 </button>
                 <button
                   type="submit"
+                  id="btn-add-supplier-save"
                   className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded shadow-xs"
                 >
                   Lưu nhà cung cấp
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </SheetShell>
 
       {/* Modal Edit Supplier */}
-      {editingSupplier && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <span className="font-bold text-sm flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-amber-400" />
-                Sửa Nhà Cung Cấp ({editingSupplier.code})
-              </span>
-              <button
-                onClick={() => setEditingSupplier(null)}
-                className="p-1 text-slate-400 hover:text-white rounded"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateSupplier} className="p-4 space-y-3">
+      <SheetShell
+        open={!!editingSupplier}
+        onClose={() => setEditingSupplier(null)}
+        label="Sửa nhà cung cấp"
+        icon={<Edit2 className="w-4 h-4 text-amber-400" />}
+        title={`Sửa Nhà Cung Cấp (${editingSupplier?.code ?? ''})`}
+      >
+            <form onSubmit={handleUpdateSupplier} className="p-4 space-y-3 overflow-y-auto">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Tên Nhà Cung Cấp / Công Ty <span className="text-rose-500">*</span>
@@ -875,34 +857,23 @@ export function SuppliersView() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </SheetShell>
 
       {/* Modal Pay Supplier Debt */}
-      {payingSupplier && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <span className="font-bold text-sm flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-emerald-400" />
-                Phiếu Chi Trả Nợ Nhà Cung Cấp
-              </span>
-              <button
-                onClick={() => setPayingSupplier(null)}
-                className="p-1 text-slate-400 hover:text-white rounded"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleExecutePayment} className="p-4 space-y-3">
+      <SheetShell
+        open={!!payingSupplier}
+        onClose={() => setPayingSupplier(null)}
+        label="Phiếu chi trả nợ nhà cung cấp"
+        icon={<CreditCard className="w-4 h-4 text-emerald-400" />}
+        title="Phiếu Chi Trả Nợ Nhà Cung Cấp"
+      >
+            <form onSubmit={handleExecutePayment} className="p-4 space-y-3 overflow-y-auto">
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <div className="text-xs font-bold text-slate-800">{payingSupplier.name}</div>
+                <div className="text-xs font-bold text-slate-800">{payingSupplier?.name}</div>
                 <div className="flex justify-between items-center text-xs mt-1">
-                  <span className="text-slate-500">Mã NCC: {payingSupplier.code}</span>
+                  <span className="text-slate-500">Mã NCC: {payingSupplier?.code}</span>
                   <span className="text-rose-600 font-bold font-mono">
-                    Đang nợ: {formatVND(payingSupplier.current_debt)}
+                    Đang nợ: {formatVND(payingSupplier?.current_debt)}
                   </span>
                 </div>
               </div>
@@ -914,7 +885,7 @@ export function SuppliersView() {
                 <NumberInput
                   required
                   min={1000}
-                  max={payingSupplier.current_debt}
+                  max={payingSupplier?.current_debt}
                   value={payAmount}
                   onChange={(val) => setPayAmount(val)}
                   placeholder="0"
@@ -963,7 +934,7 @@ export function SuppliersView() {
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 sticky bottom-0 bg-white">
                 <button
                   type="button"
                   onClick={() => setPayingSupplier(null)}
@@ -973,15 +944,14 @@ export function SuppliersView() {
                 </button>
                 <button
                   type="submit"
+                  id="btn-confirm-pay-supplier"
                   className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded shadow-xs"
                 >
                   Xác nhận chi {formatVND(payAmount)}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </SheetShell>
     </div>
   );
 }

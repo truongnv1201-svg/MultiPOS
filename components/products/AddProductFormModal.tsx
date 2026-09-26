@@ -9,7 +9,8 @@ import { useStore } from '@/lib/store';
 import { notify } from '@/components/common/Toast';
 import { Product, ProductType } from '@/lib/types';
 import { NumberInput } from '@/components/common/NumberInput';
-import { Plus, X } from 'lucide-react';
+import { SheetShell } from '@/components/common/SheetShell';
+import { Plus } from 'lucide-react';
 
 export const UNIT_OPTIONS = [
   {
@@ -113,22 +114,15 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-      <form
-        onSubmit={handleCreateProduct}
-        className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-      >
-        <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-          <h3 className="font-bold text-sm flex items-center gap-2">
-            <Plus className="w-4 h-4 text-emerald-400" />
-            Thêm Hàng Hóa Mới (Bỏ trống SKU để tự sinh SP0000xx)
-          </h3>
-          <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-white">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-3 text-xs">
+    <SheetShell
+      open={open}
+      onClose={onClose}
+      label="Thêm hàng hóa"
+      icon={<Plus className="w-4 h-4 text-emerald-400" />}
+      title="Thêm Hàng Hóa Mới (Bỏ trống SKU để tự sinh SP0000xx)"
+    >
+      <form onSubmit={handleCreateProduct} className="flex flex-col min-h-0">
+        <div className="p-4 space-y-3 text-xs overflow-y-auto">
           <div>
             <label className="font-semibold text-slate-700 block mb-1">Tên sản phẩm *</label>
             <input
@@ -273,6 +267,6 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
           </button>
         </div>
       </form>
-    </div>
+    </SheetShell>
   );
 }

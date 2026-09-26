@@ -1,19 +1,47 @@
 {
-  "name": "MultiPOS - Bán lẻ & Thi công v2.12",
+  "name": "MultiPOS - Bán lẻ & Thi công v2.13",
   "short_name": "MultiPOS",
   "description": "POS bán lẻ nhôm kính, đo đạc m², kho và công trình — offline-first",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
+  "categories": ["business", "productivity", "shopping"],
   "icons": [
     {
       "src": "/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Bán hàng (POS)",
+      "short_name": "POS",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Kho hàng",
+      "short_name": "Kho",
+      "url": "/?screen=inventory",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Nhà cung cấp",
+      "short_name": "NCC",
+      "url": "/?screen=suppliers",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]
 }

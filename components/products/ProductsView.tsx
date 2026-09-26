@@ -27,6 +27,7 @@ import { sortRows } from '@/lib/sort';
 import { DataTableShell } from '@/components/common/DataTableShell';
 import { AddProductFormModal, UNIT_OPTIONS } from '@/components/products/AddProductFormModal';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
 
 export function ProductsView() {
@@ -538,27 +539,15 @@ export function ProductsView() {
       <AddProductFormModal open={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
 
       {/* Edit Product Modal */}
-      {editingProduct && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <form
-            onSubmit={handleUpdateProduct}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-amber-400" />
-                Sửa Hàng Hóa ({editingProduct.sku})
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditingProduct(null)}
-                className="p-1 text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3 text-xs">
+      <SheetShell
+        open={!!editingProduct}
+        onClose={() => setEditingProduct(null)}
+        label="Sửa hàng hóa"
+        icon={<Edit2 className="w-4 h-4 text-amber-400" />}
+        title={`Sửa Hàng Hóa (${editingProduct?.sku ?? ''})`}
+      >
+          <form onSubmit={handleUpdateProduct} className="flex flex-col min-h-0">
+            <div className="p-4 space-y-3 text-xs overflow-y-auto">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Tên sản phẩm *</label>
                 <input
@@ -665,7 +654,7 @@ export function ProductsView() {
               </p>
             </div>
 
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setEditingProduct(null)}
@@ -675,14 +664,14 @@ export function ProductsView() {
               </button>
               <button
                 type="submit"
+                id="btn-edit-product-save"
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-xs"
               >
                 Lưu thay đổi
               </button>
             </div>
           </form>
-        </div>
-      )}
+      </SheetShell>
     </div>
   );
 }

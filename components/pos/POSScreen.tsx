@@ -6,6 +6,7 @@ import { Product, OrderItem } from '@/lib/types';
 import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import MobileCartSheet from '@/components/pos/MobileCartSheet';
+import MobilePaymentSheet, { type MobilePaymentMethod } from '@/components/pos/MobilePaymentSheet';
 import { POSQuickCustomerModal } from '@/components/pos/POSQuickCustomerModal';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -108,6 +109,8 @@ export function POSScreen() {
   const needLogin = authReady && supabaseReady && !user;
   // Mobile cart sheet (bán hàng) — mở từ MobilePOSDock, thay cho cuộn tới bảng ngang
   const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
+  // Mobile payment sheet — thanh toán ghim dạng sheet, không bị bóp còn 52dvh
+  const [isMobilePaymentOpen, setIsMobilePaymentOpen] = useState<boolean>(false);
 
   // Ô số lượng nhanh được lift lên đây để render ở vị trí cố định trong toolbar
   // (tránh bị đẩy khi thêm/xóa tab hóa đơn)
@@ -979,10 +982,11 @@ export function POSScreen() {
         )}
       </div>
 
-      {/* RIGHT COLUMN: panel Nhập (luồng nhập) hoặc Khách + Thanh toán (luồng bán) */}
+      {/* RIGHT COLUMN: panel Nhập (luồng nhập) hoặc Khách + Thanh toán (luồng bán) — desktop/tablet.
+          Mobile dùng MobilePaymentSheet + thanh toán ghim dưới màn hình. */}
       <div
         id="pos-payment-panel"
-        className="w-full lg:w-96 bg-slate-50 p-3.5 flex flex-col justify-between border-t lg:border-t-0 border-slate-200 overflow-y-auto select-none min-h-0 max-h-[52dvh] lg:max-h-none"
+        className="hidden lg:flex w-full lg:w-96 bg-slate-50 p-3.5 flex flex-col justify-between border-t lg:border-t-0 border-slate-200 overflow-y-auto select-none min-h-0 max-h-[52dvh] lg:max-h-none"
       >
       {isImportFlow ? (
         <div className="space-y-3">
@@ -1708,6 +1712,28 @@ export function POSScreen() {
       )}
       </div>
 
+      {/* Mobile: thanh toán ghim — mở MobilePaymentSheet (panel desktop đã ẩn ở mobile) */}
+      {!isImportFlow && (
+        <div className="lg:hidden shrink-0 border-t border-slate-200 bg-white px-3 py-2 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold text-slate-500">KHÁCH CẦN TRẢ</p>
+            <p className="text-base font-black font-mono text-rose-600 leading-tight">
+              {formatVND(calculatedTotals.payable)}
+            </p>
+          </div>
+          <button
+            type="button"
+            id="btn-pos-mobile-payment"
+            onClick={() => setIsMobilePaymentOpen(true)}
+            disabled={activeCart.items.length === 0}
+            className="shrink-0 inline-flex h-12 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white active:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500"
+          >
+            <CreditCard className="w-4 h-4" />
+            Thanh toán
+          </button>
+        </div>
+      )}
+
       <MobilePOSDock
         isImportFlow={isImportFlow}
         itemCount={isImportFlow ? impLines.length : activeCart.items.length}
@@ -1726,7 +1752,7 @@ export function POSScreen() {
           }
           setIsMobileCartOpen(true);
         }}
-        onPrimaryAction={isImportFlow ? handleImportCommit : handleCheckout}
+        onPrimaryAction={isImportFlow ? handleImportCommit : () => setIsMobilePaymentOpen(true)}
       />
 
       <MobileCartSheet
@@ -1740,6 +1766,44 @@ export function POSScreen() {
         onRemove={removeCartItem}
         onEditDimension={(item) => setDimensionModalItem({ item })}
         onClear={clearActiveCart}
+        onCheckout={() => {
+          setIsMobileCartOpen(false);
+          setIsMobilePaymentOpen(true);
+        }}
+      />
+
+      <MobilePaymentSheet
+        open={isMobilePaymentOpen && !isImportFlow}
+        onClose={() => setIsMobilePaymentOpen(false)}
+        itemCount={activeCart.items.length}
+        subtotal={calculatedTotals.subtotal}
+        payable={calculatedTotals.payable}
+        cashRounding={calculatedTotals.cash_rounding}
+        changeAmount={calculatedTotals.change_amount}
+        debtAmount={calculatedTotals.debt_amount}
+        paymentMethod={activeCart.payment_method as MobilePaymentMethod}
+        onPaymentMethodChange={(method) => updateActiveTab({ payment_method: method })}
+        tenderedAmount={activeCart.tendered_amount}
+        onTenderedChange={(amount) => updateActiveTab({ tendered_amount: amount })}
+        onQuickTender={setQuickTender}
+        customers={customers}
+        selectedCustomer={activeCustomer ?? null}
+        customerName={activeCart.customer_name}
+        onSelectCustomer={(customer) =>
+          updateActiveTab({ customer_id: customer.id, customer_name: customer.name, customer_phone: customer.phone })
+        }
+        onQuickAddCustomer={() => {
+          setIsMobilePaymentOpen(false);
+          setIsQuickCustomerModalOpen(true);
+        }}
+        note={activeCart.note}
+        onNoteChange={(value) => updateActiveTab({ note: value })}
+        canCheckout={!isProcessing && activeCart.items.length > 0 && currentShift.status === 'open' && !needLogin}
+        isProcessing={isProcessing}
+        needLogin={needLogin}
+        onLogin={() => setLoginOpen(true)}
+        shiftClosed={currentShift.status !== 'open'}
+        onOpenShift={() => setShiftModalOpen(true)}
         onCheckout={handleCheckout}
       />
 
