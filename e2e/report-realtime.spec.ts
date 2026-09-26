@@ -43,11 +43,14 @@ async function todayBarRevenue(page: Page): Promise<number> {
 test.describe('báo cáo hội tụ sau bán', () => {
   test('KPI + chart cập nhật đúng số tiền đơn mới rồi ổn định', async ({ page }) => {
     await login(page);
-    // Ép 1 nhịp đồng bộ tay để baseline đọc sau khi đã hydrate (tránh baseline = 0).
-    const refresh = page.locator('#header-refresh-btn');
-    await expect(refresh).toBeEnabled({ timeout: 30_000 });
-    await refresh.click();
-    await expect(refresh).toHaveAttribute('title', /lần cuối/, { timeout: 30_000 });
+    // Ép 1 nhịp đồng bộ qua Trung tâm đồng bộ để baseline đọc sau khi đã hydrate (tránh baseline = 0).
+    await page.locator('#header-sync-center-btn').click();
+    const syncNow = page.getByRole('button', { name: 'Đồng bộ ngay' });
+    await expect(syncNow).toBeEnabled({ timeout: 30_000 });
+    await syncNow.click();
+    await expect(syncNow).toBeEnabled({ timeout: 30_000 });
+    await page.locator('button[aria-label="Đóng trung tâm đồng bộ"]').first().click();
+    await expect(page.getByRole('dialog', { name: 'Trung tâm đồng bộ' })).toHaveCount(0);
     await gotoScreen(page, '#menu-item-reports', '#reports-view');
     // Baseline khi số liệu đã ổn định (2 lần đọc liên tiếp bằng nhau, tối đa 15s).
     // Shop đang bán thật nên baseline có thể trôi — assert theo delta >= payable.

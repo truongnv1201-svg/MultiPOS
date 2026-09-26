@@ -83,8 +83,10 @@ describe('Sync Center: mở được từ header, xem & gửi lại hàng đợi
     assert.match(sheet, /db\.pendingOps\.clear\(\)/);
   });
 
-  it('nút Làm mới cũ (header-refresh-btn) vẫn còn để E2E offline-sync dùng', () => {
-    assert.match(header, /id="header-refresh-btn"/);
+  it('nút Làm mới rời đã bỏ — thao tác kéo số liệu gộp vào Trung tâm đồng bộ', () => {
+    assert.doesNotMatch(header, /id="header-refresh-btn"/);
+    assert.match(header, /id="header-sync-center-btn"[\s\S]{0,900}?Đang đồng bộ dữ liệu mới nhất/);
+    assert.match(sheet, /await refreshNow\(\)/);
   });
 });
 

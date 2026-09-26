@@ -37,7 +37,7 @@ E2E live tự dọn: checkout rồi hủy qua UI; HRM chỉ điều hướng đ�
 ## 3. Sự cố: kẹt hàng đợi offline
 
 - Dấu hiệu: badge vàng `#pending-queue-badge` hiện số đơn > 0 sau khi đã online.
-- Bấm badge (gọi `syncPendingOrders`) hoặc nút Làm mới `#header-refresh-btn`.
+- Bấm badge (gọi `syncPendingOrders`) hoặc mở Trung tâm đồng bộ `#header-sync-center-btn` → "Đồng bộ ngay".
 - Replay an toàn: mỗi op mang `client_ref` dedupe ở server nên sync lặp không nhân đơn
   (đã verify: "trả lặp không cộng kho", "hủy sau trả bị chặn").
 - Đơn đã lên server mà máy offline: app **chặn** sửa/hủy offline để khỏi lệch truth —
@@ -67,7 +67,7 @@ E2E live tự dọn: checkout rồi hủy qua UI; HRM chỉ điều hướng đ�
 ## 7. Sao lưu / khôi phục
 
 - Trong Cài đặt: tải + khôi phục sao lưu local (Dexie). Khôi phục chỉ ảnh hưởng máy đó;
-  số liệu server là truth khi online — sau khôi phục bấm Làm mới để kéo lại.
+  số liệu server là truth khi online — sau khôi phục bấm "Đồng bộ ngay" ở Trung tâm đồng bộ để kéo lại.
 
 ## 8. Ma trận test
 

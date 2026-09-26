@@ -7,7 +7,6 @@ import {
   Menu,
   Wifi,
   WifiOff,
-  RefreshCw,
   User,
   Settings,
   Maximize,
@@ -35,7 +34,6 @@ export function GlobalHeader() {
     isSyncing,
     lastSyncAt,
     lastSyncError,
-    refreshNow,
     realtimeLive,
     currentScreen,
     setCurrentScreen,
@@ -290,7 +288,8 @@ export function GlobalHeader() {
 
         {/* If on POS screen: không còn nút Quản lý riêng — dùng Menu (Alt+M) để chuyển phân hệ */}
 
-        {/* Trung tâm đồng bộ — xem hàng đợi chờ/lỗi và gửi lại thao tác offline (mobile-first) */}
+        {/* Trung tâm đồng bộ — kiểm tra & kéo số liệu mới nhất, xem hàng đợi chờ/lỗi,
+            gửi lại thao tác offline. Thay cho nút "Làm mới" rời (đã gộp vào đây). */}
         <button
           id="header-sync-center-btn"
           onClick={() => setSyncCenterOpen(true)}
@@ -300,41 +299,22 @@ export function GlobalHeader() {
               : pendingQueue.length > 0
                 ? 'bg-amber-950/80 border-amber-700 text-amber-300 hover:bg-amber-900'
                 : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-          }`}
-          title="Trung tâm đồng bộ — hàng đợi chờ gửi, thao tác lỗi và gửi lại"
-        >
-          <CloudCog className="w-3.5 h-3.5" />
-        </button>
-
-        {/* Làm mới tay — kéo đơn/sổ quỹ/kho/catalog mới nhất từ server (đa máy).
-            Tự động 15s đã có; nút này để bấm ngay khi thấy số liệu lạ + hiện lỗi sync. */}
-        <button
-          id="header-refresh-btn"
-          onClick={() => {
-            refreshNow();
-          }}
-          disabled={isSyncing || !isOnline}
-          className={`flex h-8 items-center justify-center gap-1.5 px-2.5 leading-none border border-slate-700 rounded-md text-[11px] text-slate-200 transition-colors ${
-            !isOnline
-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-              : lastSyncError
-                ? 'bg-rose-950/80 border-rose-700 text-rose-300 hover:bg-rose-900'
-                : 'bg-slate-800 hover:bg-slate-700'
           } ${isSyncing ? 'cursor-wait' : ''}`}
-            title={
-              !isOnline
-                ? 'Đang Offline — số liệu là cache của máy này'
+          title={
+            !isOnline
+              ? 'Đang Offline — số liệu là cache của máy này'
+              : isSyncing
+                ? 'Đang đồng bộ dữ liệu mới nhất từ server...'
                 : realtimeLive
-                  ? `Đang trực tiếp (realtime)${lastSyncAt ? ` — đồng bộ lần cuối: ${new Date(lastSyncAt).toLocaleString('vi-VN')}` : ''} — bấm để kéo mới`
+                  ? `Đang trực tiếp (realtime)${lastSyncAt ? ` — đồng bộ lần cuối: ${new Date(lastSyncAt).toLocaleString('vi-VN')}` : ''}`
                   : lastSyncError
                     ? `Đồng bộ lỗi: ${lastSyncError}`
                     : lastSyncAt
-                      ? `Đồng bộ lần cuối: ${new Date(lastSyncAt).toLocaleString('vi-VN')} (poll 15s) — bấm để kéo mới`
-                      : 'Bấm để kéo số liệu mới nhất từ server'
-            }
+                      ? `Đồng bộ lần cuối: ${new Date(lastSyncAt).toLocaleString('vi-VN')} (poll 15s)`
+                      : 'Chưa đồng bộ lần nào'
+          }
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-300' : !isOnline ? 'text-slate-500' : lastSyncError ? 'text-rose-300' : 'text-slate-300'}`} />
-          <span className="hidden lg:inline font-semibold">Làm mới</span>
+          <CloudCog className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-300' : ''}`} />
         </button>
 
         {/* Trạng thái mạng — chỉ đọc từ trình duyệt */}
