@@ -67,6 +67,18 @@ export const SERVER_ORDERS_PAGE_SIZE = 1000;
 export const SERVER_ORDERS_MAX_PAGES = 60;
 export const SERVER_ITEMS_BATCH_SIZE = 200;
 
+// Nhịp poll dự phòng. Realtime (postgres_changes) đã phủ đúng các bảng cần đồng bộ,
+// nên poll chỉ giữ vai trò lưới an toàn lúc socket rớt. Đo thực tế trên máy thật:
+// poll 15s vô điều kiện tải ~1,9 MB/phút (~115 MB/giờ) chỉ để đứng yên, trong khi
+// dữ liệu từ máy khác về máy này sau ~0,2–2s nhờ realtime.
+export const POLL_MS_ACTIVE = 15000;
+export const POLL_MS_REALTIME_OK = 120000;
+
+/** Chọn nhịp poll: realtime sống + không còn hàng chờ đẩy thì để nhịp dài. */
+export function pickPollMs(realtimeLive: boolean, pendingCount: number): number {
+  return !realtimeLive || pendingCount > 0 ? POLL_MS_ACTIVE : POLL_MS_REALTIME_OK;
+}
+
 export const EMPTY_SHIFT: Shift = {
   id: 'shift-empty',
   cashier_name: 'Chưa mở ca',

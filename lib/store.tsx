@@ -45,6 +45,7 @@ import { CatalogProvider, useCatalog } from './store/catalog';
 import { NetworkProvider, useNetwork } from './store/network';
 import { TransactionsProvider, useTransactions } from './store/transactions';
 import { HrmProvider, useHrm } from './store/hrm-slice';
+import { pickPollMs } from './store/tx/constants';
 import type { User } from '@supabase/supabase-js';
 import { vietnamizeError } from './error-vi';
 
@@ -502,9 +503,10 @@ function StoreInner({ children }: { children: React.ReactNode }) {
 
   // Realtime đa máy (0049): 1 channel 'multipos-live' nghe 10 bảng publication,
   // event nào cũng chỉ xếp hàng rồi debounce gọi lại đúng hàm refresh tương ứng
-  // (tái dùng merge server-wins đã kiểm chứng). Poll 15s + focus giữ nguyên
-  // làm lưới an toàn khi socket rớt.
+  // (tái dùng merge server-wins đã kiểm chứng). Poll chỉ còn vai trò dự phòng: 15s khi
+  // realtime rớt, 120s khi realtime sống (xem effect poll bên dưới).
   const [realtimeLive, setRealtimeLive] = useState(false);
+  const wasRealtimeRef = useRef(false);
   useEffect(() => {
     if (!isOnline || !supabaseReady || !supa || !user) {
       // Idiom chung của repo: microtask để tránh set-state-in-effect sync
@@ -632,7 +634,11 @@ function StoreInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;
+    let inFlight = false;
     const refresh = () => {
+      // Mạng chậm hơn nhịp poll: bỏ nhịp mới thay vì chồng nhiều vòng tải cùng lúc.
+      if (inFlight) return;
+      inFlight = true;
       // Ghi nhận kết quả nhịp tự động để badge header phản ánh đúng (đủ/thiếu).
       // Không đè lỗi của lần bấm tay đang chạy dở.
       Promise.allSettled([
@@ -647,9 +653,21 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         } else if (!isSyncing) {
           setLastSyncError('Tự động đồng bộ thiếu một phần — bấm Làm mới để thử lại.');
         }
+      }).finally(() => {
+        inFlight = false;
       });
     };
-    const interval = window.setInterval(refresh, 15000);
+
+    // Realtime (effect trên) đã subscribe event '*' cho đúng các bảng này, nên poll chỉ là
+    // dự phòng cho lúc realtime rớt/kết nối lại. Poll 15s vô điều kiện tốn ~1,9 MB mỗi phút
+    // chỉ để đứng yên (~115 MB/giờ) mà không thêm độ tươi nào cho realtime còn sống.
+    // Còn hàng chờ đẩy (offline vừa ghi) thì giữ nhịp nhanh để hội tụ.
+    const pollMs = pickPollMs(realtimeLive, pendingQueue.length);
+    const interval = window.setInterval(refresh, pollMs);
+    // Vừa chuyển sang realtime sống: có thể đã sót event trong lúc rớt → đồng bộ một lần.
+    if (realtimeLive && !wasRealtimeRef.current) refresh();
+    wasRealtimeRef.current = realtimeLive;
+
     window.addEventListener('focus', refresh);
     document.addEventListener('visibilitychange', refresh);
     return () => {
@@ -657,7 +675,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [isOnline, supabaseReady, isSyncing, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshCatalog]);
+  }, [isOnline, supabaseReady, isSyncing, realtimeLive, pendingQueue.length, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshCatalog]);
 
   // Active Cart Tab
 

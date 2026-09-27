@@ -59,6 +59,7 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
                 Họ và tên khách hàng <span className="text-rose-500">*</span>:
               </label>
               <input
+                id="quick-cust-name"
                 type="text"
                 value={newCustName}
                 onChange={(e) => setNewCustName(e.target.value)}
@@ -73,6 +74,7 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
                 Số điện thoại <span className="text-rose-500">*</span>:
               </label>
               <input
+                id="quick-cust-phone"
                 type="text"
                 value={newCustPhone}
                 onChange={(e) => setNewCustPhone(e.target.value)}
