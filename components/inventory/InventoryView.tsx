@@ -40,7 +40,7 @@ export function InventoryView() {
   // Movements filter & pagination state
   const [movementSearch, setMovementSearch] = useState('');
   const [movementTypeFilter, setMovementTypeFilter] = useState<string>('all');
-  const [movementDateFilter, setMovementDateFilter] = useState<DateFilterState>({ preset: 'all' });
+  const [movementDateFilter, setMovementDateFilter] = useState<DateFilterState>({ preset: 'today' });
   const [movementPage, setMovementPage] = useState<number>(1);
   const [movementPageSize, setMovementPageSize] = useState<number>(25);
   // Sắp xếp 2 bảng: bấm header để đảo chiều; đổi sort -> về trang 1

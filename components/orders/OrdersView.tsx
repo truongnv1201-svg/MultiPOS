@@ -41,7 +41,7 @@ export function OrdersView() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'all' });
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
   // Sắp xếp: bấm header để đảo chiều; đổi sort -> về trang 1
