@@ -205,8 +205,20 @@ export function InventoryView() {
     return sortedProducts.slice(start, start + stockPageSize);
   })();
 
+  // Biến động kho từ server chỉ có product_id (bỏ JOIN products(name) để giảm payload),
+  // nên tên sản phẩm tra ở đây từ catalog đang có trong bộ nhớ. Ưu tiên tên catalog để
+  // luôn khớp với danh mục hiện tại; mục đã xoá mới rơi về nhãn dự phòng.
+  const movements = React.useMemo(() => {
+    if (stockMovements.length === 0) return stockMovements;
+    const nameById = new Map(products.map((p) => [p.id, p.name]));
+    return stockMovements.map((m) => ({
+      ...m,
+      product_name: nameById.get(m.product_id) || m.product_name || 'Sản phẩm đã xóa',
+    }));
+  }, [stockMovements, products]);
+
   // Filtered movements
-  const filteredMovements = stockMovements.filter((m) => {
+  const filteredMovements = movements.filter((m) => {
     const matchesSearch =
       m.reference_code.toLowerCase().includes(movementSearch.toLowerCase()) ||
       m.product_name.toLowerCase().includes(movementSearch.toLowerCase()) ||
@@ -272,7 +284,7 @@ export function InventoryView() {
               activeTab === 'movements' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Nhật ký Thẻ kho ({stockMovements.length})
+            Nhật ký Thẻ kho ({movements.length})
           </button>
         </div>
         <button

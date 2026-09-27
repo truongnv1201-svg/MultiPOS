@@ -24,7 +24,7 @@ export interface TransactionsSlice {
   setCurrentShift: React.Dispatch<React.SetStateAction<Shift>>;
   stockMovements: StockMovement[];
   setStockMovements: React.Dispatch<React.SetStateAction<StockMovement[]>>;
-  refreshServerStockMovements: () => Promise<boolean>;
+  refreshServerStockMovements: (force?: boolean) => Promise<boolean>;
   refreshServerCashbook: () => Promise<boolean>;
   pendingQueue: Order[];
   setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;

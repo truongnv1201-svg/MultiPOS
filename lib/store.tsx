@@ -125,7 +125,7 @@ interface StoreContextType {
   // (trước đây refreshServer* nằm ngoài type nên màn hình không gọi được).
   refreshServerOrders: () => Promise<boolean>;
   refreshServerCashbook: () => Promise<boolean>;
-  refreshServerStockMovements: () => Promise<boolean>;
+  refreshServerStockMovements: (force?: boolean) => Promise<boolean>;
   lastSyncAt: number | null;
   lastSyncError: string | null;
   isSyncing: boolean;
@@ -481,7 +481,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       await syncPendingOps(true);
       const results = await Promise.all([
         refreshServerOrders(),
-        refreshServerStockMovements(),
+        // force: phiên mới / bấm "Làm mới" phải kéo TOÀN BỘ biến động kho, không phải delta.
+        refreshServerStockMovements(true),
         refreshServerCashbook(),
         refreshCatalog(),
       ]);
@@ -620,7 +621,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
           await syncPendingOps();
           await Promise.allSettled([
             refreshServerOrders(),
-            refreshServerStockMovements(),
+            // force: vừa đăng nhập/vào lại mạng/đẩy hàng đợi -> lấy trọn bộ một lần.
+            refreshServerStockMovements(true),
             refreshServerCashbook(),
             syncCustomers(),
             syncProjects(),

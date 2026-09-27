@@ -3,7 +3,7 @@
 // tạo sau hook này trong composer) để tránh phụ thuộc vòng tròn lúc khởi tạo.
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../auth';
 import { useCatalog } from '../catalog';
 import { useNetwork } from '../network';
@@ -26,7 +26,7 @@ export interface TxShiftStock {
   setCurrentShift: React.Dispatch<React.SetStateAction<Shift>>;
   stockMovements: StockMovement[];
   setStockMovements: React.Dispatch<React.SetStateAction<StockMovement[]>>;
-  refreshServerStockMovements: () => Promise<boolean>;
+  refreshServerStockMovements: (force?: boolean) => Promise<boolean>;
   refreshServerCashbook: () => Promise<boolean>;
   closeShift: (countedCash: number) => Promise<boolean>;
   openNewShift: (startingCash: number) => Promise<void>;
@@ -56,16 +56,38 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
   // Thu ngân hiện tại gắn với tài khoản đăng nhập (fix kết ca ẩn danh)
   const cashierName = profile?.full_name || user?.email || 'Chưa đăng nhập';
 
-  const refreshServerStockMovements = useCallback(async (): Promise<boolean> => {
+  // Watermark của lần kéo toàn bộ gần nhất: sau đó chỉ kéo phần delta.
+  // Bảng này chỉ INSERT (không sửa/xoá dòng cũ) nên mốc created_at là đủ.
+  const movementsWatermarkRef = useRef<string | null>(null);
+  const movementsLoadedRef = useRef(false);
+  // Khoảng chồng 2s để không bỏ sót dòng trùng giây với watermark.
+  const STOCK_MOVEMENT_OVERLAP_MS = 2000;
+  const STOCK_MOVEMENT_LIMIT = 2000;
+
+  const refreshServerStockMovements = useCallback(async (force = false): Promise<boolean> => {
     if (!supa || !user || !isOnline) return false;
+    // Mỗi lần bán đẩy event realtime -> nếu lúc đó kéo cả 2.000 dòng thì tốn ~217 KB
+    // (đo thực tế) dù bảng chỉ vừa thêm vài dòng. Nên sau lần kéo toàn bộ đầu tiên thì
+    // chỉ kéo delta từ watermark; kéo lại toàn bộ khi: chưa có watermark, delta chạm
+    // trần (có thể còn dòng cũ hơn nữa), hoặc caller yêu cầu force (đăng nhập/làm mới).
+    const incremental = movementsLoadedRef.current && !force && movementsWatermarkRef.current;
+    const from = incremental
+      ? new Date(new Date(movementsWatermarkRef.current!).getTime() - STOCK_MOVEMENT_OVERLAP_MS).toISOString()
+      : null;
     try {
-      const { data, error } = await supa
+      // KHÔNG JOIN products(name): tên sản phẩm lặp lại ở mọi dòng và nén rất tốt nên
+      // tiết kiệm băng thông ít (240 -> 217 KB), nhưng vẫn giảm việc join + bộ nhớ, và
+      // tên do view tra từ catalog nên luôn khớp danh mục hiện tại.
+      let query = supa
         .from('stock_movements')
-        .select('id, reference_code, product_id, quantity, previous_stock, new_stock, note, created_at, products(name)')
+        .select('id, reference_code, product_id, quantity, previous_stock, new_stock, note, created_at')
         .order('created_at', { ascending: false })
-        .limit(2000);
+        .limit(STOCK_MOVEMENT_LIMIT);
+      if (from) query = query.gte('created_at', from);
+      const { data, error } = await query;
       if (error) throw error;
-      const mapped: StockMovement[] = ((data || []) as any[]).map((row) => {
+      const rows = (data || []) as any[];
+      const mapped: StockMovement[] = rows.map((row) => {
         const note = row.note || '';
         const movementType: StockMovement['movement_type'] = /nhập|nhap|trả|tra|restock/i.test(note)
           ? 'return'
@@ -74,12 +96,12 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
             : /bán|checkout|sales/i.test(note)
               ? 'export_sales'
               : 'import';
-        const product = Array.isArray(row.products) ? row.products[0] : row.products;
         return {
           id: row.id,
           reference_code: row.reference_code,
           product_id: row.product_id || '',
-          product_name: product?.name || 'Sản phẩm đã xóa',
+          // Để trống: view tra tên từ catalog; mục đã xoá mới rơi về fallback.
+          product_name: '',
           movement_type: movementType,
           quantity: Number(row.quantity || 0),
           previous_stock: row.previous_stock == null ? 0 : Number(row.previous_stock),
@@ -88,7 +110,21 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           created_at: row.created_at,
         };
       });
-      setStockMovements((prev) => stableNext(prev, mapped));
+      const newest = rows[0]?.created_at as string | undefined;
+      const hitLimit = rows.length >= STOCK_MOVEMENT_LIMIT;
+      setStockMovements((prev) => {
+        // Kéo toàn bộ: thay trọn bộ (server là nguồn chuẩn, có bớt dòng cũ ngoài limit).
+        if (!incremental) return stableNext(prev, mapped);
+        // Kéo delta: gộp theo id, dòng mới đè lên bản cũ, giữ mới nhất lên đầu.
+        const merged = new Map(prev.map((m) => [m.id, m]));
+        for (const m of mapped) merged.set(m.id, m);
+        return stableNext(
+          prev,
+          [...merged.values()].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, STOCK_MOVEMENT_LIMIT)
+        );
+      });
+      if (newest && !hitLimit) movementsWatermarkRef.current = newest;
+      movementsLoadedRef.current = true;
       return true;
     } catch (error) {
       console.warn('Stock movement sync failed:', error);
