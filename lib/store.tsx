@@ -123,7 +123,7 @@ interface StoreContextType {
   syncCustomers: () => Promise<Record<string, string>>;
   // Đồng bộ kéo đa máy: expose pull + trạng thái để badge/nút Làm mới ở header
   // (trước đây refreshServer* nằm ngoài type nên màn hình không gọi được).
-  refreshServerOrders: () => Promise<boolean>;
+  refreshServerOrders: (force?: boolean) => Promise<boolean>;
   refreshServerCashbook: () => Promise<boolean>;
   refreshServerStockMovements: (force?: boolean) => Promise<boolean>;
   lastSyncAt: number | null;
@@ -480,8 +480,9 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       await syncMasterData();
       await syncPendingOps(true);
       const results = await Promise.all([
-        refreshServerOrders(),
-        // force: phiên mới / bấm "Làm mới" phải kéo TOÀN BỘ biến động kho, không phải delta.
+        // force: phiên mới / bấm "Làm mới" phải kéo TOÀN BỘ (đơn + biến động kho), không
+        // phải delta — nếu không thì lần đầu tiên của mỗi phiên có thể chỉ có delta.
+        refreshServerOrders(true),
         refreshServerStockMovements(true),
         refreshServerCashbook(),
         refreshCatalog(),
@@ -620,8 +621,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
           await syncPendingOrders();
           await syncPendingOps();
           await Promise.allSettled([
-            refreshServerOrders(),
             // force: vừa đăng nhập/vào lại mạng/đẩy hàng đợi -> lấy trọn bộ một lần.
+            refreshServerOrders(true),
             refreshServerStockMovements(true),
             refreshServerCashbook(),
             syncCustomers(),

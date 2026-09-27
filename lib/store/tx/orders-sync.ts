@@ -2,7 +2,7 @@
 // Sở hữu orders/setOrders, pendingQueue/setPendingQueue + refreshServerOrders/syncPendingOrders/resolveServerOrderId.
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useAuth } from '../auth';
 import { useCatalog } from '../catalog';
 import { useNetwork } from '../network';
@@ -22,7 +22,7 @@ export interface TxOrdersSync {
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   pendingQueue: Order[];
   setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;
-  refreshServerOrders: () => Promise<boolean>;
+  refreshServerOrders: (force?: boolean) => Promise<boolean>;
   syncPendingOrders: () => Promise<void>;
   resolveServerOrderId: (order: Order) => Promise<string | null>;
 }
@@ -37,23 +37,49 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
   // minh, pull full-table trong im lặng sẽ mất đơn cũ khi quán đông đơn. Kéo theo
   // cửa sổ 90 ngày + phân trang range; items gom theo lô 200 id để .in() khỏi vỡ
   // URL. Đơn cũ hơn cửa sổ vẫn còn trong Dexie cache của máy.
-  const refreshServerOrders = useCallback(async (): Promise<boolean> => {
+  // Watermark của lần kéo delta: mốc updated_at mới nhất đã thấy. Đơn hàng không
+  // append-only (đặt cọc -> hoàn thành -> hủy -> trả hàng) nên phải kéo theo
+  // updated_at chứ không theo created_at, nếu không thay đổi trên đơn cũ sẽ bị bỏ sót.
+  // Migration 0057 có trigger bump updated_at ở tầng DB nên không phụ thuộc kỷ luật.
+  const ordersWatermarkRef = useRef<string | null>(null);
+  const ordersLoadedRef = useRef(false);
+  const ORDERS_DELTA_LIMIT = 500;
+  const ORDERS_OVERLAP_MS = 2000;
+
+  const refreshServerOrders = useCallback(async (force = false): Promise<boolean> => {
     if (!supa || !user || !isOnline) return false;
+    // Sau lần kéo toàn bộ đầu tiên thì chỉ kéo phần thay đổi: đo thực tế mỗi lần bán
+    // kéo lại ~180 KB cho orders + order_items dù chỉ vừa thêm/sửa vài dòng.
+    const incremental = ordersLoadedRef.current && !force && ordersWatermarkRef.current;
+    const fromIso = incremental
+      ? new Date(new Date(ordersWatermarkRef.current!).getTime() - ORDERS_OVERLAP_MS).toISOString()
+      : null;
     try {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - SERVER_ORDERS_WINDOW_DAYS);
       const cutoffIso = cutoff.toISOString();
       const serverOrders: any[] = [];
-      for (let from = 0, page = 0; page < SERVER_ORDERS_MAX_PAGES; from += SERVER_ORDERS_PAGE_SIZE, page++) {
+      if (incremental) {
         const { data, error } = await supa
           .from('orders')
           .select('*')
-          .gte('created_at', cutoffIso)
-          .order('created_at', { ascending: false })
-          .range(from, from + SERVER_ORDERS_PAGE_SIZE - 1);
+          .gte('updated_at', fromIso!)
+          .order('updated_at', { ascending: false })
+          .limit(ORDERS_DELTA_LIMIT);
         if (error) throw error;
         serverOrders.push(...(data || []));
-        if (!data || data.length < SERVER_ORDERS_PAGE_SIZE) break;
+      } else {
+        for (let from = 0, page = 0; page < SERVER_ORDERS_MAX_PAGES; from += SERVER_ORDERS_PAGE_SIZE, page++) {
+          const { data, error } = await supa
+            .from('orders')
+            .select('*')
+            .gte('created_at', cutoffIso)
+            .order('created_at', { ascending: false })
+            .range(from, from + SERVER_ORDERS_PAGE_SIZE - 1);
+          if (error) throw error;
+          serverOrders.push(...(data || []));
+          if (!data || data.length < SERVER_ORDERS_PAGE_SIZE) break;
+        }
       }
 
       const orderIds = serverOrders.map((row: { id: string }) => row.id);
@@ -114,11 +140,36 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
         is_offline: false,
       }));
 
+      // Watermark chỉ tiến khi delta không chạm trần; chạm trần nghĩa là còn dòng cũ hơn
+      // nữa -> bỏ watermark để lần sau kéo toàn bộ cho chắc.
+      const newestUpdated = serverOrders[0]?.updated_at as string | undefined;
+      const hitLimit = serverOrders.length >= ORDERS_DELTA_LIMIT;
+
       setOrders((previous) => {
         const pendingLocal = previous.filter((order) => order.is_offline && !order.server_id);
-        return stableNext(previous, [...pendingLocal, ...mapped]);
+        if (!incremental) return stableNext(previous, [...pendingLocal, ...mapped]);
+        // Delta: hợp nhất theo server_id. Giữ items cũ nếu delta về chưa kèm item, để
+        // không rỗng chi tiết đơn (và giữ thứ tự created_at desc như đường kéo toàn bộ).
+        const byServerId = new Map(previous.filter((o) => o.server_id).map((o) => [o.server_id as string, o]));
+        for (const order of mapped) {
+          const prev = byServerId.get(order.server_id as string);
+          byServerId.set(
+            order.server_id as string,
+            order.items.length === 0 && prev?.items.length ? { ...order, items: prev.items } : order
+          );
+        }
+        const merged = [...pendingLocal, ...[...byServerId.values()].sort((a, b) => b.created_at.localeCompare(a.created_at))];
+        return stableNext(previous, merged);
       });
       await db.orders.bulkPut(mapped);
+      if (incremental) {
+        if (newestUpdated && !hitLimit) ordersWatermarkRef.current = newestUpdated;
+        else if (hitLimit) ordersWatermarkRef.current = null;
+      } else {
+        const newest = serverOrders[0]?.updated_at as string | undefined;
+        ordersWatermarkRef.current = newest || null;
+      }
+      ordersLoadedRef.current = true;
       return true;
     } catch (error) {
       console.warn('Server orders refresh failed:', error);

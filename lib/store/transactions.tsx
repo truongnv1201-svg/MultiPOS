@@ -63,7 +63,7 @@ export interface TransactionsSlice {
     debt_amount: number;
   };
   checkoutActiveOrder: (isDeposit?: boolean) => Promise<Order | null>;
-  refreshServerOrders: () => Promise<boolean>;
+  refreshServerOrders: (force?: boolean) => Promise<boolean>;
   syncPendingOrders: () => Promise<void>;
   resolveServerOrderId: (order: Order) => Promise<string | null>;
   cancelOrder: (orderId: string) => Promise<boolean>;
