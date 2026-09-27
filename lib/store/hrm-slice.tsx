@@ -21,6 +21,7 @@ import {
 import type { MarkDayInput, CashbookEntry } from '../types';
 import type { EmployeeInput, HrmAccount } from './types';
 import { db, generateOrderCode } from '../db';
+import { cacheKeys, mirrorUpsert } from './tx/mirror';
 import { createClient } from '@supabase/supabase-js';
 import { vietnamizeError } from '../error-vi';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
@@ -190,7 +191,11 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
             for (const p of pending) if (!merged.some((m) => m.id === p.id)) merged.push(p);
             return merged;
           });
-          db.employees.clear().then(() => db.employees.bulkAdd(rows)).catch(() => {});
+          // Upsert + dọn theo khoá có từ trước: nhân viên vừa thêm cục bộ trong lúc chờ
+          // server không bị xoá khỏi cache (trước đây clear() rồi bulkAdd bản chụp cũ).
+          cacheKeys(db.employees)
+            .then((staleIds) => mirrorUpsert(db.employees, rows, staleIds))
+            .catch(() => {});
         }
       }
       if (days.data) {
@@ -213,7 +218,9 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
             for (const p of pending) if (!merged.some((m) => m.id === p.id)) merged.push(p);
             return merged;
           });
-          db.attendanceDays.clear().then(() => db.attendanceDays.bulkAdd(rows)).catch(() => {});
+          cacheKeys(db.attendanceDays)
+            .then((staleIds) => mirrorUpsert(db.attendanceDays, rows, staleIds))
+            .catch(() => {});
         }
       }
       if (locks.data) {

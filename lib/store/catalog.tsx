@@ -9,6 +9,7 @@ import { useNetwork } from './network';
 import type { Product, Customer, Supplier } from '../types';
 import { db, generateMasterCode, type PendingMasterData } from '../db';
 import { stableNext } from './stable';
+import { cacheKeys, mirrorUpsert } from './tx/mirror';
 import { notify } from '@/components/common/Toast';
 
 export interface CatalogSlice {
@@ -287,6 +288,13 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const refreshCatalog = useCallback(async (): Promise<boolean> => {
     if (!supa) return false;
     try {
+      // Chụp khoá cache TRƯỚC khi gọi server: sau đó chỉ dọn các khoá vốn có mà server
+      // đã bỏ, còn mặt hàng/khách vừa lưu cục bộ trong lúc chờ sẽ không bị xoá.
+      const [staleProductIds, staleCustomerIds, staleSupplierIds] = await Promise.all([
+        cacheKeys(db.products).catch(() => [] as string[]),
+        cacheKeys(db.customers).catch(() => [] as string[]),
+        cacheKeys(db.suppliers).catch(() => [] as string[]),
+      ]);
       const [productsPrimary, customersResult, suppliersResult, comboResult] = await Promise.all([
         supa.from('products').select('*').order('sku'),
         supa.from('customers').select('*').order('code'),
@@ -441,12 +449,9 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       setCatalogSource('server');
       try {
         await db.transaction('rw', [db.products, db.customers, db.suppliers], async () => {
-          await db.products.clear();
-          await db.products.bulkAdd(nextProducts);
-          await db.customers.clear();
-          await db.customers.bulkAdd(nextCustomers);
-          await db.suppliers.clear();
-          await db.suppliers.bulkAdd(nextSuppliers);
+          await mirrorUpsert(db.products, nextProducts, staleProductIds);
+          await mirrorUpsert(db.customers, nextCustomers, staleCustomerIds);
+          await mirrorUpsert(db.suppliers, nextSuppliers, staleSupplierIds);
         });
       } catch {
         /* cache best-effort */

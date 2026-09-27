@@ -9,6 +9,7 @@ import { useCatalog } from '../catalog';
 import { useNetwork } from '../network';
 import type { CashbookEntry, Order, PurchaseOrder, Shift, StockMovement } from '../../types';
 import { db, generateImportCode, generateOrderCode } from '../../db';
+import { cacheKeys, mirrorUpsert } from './mirror';
 import { enqueueOp, EMPTY_SHIFT, resolveSupplierReference, roundMoney } from './constants';
 import { stableNext } from '../stable';
 import { vietnamizeError } from '../../error-vi';
@@ -139,6 +140,8 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
   const refreshServerCashbook = useCallback(async (): Promise<boolean> => {
     if (!supa || !user || !isOnline) return false;
     try {
+      // Khoá cache trước khi gọi server (xem lib/store/tx/mirror.ts).
+      const staleCashbookIds = await cacheKeys(db.cashbook).catch(() => [] as string[]);
       const { data, error } = await supa
         .from('cashbook_entries')
         .select('*')
@@ -200,8 +203,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         a.created_at < b.created_at ? 1 : -1
       );
       setCashbook((prev) => stableNext(prev, next));
-      await db.cashbook.clear().catch(() => {});
-      await db.cashbook.bulkAdd(next).catch(() => {});
+      await mirrorUpsert(db.cashbook, next, staleCashbookIds).catch(() => {});
       return true;
     } catch (err) {
       console.warn('Cashbook pull failed (giữ local):', err);

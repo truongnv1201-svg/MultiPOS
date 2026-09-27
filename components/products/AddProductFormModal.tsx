@@ -130,6 +130,7 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
           <div>
             <label className="font-semibold text-slate-700 block mb-1">Tên sản phẩm *</label>
             <input
+              id="add-product-name-input"
               type="text"
               required
               value={name}
@@ -143,6 +144,7 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
           <div>
             <label className="font-semibold text-slate-700 block mb-1">Mã SKU / Mã vạch</label>
             <input
+              id="add-product-sku-input"
               type="text"
               value={sku}
               onChange={(e) => setSku(e.target.value)}
@@ -203,6 +205,7 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Giá bán (đ)</label>
               <NumberInput
+                id="add-product-price-input"
                 value={retailPrice}
                 onChange={(val) => setRetailPrice(val)}
                 placeholder="0"

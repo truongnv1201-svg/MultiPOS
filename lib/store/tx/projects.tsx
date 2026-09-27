@@ -7,6 +7,7 @@ import { useCatalog } from '../catalog';
 import { useNetwork } from '../network';
 import type { Project, ProjectMaterial, ProjectWorker, CashbookEntry, Shift, StockMovement } from '../../types';
 import { db, generateOrderCode } from '../../db';
+import { cacheKeys, mirrorUpsert } from './mirror';
 import { asUuidOrNull } from './constants';
 import { stableNext } from '../stable';
 import { notify } from '@/components/common/Toast';
@@ -148,6 +149,8 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
   const refreshServerProjects = useCallback(async (): Promise<boolean> => {
     if (!supa || !user) return false;
     try {
+      // Khoá cache trước khi gọi server (xem lib/store/tx/mirror.ts).
+      const staleProjectIds = await cacheKeys(db.projects).catch(() => [] as string[]);
       const [projRes, matRes, workRes] = await Promise.all([
         supa.from('projects').select('*').order('code'),
         supa.from('project_materials').select('*'),
@@ -241,8 +244,9 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       const neverPushed = localRows.filter((p) => !p.server_id && !pushedCodes.has(p.code));
       const next = [...withLocalIds, ...neverPushed];
       setProjects((prev) => stableNext(prev, next));
-      await db.projects.clear().catch(() => {});
-      await db.projects.bulkAdd(next).catch(() => {});
+      // Upsert + dọn theo khoá có từ trước: dự án vừa tạo cục bộ trong lúc chờ server
+      // không bị xoá khỏi cache (trước đây clear() rồi bulkAdd bản chụp cũ).
+      await mirrorUpsert(db.projects, next, staleProjectIds).catch(() => {});
       return true;
     } catch (err) {
       console.warn('Project pull failed (giữ local):', err);
