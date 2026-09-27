@@ -38,8 +38,6 @@ export function GlobalHeader() {
     currentScreen,
     setCurrentScreen,
     setShiftModalOpen,
-    dimensionModalItem,
-    receiptModalOrder,
     user,
     profile,
     setLoginOpen,
@@ -83,6 +81,13 @@ export function GlobalHeader() {
         return;
       }
 
+      // Alt + X: đóng menu phân hệ trước khi chuyển màn — nếu không, menu vẫn phủ lên
+      // màn hình vừa chuyển tới và người dùng tưởng bị kẹt ở menu cũ.
+      const go = (screen: Parameters<typeof setCurrentScreen>[0]) => {
+        setFlyoutMenuOpen(false);
+        setCurrentScreen(screen);
+      };
+
       // Alt + M: Toggle Flyout Menu
       if (e.altKey && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault();
@@ -93,14 +98,14 @@ export function GlobalHeader() {
       // Alt + H: Orders
       if (e.altKey && (e.key === 'h' || e.key === 'H')) {
         e.preventDefault();
-        setCurrentScreen('orders');
+        go('orders');
         return;
       }
 
       // Alt + P: Products
       if (e.altKey && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
-        setCurrentScreen('products');
+        go('products');
         return;
       }
 
@@ -111,28 +116,28 @@ export function GlobalHeader() {
           blockRestricted();
           return;
         }
-        setCurrentScreen('inventory');
+        go('inventory');
         return;
       }
 
       // Alt + C: Customers
       if (e.altKey && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
-        setCurrentScreen('customers');
+        go('customers');
         return;
       }
 
       // Alt + K: Suppliers
       if (e.altKey && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
-        setCurrentScreen('suppliers');
+        go('suppliers');
         return;
       }
 
       // Alt + J: Projects
       if (e.altKey && (e.key === 'j' || e.key === 'J')) {
         e.preventDefault();
-        setCurrentScreen('projects');
+        go('projects');
         return;
       }
 
@@ -143,7 +148,7 @@ export function GlobalHeader() {
           blockRestricted();
           return;
         }
-        setCurrentScreen('attendance');
+        go('attendance');
         return;
       }
 
@@ -154,14 +159,14 @@ export function GlobalHeader() {
           blockRestricted();
           return;
         }
-        setCurrentScreen('payroll');
+        go('payroll');
         return;
       }
 
       // Alt + Q: Cashbook
       if (e.altKey && (e.key === 'q' || e.key === 'Q')) {
         e.preventDefault();
-        setCurrentScreen('cashbook');
+        go('cashbook');
         return;
       }
 
@@ -172,7 +177,7 @@ export function GlobalHeader() {
           blockRestricted();
           return;
         }
-        setCurrentScreen('reports');
+        go('reports');
         return;
       }
 
@@ -183,7 +188,7 @@ export function GlobalHeader() {
           blockNotAdmin();
           return;
         }
-        setCurrentScreen('settings');
+        go('settings');
         return;
       }
 
@@ -194,17 +199,18 @@ export function GlobalHeader() {
         return;
       }
 
-      // F12: Shift Modal (bỏ qua khi modal F3/receipt đang mở để tránh chồng modal)
+      // F12: Shift Modal (bỏ qua khi đang mở overlay khác để tránh chồng modal)
       if (e.key === 'F12') {
         e.preventDefault();
-        if (dimensionModalItem === null && receiptModalOrder === null) setShiftModalOpen(true);
+        if (document.querySelector('[role="dialog"]')) return;
+        setShiftModalOpen(true);
         return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setFlyoutMenuOpen, setCurrentScreen, setShiftModalOpen, toggleFullscreen, dimensionModalItem, receiptModalOrder, profile]);
+  }, [setFlyoutMenuOpen, setCurrentScreen, setShiftModalOpen, toggleFullscreen, profile]);
 
   return (
     <header

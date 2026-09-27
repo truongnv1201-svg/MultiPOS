@@ -223,6 +223,9 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
     <div
       id="dimension-modal-overlay"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Quy cách m²"
     >
       <div
         id="dimension-modal-container"

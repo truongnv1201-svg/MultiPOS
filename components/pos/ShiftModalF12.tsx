@@ -91,6 +91,9 @@ export function ShiftModalF12() {
     <div
       id="shift-modal-overlay"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Đóng ca"
     >
       <div
         id="shift-modal-container"

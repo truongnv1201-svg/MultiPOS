@@ -84,6 +84,9 @@ export function FlyoutMenu() {
   return (
     <div
       id="flyout-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Menu điều hướng"
       className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-start sm:justify-start transition-opacity"
       onClick={() => setFlyoutMenuOpen(false)}
     >

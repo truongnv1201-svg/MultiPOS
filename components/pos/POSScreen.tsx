@@ -346,10 +346,12 @@ export function POSScreen() {
   // Keyboard shortcut listener for POS (ma trận SRS §4.4: F2–F10, Ctrl+F9)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Guard: khi modal F3 / receipt / F12 đang mở, chỉ modal đó xử lý phím
-      // (tránh F10 checkout đè khi đang nhập quy cách m²)
-      const isModalOpen = dimensionModalItem !== null || receiptModalOrder !== null || shiftModalOpen;
-      if (isModalOpen) return;
+      // Guard: khi đang mở bất kỳ overlay nào (modal F3/F12/phiếu, sheet giỏ/thanh toán,
+      // quét mã, trung tâm đồng bộ, đăng nhập, menu phân hệ...) thì để overlay đó xử lý phím.
+      // Trước đây chỉ tính 3 modal React nên F10 có thể checkout "dưới" sheet giỏ đang mở.
+      // Các overlay đều mount có điều kiện (return null khi đóng) + có role="dialog".
+      const isOverlayOpen = Boolean(document.querySelector('[role="dialog"]'));
+      if (isOverlayOpen) return;
 
       // Chế độ Nhập hàng: chỉ F10 (nhập kho); phím bán hàng tạm nghỉ để khỏi nhầm giỏ
       if (posFlow === 'import') {
@@ -437,7 +439,9 @@ export function POSScreen() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cartTabs, activeTabId, activeCart.items, dimensionModalItem, receiptModalOrder, shiftModalOpen, setPosMode, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit]);
+    // Gỡ dimensionModalItem/receiptModalOrder/shiftModalOpen khỏi deps: guard giờ đọc DOM
+    // lúc phím bấm nên không cần đăng ký lại listener khi các modal đó mở/đóng.
+  }, [cartTabs, activeTabId, activeCart.items, setPosMode, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit]);
 
   // Filtered products for grid — lọc theo Loại hàng (Danh mục đã bỏ, dùng product_type)
   const displayedProducts = React.useMemo(() => {
@@ -1865,7 +1869,7 @@ export function POSScreen() {
 
       {/* Quick Supplier Creation Modal */}
       {isQuickSupplierModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="Thêm nhà cung cấp nhanh" className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
               <span className="font-bold text-sm flex items-center gap-2">

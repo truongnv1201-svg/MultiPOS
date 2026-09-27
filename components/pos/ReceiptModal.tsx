@@ -13,12 +13,22 @@ import { Printer, X, QrCode, Receipt, Share2 } from 'lucide-react';
 export function ReceiptModal() {
   const { receiptModalOrder, setReceiptModalOrder, shop, updateShop, vietqr } = useStore();
   const [template, setTemplate] = useState<PrintTemplate>('k80-full');
+  // Tiêu đề tab trước khi in (đã tạm xoá để header mặc định của trình duyệt không chen vào giấy).
+  const prevTitleRef = React.useRef<string>('');
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (receiptModalOrder) setTemplate(normalizePrintTemplate(shop.printTemplate) || 'k80-full');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receiptModalOrder?.id]);
+
+  // Đóng modal giữa lúc đang in → khôi phục tiêu đề tab ngay, không chờ afterprint.
+  useEffect(() => {
+    if (!receiptModalOrder) return;
+    return () => {
+      if (document.title === '' && prevTitleRef.current) document.title = prevTitleRef.current;
+    };
+  }, [receiptModalOrder]);
 
   if (!receiptModalOrder) return null;
   const order = receiptModalOrder;
@@ -36,11 +46,20 @@ export function ReceiptModal() {
   const handlePrint = () => {
     const prevTitle = document.title;
     document.title = '';
+    // afterprint KHÔNG phát trên iOS Safari / một số WebView Android, và có thể không phát
+    // khi người dùng đóng hộp thoại in. Khôi phục bằng cả listener lẫn timer dự phòng,
+    // đồng thời luôn khôi phục khi modal unmount để tab không bị để trống vĩnh viễn.
+    let restored = false;
     const cleanup = () => {
-      document.title = prevTitle;
+      if (restored) return;
+      restored = true;
+      window.clearTimeout(fallbackTimer);
       window.removeEventListener('afterprint', cleanup);
+      if (document.title === '') document.title = prevTitle;
     };
+    const fallbackTimer = window.setTimeout(cleanup, 60_000);
     window.addEventListener('afterprint', cleanup);
+    prevTitleRef.current = prevTitle;
     window.print();
   };
 
@@ -304,7 +323,7 @@ export function ReceiptModal() {
   };
 
   return (
-    <div id="receipt-modal-overlay" className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
+    <div id="receipt-modal-overlay" role="dialog" aria-modal="true" aria-label="Phiếu bán hàng" className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
       {/* Khổ giấy in theo đúng mẫu đang xem */}
       <style>{pageCss}</style>
       <div id="receipt-modal-container" className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[95vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
@@ -337,7 +356,7 @@ export function ReceiptModal() {
         </div>
 
         <div className="p-3 bg-white border-t border-slate-200 flex items-center justify-between gap-2">
-          <button onClick={() => setReceiptModalOrder(null)} className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Đóng</button>
+          <button id="btn-close-receipt-modal" onClick={() => setReceiptModalOrder(null)} className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Đóng</button>
           <div className="flex items-center gap-2">
             <label className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-600">
               <input type="checkbox" checked={!!shop.autoPrint} onChange={(e) => updateShop({ autoPrint: e.target.checked })} className="w-3.5 h-3.5 accent-blue-600" /> Tự in lần sau

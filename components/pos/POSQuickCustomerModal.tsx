@@ -37,7 +37,7 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
 
   if (!open) return null;
   return (
-      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div role="dialog" aria-modal="true" aria-label="Thêm khách hàng nhanh" className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in-50 zoom-in-95">
           <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
             <div className="flex items-center gap-2 font-bold text-sm">
