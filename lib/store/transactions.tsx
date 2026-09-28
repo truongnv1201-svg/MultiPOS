@@ -29,8 +29,6 @@ export interface TransactionsSlice {
   pendingQueue: Order[];
   setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;
   cashierName: string;
-  posMode: 'standard' | 'fast';
-  setPosMode: (mode: 'standard' | 'fast' | ((prev: 'standard' | 'fast') => 'standard' | 'fast')) => void;
   posFlow: 'sale' | 'import';
   setPosFlow: (flow: 'sale' | 'import' | ((prev: 'sale' | 'import') => 'sale' | 'import')) => void;
   cartTabs: CartTab[];
@@ -171,8 +169,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     pendingQueue: orders.pendingQueue,
     setPendingQueue: orders.setPendingQueue,
     cashierName,
-    posMode: cart.posMode,
-    setPosMode: cart.setPosMode,
     posFlow: cart.posFlow,
     setPosFlow: cart.setPosFlow,
     cartTabs: cart.cartTabs,

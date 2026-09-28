@@ -38,6 +38,31 @@ describe('POS: mobile cart sheet thay bảng ngang', () => {
   });
 });
 
+describe('POS: đã bỏ chế độ bán hàng dạng lưới thẻ', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+  const cart = read('lib/store/tx/cart.tsx');
+
+  it('không còn khối lưới thẻ sản phẩm', () => {
+    assert.doesNotMatch(pos, /id="product-grid-section"/);
+    assert.doesNotMatch(pos, /posMode === 'standard' && \(/);
+  });
+
+  it('không còn nút đổi chế độ và không còn state posMode', () => {
+    assert.doesNotMatch(pos, /id="btn-toggle-pos-mode"/);
+    assert.doesNotMatch(pos, /\bposMode\b/);
+    assert.doesNotMatch(pos, /\bsetPosMode\b/);
+    assert.doesNotMatch(cart, /\bposMode\b/);
+    assert.doesNotMatch(cart, /\bsetPosMode\b/);
+  });
+
+  it('POS vẫn chọn hàng được bằng ô tìm kiếm (không mất đường thêm hàng trên mobile)', () => {
+    // Thanh tìm nằm trong #pos-goods-toolbar, không bị ẩn trên mobile — đây là đường
+    // chọn hàng duy nhất sau khi bỏ lưới thẻ.
+    assert.match(pos, /id="pos-goods-toolbar"[\s\S]{0,1500}<ProductSearchBar/);
+    assert.doesNotMatch(pos, /id="pos-goods-toolbar"[^>]*hidden lg/);
+  });
+});
+
 describe('Kho + NCC: mobile record list', () => {
   const inv = read('components/inventory/InventoryView.tsx');
   const sup = read('components/suppliers/SuppliersView.tsx');

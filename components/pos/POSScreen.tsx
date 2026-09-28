@@ -36,19 +36,8 @@ import {
   Truck,
   AlertCircle,
   CheckCircle2,
-  Grid,
-  ListFilter,
   Check,
 } from 'lucide-react';
-
-// Tab lọc lưới sản phẩm theo Loại hàng (thay cho tab Danh mục đã bỏ)
-const PRODUCT_TYPE_TABS: { key: string; label: string }[] = [
-  { key: 'all', label: 'Tất cả' },
-  { key: 'area', label: 'Diện tích' },
-  { key: 'goods', label: 'Thường' },
-  { key: 'combo', label: 'Combo lắp ráp' },
-  { key: 'service', label: 'Dịch vụ' },
-];
 
 export function POSScreen() {
   const {
@@ -72,8 +61,6 @@ export function POSScreen() {
     shiftModalOpen,
     calculatedTotals,
     checkoutActiveOrder,
-    posMode,
-    setPosMode,
     posFlow,
     setPosFlow,
     setFlyoutMenuOpen,
@@ -89,7 +76,6 @@ export function POSScreen() {
     addSupplier,
   } = useStore();
 
-  const [selectedType, setSelectedType] = useState<string>('all');
   const [customerSearch, setCustomerSearch] = useState<string>('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState<boolean>(false);
   // Checkout xong (hóa đơn hiện) thì ô tìm KH phải trắng theo giỏ mới — trước đây
@@ -133,12 +119,6 @@ export function POSScreen() {
   // Hydration guard: authReady=false ở cả server lẫn client lần đầu render,
   // nên nút Bán/Nhập render giống nhau hai phía (false -> ẩn), hiện sau khi auth resolve.
   const canImport = authReady && (!supabaseReady || profile?.role === 'admin' || profile?.role === 'manager');
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (window.matchMedia('(max-width: 1023px)').matches) {
-      setPosMode('standard');
-    }
-  }, [setPosMode]);
   interface ImportLine {
     key: string;
     productId: string;
@@ -343,7 +323,9 @@ export function POSScreen() {
     }
   }, [activeCart.items.length, activeCart.tendered_amount, activeCart.customer_id, checkoutActiveOrder]);
 
-  // Keyboard shortcut listener for POS (ma trận SRS §4.4: F2–F10, Ctrl+F9)
+  // Keyboard shortcut listener for POS (ma trận SRS §4.4: F3–F10, Ctrl+F9)
+  // F2 trước đây đổi chế độ Thẻ/Nhanh; chế độ lưới thẻ đã bỏ nên POS chỉ còn luồng
+  // tìm kiếm + giỏ. Nhãn "Bán hàng (F2)" ở header vẫn còn nhưng không có handler F2.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Guard: khi đang mở bất kỳ overlay nào (modal F3/F12/phiếu, sheet giỏ/thanh toán,
@@ -359,13 +341,6 @@ export function POSScreen() {
           e.preventDefault();
           handleImportCommit();
         }
-        return;
-      }
-
-      // F2: Switch POS Mode (Standard vs Fast)
-      if (e.key === 'F2') {
-        e.preventDefault();
-        setPosMode((prev) => (prev === 'standard' ? 'fast' : 'standard'));
         return;
       }
 
@@ -441,13 +416,7 @@ export function POSScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
     // Gỡ dimensionModalItem/receiptModalOrder/shiftModalOpen khỏi deps: guard giờ đọc DOM
     // lúc phím bấm nên không cần đăng ký lại listener khi các modal đó mở/đóng.
-  }, [cartTabs, activeTabId, activeCart.items, setPosMode, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit]);
-
-  // Filtered products for grid — lọc theo Loại hàng (Danh mục đã bỏ, dùng product_type)
-  const displayedProducts = React.useMemo(() => {
-    if (selectedType === 'all') return products;
-    return products.filter((p) => p.product_type === selectedType);
-  }, [products, selectedType]);
+  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit]);
 
   // Filtered customers
   const filteredCustomers = React.useMemo(() => {
@@ -605,17 +574,6 @@ export function POSScreen() {
                 </button>
               </div>
             )}
-
-            {/* Toggle Mode Button [F2] */}
-            <button
-              id="btn-toggle-pos-mode"
-              onClick={() => setPosMode(posMode === 'standard' ? 'fast' : 'standard')}
-              className="w-10 sm:w-36 px-1 sm:px-2 h-9 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-medium flex items-center justify-center gap-1.5 border border-slate-200"
-              title="Đổi chế độ bán hàng (F2)"
-            >
-              {posMode === 'standard' ? <Grid className="w-3.5 h-3.5 text-blue-500" /> : <ListFilter className="w-3.5 h-3.5 text-amber-500" />}
-              <span className="hidden sm:inline">{posMode === 'standard' ? 'Chế độ Thẻ (F2)' : 'Chế độ Nhanh (F2)'}</span>
-            </button>
           </div>
         </div>
 
@@ -923,102 +881,6 @@ export function POSScreen() {
         </div>
         )}
 
-        {/* Bottom Panel: If in Standard Mode, show Products Grid */}
-        {posMode === 'standard' && (
-          <div id="product-grid-section" className="h-44 sm:h-64 border-t border-slate-200 bg-slate-50 flex flex-col min-h-0">
-            {/* Product-type tabs — thay cho tab Danh mục (đã bỏ) */}
-            <div className="px-3 py-1.5 bg-slate-200/70 border-b border-slate-200 flex items-center gap-1.5 overflow-x-auto">
-              {PRODUCT_TYPE_TABS.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setSelectedType(t.key)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
-                    selectedType === t.key
-                      ? 'bg-blue-600 text-white shadow-2xs'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Grid of product cards */}
-            <div className="flex-1 overflow-y-auto p-2.5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-              {displayedProducts.map((prod) => {
-                const isArea = prod.product_type === 'area';
-                return (
-                  <button
-                    type="button"
-                    key={prod.id}
-                    id={`pos-product-card-${prod.sku}`}
-                    aria-label={`Thêm ${prod.name}`}
-                    onClick={() => {
-                      if (isImportFlow) {
-                        // Luồng nhập: mọi loại hàng (kể cả m²) thêm theo SL ô nhanh, giá = giá nhập
-                        addImportLine(prod, quickQuantity > 0 ? quickQuantity : 1);
-                        return;
-                      }
-                      if (isArea) {
-                        // Item trống — Modal F3 làm chủ số liệu (không seed số giả)
-                        setDimensionModalItem({
-                          item: {
-                            id: `item-${Date.now()}`,
-                            product_id: prod.id,
-                            sku: prod.sku,
-                            name: prod.name,
-                            product_type: 'area',
-                            unit: prod.unit,
-                            unit_price: prod.retail_price,
-                            quantity: 1,
-                            discount_amount: 0,
-                            processing_fee: 0,
-                            subtotal: 0,
-                            waste_factor: prod.waste_factor || 5,
-                            dimension_details: undefined,
-                          },
-                          isNew: true,
-                        });
-                      } else {
-                        // Ô số lượng nhanh áp dụng cho cả lưới thẻ (hàng kg nhập 2,15 ở đây luôn được)
-                        addItemToCart(prod, snapQty(quickQuantity > 0 ? quickQuantity : 1, allowsDecimalQty(prod)));
-                      }
-                    }}
-                    className="p-2 bg-white rounded-lg border border-slate-200 hover:border-blue-500 hover:shadow-sm cursor-pointer flex flex-col justify-between transition-all group"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span
-                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                            isArea
-                              ? 'bg-amber-100 text-amber-800'
-                              : prod.product_type === 'combo'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-blue-100 text-blue-800'
-                          }`}
-                        >
-                          {isArea ? 'm² Quy cách' : prod.unit}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">{prod.sku}</span>
-                      </div>
-                      <h4 className="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-blue-600">
-                        {prod.name}
-                      </h4>
-                    </div>
-                      <div className="mt-2 pt-1 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-xs font-bold text-blue-600 font-mono" title={isImportFlow ? 'Giá nhập' : 'Giá bán'}>
-                          {formatVND(isImportFlow ? prod.import_price : prod.retail_price)}
-                        </span>
-                      <span className="text-[10px] text-slate-400">
-                        Kho: {prod.stock_quantity}
-                      </span>
-                     </div>
-                   </button>
-                 );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* RIGHT COLUMN: panel Nhập (luồng nhập) hoặc Khách + Thanh toán (luồng bán) — desktop/tablet.

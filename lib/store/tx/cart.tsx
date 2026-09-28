@@ -1,6 +1,6 @@
 // P3-tx/cart: giỏ POS + tab + modal + tính tiền (tách verbatim từ transactions.tsx).
 // Sở hữu: cartTabs/activeTabId/dimensionModalItem/receiptModalOrder/shiftModalOpen/
-// posMode/posFlow + activeCart/calculatedTotals + tab ops + cart item ops.
+// posFlow + activeCart/calculatedTotals + tab ops + cart item ops.
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
@@ -14,8 +14,6 @@ import { calcCartTotals } from '../../pricing';
 import { notify } from '@/components/common/Toast';
 
 export interface TxCart {
-  posMode: 'standard' | 'fast';
-  setPosMode: React.Dispatch<React.SetStateAction<'standard' | 'fast'>>;
   posFlow: 'sale' | 'import';
   setPosFlow: React.Dispatch<React.SetStateAction<'sale' | 'import'>>;
   cartTabs: CartTab[];
@@ -44,7 +42,6 @@ export function useTxCart(cashRounding: number): TxCart {
   const { products } = useCatalog();
 
   // POS State
-  const [posMode, setPosMode] = useState<'standard' | 'fast'>('fast'); // Mặc định bán nhanh
   const [posFlow, setPosFlow] = useState<'sale' | 'import'>('sale'); // Luồng POS hiện tại
   const [cartTabs, setCartTabs] = useState<CartTab[]>([DEFAULT_TAB]);
   const [activeTabId, setActiveTabId] = useState<string>('tab-1');
@@ -225,8 +222,6 @@ export function useTxCart(cashRounding: number): TxCart {
   const calculatedTotals = useMemo(() => calcCartTotals(activeCart, cashRounding), [activeCart, cashRounding]);
 
   return {
-    posMode,
-    setPosMode,
     posFlow,
     setPosFlow,
     cartTabs,

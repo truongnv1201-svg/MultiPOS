@@ -156,8 +156,6 @@ interface StoreContextType {
   signOut: () => Promise<void>;
 
   // POS State
-  posMode: 'standard' | 'fast'; // F2 toggle
-  setPosMode: (mode: 'standard' | 'fast' | ((prev: 'standard' | 'fast') => 'standard' | 'fast')) => void;
   posFlow: 'sale' | 'import'; // Luồng POS: bán hàng hoặc nhập hàng (giỏ riêng, commit riêng)
   setPosFlow: (flow: 'sale' | 'import' | ((prev: 'sale' | 'import') => 'sale' | 'import')) => void;
   cartTabs: CartTab[];
@@ -409,8 +407,6 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     pendingQueue,
     setPendingQueue,
     cashierName,
-    posMode,
-    setPosMode,
     posFlow,
     setPosFlow,
     cartTabs,
@@ -815,8 +811,6 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     setLoginOpen,
     signIn,
     signOut,
-    posMode,
-    setPosMode,
     posFlow,
     setPosFlow,
     cartTabs,
