@@ -802,13 +802,14 @@ export function POSScreen() {
                 </span>
               </button>
               <div className="hidden lg:block border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
-              <table className="w-full min-w-[620px] text-left text-xs border-collapse">
+              <table className="w-full min-w-[720px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 select-none">
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Sản phẩm / Quy cách</th>
+                    <th className="py-2.5 px-1 w-16 text-center" title="Đơn vị tính của mặt hàng">ĐVT</th>
                     <th className="py-2.5 px-2.5 w-24 text-right">Đơn giá</th>
-                    <th className="py-2.5 px-2.5 w-24 text-center">SL / Diện tích</th>
+                    <th className="py-2.5 px-2.5 w-32 text-center">SL / Diện tích</th>
                     <th className="py-2.5 px-2.5 w-24 text-right">Phí GC (đ)</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền</th>
                     <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
@@ -870,6 +871,11 @@ export function POSScreen() {
                             })()}
                         </td>
 
+                        {/* Unit of measure */}
+                        <td className="py-2.5 px-1 text-center text-slate-600 font-mono text-[11px]">
+                          {isArea ? 'm²' : item.unit || '-'}
+                        </td>
+
                         {/* Unit price */}
                         <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">
                           {formatVND(item.unit_price)}
@@ -879,10 +885,10 @@ export function POSScreen() {
                         <td className="py-2.5 px-2.5 text-center">
                           {isArea ? (
                             <div className="font-bold font-mono text-blue-700 text-xs">
-                              {item.quantity.toFixed(3)} <span className="text-[10px] font-normal">m²</span>
+                              {item.quantity.toFixed(3)}
                             </div>
                           ) : (
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="w-fit mx-auto grid grid-cols-[1.25rem_3.5rem_1.25rem] items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() =>
@@ -890,7 +896,7 @@ export function POSScreen() {
                                     quantity: snapQty(item.quantity - qtyStep(allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
                                   })
                                 }
-                                className="w-5 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                className="w-5 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-xs leading-none select-none flex items-center justify-center transition-colors"
                                 title={`Giảm ${qtyStep(allowsDecimalQty(productById(item.product_id)))}`}
                               >
                                 -
@@ -909,7 +915,7 @@ export function POSScreen() {
                                     quantity: snapQty(item.quantity + qtyStep(allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
                                   })
                                 }
-                                className="w-5 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                className="w-5 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-xs leading-none select-none flex items-center justify-center transition-colors"
                                 title={`Tăng ${qtyStep(allowsDecimalQty(productById(item.product_id)))}`}
                               >
                                 +

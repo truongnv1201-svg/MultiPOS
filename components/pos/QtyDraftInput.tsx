@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { formatQty, parseQtyInput, snapQty } from '@/lib/quantity';
@@ -25,7 +25,7 @@ export function QtyDraftInput({
     allowDecimal,
     onCommit,
     ariaLabel,
-    className = 'w-16',
+    className = 'w-16 h-8',
     inputClassName = '',
 }: QtyDraftInputProps) {
     const [draft, setDraft] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export function QtyDraftInput({
                     e.currentTarget.blur();
                 }
             }}
-            className={`${className} h-8 px-1.5 text-center text-xs font-bold font-mono bg-white text-slate-800 border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden ${inputClassName}`}
+            className={`${className} px-1.5 text-center text-xs font-bold font-mono bg-white text-slate-800 border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden ${inputClassName}`}
         />
     );
 }
