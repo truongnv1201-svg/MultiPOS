@@ -82,28 +82,9 @@ export function snapQty(value: number, allowDecimal: boolean): number {
   return Math.max(1, Math.round(rounded));
 }
 
-/** Bước tăng/giảm nhanh: hàng thập phân dùng bước 0,1 cho khỏi lệch quá xa. */
-export function qtyStep(allowDecimal: boolean): number {
-    return allowDecimal ? 0.1 : 1;
-}
+// Gỡ qtyStep/qtyStepFor (2026-09): giỏ POS không còn nút +/- — số lượng chỉ gõ tay, nên
+// hai hàm bước nhảy không còn ai gọi. Muốn thêm nút +/- sau này thì dựng lại từ đây.
 
-/**
- * Bước +/- theo GIÁ TRỊ đang có trong ô, không phụ thuộc mặc định của mặt hàng:
- * - đang là số nguyên (1) -> bước 1: 1 -> 2 -> 3
- * - đang là số lẻ (1,1)   -> bước 0,1: 1,1 -> 1,2
- * - hàng không cho bán thập phân -> luôn bước 1
- *
- * Vì sao cần: mặt hàng đơn vị 'cái' vẫn mặc định cho phép thập phân (allowsDecimalQty
- * trả true khi thiếu cờ), nên dùng qtyStep() ô 'cái' sẽ nhảy 1 -> 1,1 -> 1,2 — thu ngân
- * bán 3 cái phải bấm 20 lần. Người bán muốn bước 1 cho tới khi ô có phần lẻ thật sự.
- */
-export function qtyStepFor(value: number, allowDecimal: boolean): number {
-    if (!allowDecimal) return 1;
-    const v = Number(value);
-    if (!Number.isFinite(v)) return 1;
-    // roundQty trước: 2.0004 (do cộng dồn số lẻ) phải coi như 2 chứ không phải số lẻ.
-    return roundQty(v) === Math.round(roundQty(v)) ? 1 : 0.1;
-}
 
 /** Hiển thị số lượng: bỏ phần thập phân thừa 0 (2.150 -> "2,15"). */
 export function formatQty(value: number, allowDecimal = true): string {

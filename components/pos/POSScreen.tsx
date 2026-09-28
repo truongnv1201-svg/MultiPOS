@@ -6,6 +6,7 @@ import { Product, OrderItem, Customer } from '@/lib/types';
 import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import MobileCartSheet from '@/components/pos/MobileCartSheet';
+import { readOnlyCellClass } from '@/components/common/EditableCell';
 import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
 import { PriceDraftInput } from '@/components/pos/PriceDraftInput';
 import MobilePaymentSheet, { type MobilePaymentMethod } from '@/components/pos/MobilePaymentSheet';
@@ -17,7 +18,7 @@ import { isVietqrReady, buildVietqrUrl, vietqrAddInfo } from '@/lib/vietqr';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
 import { resolvePaidAmount } from '@/lib/pricing';
-import { allowsDecimalQty, formatQty, parseQtyInput, roundQty, snapQty, qtyStep, qtyStepFor, QTY_MAX_DECIMALS } from '@/lib/quantity';
+import { allowsDecimalQty, formatQty, parseQtyInput, snapQty, QTY_MAX_DECIMALS } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
 import {
   Plus,
@@ -823,8 +824,8 @@ export function POSScreen() {
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Sản phẩm / Quy cách</th>
                     <th className="py-2.5 px-1 w-16 text-center" title="Đơn vị tính của mặt hàng">ĐVT</th>
-                    <th className="py-2.5 px-2.5 w-24 text-right">Đơn giá</th>
-                    <th className="py-2.5 px-2.5 w-32 text-center">SL / Diện tích</th>
+                    <th className="py-2.5 px-2.5 w-28 text-right">Đơn giá</th>
+                    <th className="py-2.5 px-2.5 w-28 text-center">SL / Diện tích</th>
                     <th className="py-2.5 px-2.5 w-24 text-right">Phí GC (đ)</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền</th>
                     <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
@@ -891,14 +892,12 @@ export function POSScreen() {
                           {isArea ? 'm²' : item.unit || '-'}
                         </td>
 
-                        {/* Unit price — Quản lý/Admin sửa được cho riêng đơn này (0059) */}
-                        <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">
+                        {/* Unit price — Quản lý/Admin sửa được cho riêng đơn này (0059).
+                            Cùng style ô sửa với số lượng; thu ngân thấy dạng chỉ đọc. */}
+                        <td className="py-2.5 px-2.5 text-right">
                           {canOverridePrice ? (
                             <PriceDraftInput
                               price={item.unit_price}
-                              // Chỉ là nhãn hiển thị: tra được giá danh mục và khác giá đang bán
-                              // thì coi như "đã sửa". Không dùng nhãn này để quyết định gửi
-                              // price_override lên server (xem onCommit bên dưới).
                               overridden={
                                 !!item.price_override && catalogPriceOf(item) !== Math.round(item.unit_price)
                               }
@@ -915,53 +914,27 @@ export function POSScreen() {
                                 })
                               }
                               ariaLabel={`Đơn giá ${item.name}`}
-                              className="text-xs"
                             />
                           ) : (
-                            <span title="Chỉ Quản lý/Admin được sửa đơn giá">{formatVND(item.unit_price)}</span>
+                            <span className={readOnlyCellClass()} title="Chỉ Quản lý/Admin được sửa đơn giá">
+                              {formatVND(item.unit_price)}
+                            </span>
                           )}
                         </td>
 
-                        {/* Quantity / m2 */}
+                        {/* Quantity / m2 — chỉ gõ tay, không có nút +/- (xem e2e/pos-qty-step.spec.ts) */}
                         <td className="py-2.5 px-2.5 text-center">
                           {isArea ? (
                             <div className="font-bold font-mono text-blue-700 text-xs">
                               {item.quantity.toFixed(3)}
                             </div>
                           ) : (
-                            <div className="w-fit mx-auto grid grid-cols-[1.25rem_3.5rem_1.25rem] items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateCartItem(item.id, {
-                                    quantity: snapQty(item.quantity - qtyStepFor(item.quantity, allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
-                                  })
-                                }
-                                className="w-5 h-6 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md font-bold text-xs leading-none select-none flex items-center justify-center transition-colors"
-                                title={`Giảm ${qtyStepFor(item.quantity, allowsDecimalQty(productById(item.product_id)))}`}
-                              >
-                                -
-                              </button>
-                              <QtyDraftInput
-                                quantity={item.quantity}
-                                allowDecimal={allowsDecimalQty(productById(item.product_id))}
-                                onCommit={(value) => updateCartItem(item.id, { quantity: value })}
-                                ariaLabel={`Số lượng ${item.name}`}
-                                className="w-14 h-6"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateCartItem(item.id, {
-                                    quantity: snapQty(item.quantity + qtyStepFor(item.quantity, allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
-                                  })
-                                }
-                                className="w-5 h-6 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md font-bold text-xs leading-none select-none flex items-center justify-center transition-colors"
-                                title={`Tăng ${qtyStepFor(item.quantity, allowsDecimalQty(productById(item.product_id)))}`}
-                              >
-                                +
-                              </button>
-                            </div>
+                            <QtyDraftInput
+                              quantity={item.quantity}
+                              allowDecimal={allowsDecimalQty(productById(item.product_id))}
+                              onCommit={(value) => updateCartItem(item.id, { quantity: value })}
+                              ariaLabel={`Số lượng ${item.name}`}
+                            />
                           )}
                         </td>
 

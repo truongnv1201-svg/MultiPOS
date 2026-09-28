@@ -29,44 +29,21 @@ async function addProduct(page: Page, term: string) {
     await page.waitForTimeout(1000);
 }
 
-type Box = { x: number; y: number; width: number; height: number };
+type Colors = { bg: string; color: string; border: string; height: string; radius: string };
+const box = (loc: ReturnType<Page['locator']>) =>
+    loc.evaluate((el: HTMLElement) => {
+        const cs = getComputedStyle(el);
+        return {
+            bg: cs.backgroundColor,
+            color: cs.color,
+            border: cs.borderColor,
+            height: cs.height,
+            radius: cs.borderTopLeftRadius,
+        } as Colors;
+    });
 
-/**
- * Nut -, o so luong va nut + phai cung chieu cao, lech trai/phai bang nhau,
- * can giua trong o va khong tran ra ngoai o (truoc day QtyDraftInput hardcode h-8
- * nen `h-6`/`h-9` o cho goi bi Tailwind de -> hang lech 8px desktop / 4px mobile).
- */
-async function expectStepperAligned(
-    minus: ReturnType<Page['locator']>,
-    plus: ReturnType<Page['locator']>,
-    input: ReturnType<Page['locator']>,
-    cell: ReturnType<Page['locator']>
-) {
-    const [mb, pb, ib, cb] = (await Promise.all([
-        minus.boundingBox(),
-        plus.boundingBox(),
-        input.boundingBox(),
-        cell.boundingBox(),
-    ])) as [Box, Box, Box, Box];
-
-    expect(mb!.height).toBeCloseTo(pb!.height, 1);
-    expect(mb!.height).toBeCloseTo(ib!.height, 1);
-    expect(mb!.y).toBeCloseTo(pb!.y, 1);
-    expect(mb!.y).toBeCloseTo(ib!.y, 1);
-
-    const leftGap = ib!.x - (mb!.x + mb!.width);
-    const rightGap = pb!.x - (ib!.x + ib!.width);
-    expect(Math.abs(leftGap - rightGap)).toBeLessThan(0.6);
-
-    const groupLeft = Math.min(mb!.x, pb!.x, ib!.x);
-    const groupRight = Math.max(mb!.x + mb!.width, pb!.x + pb!.width, ib!.x + ib!.width);
-    expect(cb!.x - groupLeft).toBeLessThanOrEqual(0.6);
-    expect(groupRight - (cb!.x + cb!.width)).toBeLessThanOrEqual(0.6);
-    expect(Math.abs((groupLeft + groupRight) / 2 - (cb!.x + cb!.width / 2))).toBeLessThan(1.5);
-}
-
-test.describe('Gio POS: cot don vi tinh + can nut +/-', () => {
-    test('desktop: co cot DVT (m2 cho hang dien tich) va nut +/- thang hang', async ({ page }) => {
+test.describe('Gio POS: cot don vi tinh + o sua duoc', () => {
+    test('desktop: cot DVT dung chuan va o so luong dung style chung', async ({ page }) => {
         test.slow();
         await page.setViewportSize({ width: 1440, height: 900 });
         await login(page);
@@ -87,22 +64,24 @@ test.describe('Gio POS: cot don vi tinh + can nut +/-', () => {
         expect(await areaRow.locator('td').nth(4).innerText()).not.toContain('m²');
 
         // 3) Hang thuong: don vi lay tu danh muc, khong rong
-        const normalRow = rows.filter({ has: page.locator('[title^="Tăng"]') }).first();
+        const normalRow = rows.filter({ has: page.locator('input[aria-label^="Số lượng"]') }).first();
         expect(await normalRow.count()).toBeGreaterThan(0);
         const normalUnit = (await normalRow.locator('td').nth(2).innerText()).trim();
         expect(normalUnit.length).toBeGreaterThan(0);
         expect(normalUnit).not.toBe('m²');
 
-        // 4) Nut -, o so luong, nut + thang hang
-        await expectStepperAligned(
-            normalRow.locator('[title^="Giảm"]'),
-            normalRow.locator('[title^="Tăng"]'),
-            normalRow.locator('input'),
-            normalRow.locator('td').nth(4)
-        );
+        // 4) Da bo nut +/-: chi con o nhap so luong
+        await expect(page.locator('#cart-table-container [title^="Tăng"]')).toHaveCount(0);
+        await expect(page.locator('#cart-table-container [title^="Giảm"]')).toHaveCount(0);
+
+        // 5) O so luong dung style o sua chung: co viền, cao 32px, bo cong
+        const qtyBox = await box(normalRow.locator('input[aria-label^="Số lượng"]'));
+        expect(qtyBox.border).not.toBe('rgba(0, 0, 0, 0)');
+        expect(qtyBox.height).toBe('32px');
+        expect(qtyBox.radius).toBe('6px');
     });
 
-    test('mobile: o so luong cung chieu cao voi nut +/-', async ({ page }) => {
+    test('mobile: chi con o so luong, khong con nut +/-', async ({ page }) => {
         test.slow();
         await page.setViewportSize({ width: 390, height: 844 });
         await login(page);
@@ -112,17 +91,15 @@ test.describe('Gio POS: cot don vi tinh + can nut +/-', () => {
         const list = page.locator('#cart-record-list');
         await expect(list).toBeVisible({ timeout: 15_000 });
 
-        const row = list.locator('[aria-label^="Tăng số lượng"]').first();
-        expect(await row.count()).toBeGreaterThan(0);
-        const input = row.locator('xpath=..').locator('input[type="text"]').first();
+        const input = list.locator('input[aria-label^="Số lượng"]').first();
         expect(await input.count()).toBeGreaterThan(0);
+        // Khong con nut +/- trong sheet mobile
+        await expect(list.locator('[aria-label^="Tăng số lượng"]')).toHaveCount(0);
+        await expect(list.locator('[aria-label^="Giảm số lượng"]')).toHaveCount(0);
 
-        const minus = row.locator('xpath=preceding-sibling::button[1]');
-        const [mb, ib] = (await Promise.all([minus.boundingBox(), input.boundingBox()])) as [
-            Box,
-            Box,
-        ];
-        expect(ib!.height).toBeCloseTo(mb!.height, 1);
-        expect(ib!.y).toBeCloseTo(mb!.y, 1);
+        // Cung style o sua chung voi desktop
+        const qtyBox = await box(input);
+        expect(qtyBox.height).toBe('32px');
+        expect(qtyBox.border).not.toBe('rgba(0, 0, 0, 0)');
     });
 });

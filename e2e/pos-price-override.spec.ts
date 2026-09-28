@@ -91,35 +91,30 @@ test.describe('POS: quyền sửa đơn giá (migration 0059)', () => {
         await addFirstProduct(page, 'keo');
 
         const row = page.locator('#cart-table-container tbody tr').first();
-        const priceBtn = row.getByLabel(/^Đơn giá /);
-        await expect(priceBtn).toBeVisible();
+        const priceInput = row.getByLabel(/^Đơn giá /);
+        await expect(priceInput).toBeVisible();
 
         const subtotalCell = row.locator('td').nth(6);
         const subtotalBefore = await subtotalCell.innerText();
-        const priceBefore = await priceBtn.innerText();
-        const original = priceBefore.replace(/[^\d]/g, '');
+        const priceBefore = await priceInput.inputValue();
+        const original = priceBefore.replace(/[^\d.]/g, '').replace(/\./g, '');
 
-        // Bấm giá -> ô nhập mở ra, gõ giá mới
-        await priceBtn.click();
-        const input = row.getByLabel(/^Đơn giá /);
-        await expect(input).toBeVisible();
-        await input.fill('15000');
-        await input.press('Enter');
+        // Gõ giá mới (ô luôn hiện sẵn, không cần bấm mở)
+        await priceInput.click();
+        await priceInput.fill('15000');
+        await priceInput.press('Enter');
 
-        // Thành tiền dòng chạy theo giá mới (qty 1 -> 15.000)
+        // Ô hiện giá format VN, thành tiền dòng chạy theo (qty 1 -> 15.000)
+        await expect(priceInput).toHaveValue('15.000');
         await expect(subtotalCell).not.toHaveText(subtotalBefore);
         await expect(subtotalCell).toContainText('15.000');
-
-        // Ô đóng lại thành nút, có đánh dấu "đã sửa"
-        await expect(priceBtn).toBeVisible();
-        await expect(priceBtn).toHaveAttribute('title', /Đã sửa đơn giá/);
-        await expect(priceBtn).toContainText('15.000');
+        await expect(priceInput).toHaveAttribute('title', /Đã sửa đơn giá/);
 
         // Gõ lại đúng giá danh mục -> bỏ dấu "đã sửa" (server sẽ lấy giá catalog)
-        await priceBtn.click();
-        await row.getByLabel(/^Đơn giá /).fill(original);
-        await row.getByLabel(/^Đơn giá /).press('Enter');
-        await expect(priceBtn).toHaveAttribute('title', /Sửa đơn giá/);
+        await priceInput.click();
+        await priceInput.fill(original);
+        await priceInput.press('Enter');
+        await expect(priceInput).toHaveAttribute('title', /Sửa đơn giá/);
         await expect(subtotalCell).toHaveText(subtotalBefore);
     });
 });

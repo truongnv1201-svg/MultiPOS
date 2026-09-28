@@ -56,7 +56,7 @@ test.describe('số lượng thập phân', () => {
     await expect(qty).toHaveValue(/^1$/);
   });
 
-  test('ô số lượng nhận dấu chấm thập phân và bước tăng/giảm bám cờ mặt hàng', async ({ page }) => {
+  test('ô số lượng nhận dấu chấm thập phân trong bảng giỏ', async ({ page }) => {
     await loginAsCashier(page);
     expect(await pickFirstProduct(page)).toBe(true);
 
@@ -67,11 +67,13 @@ test.describe('số lượng thập phân', () => {
     expect(await qty.evaluate((el) => (el as HTMLInputElement).value)).toBe('2.5');
     await qty.press('Enter');
 
-    // Bảng giỏ có ô số lượng cho hàng không phải m² -> nhập thập phân được
-    const qtyInput = page.locator('#cart-table-container input[type="number"]').first();
-    if ((await qtyInput.count()) > 0) {
-      await qtyInput.fill('3');
-      await expect(qtyInput).toHaveValue('3');
+    // Bảng giỏ: ô số lượng nhận thập phân được (2,15 -> 2.5 -> "2,5" sau Enter)
+    const cartQty = page.locator('#cart-table-container').getByLabel(/^Số lượng /).first();
+    if ((await cartQty.count()) > 0) {
+      await cartQty.fill('2.5');
+      await expect(cartQty).toHaveValue('2.5');
+      await cartQty.press('Enter');
+      await expect(cartQty).toHaveValue('2,5');
     }
   });
 

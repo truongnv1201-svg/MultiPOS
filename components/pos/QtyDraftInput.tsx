@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import { formatQty, parseQtyInput, snapQty } from '@/lib/quantity';
+import { editCellClass } from '@/components/common/EditableCell';
 
 interface QtyDraftInputProps {
     quantity: number;
     allowDecimal: boolean;
     onCommit: (quantity: number) => void;
     ariaLabel: string;
+    /** Chiều rộng ô (mặc định vừa cột "SL / Diện tích"). */
+    width?: string;
     className?: string;
-    inputClassName?: string;
 }
 
 /**
@@ -25,8 +27,8 @@ export function QtyDraftInput({
     allowDecimal,
     onCommit,
     ariaLabel,
-    className = 'w-16 h-8',
-    inputClassName = '',
+    width = 'w-24',
+    className = '',
 }: QtyDraftInputProps) {
     const [draft, setDraft] = useState<string | null>(null);
     const display = draft ?? formatQty(quantity, allowDecimal);
@@ -64,7 +66,9 @@ export function QtyDraftInput({
                     e.currentTarget.blur();
                 }
             }}
-            className={`${className} px-1.5 text-center text-xs font-bold font-mono bg-white text-slate-800 border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden ${inputClassName}`}
+            // Style chung với ô đơn giá (components/common/EditableCell) để cả hai ô
+            // sửa được trong giỏ trông như một.
+            className={`${editCellClass(width, `text-center font-bold ${className}`)}`}
         />
     );
 }

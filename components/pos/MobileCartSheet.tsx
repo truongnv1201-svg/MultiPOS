@@ -1,8 +1,8 @@
 'use client';
 
-import { CheckCircle2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CheckCircle2, Pencil, Trash2, X } from 'lucide-react';
 import { formatVND } from '@/lib/format';
-import { formatQty, qtyStepFor, snapQty } from '@/lib/quantity';
+import { formatQty } from '@/lib/quantity';
 import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
 import type { OrderItem } from '@/lib/types';
 
@@ -70,8 +70,6 @@ export default function MobileCartSheet({
                         items.map((item) => {
                             const isArea = item.product_type === 'area';
                             const allowDecimal = allowsDecimal(item);
-                            // Bước +/- theo giá trị đang có: nguyên -> +1, số lẻ -> +0,1 (xem qtyStepFor)
-                            const step = qtyStepFor(item.quantity, allowDecimal);
                             return (
                                 <div key={item.id} className="px-4 py-3 flex items-start gap-3">
                                     <div className="flex-1 min-w-0">
@@ -97,31 +95,13 @@ export default function MobileCartSheet({
                                                     </button>
                                                 </>
                                             ) : (
-                                                <div className="inline-flex items-center rounded-lg border border-slate-200 overflow-hidden">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onQuantityChange(item.id, snapQty(item.quantity - step, allowDecimal))}
-                                                        className="inline-flex h-9 w-9 items-center justify-center text-slate-600 active:bg-slate-100"
-                                                        aria-label={`Giảm số lượng ${item.name}`}
-                                                    >
-                                                        <Minus className="w-4 h-4" />
-                                                    </button>
-                                                    <QtyDraftInput
-                                                        quantity={item.quantity}
-                                                        allowDecimal={allowDecimal}
-                                                        onCommit={(value) => onQuantityChange(item.id, value)}
-                                                        ariaLabel={`Số lượng ${item.name}`}
-                                                        className="w-14 h-9"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => onQuantityChange(item.id, snapQty(item.quantity + step, allowDecimal))}
-                                                        className="inline-flex h-9 w-9 items-center justify-center text-slate-600 active:bg-slate-100"
-                                                        aria-label={`Tăng số lượng ${item.name}`}
-                                                    >
-                                                        <Plus className="w-4 h-4" />
-                                                    </button>
-                                                </div>
+                                                <QtyDraftInput
+                                                    quantity={item.quantity}
+                                                    allowDecimal={allowDecimal}
+                                                    onCommit={(value) => onQuantityChange(item.id, value)}
+                                                    ariaLabel={`Số lượng ${item.name}`}
+                                                    width="w-20"
+                                                />
                                             )}
                                         </div>
                                     </div>

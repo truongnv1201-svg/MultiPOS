@@ -7,8 +7,6 @@ import {
   allowsDecimalQty,
   formatQty,
   parseQtyInput,
-  qtyStep,
-  qtyStepFor,
   roundQty,
   snapQty,
   suggestDecimalForUnit,
@@ -93,53 +91,6 @@ describe('hiển thị và bước nhảy số lượng', () => {
     assert.equal(formatQty(3), '3');
   });
 
-  it('hàng thập phân tăng/giảm theo bước 0,1', () => {
-    assert.equal(qtyStep(true), 0.1);
-    assert.equal(qtyStep(false), 1);
-  });
-});
-
-describe('bước +/- theo giá trị đang có trong ô (qtyStepFor)', () => {
-  it('ô đang là số nguyên thì bước 1 (1 -> 2 -> 3)', () => {
-    assert.equal(qtyStepFor(1, true), 1);
-    assert.equal(qtyStepFor(2, true), 1);
-    assert.equal(qtyStepFor(84, true), 1);
-  });
-
-  it('ô đang là số lẻ thì bước 0,1 (1,1 -> 1,2)', () => {
-    assert.equal(qtyStepFor(1.1, true), 0.1);
-    assert.equal(qtyStepFor(2.15, true), 0.1);
-  });
-
-  it('hàng không cho bán thập phân thì luôn bước 1', () => {
-    assert.equal(qtyStepFor(1.1, false), 1);
-    assert.equal(qtyStepFor(3, false), 1);
-  });
-
-  it('số lẻ do cộng dồn (2.0004) coi như số nguyên', () => {
-    assert.equal(qtyStepFor(2.0004, true), 1);
-  });
-
-  it('giá trị lỗi (NaN) thì bước 1 cho an toàn', () => {
-    assert.equal(qtyStepFor(NaN, true), 1);
-  });
-
-  it('áp dụng vào giỏ: nguyên +1, lẻ +0,1, và luôn > 0', () => {
-    let q = 1;
-    q = snapQty(q + qtyStepFor(q, true), true);
-    assert.equal(q, 2);
-    q = snapQty(q + qtyStepFor(q, true), true);
-    assert.equal(q, 3);
-
-    let d = 1.1;
-    d = snapQty(d + qtyStepFor(d, true), true);
-    assert.equal(d, 1.2);
-    d = snapQty(d - qtyStepFor(d, true), true);
-    assert.equal(d, 1.1);
-
-    // trừ khi về 0 thì snapQty giữ tối thiểu
-    assert.ok(snapQty(1 - qtyStepFor(1, true), true) > 0);
-  });
 });
 
 describe('tính tiền với số lượng thập phân', () => {

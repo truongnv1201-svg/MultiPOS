@@ -131,7 +131,17 @@ describe('sửa đơn giá thì thành tiền + tổng chạy theo', () => {
 
   it('giá 0 không được tạo ra từ ô nhập (PriceDraftInput giữ giá cũ)', () => {
     const src = read('components/pos/PriceDraftInput.tsx');
-    assert.match(src, /if \(parsed > 0\) onCommit\(clamp\(parsed\)\)/);
+    assert.match(src, /if \(value > PRICE_MIN\) onCommit\(Math\.min\(PRICE_MAX, Math\.round\(value\)\)\)/);
     assert.match(src, /PRICE_MAX = 100_000_000/);
+  });
+
+  it('ô đơn giá và ô số lượng dùng CHUNG style ô sửa được', () => {
+    const editable = read('components/common/EditableCell.tsx');
+    assert.match(editable, /export const EDIT_CELL_CLASS/);
+    assert.match(read('components/pos/PriceDraftInput.tsx'), /editCellClass\(/);
+    assert.match(read('components/pos/QtyDraftInput.tsx'), /editCellClass\(/);
+    // giỏ không còn nút +/-
+    const pos = read('components/pos/POSScreen.tsx');
+    assert.ok(!/title=\{`Tăng /.test(pos), 'không còn nút +/- trong giỏ');
   });
 });
