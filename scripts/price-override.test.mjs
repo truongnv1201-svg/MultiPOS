@@ -59,6 +59,52 @@ describe('0059: server gate đơn giá ghi đè', () => {
   });
 });
 
+describe('0060: tín hiệu price_adjusted (không in hoá đơn sai giá)', () => {
+  const sql = read('supabase/migrations/0060_checkout_price_adjusted_signal.sql');
+
+  it('tồn tại migration 0060', () => {
+    assert.ok(sql.length > 0);
+  });
+
+  it('so giá thực tế với giá client gửi cho từng dòng', () => {
+    assert.match(sql, /v_sent_price := round\(COALESCE\(\(it->>'unit_price'\)::NUMERIC, v_price\)\)/);
+    assert.match(sql, /IF round\(v_price\) <> v_sent_price THEN/);
+  });
+
+  it('trả về price_adjusted (rỗng = khớp màn hình)', () => {
+    assert.match(sql, /'price_adjusted', v_price_adjusted\)/);
+    assert.match(sql, /v_price_adjusted := '\[\]'::JSONB/);
+  });
+
+  it('giữ nguyên chốt quyền của 0059', () => {
+    assert.match(sql, /IF NOT public\.is_manager\(\) THEN/);
+  });
+});
+
+describe('client: cờ price_override không được phụ thuộc tra giá danh mục', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+
+  it('bật cờ thẳng khi người dùng sửa giá (bug: tra trượt catalog là rơi cờ im lặng)', () => {
+    assert.match(pos, /price_override: true/);
+  });
+
+  it('vẫn dùng giá danh mục (fallback SKU) chỉ để hiện nhãn "đã sửa"', () => {
+    assert.match(pos, /products\.find\(\(x\) => x\.sku === item\.sku\)/);
+  });
+
+  it('không in phiếu khi server báo giá bị đổi', () => {
+    const checkout = read('lib/store/tx/checkout.tsx');
+    assert.match(checkout, /price_adjusted\?: \{ sku: string; name: string; sent_price: number; server_price: number \}\[]/);
+    assert.match(checkout, /if \(priceAdjusted\.length > 0\) \{/);
+    // nhánh lỗi phải return TRƯỚC chỗ mở phiếu in
+    assert.ok(
+      checkout.indexOf('if (priceAdjusted.length > 0)') <
+        checkout.indexOf('setReceiptModalOrder(newOrder)'),
+      'phải chặn in trước khi mở phiếu'
+    );
+  });
+});
+
 describe('toRpcItems: gửi price_override có chọn lọc', () => {
   it('dòng chưa sửa giá thì KHÔNG gửi price_override (y hệt 0050)', () => {
     const [it0] = toRpcItems([item()]);

@@ -30,6 +30,45 @@ async function addFirstProduct(page: Page, term: string) {
 }
 
 test.describe('POS: quyền sửa đơn giá (migration 0059)', () => {
+    test('sửa giá thì payload thanh toán PHẢI mang price_override', async ({ page }) => {
+        // Regression bug thật: client tự so giá với products.retail_price để quyết định
+        // gửi price_override. Chỉ cần tra trượt catalog (id local/offline, mirror cũ) là
+        // cờ rơi im lặng -> server lấy giá danh mục -> hoá đơn in ra sai giá.
+        // Nay client bật cờ thẳng khi người dùng sửa giá, nên payload luôn có price_override.
+        test.slow();
+        await page.setViewportSize({ width: 1440, height: 900 });
+
+        let payload: any = null;
+        // Chặn RPC và abort -> xem payload mà KHÔNG tạo đơn rác trên DB
+        await page.route('**/rest/v1/rpc/pos_checkout', async (route) => {
+            payload = JSON.parse(route.request().postData() || '{}');
+            await route.abort('aborted');
+        });
+
+        await login(page, ADMIN_ID, ADMIN_PW);
+        await addFirstProduct(page, 'keo');
+
+        const row = page.locator('#cart-table-container tbody tr').first();
+        await row.getByLabel(/^Đơn giá /).click();
+        await row.getByLabel(/^Đơn giá /).fill('15000');
+        await row.getByLabel(/^Đơn giá /).press('Enter');
+        await expect(row.getByLabel(/^Đơn giá /)).toHaveAttribute('title', /Đã sửa đơn giá/);
+
+        // trả đủ tiền mặt để không bị chặn "khách lẻ không được ghi nợ"
+        const tendered = page.locator('#f9-tendered-input');
+        await tendered.click();
+        await tendered.fill('15000');
+        await tendered.press('Tab');
+
+        await page.locator('#btn-pos-checkout').click();
+        await expect.poll(() => payload !== null, { timeout: 30_000 }).toBe(true);
+
+        const items = payload!.p_items || [];
+        expect(items.length).toBeGreaterThan(0);
+        expect(items[0].price_override).toBe(15000);
+        expect(items[0].unit_price).toBe(15000);
+    });
+
     test('thu ngân KHÔNG sửa được đơn giá', async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         await login(page, CASHIER_ID, CASHIER_PW);

@@ -504,6 +504,17 @@ export function POSScreen() {
     (id: string) => products.find((p) => p.id === id),
     [products]
   );
+  // 0059: giá danh mục để so sánh "đã sửa giá" — tra theo id, fallback theo SKU vì
+  // id trong giỏ có thể là id cục bộ/offline còn catalog server đã đổi uuid
+  // (cùng kiểu fallback như DimensionModalF3:74-75).
+  const catalogPriceOf = React.useCallback(
+    (item: OrderItem): number | null => {
+      const p = productById(item.product_id) || products.find((x) => x.sku === item.sku);
+      const price = p?.retail_price;
+      return price == null ? null : Math.round(Number(price));
+    },
+    [products, productById]
+  );
 
   const activeCustomer = customers.find((c) => c.id === activeCart.customer_id);
 
@@ -885,18 +896,22 @@ export function POSScreen() {
                           {canOverridePrice ? (
                             <PriceDraftInput
                               price={item.unit_price}
+                              // Chỉ là nhãn hiển thị: tra được giá danh mục và khác giá đang bán
+                              // thì coi như "đã sửa". Không dùng nhãn này để quyết định gửi
+                              // price_override lên server (xem onCommit bên dưới).
                               overridden={
-                                !!item.price_override &&
-                                Math.round(item.unit_price) !==
-                                  Math.round(productById(item.product_id)?.retail_price ?? item.unit_price)
+                                !!item.price_override && catalogPriceOf(item) !== Math.round(item.unit_price)
                               }
                               onCommit={(value) =>
+                                // Luôn bật cờ khi người dùng đã đụng vào giá. Server mới là bên
+                                // quyết định giá nào được dùng (pos_checkout so với
+                                // products.retail_price và chỉ ghi nhận khi khác) — trước đây
+                                // client tự so với giá danh mục, nên chỉ cần tra trượt
+                                // catalog (id cục bộ, offline, mirror cũ) là cờ rơi im lặng
+                                // và hoá đơn in ra lấy giá cũ.
                                 updateCartItem(item.id, {
                                   unit_price: value,
-                                  // Gõ lại đúng giá danh mục -> bỏ cờ, server tự lấy giá catalog.
-                                  price_override:
-                                    Math.round(value) !==
-                                    Math.round(productById(item.product_id)?.retail_price ?? value),
+                                  price_override: true,
                                 })
                               }
                               ariaLabel={`Đơn giá ${item.name}`}

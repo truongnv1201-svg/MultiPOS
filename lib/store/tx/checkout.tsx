@@ -109,6 +109,8 @@ export function useTxCheckout({
       // P1 sổ quỹ đa máy: RPC thành công là server đã ghi receipt -> mirror local
       // đánh dấu synced để lần pull sau không trùng dòng.
       let serverCommitted = false;
+      // 0060: dòng bị server đổi giá so với màn hình (xem ghi chú khi đọc RPC).
+      let priceAdjusted: { sku: string; name: string; sent_price: number; server_price: number }[] = [];
 
       if (isOnline && supa) {
         try {
@@ -176,10 +178,18 @@ export function useTxCheckout({
             total_amount: number;
             paid_amount: number;
             debt_amount: number;
+            /** 0060: dòng nào server lưu giá KHÁC giá màn hình gửi lên. */
+            price_adjusted?: { sku: string; name: string; sent_price: number; server_price: number }[];
           };
           orderCode = res.order_code;
           // 0024: giữ UUID server để cancel/return gọi đúng đơn (khỏi lookup)
           serverOrderId = typeof res.order_id === 'string' ? res.order_id : null;
+          // 0060: server là chân lý. Có dòng bị đổi giá (vd giá danh mục vừa bị sửa lúc
+          // đang bán) thì KHÔNG in phiếu — in ra là khách nhận hoá đơn sai giá.
+          const adjusted = Array.isArray(res.price_adjusted) ? res.price_adjusted : [];
+          if (adjusted.length > 0) {
+            priceAdjusted = adjusted;
+          }
           effSubtotal = Number(res.subtotal);
           effDiscount = Number(res.discount_amount);
           effVat = res.vat_amount != null ? Number(res.vat_amount) : totals.vat_amount;
@@ -361,6 +371,21 @@ export function useTxCheckout({
 
       // Thông báo thành công (kể cả khi tắt In tự động nên không mở phiếu)
       const vnd = (n: number) => `${Math.round(n).toLocaleString('vi-VN')} đ`;
+
+      // 0060: server lưu giá KHÁC màn hình (đã tạo đơn rồi) -> báo lỗi, KHÔNG in phiếu.
+      // In ra là khách nhận hoá đơn sai giá; đơn cần thao tác huỷ/nhận lại sau.
+      if (priceAdjusted.length > 0) {
+        const lines = priceAdjusted
+          .map((a) => `${a.name} (${a.sku}): ${vnd(a.sent_price)} → ${vnd(a.server_price)}`)
+          .join('\n');
+        notify(
+          `Đơn ${orderCode} đã tạo nhưng bị đổi giá so với màn hình — KHÔNG in phiếu:\n${lines}\n` +
+            `Vui lòng kiểm tra lại giá bán rồi huỷ/nhận lại đơn nếu cần.`,
+          'error',
+        );
+        return newOrder;
+      }
+
       notify(
         isDeposit
           ? `Thu cọc thành công ${orderCode}\nĐã nhận: ${vnd(paidAmount)}`

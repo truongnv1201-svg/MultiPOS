@@ -83,15 +83,21 @@ assert(
   `HTTP ${asCashier.status} ` + asCashier.text
 );
 
-// 2) Quản lý gửi price_override -> giá mới phải được ghi thật
+// 2) Quản lý gửi price_override -> giá mới phải được ghi thật.
+//    unit_price gửi kèm = giá đã sửa (đúng như toRpcItems của app) -> price_adjusted rỗng.
 const asManager = await rpc(managerH, 'pos_checkout', {
   p_customer_name: 'Verify 59 manager',
-  p_items: [{ ...goodsItem(goods, 1), price_override: newPrice }],
+  p_items: [{ ...goodsItem(goods, 1), unit_price: newPrice, price_override: newPrice }],
   p_discount: 0, p_payments: [{ method: 'cash', amount: newPrice }], p_note: 'verify59-manager',
   p_shipping_fee: 0, p_is_deposit: false, p_customer_id: null, p_vat_percent: 0, p_client_ref: null,
 });
 assert('quản lý gửi price_override tạo đơn được', asManager.ok && asManager.json?.order_id, asManager.text);
 const orderId = asManager.json?.order_id;
+assert(
+  '0060: price_adjusted rỗng khi giá khớp màn hình',
+  Array.isArray(asManager.json?.price_adjusted) && asManager.json.price_adjusted.length === 0,
+  JSON.stringify(asManager.json?.price_adjusted)
+);
 
 if (orderId) {
   const row = await fetch(
@@ -126,6 +132,38 @@ if (samePrice.json?.order_id) {
   assert('giá = giá danh mục', Number(it?.unit_price) === catalogPrice, JSON.stringify(it));
   assert('price_override = false (không để dấu)', it?.price_override === false, JSON.stringify(it));
 }
+
+// 4) Client gửi unit_price GIÁ DANH MỤC nhưng không kèm price_override (mô phỏng đúng
+//    bug đã gặp: cờ rơi im lặng) -> server phải báo price_adjusted để app không in phiếu sai.
+const noFlag = await rpc(managerH, 'pos_checkout', {
+  p_customer_name: 'Verify 59 noflag',
+  p_items: [goodsItem(goods, 1)],
+  p_discount: 0, p_payments: [{ method: 'cash', amount: catalogPrice }], p_note: 'verify59-noflag',
+  p_shipping_fee: 0, p_is_deposit: false, p_customer_id: null, p_vat_percent: 0, p_client_ref: null,
+});
+assert('đơn không cờ vẫn tạo được (giá danh mục)', noFlag.ok && noFlag.json?.order_id, noFlag.text);
+assert(
+  '0060: price_adjusted rỗng khi client gửi đúng giá danh mục',
+  Array.isArray(noFlag.json?.price_adjusted) && noFlag.json.price_adjusted.length === 0,
+  JSON.stringify(noFlag.json?.price_adjusted)
+);
+
+// 5) Tín hiệu 0060: client gửi unit_price = giá DANH MỤC nhưng kèm price_override khác
+//    (đúng mẫu lỗi user gặp: màn hình 60.000, hệ thống lưu 36.000) -> server PHẢI báo
+//    price_adjusted để app không in ra hoá đơn sai giá.
+const mismatch = await rpc(managerH, 'pos_checkout', {
+  p_customer_name: 'Verify 59 mismatch',
+  p_items: [{ ...goodsItem(goods, 1), price_override: newPrice }],
+  p_discount: 0, p_payments: [{ method: 'cash', amount: newPrice }], p_note: 'verify59-mismatch',
+  p_shipping_fee: 0, p_is_deposit: false, p_customer_id: null, p_vat_percent: 0, p_client_ref: null,
+});
+const adj = mismatch.json?.price_adjusted;
+assert(
+  '0060: báo dòng lệch giá (màn hình 60.000 / lưu 36.000)',
+  Array.isArray(adj) && adj.length === 1 && adj[0].sku === goods.sku
+    && Number(adj[0].sent_price) === catalogPrice && Number(adj[0].server_price) === newPrice,
+  JSON.stringify(adj)
+);
 
 if (mgmt) {
   await dbq(`delete from public.cashbook_entries where reference_order_code in (select order_code from public.orders where note like 'verify59-%')`);
