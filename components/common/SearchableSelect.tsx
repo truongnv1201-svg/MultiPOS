@@ -164,7 +164,7 @@ export function SearchableSelect({
       </div>
 
       {open && !disabled && (
-        <ul className="absolute z-50 left-0 right-0 mt-1 h-52 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl py-1" role="listbox">
+        <ul className="absolute z-50 left-0 right-0 mt-1 max-h-52 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl py-1" role="listbox">
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-xs text-slate-400">
               {allowCustom && query.trim() ? (

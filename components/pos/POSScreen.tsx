@@ -1199,11 +1199,12 @@ export function POSScreen() {
               </div>
             )}
 
-            {/* Customer Dropdown — chiều cao ổn định, không nhảy theo số kết quả */}
+            {/* Customer Dropdown — bám sát số kết quả, có trần max-h-40: trước đây cao cố
+                định nên chỉ vài khách vẫn chừa khối trống to (xem #search-results-dropdown). */}
             {isCustomerDropdownOpen && (
               <div
                 id="customer-search-dropdown"
-                className="absolute top-14 left-0 right-0 h-40 bg-white border border-slate-200 rounded-md shadow-xl z-30 overflow-y-auto"
+                className="absolute top-14 left-0 right-0 max-h-40 bg-white border border-slate-200 rounded-md shadow-xl z-30 overflow-y-auto"
               >
                 {filteredCustomers.length === 0 ? (
                   <div className="px-3 py-2.5 text-[11px] text-slate-400 leading-relaxed">

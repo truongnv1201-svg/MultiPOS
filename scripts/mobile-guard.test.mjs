@@ -71,8 +71,9 @@ describe('POS: bàn phím phải cuộn theo dòng đang chọn trong dropdown',
     assert.match(search, /ref=\{\s*isSelected[\s\S]{0,220}scrollIntoView\(\{ block: 'nearest' \}\)/);
   });
 
-  it('SearchableSelect cũng cuộn dòng active vào khung h-52', () => {
-    assert.match(select, /h-52 overflow-y-auto/);
+  it('SearchableSelect cũng cuộn dòng active vào khung (trần max-h-52)', () => {
+    assert.match(select, /max-h-52 overflow-y-auto/);
+    assert.doesNotMatch(select, /className="absolute z-50 left-0 right-0 mt-1 h-52/);
     assert.match(select, /ref=\{\s*isActive[\s\S]{0,220}scrollIntoView\(\{ block: 'nearest' \}\)/);
   });
 
@@ -104,7 +105,9 @@ describe('POS: ô tìm khách hàng F4 dùng được bàn phím', () => {
   });
 
   it('dòng đang chọn được đánh dấu và tự cuộn vào khung dropdown', () => {
-    assert.match(pos, /id="customer-search-dropdown"[\s\S]{0,120}h-40[\s\S]{0,80}overflow-y-auto/);
+    assert.match(pos, /id="customer-search-dropdown"[\s\S]{0,300}max-h-40[\s\S]{0,80}overflow-y-auto/);
+    // max-h-40 cũng chứa chuỗi "h-40", nên phải loại trừ tiền tố "max-".
+    assert.doesNotMatch(pos, /id="customer-search-dropdown"[\s\S]{0,300}className="[^"]*(?<!max-)\bh-40\b/);
     assert.match(pos, /custIdx === customerActiveIndex \? 'bg-blue-50'/);
     assert.match(pos, /custIdx === customerActiveIndex[\s\S]{0,220}scrollIntoView\(\{ block: 'nearest' \}\)/);
   });
