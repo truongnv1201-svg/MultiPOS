@@ -184,6 +184,15 @@ export function SearchableSelect({
                   <button
                     type="button"
                     tabIndex={-1}
+                    // Mũi tên đổi dòng thì dòng đang active phải tự cuộn vào khung h-52,
+                    // nếu không các lựa chọn phía dưới sẽ không bao giờ hiện khi dùng bàn phím.
+                    ref={
+                      isActive
+                        ? (el) => {
+                            el?.scrollIntoView({ block: 'nearest' });
+                          }
+                        : undefined
+                    }
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => pick(opt)}
                     onMouseEnter={() => setActiveIdx(idx)}

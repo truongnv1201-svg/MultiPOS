@@ -426,6 +426,16 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
                 <div
                   key={prod.id}
                   id={`search-item-${prod.sku}`}
+                  // Bàn phím mũi tên đổi dòng thì dòng đang chọn phải tự cuộn vào khung
+                  // nhìn thấy, nếu không các dòng dưới màn hình sẽ không bao giờ hiện.
+                  // block:'nearest' -> chỉ cuộn khi thật sự ra khỏi khung, không giật.
+                  ref={
+                    isSelected
+                      ? (el) => {
+                          el?.scrollIntoView({ block: 'nearest' });
+                        }
+                      : undefined
+                  }
                   onClick={() => handleSelectProductClick(prod)}
                   className={`p-2 rounded-md flex items-center justify-between cursor-pointer transition-colors ${
                     isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50'

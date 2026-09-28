@@ -63,6 +63,25 @@ describe('POS: đã bỏ chế độ bán hàng dạng lưới thẻ', () => {
   });
 });
 
+describe('POS: bàn phím phải cuộn theo dòng đang chọn trong dropdown', () => {
+  const search = read('components/pos/ProductSearchBar.tsx');
+  const select = read('components/common/SearchableSelect.tsx');
+
+  it('dropdown tìm hàng cuộn dòng đang chọn vào khung (block: nearest)', () => {
+    assert.match(search, /ref=\{\s*isSelected[\s\S]{0,220}scrollIntoView\(\{ block: 'nearest' \}\)/);
+  });
+
+  it('SearchableSelect cũng cuộn dòng active vào khung h-52', () => {
+    assert.match(select, /h-52 overflow-y-auto/);
+    assert.match(select, /ref=\{\s*isActive[\s\S]{0,220}scrollIntoView\(\{ block: 'nearest' \}\)/);
+  });
+
+  it('điều hướng mũi tên vẫn giữ nguyên (đổi chỉ cuộn, không đổi hành vi chọn)', () => {
+    assert.match(search, /if \(e\.key === 'ArrowDown'\)[\s\S]{0,120}setSelectedIndex/);
+    assert.match(search, /if \(e\.key === 'ArrowUp'\)[\s\S]{0,160}setSelectedIndex/);
+  });
+});
+
 describe('Kho + NCC: mobile record list', () => {
   const inv = read('components/inventory/InventoryView.tsx');
   const sup = read('components/suppliers/SuppliersView.tsx');
