@@ -2,7 +2,7 @@
 
 import { CheckCircle2, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { formatVND } from '@/lib/format';
-import { formatQty, qtyStep, snapQty } from '@/lib/quantity';
+import { formatQty, qtyStepFor, snapQty } from '@/lib/quantity';
 import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
 import type { OrderItem } from '@/lib/types';
 
@@ -70,7 +70,8 @@ export default function MobileCartSheet({
                         items.map((item) => {
                             const isArea = item.product_type === 'area';
                             const allowDecimal = allowsDecimal(item);
-                            const step = qtyStep(allowDecimal);
+                            // Bước +/- theo giá trị đang có: nguyên -> +1, số lẻ -> +0,1 (xem qtyStepFor)
+                            const step = qtyStepFor(item.quantity, allowDecimal);
                             return (
                                 <div key={item.id} className="px-4 py-3 flex items-start gap-3">
                                     <div className="flex-1 min-w-0">

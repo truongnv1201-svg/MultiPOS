@@ -17,7 +17,7 @@ import { isVietqrReady, buildVietqrUrl, vietqrAddInfo } from '@/lib/vietqr';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
 import { resolvePaidAmount } from '@/lib/pricing';
-import { allowsDecimalQty, formatQty, parseQtyInput, roundQty, snapQty, qtyStep, QTY_MAX_DECIMALS } from '@/lib/quantity';
+import { allowsDecimalQty, formatQty, parseQtyInput, roundQty, snapQty, qtyStep, qtyStepFor, QTY_MAX_DECIMALS } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
 import {
   Plus,
@@ -934,11 +934,11 @@ export function POSScreen() {
                                 type="button"
                                 onClick={() =>
                                   updateCartItem(item.id, {
-                                    quantity: snapQty(item.quantity - qtyStep(allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
+                                    quantity: snapQty(item.quantity - qtyStepFor(item.quantity, allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
                                   })
                                 }
-                                className="w-5 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-xs leading-none select-none flex items-center justify-center transition-colors"
-                                title={`Giảm ${qtyStep(allowsDecimalQty(productById(item.product_id)))}`}
+                                className="w-5 h-6 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md font-bold text-xs leading-none select-none flex items-center justify-center transition-colors"
+                                title={`Giảm ${qtyStepFor(item.quantity, allowsDecimalQty(productById(item.product_id)))}`}
                               >
                                 -
                               </button>
@@ -953,11 +953,11 @@ export function POSScreen() {
                                 type="button"
                                 onClick={() =>
                                   updateCartItem(item.id, {
-                                    quantity: snapQty(item.quantity + qtyStep(allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
+                                    quantity: snapQty(item.quantity + qtyStepFor(item.quantity, allowsDecimalQty(productById(item.product_id))), allowsDecimalQty(productById(item.product_id))),
                                   })
                                 }
-                                className="w-5 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold text-xs leading-none select-none flex items-center justify-center transition-colors"
-                                title={`Tăng ${qtyStep(allowsDecimalQty(productById(item.product_id)))}`}
+                                className="w-5 h-6 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md font-bold text-xs leading-none select-none flex items-center justify-center transition-colors"
+                                title={`Tăng ${qtyStepFor(item.quantity, allowsDecimalQty(productById(item.product_id)))}`}
                               >
                                 +
                               </button>
