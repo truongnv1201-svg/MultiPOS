@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
-import { Product, OrderItem } from '@/lib/types';
+import { Product, OrderItem, Customer } from '@/lib/types';
 import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import MobileCartSheet from '@/components/pos/MobileCartSheet';
@@ -38,6 +38,12 @@ import {
   CheckCircle2,
   Check,
 } from 'lucide-react';
+
+// Khách mua lẻ tại quầy — mục chọn mặc định của đơn mới, KHÔNG phải bản ghi DB.
+const WALK_IN_CUSTOMER_ID = 'walk-in-customer';
+const WALK_IN_CUSTOMER_NAME = 'Khách Lẻ Mua Tại Quầy';
+// Mục trong danh sách gợi ý: khách lẻ (isWalkIn) hoặc khách hàng thật.
+type CustomerOption = Customer & { isWalkIn?: boolean };
 
 export function POSScreen() {
   const {
@@ -80,6 +86,10 @@ export function POSScreen() {
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState<boolean>(false);
   // Dòng khách hàng đang chọn bằng bàn phím (mũi tên lên/xuống) trong dropdown F4.
   const [customerActiveIndex, setCustomerActiveIndex] = useState<number>(0);
+  // Đang sửa ô tìm khách: khi đó ô hiện đúng chuỗi đang gõ (kể cả khi rỗng). Trước đây
+  // value={customerSearch || customer_name} khiến xóa tới ký tự cuối là nhãn "Khách Lẻ Mua
+  // Tại Quầy" tự nhảy lại, không bao giờ xóa trống được.
+  const [customerEditing, setCustomerEditing] = useState<boolean>(false);
   // Checkout xong (hóa đơn hiện) thì ô tìm KH phải trắng theo giỏ mới — trước đây
   // chữ gõ dở còn đọng lại, che mất tên "Khách Lẻ Mua Tại Quầy" của đơn mới.
   // (defer microtask theo idiom chung của repo để khỏi set-state-in-effect)
@@ -280,16 +290,22 @@ export function POSScreen() {
   }, []);
 
   // Gộp logic chọn khách hàng dùng chung cho chuột và bàn phím.
-  const pickCustomer = useCallback((cust: { id: string; name: string; phone?: string }) => {
-    updateActiveTab({
-      customer_id: cust.id,
-      customer_name: cust.name,
-      customer_phone: cust.phone,
-    });
-    setCustomerSearch('');
-    setIsCustomerDropdownOpen(false);
-    setCustomerActiveIndex(0);
-  }, [updateActiveTab]);
+  // Chọn khách (dùng chung cho chuột và bàn phím). Mục khách lẻ -> bỏ chọn khách hàng
+  // (customer_id rỗng) nhưng nhãn đơn vẫn là "Khách Lẻ Mua Tại Quầy" như trước.
+  const pickCustomer = useCallback(
+    (cust: { id: string; name: string; phone?: string; isWalkIn?: boolean }) => {
+      updateActiveTab({
+        customer_id: cust.isWalkIn ? undefined : cust.id,
+        customer_name: cust.name,
+        customer_phone: cust.isWalkIn ? undefined : cust.phone,
+      });
+      setCustomerSearch('');
+      setIsCustomerDropdownOpen(false);
+      setCustomerEditing(false);
+      setCustomerActiveIndex(0);
+    },
+    [updateActiveTab]
+  );
 
   const handleCheckout = useCallback(async () => {
     if (activeCart.items.length === 0) {
@@ -446,14 +462,38 @@ export function POSScreen() {
     // lúc phím bấm nên không cần đăng ký lại listener khi các modal đó mở/đóng.
   }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit]);
 
-  // Filtered customers
-  const filteredCustomers = React.useMemo(() => {
-    if (!customerSearch.trim()) return customers;
+  // Khách lẻ tại quầy: một mục CHỌN ĐƯỢC trong danh sách gợi ý (id sentinel riêng,
+  // không phải bản ghi DB — tránh trùng lặp giữa các máy, nhiễu báo cáo "Phải thu KH"
+  // và lịch sử đơn cũ vốn có customer_id = NULL). Chọn nó = bỏ chọn khách hàng.
+  const walkInOption = React.useMemo<CustomerOption>(
+    () => ({
+      id: WALK_IN_CUSTOMER_ID,
+      code: '',
+      name: WALK_IN_CUSTOMER_NAME,
+      phone: '',
+      address: '',
+      current_debt: 0,
+      debt_limit: 0,
+      group: 'retail',
+      isWalkIn: true,
+      created_at: new Date(0).toISOString(),
+    }),
+    []
+  );
+
+  const customerOptions = React.useMemo<CustomerOption[]>(
+    () => [walkInOption, ...customers],
+    [walkInOption, customers]
+  );
+
+  // Filtered customers (khách lẻ luôn là mục đầu tiên nên vẫn chọn được khi gõ trùng)
+  const filteredCustomers = React.useMemo<CustomerOption[]>(() => {
+    if (!customerSearch.trim()) return customerOptions;
     const q = customerSearch.toLowerCase().trim();
-    return customers.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.code.toLowerCase().includes(q)
+    return customerOptions.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q) || (c.code || '').toLowerCase().includes(q)
     );
-  }, [customers, customerSearch]);
+  }, [customerOptions, customerSearch]);
 
   // Tra nhanh mặt hàng theo id (kiểm tra cờ số lượng thập phân khi sửa giỏ)
   const productById = React.useCallback(
@@ -1156,17 +1196,30 @@ export function POSScreen() {
                   ref={customerInputRef}
                   id="f4-customer-input"
                   type="text"
-                  value={customerSearch || activeCart.customer_name}
+                  value={customerEditing ? customerSearch : customerSearch || activeCart.customer_name}
                   onChange={(e) => {
                     setCustomerSearch(e.target.value);
                     setIsCustomerDropdownOpen(true);
+                    setCustomerEditing(true);
                     setCustomerActiveIndex(0);
                   }}
                   onFocus={(e) => {
                     setIsCustomerDropdownOpen(true);
+                    setCustomerEditing(true);
                     // Ô đang hiện tên KH đã chọn (fallback) — bôi đen để gõ thay thế,
                     // nếu không chữ gõ sẽ bị dính vào cuối tên và tìm không ra kết quả.
                     if (!customerSearch) e.target.select();
+                  }}
+                  onBlur={() => {
+                    // Chậm 150ms: nếu đóng ngay, React gỡ dòng khỏi DOM trước khi chuột
+                    // nhả -> bấm vào khách trong danh sách sẽ không trúng (SearchableSelect
+                    // dùng cùng cách này). Nhưng phải bỏ qua nếu người dùng đã quay lại ô và
+                    // mở dropdown mới trong lúc chờ, nếu không sẽ đóng nhầm dropdown vừa mở.
+                    window.setTimeout(() => {
+                      if (customerWrapRef.current?.contains(document.activeElement)) return;
+                      setIsCustomerDropdownOpen(false);
+                      setCustomerEditing(false);
+                    }, 150);
                   }}
                   onKeyDown={(e) => {
                     // Bàn phím: mũi tên di chuyển giữa các khách, Enter chọn — trước đây ô
@@ -1258,16 +1311,22 @@ export function POSScreen() {
                   >
                     <div>
                       <div className="font-semibold text-slate-800">{cust.name}</div>
-                      <div className="text-[10px] text-slate-400">{cust.phone} • {cust.address}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] font-mono text-rose-600 font-semibold">
-                        Nợ: {formatVND(cust.current_debt)}
+                      <div className="text-[10px] text-slate-400">
+                        {cust.isWalkIn ? 'Không lưu hồ sơ · không cộng nợ' : `${cust.phone} • ${cust.address}`}
                       </div>
-                      <span className="text-[9px] px-1 bg-slate-100 rounded text-slate-500">
-                        {cust.group === 'contractor' ? 'Thợ kính' : 'Khách lẻ'}
-                      </span>
                     </div>
+                    {cust.isWalkIn ? (
+                      <span className="text-[9px] px-1 bg-slate-100 rounded text-slate-500">Mặc định</span>
+                    ) : (
+                      <div className="text-right">
+                        <div className="text-[10px] font-mono text-rose-600 font-semibold">
+                          Nợ: {formatVND(cust.current_debt)}
+                        </div>
+                        <span className="text-[9px] px-1 bg-slate-100 rounded text-slate-500">
+                          {cust.group === 'contractor' ? 'Thợ kính' : 'Khách lẻ'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ))
                 )}

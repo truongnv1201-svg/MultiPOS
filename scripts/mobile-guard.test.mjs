@@ -113,8 +113,37 @@ describe('POS: ô tìm khách hàng F4 dùng được bàn phím', () => {
   });
 
   it('đóng dropdown / gõ lại từ khoá thì về dòng đầu', () => {
-    assert.match(pos, /setCustomerSearch\(e\.target\.value\);[\s\S]{0,120}setCustomerActiveIndex\(0\);/);
+    assert.match(pos, /setCustomerSearch\(e\.target\.value\);[\s\S]{0,200}setCustomerActiveIndex\(0\);/);
     assert.match(pos, /const closeCustomerDropdown = useCallback\(\(\) => \{[\s\S]{0,160}setCustomerActiveIndex\(0\);/);
+  });
+});
+
+describe('POS: khách lẻ tại quầy là mục chọn được, không phải fallback của ô nhập', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+
+  it('ô nhập khi đang sửa hiện đúng chuỗi gõ (kể cả rỗng), không tự nhảy nhãn', () => {
+    assert.match(pos, /value=\{customerEditing \? customerSearch : customerSearch \|\| activeCart\.customer_name\}/);
+    assert.match(pos, /onChange=\{\(e\) => \{[\s\S]{0,200}setCustomerEditing\(true\);/);
+    assert.match(pos, /onFocus=\{\(e\) => \{[\s\S]{0,200}setCustomerEditing\(true\);/);
+  });
+
+  it('đóng dropdown khi rời ô phải trễ (nếu đóng ngay, dòng bị gỡ trước khi click trúng)', () => {
+    assert.match(pos, /onBlur=\{\(\) => \{[\s\S]{0,520}window\.setTimeout\(/);
+    // ...và phải bỏ qua nếu người dùng đã quay lại ô (tránh đóng nhầm dropdown vừa mở lại)
+    assert.match(pos, /if \(customerWrapRef\.current\?\.contains\(document\.activeElement\)\) return;/);
+  });
+
+  it('khách lẻ nằm đầu danh sách gợi ý với id sentinel, KHÔNG phải bản ghi DB', () => {
+    assert.match(pos, /const WALK_IN_CUSTOMER_ID = 'walk-in-customer';/);
+    assert.match(pos, /const customerOptions = React\.useMemo<CustomerOption\[\]>\(\s*\(\) => \[walkInOption, \.\.\.customers\]/);
+    // id sentinel không phải UUID nên không thể lẫn với khách thật
+    assert.doesNotMatch(pos, /walkInOption = React\.useMemo<CustomerOption>\(\s*\(\) => \(\{[\s\S]{0,200}customers\.find/);
+  });
+
+  it('chọn mục khách lẻ = bỏ chọn khách hàng (customer_id rỗng) nhưng giữ nhãn đơn', () => {
+    assert.match(pos, /customer_id: cust\.isWalkIn \? undefined : cust\.id,/);
+    assert.match(pos, /customer_name: cust\.name,/);
+    assert.match(pos, /Không lưu hồ sơ · không cộng nợ/);
   });
 });
 
