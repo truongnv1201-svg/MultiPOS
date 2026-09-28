@@ -26,7 +26,8 @@ async function addAnyGoods(page: Page) {
   const search = page.locator('#f1-search-input');
   for (const term of ['a', 'e', 'o']) {
     await search.fill(term);
-    const items = page.locator('#search-results-dropdown div[id^="search-item-"]');
+    // Bỏ qua mặt hàng hết tồn (server chặn bán khi tồn âm -> pos_checkout 400).
+    const items = page.locator('#search-results-dropdown div[id^="search-item-"]').filter({ hasNotText: /Tồn:\s*0(?!\d)/ });
     if ((await items.count().catch(() => 0)) === 0) continue;
     await items.first().click();
     if (await page.locator('#dimension-modal-overlay').isVisible().catch(() => false)) {

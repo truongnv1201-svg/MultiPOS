@@ -80,3 +80,18 @@ describe('pull biến động kho: nhẹ payload + đúng tên sản phẩm', ()
     );
   });
 });
+
+describe('mở màn Dự án phải kéo lại dữ liệu', () => {
+  const projectsView = read('components/projects/ProjectsView.tsx');
+  const hrmView = read('components/hrm/HRMView.tsx');
+
+  it('ProjectsView gọi syncProjects khi mở màn (và lại khi vào lại mạng)', () => {
+    assert.match(projectsView, /useEffect\(\(\) => \{\s*if \(!isOnline\) return;\s*syncProjects\(\);/);
+  });
+
+  it('syncProjects có sẵn trong store nhưng trước đây không view nào gọi', () => {
+    assert.match(read('lib/store.tsx'), /syncProjects: \(\) => Promise<void>;/);
+    // HRMView làm mẫu: refreshHrm() khi mở màn
+    assert.match(hrmView, /useEffect\(\(\) => \{\s*refreshHrm\(\);/);
+  });
+});

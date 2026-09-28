@@ -97,7 +97,8 @@ test.describe('báo cáo hội tụ sau bán', () => {
       } catch {
         continue;
       }
-      const items = page.locator('#search-results-dropdown div[id^="search-item-"]');
+      // Bỏ qua mặt hàng hết tồn (server chặn bán khi tồn âm -> pos_checkout 400).
+      const items = page.locator('#search-results-dropdown div[id^="search-item-"]').filter({ hasNotText: /Tồn:\s*0(?!\d)/ });
       const n = Math.min(await items.count(), 4);
       for (let i = 0; i < n; i++) {
         await items.nth(i).click();

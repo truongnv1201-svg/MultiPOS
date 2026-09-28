@@ -53,7 +53,10 @@ async function addGoodsToCart(page: Page) {
     } catch {
       continue;
     }
-    const items = page.locator('#search-results-dropdown div[id^="search-item-"]');
+    // Bỏ qua mặt hàng hết tồn: server chặn bán khi tồn sẽ âm (check constraint
+    // products_stock_quantity_check) -> pos_checkout trả 400 và test fail nhầm thành
+    // lỗi ứng dụng. Dropdown có hiện "Tồn: N <đơn vị>".
+    const items = page.locator('#search-results-dropdown div[id^="search-item-"]').filter({ hasNotText: /Tồn:\s*0(?!\d)/ });
     const n = Math.min(await items.count(), 4);
     for (let i = 0; i < n; i++) {
       await items.nth(i).click();

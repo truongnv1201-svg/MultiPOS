@@ -48,7 +48,12 @@ test.describe('POS mobile (live backend)', () => {
         await search.fill(term);
         try {
           await expect(page.locator('#search-results-dropdown')).toBeVisible({ timeout: 4_000 });
-          await page.locator('#search-results-dropdown div[id^="search-item-"]').first().click();
+          // Bỏ qua mặt hàng hết tồn (server chặn bán khi tồn âm -> pos_checkout 400).
+          await page
+            .locator('#search-results-dropdown div[id^="search-item-"]')
+            .filter({ hasNotText: /Tồn:\s*0(?!\d)/ })
+            .first()
+            .click();
           const f3 = page.locator('#dimension-modal-overlay');
           if ((await f3.count()) > 0) {
             await page.locator('#btn-confirm-dimension-modal').click();

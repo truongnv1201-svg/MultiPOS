@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '@/lib/store';
 import { Project, ProjectPhase, ProjectMaterial, ProjectWorker } from '@/lib/types';
 import { formatVND, formatNumber } from '@/lib/format';
@@ -33,8 +33,19 @@ const EMPTY_PROJECT_MATERIALS: ProjectMaterial[] = [];
 const EMPTY_PROJECT_WORKERS: ProjectWorker[] = [];
 
 export function ProjectsView() {
-  const { projects, customers, addProject, updateProject, products, employees, exportProjectMaterial, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit } = useStore();
+  const { projects, customers, addProject, updateProject, products, employees, exportProjectMaterial, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit, syncProjects, isOnline } = useStore();
   const [selectedProject, setSelectedProject] = useState<Project | null>(projects[0] || null);
+
+  // Bảng projects KHÔNG nằm trong publication realtime (0049 chỉ có 10 bảng nghiệp vụ) và
+  // cũng không có trong TABLE_REFRESH, nên syncProjects trước đây chỉ chạy lúc đăng nhập /
+  // vào lại mạng. Hệ quả thật: sửa hoặc tạo dự án ở máy khác thì máy này không thấy tới
+  // khi tải lại trang, và người dùng không có đường nào để biết là dữ liệu cũ.
+  // Gọi lại khi mở màn + khi vào lại mạng, đúng như HRMView gọi refreshHrm().
+  useEffect(() => {
+    if (!isOnline) return;
+    syncProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   // New project modal
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
@@ -935,23 +946,24 @@ export function ProjectsView() {
 
       {/* New Project Modal */}
       {isNewProjectModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-label="Lập dự án thi công mới">
           <form
             onSubmit={handleCreateProject}
             className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
           >
             <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">Lập Dự Án Thi Công Mới (Mã CT-YYMMDD-XXXX)</h3>
+              <h3 className="font-bold text-sm">Lập Dự Án Thi Công Mới (MÃ CT-YYMMDD-XXXX)</h3>
             </div>
             <div className="p-4 space-y-3 text-xs">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Tên công trình *</label>
                 <input
+                  id="new-project-name-input"
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Vd: Vách kính tắm & Ban công kính Nhà Phố Bình Tân"
+                  placeholder="Vd: Vách kính tường & Ban công kính Nhà Phố Bách Tây"
                   className="w-full h-8 px-2.5 border border-slate-300 rounded"
                 />
               </div>
