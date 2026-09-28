@@ -82,6 +82,31 @@ describe('POS: bàn phím phải cuộn theo dòng đang chọn trong dropdown',
   });
 });
 
+describe('POS: ô tìm khách hàng F4 dùng được bàn phím', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+
+  it('mũi tên lên/xuống di chuyển dòng khách (vòng lặp) và mở dropdown', () => {
+    assert.match(pos, /e\.key === 'ArrowDown' \|\| e\.key === 'ArrowUp'/);
+    assert.match(pos, /setCustomerActiveIndex\(\(prev\) => \{[\s\S]{0,320}return \(\(next % total\) \+ total\) % total;/);
+  });
+
+  it('Enter chọn khách đang chọn, Escape vẫn đóng dropdown', () => {
+    assert.match(pos, /if \(e\.key === 'Enter'\) \{[\s\S]{0,260}pickCustomer\(cust\)/);
+    assert.match(pos, /if \(e\.key === 'Escape'\) closeCustomerDropdown\(\);/);
+  });
+
+  it('dòng đang chọn được đánh dấu và tự cuộn vào khung dropdown', () => {
+    assert.match(pos, /id="customer-search-dropdown"[\s\S]{0,120}h-40[\s\S]{0,80}overflow-y-auto/);
+    assert.match(pos, /custIdx === customerActiveIndex \? 'bg-blue-50'/);
+    assert.match(pos, /custIdx === customerActiveIndex[\s\S]{0,220}scrollIntoView\(\{ block: 'nearest' \}\)/);
+  });
+
+  it('đóng dropdown / gõ lại từ khoá thì về dòng đầu', () => {
+    assert.match(pos, /setCustomerSearch\(e\.target\.value\);[\s\S]{0,120}setCustomerActiveIndex\(0\);/);
+    assert.match(pos, /const closeCustomerDropdown = useCallback\(\(\) => \{[\s\S]{0,160}setCustomerActiveIndex\(0\);/);
+  });
+});
+
 describe('Kho + NCC: mobile record list', () => {
   const inv = read('components/inventory/InventoryView.tsx');
   const sup = read('components/suppliers/SuppliersView.tsx');

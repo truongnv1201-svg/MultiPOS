@@ -78,6 +78,8 @@ export function POSScreen() {
 
   const [customerSearch, setCustomerSearch] = useState<string>('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState<boolean>(false);
+  // Dòng khách hàng đang chọn bằng bàn phím (mũi tên lên/xuống) trong dropdown F4.
+  const [customerActiveIndex, setCustomerActiveIndex] = useState<number>(0);
   // Checkout xong (hóa đơn hiện) thì ô tìm KH phải trắng theo giỏ mới — trước đây
   // chữ gõ dở còn đọng lại, che mất tên "Khách Lẻ Mua Tại Quầy" của đơn mới.
   // (defer microtask theo idiom chung của repo để khỏi set-state-in-effect)
@@ -260,8 +262,23 @@ export function POSScreen() {
   const tenderedInputRef = useRef<HTMLInputElement>(null);
 
   // Bấm ra ngoài thì đóng dropdown khách hàng (trước đây kẹt mở, che giỏ hàng)
-  const closeCustomerDropdown = useCallback(() => setIsCustomerDropdownOpen(false), []);
+  const closeCustomerDropdown = useCallback(() => {
+    setIsCustomerDropdownOpen(false);
+    setCustomerActiveIndex(0);
+  }, []);
   useClickOutside(customerWrapRef, isCustomerDropdownOpen, closeCustomerDropdown);
+
+  // Gộp logic chọn khách hàng dùng chung cho chuột và bàn phím.
+  const pickCustomer = useCallback((cust: { id: string; name: string; phone?: string }) => {
+    updateActiveTab({
+      customer_id: cust.id,
+      customer_name: cust.name,
+      customer_phone: cust.phone,
+    });
+    setCustomerSearch('');
+    setIsCustomerDropdownOpen(false);
+    setCustomerActiveIndex(0);
+  }, [updateActiveTab]);
 
   const handleCheckout = useCallback(async () => {
     if (activeCart.items.length === 0) {
@@ -1124,6 +1141,7 @@ export function POSScreen() {
                   onChange={(e) => {
                     setCustomerSearch(e.target.value);
                     setIsCustomerDropdownOpen(true);
+                    setCustomerActiveIndex(0);
                   }}
                   onFocus={(e) => {
                     setIsCustomerDropdownOpen(true);
@@ -1132,7 +1150,27 @@ export function POSScreen() {
                     if (!customerSearch) e.target.select();
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Escape') setIsCustomerDropdownOpen(false);
+                    // Bàn phím: mũi tên di chuyển giữa các khách, Enter chọn — trước đây ô
+                    // này chỉ bắt Escape nên bàn phím không chọn được khách.
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                      if (!isCustomerDropdownOpen || filteredCustomers.length === 0) return;
+                      e.preventDefault();
+                      setIsCustomerDropdownOpen(true);
+                      setCustomerActiveIndex((prev) => {
+                        const next = e.key === 'ArrowDown' ? prev + 1 : prev - 1;
+                        const total = filteredCustomers.length;
+                        return ((next % total) + total) % total;
+                      });
+                      return;
+                    }
+                    if (e.key === 'Enter') {
+                      const cust = filteredCustomers[customerActiveIndex];
+                      if (!isCustomerDropdownOpen || !cust) return;
+                      e.preventDefault();
+                      pickCustomer(cust);
+                      return;
+                    }
+                    if (e.key === 'Escape') closeCustomerDropdown();
                   }}
                   placeholder="Tìm khách theo Tên / SĐT (F4)..."
                   className="w-full h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
@@ -1172,19 +1210,23 @@ export function POSScreen() {
                     Không tìm thấy khách hàng. Nhập tên rồi bấm <span className="font-bold text-slate-600">+</span> để tạo nhanh.
                   </div>
                 ) : (
-                  filteredCustomers.map((cust) => (
+                  filteredCustomers.map((cust, custIdx) => (
                   <div
                     key={cust.id}
-                    onClick={() => {
-                      updateActiveTab({
-                        customer_id: cust.id,
-                        customer_name: cust.name,
-                        customer_phone: cust.phone,
-                      });
-                      setCustomerSearch('');
-                      setIsCustomerDropdownOpen(false);
-                    }}
-                    className="p-2 text-xs hover:bg-blue-50 cursor-pointer border-b border-slate-100 flex items-center justify-between"
+                    data-cust-idx={custIdx}
+                    onClick={() => pickCustomer(cust)}
+                    // Dòng đang chọn bằng bàn phím phải tự cuộn vào khung h-40, nếu không
+                    // các khách bên dưới sẽ không bao giờ hiện.
+                    ref={
+                      custIdx === customerActiveIndex
+                        ? (el) => {
+                            el?.scrollIntoView({ block: 'nearest' });
+                          }
+                        : undefined
+                    }
+                    className={`p-2 text-xs cursor-pointer border-b border-slate-100 flex items-center justify-between ${
+                      custIdx === customerActiveIndex ? 'bg-blue-50' : 'hover:bg-blue-50'
+                    }`}
                   >
                     <div>
                       <div className="font-semibold text-slate-800">{cust.name}</div>
