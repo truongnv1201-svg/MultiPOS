@@ -1,3 +1,33 @@
+-- Migration 59 — Cho phép sửa đơn giá tại POS (ghi đè giá riêng cho đơn đang bán).
+-- Vấn đề: 0050 cấm client tự set unit_price (server price authority) nên thu ngân
+-- không sửa được giá khi khách mua gấp/giá thỏa thuận -> phải sửa tay ngoài hệ thống.
+-- Yêu cầu: sửa giá CHỈ trong đơn này, KHÔNG đụng products.retail_price (giá danh mục).
+--
+-- Thiết kế (giữ nguyên chữ ký 10-arg như 0050, không đổi call cũ):
+-- 1) Client gửi kèm `price_override` trong từng phần tử p_items KHI và CHỈ KHI dòng đó
+--    đã bị người dùng sửa giá trên UI. Không gửi -> hành vi y hệt 0050 (giá catalog).
+-- 2) Server gate bằng public.is_manager() OR public.is_admin(): thu ngân gửi
+--    price_override -> RAISE 'Chỉ Quản lý/Admin được sửa đơn giá'. Không tin client.
+-- 3) Giá override kẹp [0, 100000000] và chỉ dùng khi KHÁC giá catalog, nên
+--    gõ lại đúng giá cũ không tạo dấu vết. Mọi CK/discount cap của 0050 chạy trên
+--    v_price đã override -> tổng tiền, thuế, nợ đều tự chảy đúng.
+-- 4) order_items ghi 2 cột audit: price_override (bool) + price_override_by (uid+email
+--    người sửa) để sau này báo cáo/đối soát biết dòng nào lệch giá danh mục.
+--    checkout_order (0028:57) tính tiền từ order_items.unit_price nên tổng tự khớp.
+--
+-- Thân hàm bên dưới copy nguyên xi từ 0050 (bản đang chạy trên DB), chỉ chèn thêm
+-- khối ghi đè giá + 2 cột vào 2 câu INSERT order_items.
+
+ALTER TABLE public.order_items
+  ADD COLUMN IF NOT EXISTS price_override boolean NOT NULL DEFAULT false;
+ALTER TABLE public.order_items
+  ADD COLUMN IF NOT EXISTS price_override_by text;
+
+COMMENT ON COLUMN public.order_items.price_override IS
+  'Đơn giá dòng này bị ghi đè lúc bán (chỉ Quản lý/Admin); khác products.retail_price.';
+COMMENT ON COLUMN public.order_items.price_override_by IS
+  'auth uid + email người ghi đè đơn giá (phục vụ đối soát).';
+
 -- Migration 50 — Server price authority cho pos_checkout (P0 thương mại).
 -- Vấn đề: pos_checkout tin unit_price/discount/processing_fee/item_type do client gửi
 -- (0043:102-112 insert trực tiếp từ JSON). Tài khoản authenticated có thể gọi RPC với
@@ -108,6 +138,9 @@ DECLARE
   v_punit TEXT;
   v_waste NUMERIC;
   v_price NUMERIC;
+  v_ovr NUMERIC;
+  v_overridden BOOLEAN;
+  v_override_by TEXT;
   v_qty NUMERIC;
   v_disc NUMERIC;
   v_fee NUMERIC;
@@ -139,9 +172,6 @@ BEGIN
   v_ship := GREATEST(COALESCE(p_shipping_fee, 0), 0);
   v_vat := COALESCE(p_vat_percent, 0);
   IF v_vat NOT IN (0, 5, 8, 10) THEN
-    -- 0059 fix: chuoi thong bao co 2 dau % nhung chi truyen 1 tham so -> PL/pgSQL khong compile
-    -- ("too few parameters specified for RAISE"). Ban DB da ban version da sua; sua lai file de
-    -- cai moi tu dau (supabase db reset) khong vong loi nay.
     RAISE EXCEPTION 'VAT % không hợp lệ (chỉ chấp nhận 0/5/8/10)', v_vat;
   END IF;
   FOR v_pm IN SELECT * FROM jsonb_array_elements(COALESCE(p_payments, '[]'::JSONB)) LOOP
@@ -203,6 +233,27 @@ BEGIN
     IF v_price IS NULL OR v_price < 0 THEN
       RAISE EXCEPTION 'Giá bán SKU % chưa cấu hình', (it->>'sku');
     END IF;
+    -- 0059: ghi đè đơn giá cho riêng đơn này (UI cho người dùng sửa trước khi bán).
+    -- Server tự gate quyền: thu ngân gửi lên -> RAISE, không tin giá client.
+    v_overridden := false;
+    v_override_by := NULL;
+    IF (it->'price_override') IS NOT NULL AND jsonb_typeof(it->'price_override') <> 'null' THEN
+      -- is_manager() đã gồm cả admin (0012:12-15)
+      IF NOT public.is_manager() THEN
+        RAISE EXCEPTION 'Chỉ Quản lý/Admin được sửa đơn giá (SKU %)', (it->>'sku');
+      END IF;
+      v_ovr := COALESCE((it->>'price_override')::NUMERIC, 0);
+      IF v_ovr < 0 OR v_ovr > 100000000 THEN
+        RAISE EXCEPTION 'Đơn giá không hợp lệ (SKU %)', (it->>'sku');
+      END IF;
+      -- Gõ lại đúng giá danh mục thì không ghi dấu vết (so sánh sau làm tròn).
+      IF round(v_ovr) <> round(v_price) THEN
+        v_price := round(v_ovr);
+        v_overridden := true;
+        v_override_by := COALESCE(auth.uid()::TEXT, 'unknown')
+          || COALESCE(' ' || (auth.jwt() ->> 'email'), '');
+      END IF;
+    END IF;
     -- P0-5: combo chỉ được chứa goods — chặn sớm để khỏi trừ sai đơn vị kho
     IF v_ptype = 'combo' THEN
       SELECT string_agg(p.product_type, ',') INTO v_child_type
@@ -250,7 +301,8 @@ BEGIN
       v_fee := 0; -- fee nằm trong từng tấm, checkout_order SUM từ JSONB
       INSERT INTO public.order_items
         (order_id, product_id, sku, name, item_type, unit, quantity, unit_price,
-         discount_amount, processing_fee, subtotal, dimension_details, waste_factor, material_consumed)
+         discount_amount, processing_fee, subtotal, dimension_details, waste_factor, material_consumed,
+         price_override, price_override_by)
       VALUES
         (v_id, v_pid, it->>'sku', v_pname,
          v_ptype, v_punit,
@@ -258,7 +310,8 @@ BEGIN
          v_disc,
          v_fee, 0,
          v_new_elems,
-         COALESCE(v_waste, 0), v_mat);
+         COALESCE(v_waste, 0), v_mat,
+         v_overridden, v_override_by);
     ELSE
       v_mat := v_qty;
       v_fee := GREATEST(0, LEAST(100000000, COALESCE((it->>'processing_fee')::NUMERIC, 0)));
@@ -266,7 +319,8 @@ BEGIN
       v_disc := LEAST(v_disc, GREATEST(v_line_cap, 0));
       INSERT INTO public.order_items
         (order_id, product_id, sku, name, item_type, unit, quantity, unit_price,
-         discount_amount, processing_fee, subtotal, dimension_details, waste_factor, material_consumed)
+         discount_amount, processing_fee, subtotal, dimension_details, waste_factor, material_consumed,
+         price_override, price_override_by)
       VALUES
         (v_id, v_pid, it->>'sku', v_pname,
          v_ptype, v_punit,
@@ -274,7 +328,8 @@ BEGIN
          v_disc,
          v_fee, 0,
          CASE WHEN (it->'dimension_details') IS NOT NULL THEN (it->'dimension_details') ELSE NULL END,
-         COALESCE(v_waste, 0), v_mat);
+         COALESCE(v_waste, 0), v_mat,
+         v_overridden, v_override_by);
     END IF;
   END LOOP;
 

@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test scripts/pricing.test.mjs scripts/quantity.test.mjs scripts/hrm.test.mjs scripts/sql-guard.test.mjs scripts/mobile-guard.test.mjs scripts/sync-poll.test.mjs scripts/stock-sync.test.mjs scripts/orders-sync.test.mjs scripts/dexie-mirror.test.mjs",
+    "test":  "node --test scripts/pricing.test.mjs scripts/quantity.test.mjs scripts/hrm.test.mjs scripts/sql-guard.test.mjs scripts/price-override.test.mjs scripts/mobile-guard.test.mjs scripts/sync-poll.test.mjs scripts/stock-sync.test.mjs scripts/orders-sync.test.mjs scripts/dexie-mirror.test.mjs",
     "test:parity": "node scripts/verify-pricing-parity.mjs 25",
     "test:e2e": "playwright test",
     "icons:pwa": "node scripts/generate-pwa-icons.mjs",
@@ -18,7 +18,8 @@
     "test:live:cancel": "node scripts/verify-cancel-return-debt.mjs",
     "test:live:customer": "node scripts/verify-customer-sync.mjs",
     "test:live:debt": "node scripts/verify-debt-sync.mjs",
-    "test:live:return": "node scripts/verify-return-restock.mjs",
+    "test:live:return":  "node scripts/verify-return-restock.mjs",
+    "test:live:price":  "node scripts/verify-price-override.mjs",
     "test:live": "npm run test:live:pos && npm run test:live:vat && npm run test:live:customer && npm run test:live:debt && npm run test:live:return",
     "clean": "next clean"
   },

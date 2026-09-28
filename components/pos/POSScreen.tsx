@@ -7,6 +7,7 @@ import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/Produ
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import MobileCartSheet from '@/components/pos/MobileCartSheet';
 import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
+import { PriceDraftInput } from '@/components/pos/PriceDraftInput';
 import MobilePaymentSheet, { type MobilePaymentMethod } from '@/components/pos/MobilePaymentSheet';
 import { POSQuickCustomerModal } from '@/components/pos/POSQuickCustomerModal';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
@@ -131,6 +132,9 @@ export function POSScreen() {
   // Hydration guard: authReady=false ở cả server lẫn client lần đầu render,
   // nên nút Bán/Nhập render giống nhau hai phía (false -> ẩn), hiện sau khi auth resolve.
   const canImport = authReady && (!supabaseReady || profile?.role === 'admin' || profile?.role === 'manager');
+  // 0059: sửa đơn giá cho riêng đơn đang bán — chỉ Quản lý/Admin (server cũng gate lần 2
+  // bằng is_manager() nên thu ngân sửa trên UI cũng không lọt lên DB).
+  const canOverridePrice = authReady && (!supabaseReady || profile?.role === 'admin' || profile?.role === 'manager');
   interface ImportLine {
     key: string;
     productId: string;
@@ -876,9 +880,31 @@ export function POSScreen() {
                           {isArea ? 'm²' : item.unit || '-'}
                         </td>
 
-                        {/* Unit price */}
+                        {/* Unit price — Quản lý/Admin sửa được cho riêng đơn này (0059) */}
                         <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">
-                          {formatVND(item.unit_price)}
+                          {canOverridePrice ? (
+                            <PriceDraftInput
+                              price={item.unit_price}
+                              overridden={
+                                !!item.price_override &&
+                                Math.round(item.unit_price) !==
+                                  Math.round(productById(item.product_id)?.retail_price ?? item.unit_price)
+                              }
+                              onCommit={(value) =>
+                                updateCartItem(item.id, {
+                                  unit_price: value,
+                                  // Gõ lại đúng giá danh mục -> bỏ cờ, server tự lấy giá catalog.
+                                  price_override:
+                                    Math.round(value) !==
+                                    Math.round(productById(item.product_id)?.retail_price ?? value),
+                                })
+                              }
+                              ariaLabel={`Đơn giá ${item.name}`}
+                              className="text-xs"
+                            />
+                          ) : (
+                            <span title="Chỉ Quản lý/Admin được sửa đơn giá">{formatVND(item.unit_price)}</span>
+                          )}
                         </td>
 
                         {/* Quantity / m2 */}

@@ -62,6 +62,7 @@ export interface OrderItem {
   dimension_details?: DimensionDetail[]; // JSONB dimension_details
   waste_factor?: number;
   material_consumed?: number; // quantity * (1 + waste_factor/100)
+  price_override?: boolean; // Quản lý/Admin đã sửa giá dòng này -> gửi kèm lên server (xem migration 0059)
 }
 
 export interface PaymentItem {
