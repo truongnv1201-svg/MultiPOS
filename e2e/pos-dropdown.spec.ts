@@ -77,21 +77,31 @@ test.describe('đóng dropdown khi bấm ra ngoài', () => {
     await expect(dropdown.locator('> div').first()).toBeVisible();
   });
 
-  test('dropdown tìm hàng giữ nguyên chiều cao khi gõ từng ký tự', async ({ page }) => {
+  test('dropdown tìm hàng co giãn theo số kết quả, không vượt trần', async ({ page }) => {
+    // Trước đây cao cố định h-64 để "không nhảy" khi gõ, nhưng hụt vài kết quả thì chừa
+    // khối trống to nhìn thiếu chuyên nghiệp. Nay bám sát nội dung, chỉ còn ràng buộc:
+    // không bao giờ vượt trần (nhiều hàng thì cuộn trong khung).
+    const MAX_H = 290;
     await loginAsCashier(page);
     const search = page.locator('#f1-search-input');
     const dropdown = page.locator('#search-results-dropdown');
 
+    // 1) 0 kết quả -> khung bọc sát, không chừa chỗ trống
     await search.click();
-    const heights: number[] = [];
+    await search.fill('zzzkhongco');
+    await expect(dropdown).toBeVisible({ timeout: 10_000 });
+    const emptyBox = await dropdown.boundingBox();
+    expect(emptyBox?.height ?? 0).toBeLessThan(160);
+    // Dải hướng dẫn phím ở chân khung vẫn lộ ra
+    await expect(dropdown.locator('text=Dùng phím')).toBeVisible();
+
+    // 2) Gõ từng ký tự: khung không bao giờ vượt trần
     for (const ch of ['k', 'e', 'o']) {
       await page.keyboard.type(ch, { delay: 60 });
       await expect(dropdown).toBeVisible({ timeout: 10_000 });
       const box = await dropdown.boundingBox();
-      heights.push(Math.round(box?.height ?? 0));
+      expect(Math.round(box?.height ?? 0)).toBeLessThanOrEqual(MAX_H);
     }
-    // Không nhảy: chiều cao khung gợi ý phải giữ nguyên khi số kết quả thay đổi
-    expect(new Set(heights).size).toBe(1);
   });
 
   test('điện thoại: danh sách gợi ý khách trong sheet thanh toán đóng khi bấm ra ngoài', async ({ page }) => {

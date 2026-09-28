@@ -411,9 +411,12 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         <div
           ref={dropdownRef}
           id="search-results-dropdown"
-          className="absolute top-11 left-0 right-0 h-64 bg-white text-slate-800 shadow-2xl rounded-lg border border-slate-200 overflow-hidden z-50"
+          // Cao tối đa chứ không cố định: ít kết quả thì khung bám sát nội dung (hụt 1-2
+          // dòng mà vẫn chừa khối trống to trông thiếu chuyên nghiệp), nhiều kết quả thì
+          // danh sách cuộn và dải hướng dẫn phím ở chân khung luôn nhìn thấy (shrink-0).
+          className="absolute top-11 left-0 right-0 max-h-72 flex flex-col bg-white text-slate-800 shadow-2xl rounded-lg border border-slate-200 overflow-hidden z-50"
         >
-          <div className="p-1.5 h-full overflow-y-auto divide-y divide-slate-100">
+          <div className="p-1.5 overflow-y-auto divide-y divide-slate-100">
             {filteredProducts.length === 0 && (
               <div className="px-3 py-3 text-center text-xs text-slate-500">
                 Không tìm thấy <span className="font-semibold text-slate-700">&quot;{searchQuery.trim()}&quot;</span> trong danh mục.
@@ -500,7 +503,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
               </div>
             </div>
           </div>
-          <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-500 flex items-center justify-between">
+          <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-500 flex items-center justify-between shrink-0">
             <span>Dùng phím ↑ ↓ để chọn • Enter lần 1 phân nhánh • Esc để hủy</span>
             <span className="font-medium text-blue-600">Double-Enter Active</span>
           </div>

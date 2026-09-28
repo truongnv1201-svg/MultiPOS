@@ -80,6 +80,14 @@ describe('POS: bàn phím phải cuộn theo dòng đang chọn trong dropdown',
     assert.match(search, /if \(e\.key === 'ArrowDown'\)[\s\S]{0,120}setSelectedIndex/);
     assert.match(search, /if \(e\.key === 'ArrowUp'\)[\s\S]{0,160}setSelectedIndex/);
   });
+
+  it('dropdown bám sát nội dung khi ít kết quả, có trần khi nhiều kết quả', () => {
+    // h-64 cố định -> chừa khối trống to khi chỉ có 0-1 kết quả.
+    assert.doesNotMatch(search, /id="search-results-dropdown"[\s\S]{0,400}className="[^"]*\bh-64\b/);
+    assert.match(search, /id="search-results-dropdown"[\s\S]{0,400}max-h-72 flex flex-col/);
+    // Dải hướng dẫn phím không bị cắt khi khung chạm trần.
+    assert.match(search, /text-\[10px\] text-slate-500 flex items-center justify-between shrink-0/);
+  });
 });
 
 describe('POS: ô tìm khách hàng F4 dùng được bàn phím', () => {
