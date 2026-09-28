@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
-// Ã” tÃ¬m khÃ¡ch hÃ ng F4 trÆ°á»›c Ä‘Ã¢y chá»‰ báº¯t Escape: bÃ n phÃ­m khÃ´ng di chuyá»ƒn Ä‘Æ°á»£c giá»¯a cÃ¡c
-// khÃ¡ch vÃ  cÅ©ng khÃ´ng chá»n Ä‘Æ°á»£c. Nay mÅ©i tÃªn di chuyá»ƒn (cÃ³ cuá»™n theo) + Enter chá»n.
+// Ô tìm khách hàng F4 trước đây chỉ bắt Escape: bàn phím không di chuyển được giữa các
+// khách và cũng không chọn được. Nay mũi tên di chuyển (có cuộn theo) + Enter chọn.
 const LOGIN_ID = process.env.E2E_LOGIN_ID || 'cashier@multipos.local';
 const LOGIN_PW = process.env.E2E_LOGIN_PASSWORD || 'Cashier@123';
 
@@ -16,7 +16,7 @@ async function login(page: Page) {
   await page.waitForTimeout(6000);
 }
 
-/** DÃ²ng cÃ³ náº±m trá»n trong khung cuá»™n cá»§a dropdown khÃ´ng. */
+/** Dòng có nằm trọn trong khung cuộn của dropdown không. */
 function isFullyVisible(locator: ReturnType<Page['locator']>) {
   return locator.evaluate((el) => {
     const scroller = el.closest('div[id$="dropdown"]') as HTMLElement | null;
@@ -27,39 +27,39 @@ function isFullyVisible(locator: ReturnType<Page['locator']>) {
   });
 }
 
-/** DÃ²ng cÃ³ Ä‘Æ°á»£c Ä‘Ã¡nh dáº¥u Ä‘ang chá»n khÃ´ng (class tháº­t, khÃ´ng pháº£i hover:). */
+/** Dòng có được đánh dấu đang chọn không (class thật, không phải hover:). */
 function isActiveRow(locator: ReturnType<Page['locator']>) {
   return locator.evaluate((el) => el.classList.contains('bg-blue-50'));
 }
 
-test('bÃ n phÃ­m chá»n Ä‘Æ°á»£c khÃ¡ch hÃ ng trong Ã´ F4 (mÅ©i tÃªn + Enter)', async ({ page }) => {
+test('bàn phím chọn được khách hàng trong ô F4 (mũi tên + Enter)', async ({ page }) => {
   await login(page);
   const input = page.locator('#f4-customer-input');
   const dropdown = page.locator('#customer-search-dropdown');
 
   await input.click();
-  // GÃµ rá»™ng Ä‘á»ƒ ra nhiá»u khÃ¡ch hÆ¡n
+  // Gõ rộng để ra nhiều khách hơn
   await input.fill('a');
   await expect(dropdown).toBeVisible({ timeout: 15_000 });
 
-  // Chá»n dÃ²ng theo Cáº¤U TRÃšC (div con trá»±c tiáº¿p cá»§a dropdown) chá»© khÃ´ng theo data-attr,
-  // Ä‘á»ƒ test cháº¡y Ä‘Æ°á»£c cáº£ trÃªn code cÅ© â€” náº¿u dÃ¹ng attribute má»›i thÃ¬ test chá»‰ bá»‹ skip vÃ 
-  // khÃ´ng báº¯t Ä‘Æ°á»£c lá»—i há»“i quy.
-  const rows = dropdown.locator(':scope > div');
+  // Chọn dòng theo CẤU TRÚC (div con trực tiếp của dropdown) chứ không theo data-attr,
+  // để test chạy được cả trên code cũ — nếu dùng attribute mới thì test chỉ bị skip và
+  // không bắt được lỗi hồi quy. Loại dòng "Tạo khách hàng mới" (không phải khách hàng).
+  const rows = dropdown.locator(':scope > div:not(#btn-quick-create-customer)');
   const count = await rows.count();
   const firstText = count > 0 ? (await rows.first().innerText()) || '' : '';
-  test.skip(firstText.includes('KhÃ´ng tÃ¬m tháº¥y'), 'khÃ´ng cÃ³ khÃ¡ch hÃ ng nÃ o khá»›p tá»« khoÃ¡');
-  test.skip(count < 2, 'cáº§n Ã­t nháº¥t 2 khÃ¡ch hÃ ng Ä‘á»ƒ kiá»ƒm tra di chuyá»ƒn báº±ng bÃ n phÃ­m');
+  test.skip(firstText.includes('Không tìm thấy'), 'không có khách hàng nào khớp từ khoá');
+  test.skip(count < 2, 'cần ít nhất 2 khách hàng để kiểm tra di chuyển bằng bàn phím');
 
-  // DÃ²ng Ä‘áº§u tiÃªn Ä‘ang active
+  // Dòng đầu tiên đang active
   await expect.poll(() => isActiveRow(rows.first())).toBe(true);
 
-  // MÅ©i tÃªn xuá»‘ng -> dÃ²ng káº¿ tiáº¿p Ä‘Æ°á»£c highlight
+  // Mũi tên xuống -> dòng kế tiếp được highlight
   await input.press('ArrowDown');
   await page.waitForTimeout(150);
   await expect.poll(() => isActiveRow(rows.nth(1))).toBe(true);
 
-  // Tá»›i dÃ²ng cuá»‘i: dÃ²ng Ä‘Ã³ pháº£i náº±m trá»n trong khung (cÃ³ cuá»™n theo)
+  // Tới dòng cuối: dòng đó phải nằm trọn trong khung (có cuộn theo)
   for (let i = 0; i < count - 2; i += 1) {
     await input.press('ArrowDown');
     await page.waitForTimeout(100);
@@ -68,7 +68,7 @@ test('bÃ n phÃ­m chá»n Ä‘Æ°á»£c khÃ¡ch hÃ ng trong Ã´ F4 (
   await expect.poll(() => isActiveRow(last)).toBe(true);
   expect(await isFullyVisible(last)).toBe(true);
 
-  // MÅ©i tÃªn lÃªn -> quay vá» dÃ²ng Ä‘áº§u
+  // Mũi tên lên -> quay về dòng đầu
   for (let i = 0; i < count - 1; i += 1) {
     await input.press('ArrowUp');
     await page.waitForTimeout(100);
@@ -76,7 +76,7 @@ test('bÃ n phÃ­m chá»n Ä‘Æ°á»£c khÃ¡ch hÃ ng trong Ã´ F4 (
   await expect.poll(() => isActiveRow(rows.first())).toBe(true);
   expect(await isFullyVisible(rows.first())).toBe(true);
 
-  // Enter chá»n khÃ¡ch -> tÃªn hiá»‡n trong Ã´ F4, dropdown Ä‘Ã³ng
+  // Enter chọn khách -> tên hiện trong ô F4, dropdown đóng
   const expectedName = (await rows.first().innerText()).split('\n')[0].trim();
   await input.press('Enter');
   await expect(dropdown).toHaveCount(0, { timeout: 10_000 });
@@ -84,7 +84,7 @@ test('bÃ n phÃ­m chá»n Ä‘Æ°á»£c khÃ¡ch hÃ ng trong Ã´ F4 (
   console.log('PICKED=' + expectedName);
 });
 
-test('Escape Ä‘Ã³ng dropdown khÃ¡ch nhÆ° cÅ©', async ({ page }) => {
+test('Escape đóng dropdown khách như cũ', async ({ page }) => {
   await login(page);
   const input = page.locator('#f4-customer-input');
   const dropdown = page.locator('#customer-search-dropdown');

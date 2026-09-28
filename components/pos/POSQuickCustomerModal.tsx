@@ -1,15 +1,31 @@
 // P3: modal thêm nhanh KH từ POS (tách từ POSScreen.tsx — tự gọi useStore, state nội bộ).
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '@/lib/store';
 import { notify } from '@/components/common/Toast';
 import { User, X } from 'lucide-react';
 
-export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function POSQuickCustomerModal({
+  open,
+  onClose,
+  initialName = '',
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Tên khách sẵn có từ ô tìm kiếm — form mở ra là điền sẵn (đồng bộ với quick-create của ô tìm hàng). */
+  initialName?: string;
+}) {
   const { addCustomer, updateActiveTab } = useStore();
-  const [newCustName, setNewCustName] = useState<string>('');
+  const [newCustName, setNewCustName] = useState<string>(initialName);
   const [newCustPhone, setNewCustPhone] = useState<string>('');
+  const phoneRef = useRef<HTMLInputElement>(null);
+
+  // Mở từ ô tìm kiếm (tên đã điền sẵn) thì nhảy con trỏ sang ô SĐT — thứ tiếp theo
+  // người dùng phải gõ. Mở bằng nút "+" (không seed) thì giữ focus ở ô tên như cũ.
+  useEffect(() => {
+    if (initialName.trim()) phoneRef.current?.focus();
+  }, [initialName]);
   const [newCustGroup, setNewCustGroup] = useState<'retail' | 'contractor' | 'wholesale'>('retail');
 
   const handleSaveQuickCustomer = async () => {
@@ -75,6 +91,7 @@ export function POSQuickCustomerModal({ open, onClose }: { open: boolean; onClos
               </label>
               <input
                 id="quick-cust-phone"
+                ref={phoneRef}
                 type="text"
                 value={newCustPhone}
                 onChange={(e) => setNewCustPhone(e.target.value)}

@@ -23,14 +23,16 @@ test('ô tìm khách hàng F4: ít kết quả thì khung co lại, nhiều kế
   const input = page.locator('#f4-customer-input');
   const dropdown = page.locator('#customer-search-dropdown');
 
-  // 0 kết quả -> khung phải nhỏ (trước đây cố định 160px)
+  // 0 kết quả -> khung bọc sát, không chừa chỗ trống (trước đây cố định 160px).
+  // Khung giờ gồm dòng báo "không tìm thấy" + dòng "Tạo khách hàng mới" nên cao hơn 40px.
   await input.click();
   await input.fill('zzzkhongco');
   await expect(dropdown).toBeVisible({ timeout: 15_000 });
   await expect(dropdown).toContainText('Không tìm thấy', { timeout: 10_000 });
+  await expect(dropdown.locator('#btn-quick-create-customer')).toBeVisible();
   const emptyBox = await dropdown.boundingBox();
   console.log('CUSTOMER_0_KET_QUA=' + JSON.stringify(emptyBox));
-  expect(emptyBox?.height ?? 999).toBeLessThan(80);
+  expect(emptyBox?.height ?? 999).toBeLessThan(120);
 
   // Nhiều kết quả -> không vượt trần 160px (max-h-40) và vẫn cuộn được
   await input.fill('a');

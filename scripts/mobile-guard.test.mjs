@@ -100,7 +100,7 @@ describe('POS: ô tìm khách hàng F4 dùng được bàn phím', () => {
   });
 
   it('Enter chọn khách đang chọn, Escape vẫn đóng dropdown', () => {
-    assert.match(pos, /if \(e\.key === 'Enter'\) \{[\s\S]{0,260}pickCustomer\(cust\)/);
+    assert.match(pos, /if \(e\.key === 'Enter'\) \{[\s\S]{0,900}pickCustomer\(cust\)/);
     assert.match(pos, /if \(e\.key === 'Escape'\) closeCustomerDropdown\(\);/);
   });
 
@@ -115,6 +115,45 @@ describe('POS: ô tìm khách hàng F4 dùng được bàn phím', () => {
   it('đóng dropdown / gõ lại từ khoá thì về dòng đầu', () => {
     assert.match(pos, /setCustomerSearch\(e\.target\.value\);[\s\S]{0,120}setCustomerActiveIndex\(0\);/);
     assert.match(pos, /const closeCustomerDropdown = useCallback\(\(\) => \{[\s\S]{0,160}setCustomerActiveIndex\(0\);/);
+  });
+});
+
+describe('POS: tạo mới nhanh từ ô tìm kiếm (khách hàng / NCC)', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+  const search = read('components/pos/ProductSearchBar.tsx');
+  const select = read('components/common/SearchableSelect.tsx');
+  const custModal = read('components/pos/POSQuickCustomerModal.tsx');
+
+  it('ô khách hàng: có dòng "Tạo khách hàng mới" ở chân dropdown', () => {
+    assert.match(pos, /id="btn-quick-create-customer"/);
+    assert.match(pos, /Tạo khách hàng mới: &quot;\{customerSearch\.trim\(\)\}&quot;/);
+    assert.match(pos, /id="btn-quick-create-customer"[\s\S]{0,400}openQuickCustomer\(customerSearch\.trim\(\)\)/);
+  });
+
+  it('Enter khi không có kết quả thì mở form tạo nhanh (giống ô tìm hàng hóa)', () => {
+    assert.match(pos, /filteredCustomers\.length === 0 && customerSearch\.trim\(\)[\s\S]{0,200}openQuickCustomer\(/);
+    // Ô tìm hàng hóa dùng đúng quy tắc này làm mẫu
+    assert.match(search, /filteredProducts\.length === 0\)[\s\S]{0,200}openQuickCreate\(searchQuery\)/);
+  });
+
+  it('form khách hàng nhận tên điền sẵn và nhảy con trỏ sang ô SĐT', () => {
+    assert.match(custModal, /initialName = ''/);
+    assert.match(custModal, /useState<string>\(initialName\)/);
+    assert.match(custModal, /if \(initialName\.trim\(\)\) phoneRef\.current\?\.focus\(\);/);
+    assert.match(pos, /<POSQuickCustomerModal[\s\S]{0,200}initialName=\{quickCustomerSeed\}/);
+  });
+
+  it('SearchableSelect: onQuickCreate thêm dòng tạo nhanh + Enter khi không có kết quả', () => {
+    assert.match(select, /onQuickCreate\?: \(query: string\) => void;/);
+    assert.match(select, /const showQuickCreate = Boolean\(onQuickCreate\) && query\.trim\(\) !== '' && !hasExactMatch;/);
+    assert.match(select, /id="btn-quick-create-option"/);
+    assert.match(select, /showQuickCreate && filtered\.length === 0\)[\s\S]{0,220}onQuickCreate\?\.\(query\.trim\(\)\)/);
+  });
+
+  it('ô NCC trong luồng Nhập hàng nối vào form thêm NCC nhanh, tên điền sẵn', () => {
+    assert.match(pos, /quickCreateLabel="Tạo nhà cung cấp mới"/);
+    assert.match(pos, /onQuickCreate=\{\(q\) => \{[\s\S]{0,200}setSupName\(q\);[\s\S]{0,120}setIsQuickSupplierModalOpen\(true\);/);
+    assert.match(pos, /id="quick-sup-name-input"/);
   });
 });
 

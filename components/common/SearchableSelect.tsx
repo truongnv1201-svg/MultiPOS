@@ -12,6 +12,8 @@ export interface SearchOption {
 
 // Combobox tìm kiếm gõ-lọc: click mở, gõ để lọc, phím ↑↓ + Enter chọn, Esc đóng.
 // allowCustom: cho phép giữ lại chữ tự gõ không có trong danh sách (VD: tên NCC mới).
+// onQuickCreate: thêm dòng "Tạo ... mới" ở chân danh sách + Enter khi không có kết quả
+// sẽ gọi callback mở form tạo nhanh (đồng bộ với quick-create của ô tìm hàng hóa).
 export function SearchableSelect({
   value,
   options,
@@ -20,6 +22,8 @@ export function SearchableSelect({
   disabled = false,
   allowCustom = false,
   className = '',
+  onQuickCreate,
+  quickCreateLabel = 'Thêm mới',
 }: {
   value: string;
   options: SearchOption[];
@@ -28,6 +32,10 @@ export function SearchableSelect({
   disabled?: boolean;
   allowCustom?: boolean;
   className?: string;
+  /** Mở form tạo nhanh với chuỗi đang gõ (chỉ gọi khi không có lựa chọn nào khớp chính xác). */
+  onQuickCreate?: (query: string) => void;
+  /** Nhãn hiển thị ở dòng tạo nhanh. */
+  quickCreateLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -73,6 +81,16 @@ export function SearchableSelect({
       }
     }
   };
+
+  // Chuỗi đang gõ có khớp CHÍNH XÁC lựa chọn nào không (không tính khớp mờ).
+  const hasExactMatch = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return false;
+    return options.some((o) => o.label.toLowerCase() === q || o.value.toLowerCase() === q);
+  }, [options, query]);
+
+  // Hiện dòng tạo nhanh khi đang gõ và không khớp chính xác mục nào.
+  const showQuickCreate = Boolean(onQuickCreate) && query.trim() !== '' && !hasExactMatch;
 
   const pick = (opt: SearchOption) => {
     skipCommit.current = true;
@@ -130,6 +148,14 @@ export function SearchableSelect({
               setActiveIdx((i) => Math.max(i - 1, 0));
             } else if (e.key === 'Enter') {
               e.preventDefault();
+              // Không có kết quả nào + có quick-create -> mở form tạo nhanh (giống ô tìm hàng)
+              if (showQuickCreate && filtered.length === 0) {
+                skipCommit.current = true;
+                setOpen(false);
+                setFocused(false);
+                onQuickCreate?.(query.trim());
+                return;
+              }
               const opt = filtered[activeIdx];
               if (opt) pick(opt);
               else commitCustom();
@@ -214,6 +240,29 @@ export function SearchableSelect({
           )}
           {filtered.length > 100 && (
             <li className="px-3 py-1.5 text-[11px] text-slate-400">…và {filtered.length - 100} kết quả nữa (gõ thêm để lọc)</li>
+          )}
+          {/* Dòng tạo nhanh — cùng kiểu với "Tạo hàng hóa mới" ở ô tìm hàng */}
+          {showQuickCreate && (
+            <li>
+              <button
+                id="btn-quick-create-option"
+                type="button"
+                tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  skipCommit.current = true;
+                  setOpen(false);
+                  setFocused(false);
+                  onQuickCreate?.(query.trim());
+                }}
+                className="w-full px-3 py-1.5 text-left bg-amber-50 hover:bg-amber-100 border-t border-amber-200 cursor-pointer"
+              >
+                <span className="block font-semibold text-amber-800 truncate">
+                  {quickCreateLabel}: &quot;{query.trim()}&quot;
+                </span>
+                <span className="block text-[11px] text-amber-600">Mở form thêm nhanh (Enter)</span>
+              </button>
+            </li>
           )}
         </ul>
       )}

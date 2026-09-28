@@ -135,6 +135,10 @@ export function POSScreen() {
 
   // Quick supplier modal
   const [isQuickSupplierModalOpen, setIsQuickSupplierModalOpen] = useState<boolean>(false);
+  // Tạo nhanh khách hàng từ chuỗi đang gõ ở ô F4 (giống quick-create của ô tìm hàng):
+  // seed tên vào form + remount để form nhận seed mới mỗi lần mở.
+  const [quickCustomerSeed, setQuickCustomerSeed] = useState('');
+  const [quickCustomerSeq, setQuickCustomerSeq] = useState(0);
   const [supName, setSupName] = useState('');
   const [supPhone, setSupPhone] = useState('');
   const [supAddress, setSupAddress] = useState('');
@@ -267,6 +271,13 @@ export function POSScreen() {
     setCustomerActiveIndex(0);
   }, []);
   useClickOutside(customerWrapRef, isCustomerDropdownOpen, closeCustomerDropdown);
+
+  // Mở form thêm nhanh khách hàng, tên điền sẵn từ ô tìm kiếm (rỗng nếu mở bằng nút +).
+  const openQuickCustomer = useCallback((seed: string) => {
+    setQuickCustomerSeed(seed);
+    setQuickCustomerSeq((s) => s + 1);
+    setIsQuickCustomerModalOpen(true);
+  }, []);
 
   // Gộp logic chọn khách hàng dùng chung cho chuột và bàn phím.
   const pickCustomer = useCallback((cust: { id: string; name: string; phone?: string }) => {
@@ -920,13 +931,21 @@ export function POSScreen() {
                   <SearchableSelect
                     value={impSupplier}
                     allowCustom
-                    placeholder="Gõ để tìm NCC hoặc nhập tên mới…"
+                    placeholder="Gõ để tìm NCC hoặc nhập tên mới..."
                     options={suppliers.map((s) => ({
                       value: s.name,
                       label: s.name,
-                      sub: [s.phone, s.address].filter(Boolean).join(' · ') || s.code,
+                      sub: [s.phone, s.address].filter(Boolean).join(' • ') || s.code,
                     }))}
                     onChange={(v) => setImpSupplier(v)}
+                    // Dòng "Thêm nhà cung cấp mới" + Enter khi không có kết quả -> mở form
+                    // thêm nhanh, tên điền sẵn từ chuỗi đang gõ (giống ô tìm hàng hóa).
+                    onQuickCreate={(q) => {
+                      setImpSupplier(q);
+                      setSupName(q);
+                      setIsQuickSupplierModalOpen(true);
+                    }}
+                    quickCreateLabel="Tạo nhà cung cấp mới"
                   />
                 </div>
                 <button
@@ -1164,8 +1183,17 @@ export function POSScreen() {
                       return;
                     }
                     if (e.key === 'Enter') {
+                      // Giống ô tìm hàng: không có kết quả nào + Enter -> mở form tạo nhanh
+                      // (tên lấy từ chuỗi đang gõ). Có kết quả thì Enter vẫn chọn dòng đang chọn.
+                      if (!isCustomerDropdownOpen) return;
+                      if (filteredCustomers.length === 0 && customerSearch.trim()) {
+                        e.preventDefault();
+                        setIsCustomerDropdownOpen(false);
+                        openQuickCustomer(customerSearch.trim());
+                        return;
+                      }
                       const cust = filteredCustomers[customerActiveIndex];
-                      if (!isCustomerDropdownOpen || !cust) return;
+                      if (!cust) return;
                       e.preventDefault();
                       pickCustomer(cust);
                       return;
@@ -1180,7 +1208,7 @@ export function POSScreen() {
               <button
                 type="button"
                 id="btn-quick-customer-modal"
-                onClick={() => setIsQuickCustomerModalOpen(true)}
+                onClick={() => openQuickCustomer('')}
                 className="h-8 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shrink-0"
                 title="Thêm nhanh khách hàng mới (+)"
               >
@@ -1208,13 +1236,12 @@ export function POSScreen() {
               >
                 {filteredCustomers.length === 0 ? (
                   <div className="px-3 py-2.5 text-[11px] text-slate-400 leading-relaxed">
-                    Không tìm thấy khách hàng. Nhập tên rồi bấm <span className="font-bold text-slate-600">+</span> để tạo nhanh.
+                    Không tìm thấy khách hàng. Nhấn <span className="font-bold text-slate-600">Enter</span> để tạo nhanh.
                   </div>
                 ) : (
                   filteredCustomers.map((cust, custIdx) => (
                   <div
                     key={cust.id}
-                    data-cust-idx={custIdx}
                     onClick={() => pickCustomer(cust)}
                     // Dòng đang chọn bằng bàn phím phải tự cuộn vào khung h-40, nếu không
                     // các khách bên dưới sẽ không bao giờ hiện.
@@ -1243,6 +1270,26 @@ export function POSScreen() {
                     </div>
                   </div>
                 ))
+                )}
+                {/* Dòng tạo nhanh — cùng kiểu với "Tạo hàng hóa mới" ở ô tìm hàng:
+                    hiện khi đang gõ, bấm/Enter mở form điền sẵn tên. */}
+                {customerSearch.trim() !== '' && (
+                  <div
+                    id="btn-quick-create-customer"
+                    onClick={() => {
+                      setIsCustomerDropdownOpen(false);
+                      openQuickCustomer(customerSearch.trim());
+                    }}
+                    className="p-2 text-xs cursor-pointer bg-amber-50 hover:bg-amber-100 border-t border-amber-200 flex items-center gap-2"
+                    title="Tạo khách hàng mới từ chuỗi đang tìm"
+                  >
+                    <div className="flex-1">
+                      <div className="font-semibold text-amber-800">
+                        Tạo khách hàng mới: &quot;{customerSearch.trim()}&quot;
+                      </div>
+                      <div className="text-[10px] text-amber-600">Thêm vào danh mục rồi gán vào giỏ ngay (Enter)</div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -1770,7 +1817,12 @@ export function POSScreen() {
       />
 
       {/* Quick Customer Creation Modal */}
-      <POSQuickCustomerModal open={isQuickCustomerModalOpen} onClose={() => setIsQuickCustomerModalOpen(false)} />
+      <POSQuickCustomerModal
+        key={quickCustomerSeq}
+        initialName={quickCustomerSeed}
+        open={isQuickCustomerModalOpen}
+        onClose={() => setIsQuickCustomerModalOpen(false)}
+      />
 
       {/* Quick Supplier Creation Modal */}
       {isQuickSupplierModalOpen && (
@@ -1794,6 +1846,7 @@ export function POSScreen() {
                   Tên Nhà Cung Cấp / Công Ty <span className="text-rose-500">*</span>
                 </label>
                 <input
+                  id="quick-sup-name-input"
                   type="text"
                   required
                   autoFocus
