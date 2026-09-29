@@ -109,40 +109,42 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
     });
 
     test('Enter ở ô tìm nhảy ô số lượng, Enter tiếp mới ghi dòng (giống bán hàng)', async ({ page }) => {
-        // Yêu cầu: xuất vật tư không được mặc định 1. Enter lần 1 chỉ chọn hàng rồi
-        // nhảy focus sang #quick-quantity-input; Enter lần 2 mới thêm dòng với SL đã gõ.
-        test.slow();
-        await page.setViewportSize({ width: 1600, height: 950 });
-        await loginAdmin(page);
-        await page.locator('button:has-text("Xuất CT")').click();
-        await page.waitForTimeout(900);
+        // Yêu cầu: Nhập hàng + xuất vật tư không được mặc định 1. Enter lần 1 chỉ chọn
+        // hàng rồi nhảy focus sang #quick-quantity-input; Enter lần 2 mới thêm dòng với SL đã gõ.
+        for (const flow of ['Xuất CT', 'Nhập hàng'] as const) {
+            test.slow();
+            await page.setViewportSize({ width: 1600, height: 950 });
+            await loginAdmin(page);
+            await page.locator(`button:has-text("${flow}")`).click();
+            await page.waitForTimeout(900);
 
-        const rows = page.locator('#project-table-container tbody tr');
-        expect(await rows.count()).toBe(0);
+            const table = flow === 'Xuất CT' ? '#project-table-container' : '#import-table-container';
+            const rows = page.locator(`${table} tbody tr`);
+            expect(await rows.count()).toBe(0);
 
-        const search = page.locator('#f1-search-input');
-        await search.fill('keo');
-        await expect(page.locator('#search-results-dropdown')).toBeVisible({ timeout: 10_000 });
-        // Gợi ý phím phải nói đúng việc sẽ làm (không còn "[Enter] Mở F3" ở luồng này)
-        await expect(page.locator('#search-results-dropdown')).toContainText('[Enter] Nhập SL');
-        await search.press('Enter');
+            const search = page.locator('#f1-search-input');
+            await search.fill('keo');
+            await expect(page.locator('#search-results-dropdown')).toBeVisible({ timeout: 10_000 });
+            // Gợi ý phím phải nói đúng việc sẽ làm (không còn "[Enter] Mở F3" ở 2 luồng kho)
+            await expect(page.locator('#search-results-dropdown')).toContainText('[Enter] Nhập SL');
+            await search.press('Enter');
 
-        // Chưa ghi dòng, con trỏ đã nhảy sang ô số lượng
-        const qtyBox = page.locator('#quick-quantity-input');
-        await expect(qtyBox).toBeFocused({ timeout: 5_000 });
-        expect(await rows.count()).toBe(0);
+            // Chưa ghi dòng, con trỏ đã nhảy sang ô số lượng
+            const qtyBox = page.locator('#quick-quantity-input');
+            await expect(qtyBox).toBeFocused({ timeout: 5_000 });
+            expect(await rows.count()).toBe(0);
 
-        // Gõ SL rồi Enter mới ghi dòng
-        await qtyBox.fill('2');
-        await qtyBox.press('Enter');
-        await expect(rows).toHaveCount(1, { timeout: 10_000 });
-        const detail = (await rows.first().innerText()).replace(/\s+/g, ' ');
-        expect(detail).toContain('2');
-        // tiền vốn = 2 x 15.000 = 30.000; tồn còn lại = tồn gốc - 2
-        expect(detail).toContain('30.000 đ');
-        expectStockAfter(detail, 2);
-        // Enter xong quay lại ô tìm như luồng bán hàng
-        await expect(page.locator('#f1-search-input')).toBeFocused();
+            // Gõ SL rồi Enter mới ghi dòng
+            await qtyBox.fill('2');
+            await qtyBox.press('Enter');
+            await expect(rows).toHaveCount(1, { timeout: 10_000 });
+            const detail = (await rows.first().innerText()).replace(/\s+/g, ' ');
+            // thành tiền = 2 x 15.000 = 30.000; tồn còn lại = tồn gốc - 2 (Xuất CT)
+            expect(detail).toContain('30.000 đ');
+            if (flow === 'Xuất CT') expectStockAfter(detail, 2);
+            // Enter xong quay lại ô tìm như luồng bán hàng
+            await expect(page.locator('#f1-search-input')).toBeFocused();
+        }
     });
 
     test('ô số lượng Xuất CT và Nhập hàng dùng chung style ô sửa của giỏ bán', async ({ page }) => {

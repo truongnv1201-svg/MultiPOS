@@ -56,9 +56,9 @@ interface ProductSearchBarProps {
   onPickProduct?: (product: Product, quantity: number) => void;
   /**
    * Khi bật, Enter ở ô tìm KHÔNG thêm ngay mà nhảy focus sang ô số lượng
-   * (Enter lần 2 mới commit) — giống hệt luồng bán hàng. Dùng cho xuất vật tư
-   * công trình vì số lượng xuất phải chính xác, không mặc định 1.
-   * Mặc định false: luồng nhập kho giữ nguyên thêm thẳng (máy quét nhanh).
+   * (Enter lần 2 mới commit) — giống hệt luồng bán hàng. Dùng cho Nhập hàng và
+   * xuất vật tư công trình vì số lượng phải chính xác, không mặc định 1.
+   * Mặc định false: giữ hành vi thêm thẳng (bấm chuột / quét mã vẫn thêm ngay).
    */
   confirmQtyOnEnter?: boolean;
   /**
@@ -204,8 +204,8 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       if (!selectedProduct) return;
       if (onPickProduct) {
         if (confirmQtyOnEnter) {
-          // Xuất vật tư: Enter lần 1 chỉ chốt tên hàng rồi nhảy ô SL (như bán hàng),
-          // Enter lần 2 ở ô SL mới ghi dòng — tránh xuất nhầm số lượng.
+          // Nhập kho / xuất vật tư: Enter lần 1 chỉ chốt tên hàng rồi nhảy ô SL
+          // (như bán hàng), Enter lần 2 ở ô SL mới ghi dòng — tránh nhập/xuất nhầm số lượng.
           pendingPickRef.current = selectedProduct;
           setIsDropdownOpen(false);
           setSearchQuery(selectedProduct.name);

@@ -654,9 +654,10 @@ export function POSScreen() {
               onQuantityChange={setQuickQuantity}
               quantityInputRef={quickQuantityRef}
               onPickProduct={isImportFlow ? addImportLine : isProjectFlow ? addProjectLine : undefined}
-              // Xuất vật tư công trình: Enter lần 1 nhảy ô số lượng, Enter lần 2 mới ghi dòng
-              // (giống bán hàng) vì số lượng xuất phải chính xác.
-              confirmQtyOnEnter={isProjectFlow}
+              // Nhập hàng + Xuất CT: Enter lần 1 nhảy ô số lượng, Enter lần 2 mới ghi dòng
+              // (giống bán hàng). Số lượng nhập/xuất phải chính xác, không mặc định 1.
+              // Quét mã vạch và bấm chuột vẫn thêm thẳng nên không chậm máy quét.
+              confirmQtyOnEnter={isStockFlow}
               quantitySlot={(
                 <div className="w-20 sm:w-24 shrink-0">
                   <input
