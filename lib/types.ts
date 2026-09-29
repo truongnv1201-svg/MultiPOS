@@ -167,6 +167,12 @@ export interface ProjectMaterial {
   unit: string;
   unit_cost: number;
   total_cost: number;
+  /** 0064: dòng này là HAO HỤT (điều chỉnh tồn) chứ không phải xuất vật tư bình thường.
+   *  Vẫn cộng vào material_cost_total để lợi nhuận công trình giảm đúng, nhưng tồn kho
+   *  KHÔNG bị trừ thêm (đã trừ trong adjust_stock). */
+  is_adjust?: boolean;
+  note?: string;
+  created_at?: string;
 }
 
 export interface ProjectWorker {
@@ -240,11 +246,59 @@ export interface StockMovement {
   reference_code: string;
   product_id: string;
   product_name: string;
-  movement_type: 'import' | 'export_sales' | 'export_project' | 'return';
+  // 0064: server đã có cột movement_type thật (trước đây client đoán bằng regex trên note).
+  // adjust_loss = điều chỉnh giảm (hao hụt), adjust_gain = điều chỉnh tăng (đếm thừa).
+  movement_type: 'import' | 'export_sales' | 'export_project' | 'return' | 'adjust_loss' | 'adjust_gain';
   quantity: number;
   previous_stock: number;
   new_stock: number;
   note: string;
+  created_at: string;
+}
+
+/**
+ * 0064 — phiếu điều chỉnh tồn (hao hụt / đếm thừa).
+ *
+ * Vì sao cần: vật tư tồn lâu ngày hao mòn, nhưng trước 0064 KHÔNG có đường nào sửa
+ * products.stock_quantity có kiểm soát (chỉ sửa được bằng cách import Excel ghi đè,
+ * không ghi thẻ kho, không audit, không đụng avg_cost).
+ */
+export type StockAdjustReason =
+  | 'damage'      // Hư/hỏng (vỡ, bể, dập)
+  | 'expiry'      // Hết hạn dùng
+  | 'lost'        // Thất lạc, mất
+  | 'miscount'    // Đếm sai
+  | 'cut_waste'   // Hao hụt khi cắt/ghép
+  | 'other';
+
+export const STOCK_ADJUST_REASON_LABEL: Record<StockAdjustReason, string> = {
+  damage: 'Hư / hỏng',
+  expiry: 'Hết hạn',
+  lost: 'Thất lạc',
+  miscount: 'Đếm sai',
+  cut_waste: 'Hao hụt khi cắt / ghép',
+  other: 'Khác',
+};
+
+export interface StockAdjustment {
+  id: string;
+  code: string;
+  product_id: string;
+  product_name: string;
+  sku: string;
+  previous_stock: number;
+  counted_stock: number | null;
+  delta: number;
+  reason: StockAdjustReason;
+  note: string;
+  /** null = hao hụt tồn kho chung (chưa/biết thuộc công trình nào) */
+  project_id: string | null;
+  project_code: string;
+  project_name: string;
+  project_assigned_at: string | null;
+  unit_cost: number;
+  loss_amount: number;
+  adjusted_by_name: string;
   created_at: string;
 }
 

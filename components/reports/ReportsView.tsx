@@ -185,6 +185,8 @@ export function ReportsView() {
   const customers = useDeferredValue(_s.customers);
   const suppliers = useDeferredValue(_s.suppliers);
   const cashbook = useDeferredValue(_s.cashbook);
+  // 0064: sổ điều chỉnh tồn (hao hụt / đếm thừa) — chỉ đọc, không vào sổ quỹ.
+  const stockAdjustments = useDeferredValue(_s.stockAdjustments);
   const isLiveStale =
     orders !== _s.orders ||
     products !== _s.products ||
@@ -454,6 +456,33 @@ export function ReportsView() {
     return { receipt, expense };
   }, [cashbook]);
 
+  // 0064 — Hao hụt & điều chỉnh tồn trong KỲ ĐANG LỌC.
+  //
+  // CỐ TÌNH KHÔNG cộng vào `expense` của donut Thu/Chi: tiền mua vật tư đã ghi "Chi"
+  // lúc nhập kho (category 'material'), hao hụt là ghi giảm GIÁ TRỊ TỒN chứ không phải
+  // dòng tiền mới. Nhét vào Chi sẽ tính chi phí 2 lần và làm sai dòng tiền thật.
+  // Hao hụt có gắn công trình thì đã nằm trong P&L công trình; dòng này là con số vận hành
+  // để anh theo dõi vật tư hao mòn, tách riêng khỏi dòng tiền.
+  const lossSummary = useMemo(() => {
+    let lossValue = 0;
+    let gainValue = 0;
+    let lossCount = 0;
+    let gainCount = 0;
+    let unassigned = 0;
+    for (const a of stockAdjustments) {
+      if (!matchesDateFilter(a.created_at, dateFilter)) continue;
+      if (a.delta < 0) {
+        lossValue += a.loss_amount || 0;
+        lossCount += 1;
+        if (!a.project_id) unassigned += 1;
+      } else if (a.delta > 0) {
+        gainValue += Math.round(a.delta * a.unit_cost);
+        gainCount += 1;
+      }
+    }
+    return { lossValue, gainValue, lossCount, gainCount, unassigned };
+  }, [stockAdjustments, dateFilter]);
+
   // ---- Xuất Excel / In theo từng tab ----
   const summaryRows = [
     { 'Chỉ tiêu': `Doanh thu đơn hàng (${rangeLabel(dateFilter)})`, 'Giá trị': totalRevenue },
@@ -461,6 +490,9 @@ export function ReportsView() {
     { 'Chỉ tiêu': 'Công nợ phải thu (KH)', 'Giá trị': totalDebtReceivable },
     { 'Chỉ tiêu': 'Công nợ phải trả (NCC)', 'Giá trị': totalSupplierDebt },
     { 'Chỉ tiêu': 'Giá trị tồn kho', 'Giá trị': Math.round(totalStockValue) },
+    // 0064: ghi rõ là "giảm giá trị tồn", KHÔNG phải dòng chi tiền — để khi đọc file
+    // xuất ra không ai cộng nhầm vào tổng chi phí.
+    { 'Chỉ tiêu': `Hao hụt tồn kho (${rangeLabel(dateFilter)}) - không tính vào dòng tiền`, 'Giá trị': Math.round(lossSummary.lossValue) },
     { 'Chỉ tiêu': 'Lãi gộp ước tính', 'Giá trị': Math.round(grossProfit) },
   ];
   const marginExcelRows = (list: Product[]) =>
@@ -810,6 +842,29 @@ export function ReportsView() {
                   <span>Dòng Tiền Sổ Quỹ Tháng Này</span>
                 </h3>
                 <CashflowDonut receipt={cashflowMonth.receipt} expense={cashflowMonth.expense} />
+                {/* 0064: hao hụt tồn kho TÁCH RIÊNG khỏi Thu/Chi.
+                    Tiền mua đã ghi "Chi" lúc nhập kho, nên đưa hao hụt vào donut Chi sẽ
+                    tính chi phí 2 lần. Đây là con số vận hành, không phải dòng tiền. */}
+                <div className="mt-2 pt-2 border-t border-slate-100 text-[11px] space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-600 font-medium">Hao hụt &amp; điều chỉnh tồn ({rangeLabel(dateFilter)})</span>
+                    <span className="font-mono font-bold text-rose-700">{formatVND(lossSummary.lossValue)}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-slate-500">
+                    <span>
+                      {lossSummary.lossCount} phiếu hao hụt
+                      {lossSummary.gainCount > 0 ? ` · ${lossSummary.gainCount} phiếu đếm thừa` : ''}
+                      {lossSummary.unassigned > 0 ? ` · ${lossSummary.unassigned} chưa gán công trình` : ''}
+                    </span>
+                    {lossSummary.gainValue > 0 && (
+                      <span className="font-mono text-emerald-700">+{formatVND(lossSummary.gainValue)} thừa</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    Không tính vào dòng tiền: tiền mua vật tư đã ghi chi lúc nhập kho. Hao hụt gắn công
+                    trình đã nằm trong chi phí vật tư của công trình đó.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

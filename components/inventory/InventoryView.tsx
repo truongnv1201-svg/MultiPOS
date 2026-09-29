@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Filter,
+  Scale,
   X,
 } from 'lucide-react';
 import { PaginationBar } from '@/components/common/PaginationBar';
@@ -25,11 +26,19 @@ import { exportToExcel, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { notify } from '@/components/common/Toast';
 import { sortRows } from '@/lib/sort';
-import type { StockMovement } from '@/lib/types';
+import { StockAdjustModal } from '@/components/inventory/StockAdjustModal';
+import { StockAdjustTable } from '@/components/inventory/StockAdjustTable';
+import { STOCK_ADJUST_REASON_LABEL, type StockMovement } from '@/lib/types';
 
 export function InventoryView() {
-  const { products, stockMovements, setCurrentScreen, setPosFlow } = useStore();
-  const [activeTab, setActiveTab] = useState<'stocks' | 'movements'>('stocks');
+  const { products, stockMovements, stockAdjustments, setCurrentScreen, setPosFlow, assignAdjustProject, refreshServerStockAdjustments, profile } = useStore();
+  const [activeTab, setActiveTab] = useState<'stocks' | 'movements' | 'adjustments'>('stocks');
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const canAdjust = !profile || profile.role === 'admin' || profile.role === 'manager';
+
+  // 0064: khoản hao hụt ghi "chưa gán công trình" — nhắc để không bỏ sót phần chi phí
+  // của công trình (gán sau được, không trừ tồn thêm).
+  const unassignedLosses = stockAdjustments.filter((a) => a.delta < 0 && !a.project_id);
 
   // Stocks filter & pagination state
   const [stockSearch, setStockSearch] = useState('');
@@ -61,6 +70,9 @@ export function InventoryView() {
     export_sales: 'Xuất bán POS',
     export_project: 'Vật tư công trình',
     return: 'Nhập lại / Trả hàng',
+    // 0064: điều chỉnh tồn có thật trên server (trước đây phải đoán bằng regex trên note)
+    adjust_loss: 'Hao hụt / Giảm tồn',
+    adjust_gain: 'Đếm thừa / Tăng tồn',
   };
 
   const handleExportStocks = () => {
@@ -286,7 +298,39 @@ export function InventoryView() {
           >
             Nhật ký Thẻ kho ({movements.length})
           </button>
+          <button
+            id="btn-inventory-tab-adjustments"
+            onClick={() => {
+              setActiveTab('adjustments');
+              void refreshServerStockAdjustments(true);
+            }}
+            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all inline-flex items-center gap-1.5 ${
+              activeTab === 'adjustments' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="Phiếu điều chỉnh tồn: hao hụt, đếm thừa, ai điều chỉnh lúc nào"
+          >
+            Điều chỉnh tồn
+            {unassignedLosses.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
+                {unassignedLosses.length} chưa gán CT
+              </span>
+            )}
+          </button>
         </div>
+        <button
+          id="btn-stock-adjust-open"
+          onClick={() => setAdjustOpen(true)}
+          disabled={!canAdjust}
+          title={
+            canAdjust
+              ? 'Điều chỉnh tồn kho khi hao hụt, hết hạn, thất lạc hoặc đếm sai (có ghi thẻ kho + lý do)'
+              : 'Chỉ Admin/Quản lý được điều chỉnh tồn kho'
+          }
+          className="px-3 h-8 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-600"
+        >
+          <Scale className="w-4 h-4" />
+          <span>Điều chỉnh tồn</span>
+        </button>
         <button
           onClick={() => {
             setPosFlow('import');
@@ -493,6 +537,7 @@ export function InventoryView() {
 
         {/* Tab 2: Create Purchase Import Order */}
         {/* Tab 3: Movements Audit Log (Thẻ kho) */}
+        {activeTab === 'adjustments' && <StockAdjustTable />}
         {activeTab === 'movements' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full">
             {/* Filter Bar */}
@@ -534,6 +579,8 @@ export function InventoryView() {
                 <option value="export_sales">Xuất bán POS</option>
                 <option value="export_project">Vật tư công trình</option>
                 <option value="return">Nhập lại / Trả hàng</option>
+                <option value="adjust_loss">Hao hụt / Điều chỉnh giảm</option>
+                <option value="adjust_gain">Đếm thừa / Điều chỉnh tăng</option>
               </select>
             </div>
 
@@ -653,6 +700,7 @@ export function InventoryView() {
           </div>
         )}
       </div>
+      <StockAdjustModal open={adjustOpen} onClose={() => setAdjustOpen(false)} />
     </div>
   );
 }

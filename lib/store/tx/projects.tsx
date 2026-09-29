@@ -1,12 +1,22 @@
 // P3-tx/projects: công trình/dự án 2 chiều + xuất vật tư/nhân công (tách verbatim).
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useAuth } from '../auth';
 import { useCatalog } from '../catalog';
 import { useNetwork } from '../network';
-import type { Project, ProjectMaterial, ProjectWorker, CashbookEntry, Shift, StockMovement } from '../../types';
-import { db, generateOrderCode } from '../../db';
+import type {
+  Project,
+  ProjectMaterial,
+  ProjectWorker,
+  CashbookEntry,
+  Shift,
+  StockAdjustment,
+  StockAdjustReason,
+  StockMovement,
+} from '../../types';
+import { STOCK_ADJUST_REASON_LABEL } from '../../types';
+import { db, generateOrderCode, generateAdjustCode } from '../../db';
 import { cacheKeys, mirrorUpsert } from './mirror';
 import { asUuidOrNull } from './constants';
 import { stableNext } from '../stable';
@@ -44,6 +54,15 @@ export interface TxProjects {
   updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
   exportProjectMaterial: (projectId: string, productId: string, quantity: number) => Promise<Project | null>;
   exportProjectMaterialBatch: (projectId: string, lines: { productId: string; quantity: number }[]) => Promise<Project | null>;
+  // ---- 0064: điều chỉnh tồn / hao hụt ----
+  stockAdjustments: StockAdjustment[];
+  refreshServerStockAdjustments: (force?: boolean) => Promise<boolean>;
+  adjustStock: (
+    lines: StockAdjustLine[],
+    reason: StockAdjustReason,
+    options?: { note?: string; projectId?: string | null }
+  ) => Promise<StockAdjustResult | null>;
+  assignAdjustProject: (adjustmentId: string, projectId: string) => Promise<boolean>;
   addProjectWorker: (
     projectId: string,
     worker: { worker_name: string; role: string; days_worked: number; daily_wage: number; allowance: number; employee_id?: string; employee_code?: string }
@@ -56,11 +75,32 @@ export interface TxProjects {
   collectProjectDeposit: (projectId: string, amount: number, paymentMethod: 'cash' | 'transfer') => Promise<Project | null>;
 }
 
+/** Một dòng phiếu điều chỉnh: chấn lệch (countedStock) HOẶC nhập thẳng chênh lệch (delta). */
+export interface StockAdjustLine {
+  productId: string;
+  countedStock?: number;
+  delta?: number;
+}
+
+export interface StockAdjustResult {
+  code: string;
+  adjusted: number;
+  lossAmount: number;
+}
+
 export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setStockMovements }: TxProjectsDeps): TxProjects {
-  const { supa, user, setLoginOpen } = useAuth();
+  const { supa, user, profile, setLoginOpen } = useAuth();
   const { products, setProducts, customerMap } = useCatalog();
   const { isOnline } = useNetwork();
   const [projects, setProjects] = useState<Project[]>([]);
+  // 0064: sổ phiếu điều chỉnh tồn (hao hụt / đếm thừa) — nguồn cho cảnh báo
+  // "còn N mục chưa gán công trình" và cho báo cáo hao hụt.
+  const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([]);
+  // Watermark kéo delta: phiếu điều chỉnh ít (vài chục/năm) nhưng vẫn không kéo lại
+  // toàn bộ mỗi lần mở màn. Khoảng chồng 2s chống bỏ sót dòng trùng giây.
+  const adjustWatermarkRef = useRef<string | null>(null);
+  const STOCK_ADJUSTMENT_OVERLAP_MS = 2000;
+  const STOCK_ADJUSTMENT_LIMIT = 500;
 
   // ---- Đồng bộ Dự án/Công trình 2 chiều (migration 0040) ----
   // Local-first: id `proj-...` = chưa đẩy; sau khi đẩy gắn server_id, giữ id local
@@ -187,6 +227,11 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
             unit: typeof r.unit === 'string' ? r.unit : '',
             unit_cost: Math.round(unitCost),
             total_cost: Math.round(qty * unitCost),
+            // 0064: dòng hao hụt (điều chỉnh tồn) — cần giữ cờ để sổ vật tư hiển thị
+            // đúng và để không ai hiểu nhầm là xuất vật tư bình thường.
+            is_adjust: r.is_adjust === true,
+            note: typeof r.note === 'string' && r.note ? r.note : undefined,
+            created_at: typeof r.created_at === 'string' ? r.created_at : undefined,
           };
         });
         const workers: ProjectWorker[] = (worksByProject.get(String(row.id)) || []).map((rw) => {
@@ -477,6 +522,306 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
     [projects, products, supa, user, currentShift, setLoginOpen, setProducts, setStockMovements]
   );
 
+  // ================================================================
+  // 0064 — ĐIỀU CHỈNH TỒN / HAO HỤT
+  //
+  // Vì sao có: vật tư tồn lâu ngày hao mòn (vỡ, hết hạn, thất lạc, đếm sai) nhưng trước
+  // đây KHÔNG có đường nào sửa tồn có kiểm soát. Hệ quả nặng: tồn hệ thống về 0 trong
+  // khi kho thực tế còn hàng -> POS chặn bán và server từ chối (Invariant #2).
+  //
+  // Nguyên tắc đã chốt với chủ app:
+  // 1) KHÔNG ghi sổ quỹ. Tiền mua đã ghi "Chi" lúc nhập kho; ghi thêm là tính 2 lần.
+  //    adjustStock cố tình KHÔNG đụng cashbook.
+  // 2) avg_cost KHÔNG đổi (giá vốn đã chốt lúc nhập, hao mòn không tạo giá vốn mới).
+  // 3) Công trình là TÙY CHỌN. Có chọn -> ghi thêm dòng hao hụt vào sổ vật tư công trình
+  //    (P&L giảm đúng, tồn KHÔNG trừ thêm); không chọn -> hao hụt tồn kho chung + cảnh báo.
+  // 4) Server là chân lý: gọi RPC adjust_stock TRƯỚC, thành công mới cập nhật local.
+  // ================================================================
+
+  const refreshServerStockAdjustments = useCallback(
+    async (force = false): Promise<boolean> => {
+      if (!supa || !user) return false;
+      try {
+        // Số phiếu điều chỉnh ít (vài chục/năm) nên kéo delta theo watermark, không cần cache.
+        let query = supa
+          .from('stock_adjustments')
+          .select('id, code, product_id, sku, previous_stock, counted_stock, delta, reason, note, project_id, unit_cost, loss_amount, adjusted_by_name, project_assigned_at, created_at')
+          .order('created_at', { ascending: false })
+          .limit(STOCK_ADJUSTMENT_LIMIT);
+        if (adjustWatermarkRef.current && !force) {
+          query = query.gte('created_at', new Date(new Date(adjustWatermarkRef.current).getTime() - STOCK_ADJUSTMENT_OVERLAP_MS).toISOString());
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        const rows = (data || []) as Record<string, unknown>[];
+        const productById = new Map(products.map((p) => [p.id, p]));
+        const projectById = new Map(projects.map((p) => [p.id, p]));
+        const mapped: StockAdjustment[] = rows.map((row) => {
+          const pid = String(row.project_id || '');
+          const proj = projectById.get(pid);
+          return {
+            id: String(row.id),
+            code: String(row.code || ''),
+            product_id: String(row.product_id || ''),
+            product_name: productById.get(String(row.product_id || ''))?.name || String(row.sku || ''),
+            sku: String(row.sku || ''),
+            previous_stock: Number(row.previous_stock || 0),
+            counted_stock: row.counted_stock == null ? null : Number(row.counted_stock),
+            delta: Number(row.delta || 0),
+            reason: (String(row.reason || 'other') as StockAdjustReason) in STOCK_ADJUST_REASON_LABEL
+              ? (String(row.reason) as StockAdjustReason)
+              : 'other',
+            note: String(row.note || ''),
+            project_id: pid || null,
+            project_code: proj?.code || '',
+            project_name: proj?.name || '',
+            project_assigned_at: row.project_assigned_at ? String(row.project_assigned_at) : null,
+            unit_cost: Number(row.unit_cost || 0),
+            loss_amount: Number(row.loss_amount || 0),
+            adjusted_by_name: String(row.adjusted_by_name || ''),
+            created_at: String(row.created_at || ''),
+          };
+        });
+        if (mapped.length > 0) {
+          adjustWatermarkRef.current = mapped[0].created_at;
+          setStockAdjustments((prev) => {
+            const byId = new Map(prev.map((a) => [a.id, a]));
+            for (const a of mapped) byId.set(a.id, a);
+            return [...byId.values()].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+          });
+        }
+        return true;
+      } catch (err) {
+        console.warn('Stock adjustments refresh failed:', err);
+        return false;
+      }
+    },
+    [supa, user, products, projects]
+  );
+
+  const adjustStock = useCallback(
+    async (
+      lines: StockAdjustLine[],
+      reason: StockAdjustReason,
+      options?: { note?: string; projectId?: string | null }
+    ): Promise<StockAdjustResult | null> => {
+      if (supa && !user) {
+        notify('Vui lòng đăng nhập trước khi điều chỉnh tồn kho!', 'error');
+        setLoginOpen(true);
+        return null;
+      }
+      // Server cũng chặn is_manager() (0064) — đây chỉ để chặn sớm và báo rõ.
+      if (supa && profile && profile.role !== 'admin' && profile.role !== 'manager') {
+        notify('Chỉ Admin/Quản lý được điều chỉnh tồn kho!', 'error');
+        return null;
+      }
+      if (supa && !isOnline) {
+        notify('Đang offline — cần mạng để ghi phiếu điều chỉnh lên server. Thử lại khi có mạng.', 'error');
+        return null;
+      }
+      if (!supa) {
+        notify('Điều chỉnh tồn cần kết nối máy chủ (chưa cấu hình Supabase).', 'error');
+        return null;
+      }
+
+      // Validate toàn phiếu trước: 1 dòng sai -> hủy cả phiếu (server cũng vậy).
+      const errors: string[] = [];
+      const items: { product: (typeof products)[number]; countedStock?: number; delta?: number }[] = [];
+      for (const l of lines) {
+        const product = products.find((x) => x.id === l.productId);
+        if (!product) {
+          errors.push('Mặt hàng không tồn tại trong kho.');
+          continue;
+        }
+        if (product.product_type === 'service' || product.product_type === 'combo') {
+          errors.push(`${product.sku}: dịch vụ/combo không có tồn để điều chỉnh.`);
+          continue;
+        }
+        if (l.countedStock !== undefined) {
+          if (!(l.countedStock >= 0)) {
+            errors.push(`${product.sku}: tồn thực tế phải >= 0.`);
+            continue;
+          }
+          if (l.countedStock === product.stock_quantity) continue; // không lệch -> bỏ dòng
+          items.push({ product, countedStock: l.countedStock });
+          continue;
+        }
+        if (l.delta === undefined || !Number.isFinite(l.delta) || l.delta === 0) continue;
+        if (product.stock_quantity + l.delta < 0) {
+          errors.push(`${product.sku}: điều chỉnh sẽ làm tồn âm (tồn ${product.stock_quantity} ${product.unit}).`);
+          continue;
+        }
+        items.push({ product, delta: l.delta });
+      }
+      if (items.length === 0) {
+        notify(
+          errors.length > 0
+            ? `Phiếu điều chỉnh chưa hợp lệ:\n${errors.join('\n')}`
+            : 'Không có dòng nào chênh lệch — tồn hệ thống khớp tồn thực tế.',
+          errors.length > 0 ? 'error' : 'info'
+        );
+        return null;
+      }
+      if (errors.length > 0) {
+        notify(`Phiếu có dòng lỗi, chưa điều chỉnh:\n${errors.join('\n')}`, 'error');
+        return null;
+      }
+
+      const project = options?.projectId ? projects.find((p) => p.id === options.projectId) : null;
+      const code = generateAdjustCode();
+      const rpcProjectId = project ? project.server_id || project.id : null;
+
+      const { data, error } = await supa.rpc('adjust_stock', {
+        p_code: code,
+        p_items: items.map((i) => ({
+          sku: i.product.sku,
+          ...(i.countedStock !== undefined ? { countedStock: i.countedStock } : { delta: i.delta }),
+          projectId: rpcProjectId,
+          reason,
+          note: options?.note || '',
+        })),
+      });
+      if (error || !data) {
+        const msg = vietnamizeError(error) || 'lỗi server';
+        notify(
+          msg.includes('điều chỉnh tồn') || msg.includes('function')
+            ? `Không điều chỉnh được: ${msg}`
+            : `Không điều chỉnh được tồn: ${msg}`,
+          'error'
+        );
+        // Kéo lại tồn từ local DB để UI không lệch với server
+        void db.products.toArray().then((rows) => setProducts(rows));
+        return null;
+      }
+
+      // ---- Server đã ghi thật. Cập nhật local để UI phản hồi tức thì. ----
+      const now = new Date().toISOString();
+      const reasonLabel = STOCK_ADJUST_REASON_LABEL[reason];
+      const movements: StockMovement[] = [];
+      const adjustments: StockAdjustment[] = [];
+      const wasteLinesBySku = new Map<string, number>();
+      const stockAfter = new Map(products.map((p) => [p.id, p.stock_quantity]));
+      for (const i of items) {
+        const prevStock = stockAfter.get(i.product.id) || 0;
+        const delta = i.countedStock !== undefined ? i.countedStock - prevStock : (i.delta as number);
+        const nextStock = Math.round((prevStock + delta) * 1000) / 1000;
+        stockAfter.set(i.product.id, nextStock);
+        movements.push({
+          id: `sm-adj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          reference_code: code,
+          product_id: i.product.id,
+          product_name: i.product.name,
+          movement_type: delta < 0 ? 'adjust_loss' : 'adjust_gain',
+          quantity: delta,
+          previous_stock: prevStock,
+          new_stock: nextStock,
+          note: `Điều chỉnh tồn: ${reasonLabel}${rpcProjectId ? ' — hao hụt công trình' : ' — kho'}`,
+          created_at: now,
+        });
+        adjustments.push({
+          id: `adj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          code,
+          product_id: i.product.id,
+          product_name: i.product.name,
+          sku: i.product.sku,
+          previous_stock: prevStock,
+          counted_stock: i.countedStock ?? null,
+          delta,
+          reason,
+          note: options?.note || '',
+          project_id: project ? project.id : null,
+          project_code: project?.code || '',
+          project_name: project?.name || '',
+          project_assigned_at: rpcProjectId ? now : null,
+          unit_cost: i.product.avg_cost || 0,
+          loss_amount: delta < 0 ? Math.round(-delta * (i.product.avg_cost || 0)) : 0,
+          adjusted_by_name: profile?.full_name || user?.email || 'Quản lý',
+          created_at: now,
+        });
+        if (delta < 0) wasteLinesBySku.set(i.product.id, -delta);
+      }
+
+      setProducts((prev) =>
+        prev.map((x) => {
+          const ns = stockAfter.get(x.id);
+          if (ns === undefined || ns === x.stock_quantity) return x;
+          db.products.update(x.id, { stock_quantity: ns }).catch(console.warn);
+          return { ...x, stock_quantity: ns };
+        })
+      );
+      setStockMovements((prev) => [...movements.reverse(), ...prev]);
+      setStockAdjustments((prev) => [...adjustments, ...prev]);
+
+      // Dòng hao hụt trong sổ vật tư công trình: tồn KHÔNG trừ thêm (đã trừ ở trên),
+      // nhưng recalcProjectTotals cộng hết dòng -> lợi nhuận công trình giảm đúng.
+      if (project && wasteLinesBySku.size > 0) {
+        const wasteLines: ProjectMaterial[] = [];
+        for (const [pid, qty] of wasteLinesBySku) {
+          const p = products.find((x) => x.id === pid);
+          if (!p) continue;
+          const unitCost = p.avg_cost || 0;
+          wasteLines.push({
+            product_id: p.id,
+            sku: p.sku,
+            name: p.name,
+            quantity: qty,
+            unit: p.unit,
+            unit_cost: unitCost,
+            total_cost: Math.round(qty * unitCost),
+            is_adjust: true,
+            note: `Hao hụt: ${reasonLabel}`,
+            created_at: now,
+          });
+        }
+        if (wasteLines.length > 0) {
+          const updated = recalcProjectTotals({ ...project, materials: [...project.materials, ...wasteLines] });
+          setProjects((prev) => prev.map((x) => (x.id === project.id ? updated : x)));
+          await db.projects.update(project.id, {
+            materials: updated.materials,
+            material_cost_total: updated.material_cost_total,
+            total_cost: updated.total_cost,
+            actual_profit: updated.actual_profit,
+          });
+        }
+      }
+
+      return {
+        code,
+        adjusted: items.length,
+        lossAmount: adjustments.reduce((s, a) => s + a.loss_amount, 0),
+      };
+    },
+    [supa, user, profile, isOnline, products, projects, setProducts, setStockMovements, setLoginOpen]
+  );
+
+  // Gán bổ sung công trình cho một khoản hao hụt đã ghi "chưa gán" — KHÔNG đụng tồn kho.
+  const assignAdjustProject = useCallback(
+    async (adjustmentId: string, projectId: string): Promise<boolean> => {
+      if (!supa || !user) {
+        notify('Cần đăng nhập để gán công trình cho khoản hao hụt!', 'error');
+        return false;
+      }
+      const project = projects.find((p) => p.id === projectId);
+      if (!project) {
+        notify('Công trình không tồn tại.', 'error');
+        return false;
+      }
+      const { data, error } = await supa.rpc('assign_adjust_project', {
+        p_adjustment_id: adjustmentId,
+        p_project_id: project.server_id || project.id,
+      });
+      if (error || !data) {
+        notify(`Không gán được công trình: ${vietnamizeError(error) || 'lỗi server'}`, 'error');
+        return false;
+      }
+      // Kéo lại công trình để sổ vật tư phản ánh dòng hao hụt vừa gán.
+      await refreshServerProjects();
+      void refreshServerStockAdjustments(true);
+      return true;
+    },
+    [supa, user, projects, refreshServerProjects, refreshServerStockAdjustments]
+  );
+
   // Phase 3: đưa chi phí nhân công vào công trình (thợ lấy từ hồ sơ nhân sự, link employee_id)
   const addProjectWorker = useCallback(
     async (
@@ -710,6 +1055,10 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
     updateProject,
     exportProjectMaterial,
     exportProjectMaterialBatch,
+    stockAdjustments,
+    refreshServerStockAdjustments,
+    adjustStock,
+    assignAdjustProject,
     addProjectWorker,
     removeProjectLine,
     updateProjectFinance,

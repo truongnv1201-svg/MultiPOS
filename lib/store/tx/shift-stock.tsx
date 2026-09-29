@@ -81,22 +81,36 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       // tên do view tra từ catalog nên luôn khớp danh mục hiện tại.
       let query = supa
         .from('stock_movements')
-        .select('id, reference_code, product_id, quantity, previous_stock, new_stock, note, created_at')
+        // 0064: lấy cả movement_type thật. Trước đó cột này KHÔNG tồn tại nên phải đoán
+        // loại thẻ kho bằng regex trên `note` — đoán sai là hỏng lịch sử kho.
+        .select('id, reference_code, product_id, quantity, previous_stock, new_stock, note, created_at, movement_type')
         .order('created_at', { ascending: false })
         .limit(STOCK_MOVEMENT_LIMIT);
       if (from) query = query.gte('created_at', from);
       const { data, error } = await query;
       if (error) throw error;
       const rows = (data || []) as any[];
+      const knownTypes = new Set<StockMovement['movement_type']>([
+        'import',
+        'export_sales',
+        'export_project',
+        'return',
+        'adjust_loss',
+        'adjust_gain',
+      ]);
       const mapped: StockMovement[] = rows.map((row) => {
         const note = row.note || '';
-        const movementType: StockMovement['movement_type'] = /nhập|nhap|trả|tra|restock/i.test(note)
-          ? 'return'
-          : /công trình|project/i.test(note)
-            ? 'export_project'
-            : /bán|checkout|sales/i.test(note)
-              ? 'export_sales'
-              : 'import';
+        // Cột có thật thì tin cột; dòng cũ (NULL) mới rơi xuống đoán bằng note.
+        const byColumn = knownTypes.has(row.movement_type) ? (row.movement_type as StockMovement['movement_type']) : null;
+        const movementType: StockMovement['movement_type'] =
+          byColumn ||
+          (/nhập|nhap|trả|tra|restock/i.test(note)
+            ? 'return'
+            : /công trình|project/i.test(note)
+              ? 'export_project'
+              : /bán|checkout|sales|điều chỉnh/i.test(note)
+                ? 'export_sales'
+                : 'import');
         return {
           id: row.id,
           reference_code: row.reference_code,

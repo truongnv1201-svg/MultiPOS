@@ -15,6 +15,8 @@ import {
   PaymentItem,
   DimensionDetail,
   StockMovement,
+  StockAdjustment,
+  StockAdjustReason,
   MarkDayInput,
 } from './types';
 import {
@@ -216,6 +218,15 @@ interface StoreContextType {
     projectId: string,
     lines: { productId: string; quantity: number }[]
   ) => Promise<Project | null>;
+  // ---- 0064: điều chỉnh tồn / hao hụt ----
+  stockAdjustments: StockAdjustment[];
+  refreshServerStockAdjustments: (force?: boolean) => Promise<boolean>;
+  adjustStock: (
+    lines: { productId: string; countedStock?: number; delta?: number }[],
+    reason: StockAdjustReason,
+    options?: { note?: string; projectId?: string | null }
+  ) => Promise<{ code: string; adjusted: number; lossAmount: number } | null>;
+  assignAdjustProject: (adjustmentId: string, projectId: string) => Promise<boolean>;
   addProjectWorker: (
     projectId: string,
     worker: { worker_name: string; role: string; days_worked: number; daily_wage: number; allowance: number; employee_id?: string; employee_code?: string }
@@ -441,6 +452,10 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     updateProject,
     exportProjectMaterial,
     exportProjectMaterialBatch,
+    stockAdjustments,
+    refreshServerStockAdjustments,
+    adjustStock,
+    assignAdjustProject,
     addProjectWorker,
     removeProjectLine,
     updateProjectFinance,
@@ -850,6 +865,10 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     updateProject,
     exportProjectMaterial,
     exportProjectMaterialBatch,
+    stockAdjustments,
+    refreshServerStockAdjustments,
+    adjustStock,
+    assignAdjustProject,
     addProjectWorker,
     removeProjectLine,
     updateProjectFinance,

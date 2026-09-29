@@ -154,6 +154,13 @@ export function generateImportCode(): string {
   return `${generateOrderCode('NH')}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// 0064: mã phiếu điều chỉnh tồn (hao hụt / đếm thừa). Prefix "PQ" đã có sẵn trong
+// union nên không phải mở rộng bảng mã; phân biệt với NH- (nhập) và CT- (công trình)
+// nhờ hậu tố ngẫu nhiên + cột movement_type trên thẻ kho.
+export function generateAdjustCode(): string {
+  return `${generateOrderCode('PQ')}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
 export function generateMasterCode(prefix: string = 'SP', length: number = 6): string {
   masterSeq += 1;
   return `${prefix}${String(masterSeq).padStart(length, '0')}`;

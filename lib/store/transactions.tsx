@@ -10,7 +10,19 @@ import { useTxOrders } from './tx/orders';
 import { useTxDebts } from './tx/debts';
 import { useTxProjects } from './tx/projects';
 import { useTxShiftStock } from './tx/shift-stock';
-import type { Product, Order, OrderItem, Project, CashbookEntry, Shift, DimensionDetail, StockMovement, PosFlow } from '../types';
+import type {
+  Product,
+  Order,
+  OrderItem,
+  Project,
+  CashbookEntry,
+  Shift,
+  DimensionDetail,
+  StockMovement,
+  StockAdjustment,
+  StockAdjustReason,
+  PosFlow,
+} from '../types';
 import type { CartTab, ReturnResult } from './types';
 
 export interface TransactionsSlice {
@@ -77,6 +89,15 @@ export interface TransactionsSlice {
     projectId: string,
     lines: { productId: string; quantity: number }[]
   ) => Promise<Project | null>;
+  // ---- 0064: điều chỉnh tồn / hao hụt ----
+  stockAdjustments: StockAdjustment[];
+  refreshServerStockAdjustments: (force?: boolean) => Promise<boolean>;
+  adjustStock: (
+    lines: { productId: string; countedStock?: number; delta?: number }[],
+    reason: StockAdjustReason,
+    options?: { note?: string; projectId?: string | null }
+  ) => Promise<{ code: string; adjusted: number; lossAmount: number } | null>;
+  assignAdjustProject: (adjustmentId: string, projectId: string) => Promise<boolean>;
   addProjectWorker: (
     projectId: string,
     worker: { worker_name: string; role: string; days_worked: number; daily_wage: number; allowance: number; employee_id?: string; employee_code?: string }
@@ -207,6 +228,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     updateProject: projects.updateProject,
     exportProjectMaterial: projects.exportProjectMaterial,
     exportProjectMaterialBatch: projects.exportProjectMaterialBatch,
+    stockAdjustments: projects.stockAdjustments,
+    refreshServerStockAdjustments: projects.refreshServerStockAdjustments,
+    adjustStock: projects.adjustStock,
+    assignAdjustProject: projects.assignAdjustProject,
     addProjectWorker: projects.addProjectWorker,
     removeProjectLine: projects.removeProjectLine,
     updateProjectFinance: projects.updateProjectFinance,

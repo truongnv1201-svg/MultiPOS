@@ -27,8 +27,14 @@ describe('pull biến động kho: nhẹ payload + đúng tên sản phẩm', ()
     const cols = m[1].split(',').map((s) => s.trim());
     assert.deepEqual(
       [...cols].sort(),
-      ['created_at', 'id', 'new_stock', 'note', 'previous_stock', 'product_id', 'quantity', 'reference_code']
+      // 0064: movement_type là cột THẬT trên server (trước đây phải đoán bằng regex note).
+      ['created_at', 'id', 'movement_type', 'new_stock', 'note', 'previous_stock', 'product_id', 'quantity', 'reference_code']
     );
+  });
+
+  it('0064: ưu tiên movement_type thật, chỉ đoán bằng note cho dòng cũ (NULL)', () => {
+    assert.match(shiftStock, /const byColumn = knownTypes\.has\(row\.movement_type\)/);
+    assert.match(shiftStock, /byColumn \|\|/);
   });
 
   it('giữ nguyên trần số dòng và thứ tự DESC (UI vẫn thấy bản ghi mới nhất trước)', () => {
