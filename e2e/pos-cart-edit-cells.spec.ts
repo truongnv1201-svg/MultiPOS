@@ -100,36 +100,62 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         await expect(price).toHaveValue('15.000');
     });
 
-    test('Rê chuột lên ô sửa được thì nổi lên rõ ràng (nền + viền + đậm)', async ({ page }) => {
-        // Chỉ đổi độ đậm 600->700 là KHÔNG đủ ở 14px trong bảng dày — mắt gần như không
-        // thấy (đó là lý do hover trước đây bị coi như "không phản hồi"). Chuẩn chuyên nghiệp:
-        // hover -> nền xanh nhạt + viền xanh + chữ đậm; rời chuột -> sạch lại như lúc nghỉ.
+    test('Rê chuột: chữ chuyển xanh nhạt -> xanh đậm, đủ tương phản WCAG AA', async ({ page }) => {
+        // Nguyên tắc: KHÔNG bôi nền/viền (dễ mất dòng khi rê nhiều ô), phản hồi hover đến từ
+        // MÀU CHỮ + độ đậm. Chỉ đổi độ đậm 600->700 thì mắt không thấy ở 14px trong bảng dày.
+        // Mọi màu đều phải >= AA 4.5:1 trên nền trắng (số tiền phải đọc được): blue-500 chỉ
+        // 3.76:1 và amber-500 chỉ 2.13:1 nên KHÔNG dùng ở trạng thái nghỉ.
         await page.setViewportSize({ width: 1600, height: 950 });
         await login(page, true);
         await addFirstProduct(page, 'keo');
+
+        // canvas để oklch -> sRGB rồi tính WCAG (đọc thẳng getComputedStyle ra oklch chưa phải RGB)
+        await page.addScriptTag({
+            content: `window.__contrast = (cssColor) => {
+                const c = document.createElement('canvas'); c.width = c.height = 1;
+                const ctx = c.getContext('2d');
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1, 1);
+                ctx.fillStyle = cssColor; ctx.fillRect(0, 0, 1, 1);
+                const d = ctx.getImageData(0, 0, 1, 1).data;
+                const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+                const L = 0.2126 * lin(d[0]) + 0.7152 * lin(d[1]) + 0.0722 * lin(d[2]);
+                return Math.round((1.05 / (L + 0.05)) * 100) / 100;
+            };`,
+        });
+        const contrast = async (loc: Locator) =>
+            page.evaluate(
+                (c) => (window as unknown as { __contrast: (x: string) => number }).__contrast(c),
+                await colorOf(loc)
+            );
 
         const row = page.locator('#cart-table-container tbody tr').first();
         for (const label of [/^Số lượng /, /^Đơn giá /]) {
             const input = row.getByLabel(label);
             await expect(input).toBeVisible();
 
-            // nghỉ: trong suốt, không viền, 600
+            // nghỉ: xanh vừa phải, đọc được, không nền/viền
+            const restColor = await colorOf(input);
+            expect(restColor).toBe('oklch(0.546 0.245 262.881)'); // blue-600
+            expect(await contrast(input)).toBeGreaterThanOrEqual(4.5);
             expect(await bgOf(input)).toBe('rgba(0, 0, 0, 0)');
             expect(await shadowOf(input)).toBe('none');
             expect(await weightOf(input)).toBe('600');
 
-            // hover: có nền + có viền + đậm
+            // hover: chuyển sang xanh rất đậm + đậm hơn -> nhảy màu rõ ràng
             await input.hover();
             await page.waitForTimeout(250);
-            expect(await bgOf(input)).not.toBe('rgba(0, 0, 0, 0)');
-            expect(await shadowOf(input)).not.toBe('none');
+            const hoverColor = await colorOf(input);
+            expect(hoverColor).not.toBe(restColor);
+            expect(hoverColor).toBe('oklch(0.379 0.146 265.522)'); // blue-900
             expect(await weightOf(input)).toBe('700');
-
-            // rời chuột -> về đúng trạng thái nghỉ
-            await page.mouse.move(0, 0);
-            await page.waitForTimeout(250);
+            // vẫn KHÔNG bôi nền
             expect(await bgOf(input)).toBe('rgba(0, 0, 0, 0)');
             expect(await shadowOf(input)).toBe('none');
+
+            // rời chuột -> về đúng màu nghỉ
+            await page.mouse.move(0, 0);
+            await page.waitForTimeout(250);
+            expect(await colorOf(input)).toBe(restColor);
             expect(await weightOf(input)).toBe('600');
         }
     });
@@ -149,8 +175,8 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         const priceEdit = rowEdit.locator('input[aria-label^="Đơn giá"]');
 
         const colorBefore = await colorOf(rowNormal.locator('input[aria-label^="Đơn giá"]'));
-        // blue-700 (Tailwind v4) = oklch(0.488 0.243 264.376)
-        expect(colorBefore).toBe('oklch(0.488 0.243 264.376)');
+        // blue-600 (Tailwind v4) = oklch(0.546 0.245 262.881)
+        expect(colorBefore).toBe('oklch(0.546 0.245 262.881)');
         await priceEdit.click();
         await priceEdit.fill('18500');
         await priceEdit.press('Enter');
@@ -160,8 +186,8 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
 
         const colorAfter = await colorOf(priceEdit);
         expect(colorAfter).not.toBe(colorBefore);
-        // hổ phách: amber-700 (Tailwind v4) = oklch(0.555 0.163 48.998) — hue ~49 khác hẳn
-        // hue ~264 của chữ xanh -> mắt phân biệt được, không cần thêm khung/gạch chân
+        // hổ phách: amber-700 = oklch(0.555 0.163 48.998) — hue ~49 khác hẳn hue ~263 của
+        // chữ xanh, và vẫn >= AA 5:1 nên số tiền đọc được
         expect(colorAfter).toBe('oklch(0.555 0.163 48.998)');
 
         // Khi đang gõ, chữ phải đậm hơn (phản hồi focus) thay vì đổi hue

@@ -48,16 +48,14 @@ export function PriceDraftInput({
             }}
             className={editCellClass(
                 width,
-                // Ô đã sửa giá: chuyển CHỮ sang hổ phách + hover/focus cũng tông hổ phách,
-                // để dòng lệch giá vẫn nhận ra khi đang rê chuột (không thêm khung/gạch chân
-                // lúc nghỉ — xanh = sửa được, hổ phách = đã đổi giá).
-                // Dùng `!` cho các rule này: đều là utility hover/focus như EDIT_CELL_CLASS
-                // (cùng họ, thứ tự Tailwind không bảo đảm ai thắng) -> không `!` thì cảnh
-                // báo "đã sửa giá" có thể bị bôi xanh đè lên, mất hoàn toàn.
+                // Ô đã sửa giá: chuyển CHỮ sang hổ phách (không bôi nền, không viền — vẫn giữ
+                // đúng nguyên tắc "chỉ màu chữ"), hover thì đậm hơn như mọi ô sửa được.
+                // amber-700 (5.2:1) chứ không phải amber-500 (2.1:1) vì số tiền phải đọc được.
+                // Dùng `!` vì đều là utility màu chữ như EDIT_CELL_CLASS (thứ tự Tailwind
+                // không bảo đảm ai thắng) -> không `!` thì cảnh báo "đã sửa giá" có thể bị bôi
+                // xanh đè lên, mất hoàn toàn.
                 `text-right ${
-                    overridden
-                        ? 'text-amber-700! hover:bg-amber-50! hover:text-amber-900! hover:ring-amber-400! focus:text-amber-900! focus:ring-amber-500!'
-                        : ''
+                    overridden ? 'text-amber-700! hover:text-amber-900! focus:text-amber-950!' : ''
                 }`
             )}
         />
