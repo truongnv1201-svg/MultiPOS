@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { areaItem, fetchCatalog, goodsItem, pickArea, pickGoods } from './verify-catalog.mjs';
 
 // Verify P3 bằng ANON key (đúng quyền của app POS):
-// 1) anon đọc catalog, 2) pos_checkout hàng thường + cash rounding, 3) pos_checkout hàng m² + phí mài, rồi cleanup.
+// 1) anon đọc catalog, 2) pos_checkout hàng thường + cash (không làm tròn), 3) pos_checkout hàng m² + phí mài, rồi cleanup.
 function loadEnv() {
   const raw = readFileSync('.env.local', 'utf8');
   for (const line of raw.split('\n')) {
@@ -93,7 +93,7 @@ r = await fetch(`${URL}/rest/v1/rpc/pos_checkout`, {
 });
 const a = await r.json();
 assert('area subtotal theo gia catalog', r.ok && Number(a.subtotal) === areaTotal, JSON.stringify(a).slice(0, 300));
-assert('area transfer không làm tròn', Number(a.cash_rounding) === 0);
+assert('area transfer: cash_rounding = 0', Number(a.cash_rounding) === 0);
 
 // cleanup (cần token quản trị)
 if (mgmt) {

@@ -1,7 +1,7 @@
 // Fuzz khóa parity công thức tiền local (lib/pricing.ts) vs server (pos_checkout 0023).
 // Mỗi case random: hàng goods/area + CK dòng + CK bill + ship + VAT + method + tendered.
 // Local tính bằng chính pricing.ts, server tính lại độc lập -> assert từng đồng
-// (subtotal, vat, rounding, total, paid, debt, change).
+// (subtotal, vat, total, paid, debt, change) — cash_rounding luôn 0 sau 0061.
 // Cần SUPABASE_ACCESS_TOKEN (ghi đơn test + cleanup). Thiếu -> SKIP exit 0.
 // Chạy: node scripts/verify-pricing-parity.mjs [n_cases]
 import { readFileSync } from 'node:fs';
@@ -79,13 +79,8 @@ function assert(label, cond, extra = '') {
 }
 
 // Mệnh giá làm tròn thật trên server (local phải dùng cùng số mới so được)
-let denom = 500;
-try {
-  const r = await fetch(`${URL}/rest/v1/settings?select=value&key=eq.cash_rounding`, { headers: H });
-  const j = await r.json();
-  if (r.ok && j?.[0]?.value?.denominator) denom = Number(j[0].value.denominator);
-} catch { /* giữ 500 */ }
-console.log(`denom=${denom}`);
+// 0061: đã gỡ làm tròn tiền mặt -> local và server đều dùng số raw, không đọc mệnh giá.
+
 
 const catalog = await fetchCatalog(URL, H);
 const goods = pickGoods(catalog);
@@ -144,11 +139,11 @@ for (let i = 0; i < N; i++) {
     payment_method: method,
     tendered_amount: 0,
   };
-  const t0 = calcCartTotals(cartInput, denom);
+  const t0 = calcCartTotals(cartInput);
   // tendered: đủ / dư / thiếu (cash luôn nhập; transfer/debt để logic quyết)
   if (method === 'cash') cartInput.tendered_amount = pick([t0.payable, t0.payable + 50000, Math.max(0, t0.payable - 30000)]);
   else if (method !== 'debt') cartInput.tendered_amount = pick([0, t0.payable, t0.payable + 100000]);
-  const t = calcCartTotals(cartInput, denom);
+  const t = calcCartTotals(cartInput);
   const paid = resolvePaidAmount(t.payable, method, cartInput.tendered_amount);
   // Gửi TIỀN KHÁCH ĐƯA y hệt client mới (không kẹp ở payable) để server chia paid/change/debt
   let tendered = cartInput.tendered_amount;
@@ -176,7 +171,7 @@ for (let i = 0; i < N; i++) {
   // 0027: server subtotal = thuần tiền hàng (đã bỏ ship ra khỏi cột này)
   assert(`${tag}: subtotal`, Number(g.subtotal) === t.subtotal, `srv ${g.subtotal} vs local ${t.subtotal}`);
   assert(`${tag}: vat`, Number(g.vat_amount) === t.vat_amount, `srv ${g.vat_amount} vs local ${t.vat_amount}`);
-  assert(`${tag}: rounding`, Number(g.cash_rounding) === t.cash_rounding, `srv ${g.cash_rounding} vs local ${t.cash_rounding}`);
+  assert(`${tag}: cash_rounding luôn 0 (đã gỡ làm tròn)`, Number(g.cash_rounding) === 0 && t.cash_rounding === 0, `srv ${g.cash_rounding} local ${t.cash_rounding}`);
   assert(`${tag}: total`, Number(g.total_amount) === t.payable, `srv ${g.total_amount} vs local ${t.payable}`);
   assert(`${tag}: paid`, Number(g.paid_amount) === paid, `srv ${g.paid_amount} vs local ${paid}`);
   assert(`${tag}: debt`, Number(g.debt_amount) === t.payable - paid, `srv ${g.debt_amount} vs local ${t.payable - paid}`);

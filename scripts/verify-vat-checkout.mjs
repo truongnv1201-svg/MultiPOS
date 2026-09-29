@@ -3,8 +3,8 @@ import { fetchCatalog, goodsItem, pickGoods } from './verify-catalog.mjs';
 
 // Verify 0023 VAT riêng bằng ANON key (đúng quyền app POS):
 // 1) goods + VAT 8% + cash -> VAT, rounding, total, change khớp công thức server
-//    (server làm tròn floor: total = raw - raw % denom, đọc denom từ settings;
-//    VD denom 500, raw 133920 -> rounding 420 -> total 133500)
+//    (0061: server không làm tròn nữa — total = raw)
+//    VD raw 133920 -> total 133920, không còn floor theo mệnh giá)
 //    cash tendered = total + 16500 -> change = 16500
 // 2) goods + VAT 10% + ship 15000 + transfer đủ -> không làm tròn
 // 3) VAT tính trên (tiền hàng - CK bill), không gồm ship
@@ -56,17 +56,7 @@ async function rpc(body) {
 }
 const catalog = await fetchCatalog(URL, H);
 const goods = pickGoods(catalog);
-// P4b: đọc denom GCF làm tròn từ settings (giống server 0023/0028: floor về denom),
-// thay vì hardcode 500 — script pass với mọi giá catalog.
-let denom = 500;
-try {
-  const rs = await fetch(`${URL}/rest/v1/settings?select=value&key=eq.cash_rounding`, { headers: H });
-  const js = await rs.json();
-  denom = Number(js?.[0]?.value?.denominator) || 500;
-} catch {
-  /* giữ default 500 */
-}
-const floorDenom = (value) => value - (value % denom);
+// 0061: đã gỡ làm tròn tiền mặt -> total = raw (tiền hàng + VAT - CK), không floor theo mệnh giá.
 const price = Number(goods.retail_price);
 const item = (qty) => goodsItem(goods, qty);
 
@@ -74,7 +64,7 @@ let r = await fetch(`${URL}/rest/v1/products?select=stock_quantity&sku=eq.${good
 const stockBefore = Number((await r.json())[0].stock_quantity);
 const base2 = price * 2;
 const vat8 = base2 * 0.08;
-const total8 = floorDenom(base2 + vat8);
+const total8 = base2 + vat8;
 const total10Ship = price + price * 0.1 + 15000;
 const discountedBase = base2 - 24000;
 const totalDiscounted = discountedBase + discountedBase * 0.08;
@@ -97,8 +87,8 @@ assert(
 );
 if (t1.ok) {
   assert('VAT8 cash: vat theo gia catalog', Number(t1.json.vat_amount) === vat8, JSON.stringify(t1.json).slice(0, 200));
-  assert('VAT8 cash: total theo rounding', Number(t1.json.total_amount) === total8, JSON.stringify(t1.json).slice(0, 200));
-  assert('VAT8 cash: paid_amount theo rounding', Number(t1.json.paid_amount) === total8, JSON.stringify(t1.json).slice(0, 200));
+  assert('VAT8 cash: total đúng raw (không làm tròn)', Number(t1.json.total_amount) === total8, JSON.stringify(t1.json).slice(0, 200));
+  assert('VAT8 cash: paid_amount đúng raw', Number(t1.json.paid_amount) === total8, JSON.stringify(t1.json).slice(0, 200));
   assert('VAT8 cash: change=16500', Number(t1.json.change_amount) === 16500, JSON.stringify(t1.json).slice(0, 200));
   assert('VAT8 cash: debt=0', Number(t1.json.debt_amount) === 0, JSON.stringify(t1.json).slice(0, 200));
 }
@@ -118,7 +108,7 @@ assert('VAT10 ship transfer: ok', t2.ok, `HTTP ${t2.status} ` + JSON.stringify(t
 if (t2.ok) {
   assert('VAT10 ship transfer: vat theo gia catalog', Number(t2.json.vat_amount) === price * 0.1, JSON.stringify(t2.json).slice(0, 200));
   assert('VAT10 ship transfer: total theo gia catalog', Number(t2.json.total_amount) === total10Ship, JSON.stringify(t2.json).slice(0, 200));
-  assert('VAT10 ship transfer: không làm tròn', Number(t2.json.cash_rounding) === 0);
+  assert('VAT10 ship transfer: cash_rounding = 0 (đã gỡ tính năng)', Number(t2.json.cash_rounding) === 0);
   assert('VAT10 ship transfer: change=0', Number(t2.json.change_amount) === 0, JSON.stringify(t2.json).slice(0, 200));
 }
 

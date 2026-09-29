@@ -121,13 +121,13 @@ describe('calcCartTotals', () => {
     assert.equal(t.debt_amount, 0);
   });
 
-  it('VAT 8% + cash: 124000 -> vat 9920, rounding 420, payable 133500', () => {
+  it('VAT 8% + cash: 124000 -> vat 9920, KHÔNG làm tròn, payable 133920', () => {
     const t = calcCartTotals(
-      cart({ items: [goods({ quantity: 2, subtotal: 124000 })], vat_percent: 8, tendered_amount: 150000 }), 500);
+      cart({ items: [goods({ quantity: 2, subtotal: 124000 })], vat_percent: 8, tendered_amount: 150000 }));
     assert.equal(t.vat_amount, 9920);
-    assert.equal(t.cash_rounding, 420);
-    assert.equal(t.payable, 133500);
-    assert.equal(t.change_amount, 16500);
+    assert.equal(t.cash_rounding, 0);
+    assert.equal(t.payable, 133920);
+    assert.equal(t.change_amount, 16080);
   });
 
   it('transfer không làm tròn dù raw lẻ', () => {
@@ -185,15 +185,22 @@ describe('calcCartTotals', () => {
     assert.equal(t.change_amount, 1000);
   });
 
-  it('mệnh giá làm tròn theo setting (1000 -> rounding 920)', () => {
+  it('KHÔNG làm tròn tiền mặt dù tiền không tròn (kế toán 2026-09)', () => {
+    // 124000 + 8% VAT = 133920 -> tra dung 133920, khong xuong boi 100/500/1000
     const t = calcCartTotals(
-      cart({ items: [goods({ quantity: 2, subtotal: 124000 })], vat_percent: 8, tendered_amount: 150000 }), 1000);
-    assert.equal(t.cash_rounding, 920);
-    assert.equal(t.payable, 133000);
+      cart({ items: [goods({ quantity: 2, subtotal: 124000 })], vat_percent: 8, tendered_amount: 133920 }));
+    assert.equal(t.cash_rounding, 0);
+    assert.equal(t.payable, 133920);
+  });
+
+  it('tiền mặt cũng không làm tròn (không còn mệnh giá 500/1000)', () => {
+    const t = calcCartTotals(cart({ items: [goods()], tendered_amount: 250000 }));
+    assert.equal(t.cash_rounding, 0);
+    assert.equal(t.payable, 248000);
   });
 
   it('giỏ trống -> toàn 0', () => {
-    const t = calcCartTotals(cart(), 500);
+    const t = calcCartTotals(cart());
     assert.deepEqual(t, {
       subtotal: 0, discount_amount: 0, shipping_fee: 0, vat_amount: 0, vat_percent: 0,
       cash_rounding: 0, payable: 0, change_amount: 0, debt_amount: 0,

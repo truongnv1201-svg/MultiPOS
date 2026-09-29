@@ -14,7 +14,6 @@ interface MobilePaymentSheetProps {
     itemCount: number;
     subtotal: number;
     payable: number;
-    cashRounding: number;
     changeAmount: number;
     debtAmount: number;
     paymentMethod: MobilePaymentMethod;
@@ -53,7 +52,6 @@ export default function MobilePaymentSheet({
     itemCount,
     subtotal,
     payable,
-    cashRounding,
     changeAmount,
     debtAmount,
     paymentMethod,
@@ -117,9 +115,6 @@ export default function MobilePaymentSheet({
                     <div className="rounded-xl bg-slate-900 px-4 py-3 text-white">
                         <p className="text-[11px] text-slate-300">KHÁCH CẦN TRẢ</p>
                         <p className="text-2xl font-black font-mono">{formatVND(payable)}</p>
-                        {cashRounding > 0 && paymentMethod === 'cash' && (
-                            <p className="mt-0.5 text-[10px] text-amber-300 font-medium">Đã làm tròn tiền mặt: -{formatVND(cashRounding)}</p>
-                        )}
                     </div>
 
                     {(needLogin || shiftClosed) && (

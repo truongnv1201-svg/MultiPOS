@@ -1502,19 +1502,6 @@ export function POSScreen() {
               </div>
             </div>
 
-            {/* Cash Rounding Floor (NEW-CONF-03 & SRS 2.2) */}
-            {activeCart.payment_method === 'cash' && calculatedTotals.cash_rounding > 0 && (
-              <div
-                id="cash-rounding-display"
-                className="flex items-center justify-between text-amber-700 font-semibold bg-amber-50 px-2 py-1 rounded"
-              >
-                <span className="flex items-center gap-1">
-                  <span>Làm tròn tiền mặt (500đ floor):</span>
-                </span>
-                <span className="font-mono">-{formatVND(calculatedTotals.cash_rounding)}</span>
-              </div>
-            )}
-
             {/* Divider */}
             <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
               <span className="font-bold text-sm text-slate-900">KHÁCH CẦN TRẢ:</span>
@@ -1866,7 +1853,6 @@ export function POSScreen() {
         itemCount={activeCart.items.length}
         subtotal={calculatedTotals.subtotal}
         payable={calculatedTotals.payable}
-        cashRounding={calculatedTotals.cash_rounding}
         changeAmount={calculatedTotals.change_amount}
         debtAmount={calculatedTotals.debt_amount}
         paymentMethod={activeCart.payment_method as MobilePaymentMethod}

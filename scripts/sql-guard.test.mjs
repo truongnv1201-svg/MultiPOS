@@ -196,3 +196,32 @@ describe('alert() blocking đã thay bằng Toast', () => {
     assert.deepEqual(hits, [], `còn alert():\n${hits.join('\n')}`);
   });
 });
+
+describe('0061: đã gỡ làm tròn tiền mặt (kế toán 2026-09)', () => {
+  it('migration 0061 ép checkout_order về cash_rounding = 0', () => {
+    const sql = read('supabase/migrations/0061_remove_cash_rounding.sql');
+    assert.match(sql, /v_cash_rounding := 0;/);
+    // không còn đọc mệnh giá làm tròn ở server
+    assert.ok(!/key = 'cash_rounding';\s*\n\s*INTO v_rounding_denom/.test(sql));
+    assert.ok(!/v_rounding_denom/.test(sql), 'đã gỡ biến mệnh giá');
+    // xoá hàng cấu hình để không bật lại được
+    assert.match(sql, /delete from public\.settings where key = 'cash_rounding'/i);
+    // giữ cột lịch sử: không được xoá orders.cash_rounding
+    assert.ok(!/drop column[^;]*cash_rounding/i.test(sql), 'không được xoá cột lịch sử');
+  });
+
+  it('client không còn tính làm tròn tiền mặt', () => {
+    const pricing = read('lib/pricing.ts');
+    // payable không được trừ phần làm tròn, cash_rounding luôn 0
+    assert.match(pricing, /const cash_rounding = 0;/);
+    assert.ok(!/cashRounding: number\) : CartTotals/.test(pricing), 'đã bỏ tham số mệnh giá');
+    assert.ok(!/rawPayable % roundingDenom/.test(pricing), 'đã bỏ phép % mệnh giá');
+    assert.match(pricing, /const payable = Math\.max\(0, subtotal \+ shipping \+ vat_amount - discount\);/);
+  });
+
+  it('UI không còn ô cấu hình / hiển thị làm tròn', () => {
+    assert.ok(!/cashRounding/.test(read('components/settings/SettingsView.tsx')));
+    assert.ok(!/cashRounding/.test(read('components/pos/MobilePaymentSheet.tsx')));
+    assert.ok(!/cash-rounding-display/.test(read('components/pos/POSScreen.tsx')));
+  });
+});

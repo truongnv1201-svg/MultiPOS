@@ -143,9 +143,6 @@ interface StoreContextType {
   grindingServices: GrindingService[];
   refreshGrinding: () => Promise<boolean>;
   updateGrindingPrice: (id: string, price: number) => Promise<string | null>;
-  cashRounding: number;
-  refreshCashRounding: () => Promise<boolean>;
-  updateCashRounding: (denominator: number) => Promise<string | null>;
   // P6: Auth (Supabase Auth + profiles)
   user: User | null;
   profile: { full_name: string; role: string } | null;
@@ -312,9 +309,6 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     grindingServices,
     refreshGrinding,
     updateGrindingPrice,
-    cashRounding,
-    refreshCashRounding,
-    updateCashRounding,
   } = useCommerce();
   const {
     products,
@@ -624,12 +618,11 @@ function StoreInner({ children }: { children: React.ReactNode }) {
             syncCustomers(),
             syncProjects(),
             refreshGrinding(),
-            refreshCashRounding(),
           ]);
         })
         .catch(() => {});
     }
-  }, [isOnline, localDataReady, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, syncCustomers, syncProjects, syncPendingOps, refreshGrinding, refreshCashRounding]);
+  }, [isOnline, localDataReady, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, syncCustomers, syncProjects, syncPendingOps, refreshGrinding]);
 
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;
@@ -801,9 +794,6 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     grindingServices,
     refreshGrinding,
     updateGrindingPrice,
-    cashRounding,
-    refreshCashRounding,
-    updateCashRounding,
     user,
     profile,
     authReady,

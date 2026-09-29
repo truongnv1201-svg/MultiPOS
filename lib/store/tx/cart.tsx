@@ -37,7 +37,7 @@ export interface TxCart {
   calculatedTotals: ReturnType<typeof calcCartTotals>;
 }
 
-export function useTxCart(cashRounding: number): TxCart {
+export function useTxCart(): TxCart {
   const { shop } = useCommerce();
   const { products } = useCatalog();
 
@@ -219,7 +219,7 @@ export function useTxCart(cashRounding: number): TxCart {
 
   // Calculations for current active order
   // Tổng giỏ dùng chung lib/pricing (single source, có unit test) — khớp server từng đồng.
-  const calculatedTotals = useMemo(() => calcCartTotals(activeCart, cashRounding), [activeCart, cashRounding]);
+  const calculatedTotals = useMemo(() => calcCartTotals(activeCart), [activeCart]);
 
   return {
     posFlow,

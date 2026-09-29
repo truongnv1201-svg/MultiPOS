@@ -69,6 +69,11 @@ export interface CartTotals {
   shipping_fee: number;
   vat_amount: number;
   vat_percent: number;
+  /**
+   * Luôn = 0. Kế toán yêu cầu bỏ làm tròn tiền mặt (2026-09) nên chức năng này đã gỡ.
+   * Cột `orders.cash_rounding` trên DB vẫn giữ để đơn cũ đã làm tròn còn đúng số liệu;
+   * đơn mới luôn ghi 0 (migration 0061 ép checkout_order về 0).
+   */
   cash_rounding: number;
   payable: number;
   change_amount: number;
@@ -76,8 +81,8 @@ export interface CartTotals {
 }
 
 // Tổng giỏ: hàng - CK bill + ship (đ/% trên tiền hàng sau CK) + VAT% (trên tiền hàng sau CK,
-// không gồm ship) - làm tròn tiền mặt (chỉ khi method='cash', theo mệnh giá server).
-export function calcCartTotals(cart: CartTotalsInput, cashRounding: number): CartTotals {
+// không gồm ship). KHÔNG làm tròn tiền mặt — số tiền phải đúng từng đồng (yêu cầu kế toán).
+export function calcCartTotals(cart: CartTotalsInput): CartTotals {
   const subtotal = cart.items.reduce((sum, item) => sum + item.subtotal, 0);
   let discount = cart.discount_amount;
   if (cart.discount_percent > 0) {
@@ -93,17 +98,10 @@ export function calcCartTotals(cart: CartTotalsInput, cashRounding: number): Car
   const taxableBase = Math.max(0, subtotal - discount);
   const vat_amount = Math.round((taxableBase * vat_percent) / 100);
 
-  // Cash Rounding Floor: ONLY if payment method is 'cash' (NEW-CONF-03).
-  // Dùng mệnh giá server (settings.cash_rounding, default 500) thay vì hard-code,
-  // nếu không đổi setting 100/1000/5000 ở server sẽ lệch total với RPC.
-  let cash_rounding = 0;
-  if (cart.payment_method === 'cash') {
-    const roundingDenom = cashRounding > 0 ? cashRounding : 500;
-    const rawPayable = Math.max(0, subtotal + shipping + vat_amount - discount);
-    cash_rounding = rawPayable % roundingDenom;
-  }
-
-  const payable = Math.max(0, subtotal + shipping + vat_amount - discount - cash_rounding);
+  // Không làm tròn tiền mặt (đã gỡ theo yêu cầu kế toán): payable = tiền hàng - CK
+  // + ship + VAT, giữ nguyên từng đồng. Muốn làm tròn thì giảm giá/shipping rõ ràng.
+  const cash_rounding = 0;
+  const payable = Math.max(0, subtotal + shipping + vat_amount - discount);
   const tendered = cart.tendered_amount || 0;
 
   let change_amount = 0;

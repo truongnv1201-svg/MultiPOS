@@ -114,8 +114,7 @@ const TransactionsContext = createContext<TransactionsSlice | null>(null);
 
 export function TransactionsProvider({ children }: { children: React.ReactNode }) {
   const { user, profile } = useAuth();
-  const { cashRounding } = useCommerce();
-  const cart = useTxCart(cashRounding);
+  const cart = useTxCart();
   // Back-edges qua ref để tránh phụ thuộc vòng tròn lúc khởi tạo:
   // shift-stock cần pendingQueue (orders, tạo sau) + syncPendingOps (debts, tạo sau).
   const syncPendingOpsRef = useRef<(retryFailed?: boolean) => Promise<{ synced: number; failed: number }>>(async () => ({ synced: 0, failed: 0 }));

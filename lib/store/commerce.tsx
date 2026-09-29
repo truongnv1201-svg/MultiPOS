@@ -29,9 +29,6 @@ export interface CommerceSlice {
   grindingServices: GrindingService[];
   refreshGrinding: () => Promise<boolean>;
   updateGrindingPrice: (id: string, price: number) => Promise<string | null>;
-  cashRounding: number;
-  refreshCashRounding: () => Promise<boolean>;
-  updateCashRounding: (denominator: number) => Promise<string | null>;
 }
 
 const CommerceContext = createContext<CommerceSlice | null>(null);
@@ -220,36 +217,6 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     [supa, profile, refreshGrinding]
   );
 
-  // Thương mại: mệnh giá làm tròn tiền mặt (server settings.cash_rounding)
-  const [cashRounding, setCashRounding] = useState<number>(500);
-  const refreshCashRounding = useCallback(async (): Promise<boolean> => {
-    if (!supa) return false;
-    try {
-      const { data, error } = await supa.from('settings').select('value').eq('key', 'cash_rounding').maybeSingle();
-      const denom = Number((data as any)?.value?.denominator);
-      if (error || !denom) return false;
-      setCashRounding(denom);
-      return true;
-    } catch {
-      return false;
-    }
-  }, [supa]);
-  const updateCashRounding = useCallback(
-    async (denominator: number): Promise<string | null> => {
-      if (!supa) return 'Chưa cấu hình Supabase.';
-      if (profile?.role !== 'admin') return 'Chỉ tài khoản Admin được đổi làm tròn.';
-      if (![100, 500, 1000, 5000].includes(denominator)) return 'Mệnh giá chỉ chấp nhận 100 / 500 / 1.000 / 5.000đ.';
-      const { error } = await supa
-        .from('settings')
-        .update({ value: { denominator } })
-        .eq('key', 'cash_rounding');
-      if (error) return vietnamizeError(error);
-      setCashRounding(denominator);
-      return null;
-    },
-    [supa, profile]
-  );
-
   // Vừa online / vừa có supa -> kéo cấu hình chung + VietQR từ server về máy này.
   useEffect(() => {
     if (!supa) return;
@@ -271,9 +238,6 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     grindingServices,
     refreshGrinding,
     updateGrindingPrice,
-    cashRounding,
-    refreshCashRounding,
-    updateCashRounding,
   };
   return <CommerceContext.Provider value={value}>{children}</CommerceContext.Provider>;
 }

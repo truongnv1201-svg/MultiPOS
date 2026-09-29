@@ -12,7 +12,6 @@ import {
   Store,
   QrCode,
   Hammer,
-  Coins,
   Lock,
   Printer,
   Receipt,
@@ -36,8 +35,6 @@ export function SettingsView() {
     saveVietqrSettings,
     grindingServices,
     updateGrindingPrice,
-    cashRounding,
-    updateCashRounding,
     user,
     profile,
     setLoginOpen,
@@ -47,8 +44,6 @@ export function SettingsView() {
   // Mọi việc nhân sự (tài khoản, phân quyền, hồ sơ, công, lương) làm ở trang Quản lý nhân sự.
   const [grindingDraft, setGrindingDraft] = useState<Record<string, string>>({});
   const [grindingMsg, setGrindingMsg] = useState<string | null>(null);
-  const [roundingDraft, setRoundingDraft] = useState<string>('');
-  const [roundingMsg, setRoundingMsg] = useState<string | null>(null);
   const [shopMsg, setShopMsg] = useState<string | null>(null);
   const [posMsg, setPosMsg] = useState<string | null>(null);
   const [vietqrMsg, setVietqrMsg] = useState<string | null>(null);
@@ -117,11 +112,6 @@ export function SettingsView() {
     } finally {
       if (backupInputRef.current) backupInputRef.current.value = '';
     }
-  };
-
-  const handleSaveRounding = async () => {
-    const err = await updateCashRounding(parseInt(roundingDraft, 10));
-    setRoundingMsg(err ? `Lỗi: ${err}` : 'Đã lưu mệnh giá làm tròn.');
   };
 
   return (
@@ -473,47 +463,7 @@ export function SettingsView() {
           )}
         </div>
 
-        {/* 5. Làm tròn tiền mặt (đồng bộ máy chủ) */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
-          <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
-            <Coins className="w-4 h-4 text-emerald-600" />
-            <span>Làm tròn tiền mặt (chỉ khi thu tiền mặt)</span>
-            {!isAdmin && (
-              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Chỉ Admin được đổi
-              </span>
-            )}
-          </h3>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-600">
-              Mệnh giá hiện tại: <strong className="font-mono">{new Intl.NumberFormat('vi-VN').format(cashRounding)}đ</strong>
-            </span>
-            <select
-              disabled={!isAdmin}
-              value={roundingDraft || String(cashRounding)}
-              onChange={(e) => setRoundingDraft(e.target.value)}
-              className="h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
-            >
-              {[100, 500, 1000, 5000].map((d) => (
-                <option key={d} value={d}>
-                  {new Intl.NumberFormat('vi-VN').format(d)}đ
-                </option>
-              ))}
-            </select>
-            <button
-              disabled={!isAdmin}
-              onClick={handleSaveRounding}
-              className="px-3 h-8 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-md font-bold"
-            >
-              Lưu
-            </button>
-          </div>
-          {roundingMsg && (
-            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{roundingMsg}</p>
-          )}
-        </div>
-
-        {/* 6. Trung tâm in ấn (chỉ lưu trên máy này) */}
+        {/* 5. Trung tâm in ấn (chỉ lưu trên máy này) */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-4 text-xs">
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <Printer className="w-4 h-4 text-indigo-600" />
@@ -648,7 +598,7 @@ export function SettingsView() {
             </div>
         </div>
 
-        {/* 7. Nội dung hiển thị trên phiếu in (chỉ lưu trên máy này) */}
+        {/* 6. Nội dung hiển thị trên phiếu in (chỉ lưu trên máy này) */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <Receipt className="w-4 h-4 text-emerald-600" />
