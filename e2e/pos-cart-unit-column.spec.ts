@@ -84,10 +84,11 @@ test.describe('Gio POS: cot don vi tinh + o sua duoc', () => {
         await expect(page.locator('#cart-table-container [title^="Tăng"]')).toHaveCount(0);
         await expect(page.locator('#cart-table-container [title^="Giảm"]')).toHaveCount(0);
 
-        // 5) O so luong dung style o sua chung: chi gach chan duoi, cao 32px
+        // 5) O so luong dung style o sua chung: chi chu xanh, khong vien/nen/gach chan
         const qtyBox = await box(normalRow.locator('input[aria-label^="Số lượng"]'));
         expect(qtyBox.borderTopWidth).toBe('0px');
-        expect(qtyBox.borderBottomWidth).toBe('2px');
+        expect(qtyBox.borderBottomWidth).toBe('0px');
+        expect(qtyBox.bg).toBe('rgba(0, 0, 0, 0)');
         expect(qtyBox.height).toBe('32px');
     });
 
@@ -107,10 +108,10 @@ test.describe('Gio POS: cot don vi tinh + o sua duoc', () => {
         await expect(list.locator('[aria-label^="Tăng số lượng"]')).toHaveCount(0);
         await expect(list.locator('[aria-label^="Giảm số lượng"]')).toHaveCount(0);
 
-        // Cung style o sua chung voi desktop: gach chan duoi, khong khung
+        // Cung style o sua chung voi desktop: chi chu xanh, khong vien
         const qtyBox = await box(input);
         expect(qtyBox.height).toBe('32px');
         expect(qtyBox.borderTopWidth).toBe('0px');
-        expect(qtyBox.borderBottomWidth).toBe('2px');
+        expect(qtyBox.borderBottomWidth).toBe('0px');
     });
 });

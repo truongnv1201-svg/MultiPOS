@@ -48,7 +48,7 @@ function sameEditableStyle(a: Box, b: Box) {
 }
 
 const bgOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).backgroundColor);
-const borderColorOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).borderBottomColor);
+const colorOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).color);
 
 test.describe('Giỏ POS: style chung cho ô sửa được', () => {
     test('Quản lý: ô số lượng và ô đơn giá cùng style', async ({ page }) => {
@@ -99,9 +99,9 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
     });
 
     test('Ô đã sửa giá phải NHÌN THẤY khác ô bình thường', async ({ page }) => {
-        // Regression: ô sửa giá đổi màu ĐƯỜNG GẠCH CHÂN sang hổ phách, nhưng EDIT_CELL_CLASS
-        // đã có border-b-slate-200 và Tailwind xếp utility theo thứ tự -> không có `!` thì
-        // màu không bao giờ thắng và cảnh báo "đã sửa giá" vô hình. Test đo computed style thật.
+        // Regression: ô sửa giá đổi CHỮ sang hổ phách, nhưng EDIT_CELL_CLASS đã có
+        // text-blue-700 và Tailwind xếp utility theo thứ tự -> không có `!` thì màu không
+        // bao giờ thắng và cảnh báo "đã sửa giá" vô hình. Test đo computed style thật.
         test.slow();
         await page.setViewportSize({ width: 1600, height: 950 });
         await login(page, true);
@@ -112,26 +112,27 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         const rowEdit = page.locator('#cart-table-container tbody tr').nth(1);
         const priceEdit = rowEdit.locator('input[aria-label^="Đơn giá"]');
 
-        const lineBefore = await borderColorOf(rowNormal.locator('input[aria-label^="Đơn giá"]'));
+        const colorBefore = await colorOf(rowNormal.locator('input[aria-label^="Đơn giá"]'));
+        // blue-700 (Tailwind v4) = oklch(0.488 0.243 264.376)
+        expect(colorBefore).toBe('oklch(0.488 0.243 264.376)');
         await priceEdit.click();
         await priceEdit.fill('18500');
         await priceEdit.press('Enter');
-        // blur ra xa để đo trạng thái nghỉ (đang focus thì viền xanh che mất)
+        // blur ra xa để đo trạng thái nghỉ (đang focus thì màu đậm hơn)
         await page.locator('#cart-table-container th', { hasText: 'Thành tiền' }).click();
         await page.waitForTimeout(400);
 
-        const lineAfter = await borderColorOf(priceEdit);
-        expect(lineAfter).not.toBe(lineBefore);
-        // hổ phách: hue ~70-80deg -> khác hẳn đường gạch chân xám lạnh
-        expect(lineAfter).toMatch(/oklch\(0\.[67]\d\d 0\.1\d\d 7\d\./);
+        const colorAfter = await colorOf(priceEdit);
+        expect(colorAfter).not.toBe(colorBefore);
+        // hổ phách: amber-700 (Tailwind v4) = oklch(0.555 0.163 48.998) — hue ~49 khác hẳn
+        // hue ~264 của chữ xanh -> mắt phân biệt được, không cần thêm khung/gạch chân
+        expect(colorAfter).toBe('oklch(0.555 0.163 48.998)');
 
-        // Khi đang gõ, gạch chân phải về XANH dù dòng đã sửa giá (nếu không, dòng đã sửa mất
-        // phản hồi focus vì class `!` của màu hổ phách đè lên focus).
+        // Khi đang gõ, chữ phải đậm hơn (phản hồi focus) thay vì đổi hue
         await priceEdit.click();
         await page.waitForTimeout(300);
-        const lineFocused = await borderColorOf(priceEdit);
-        expect(lineFocused).not.toBe(lineAfter);
-        expect(lineFocused).toMatch(/oklch\(0\.[45]\d\d 0\.2\d\d 26\d\./);
+        const colorFocused = await colorOf(priceEdit);
+        expect(colorFocused).not.toBe(colorAfter);
     });
 
     test('Thu ngân: đơn giá chỉ đọc, khác style ô sửa được', async ({ page }) => {
