@@ -108,7 +108,7 @@ assert('VAT10 ship transfer: ok', t2.ok, `HTTP ${t2.status} ` + JSON.stringify(t
 if (t2.ok) {
   assert('VAT10 ship transfer: vat theo gia catalog', Number(t2.json.vat_amount) === price * 0.1, JSON.stringify(t2.json).slice(0, 200));
   assert('VAT10 ship transfer: total theo gia catalog', Number(t2.json.total_amount) === total10Ship, JSON.stringify(t2.json).slice(0, 200));
-  assert('VAT10 ship transfer: cash_rounding = 0 (đã gỡ tính năng)', Number(t2.json.cash_rounding) === 0);
+  assert('VAT10 ship transfer: không còn khoá cash_rounding trong response', t2.json.cash_rounding === undefined);
   assert('VAT10 ship transfer: change=0', Number(t2.json.change_amount) === 0, JSON.stringify(t2.json).slice(0, 200));
 }
 

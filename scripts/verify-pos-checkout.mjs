@@ -93,7 +93,7 @@ r = await fetch(`${URL}/rest/v1/rpc/pos_checkout`, {
 });
 const a = await r.json();
 assert('area subtotal theo gia catalog', r.ok && Number(a.subtotal) === areaTotal, JSON.stringify(a).slice(0, 300));
-assert('area transfer: cash_rounding = 0', Number(a.cash_rounding) === 0);
+assert('area transfer: không còn khoá cash_rounding trong response', a.cash_rounding === undefined);
 
 // cleanup (cần token quản trị)
 if (mgmt) {

@@ -171,7 +171,7 @@ for (let i = 0; i < N; i++) {
   // 0027: server subtotal = thuần tiền hàng (đã bỏ ship ra khỏi cột này)
   assert(`${tag}: subtotal`, Number(g.subtotal) === t.subtotal, `srv ${g.subtotal} vs local ${t.subtotal}`);
   assert(`${tag}: vat`, Number(g.vat_amount) === t.vat_amount, `srv ${g.vat_amount} vs local ${t.vat_amount}`);
-  assert(`${tag}: cash_rounding luôn 0 (đã gỡ làm tròn)`, Number(g.cash_rounding) === 0 && t.cash_rounding === 0, `srv ${g.cash_rounding} local ${t.cash_rounding}`);
+  assert(`${tag}: server không còn trả cash_rounding`, g.cash_rounding === undefined, `srv ${g.cash_rounding}`);
   assert(`${tag}: total`, Number(g.total_amount) === t.payable, `srv ${g.total_amount} vs local ${t.payable}`);
   assert(`${tag}: paid`, Number(g.paid_amount) === paid, `srv ${g.paid_amount} vs local ${paid}`);
   assert(`${tag}: debt`, Number(g.debt_amount) === t.payable - paid, `srv ${g.debt_amount} vs local ${t.payable - paid}`);

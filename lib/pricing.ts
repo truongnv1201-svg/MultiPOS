@@ -69,12 +69,6 @@ export interface CartTotals {
   shipping_fee: number;
   vat_amount: number;
   vat_percent: number;
-  /**
-   * Luôn = 0. Kế toán yêu cầu bỏ làm tròn tiền mặt (2026-09) nên chức năng này đã gỡ.
-   * Cột `orders.cash_rounding` trên DB vẫn giữ để đơn cũ đã làm tròn còn đúng số liệu;
-   * đơn mới luôn ghi 0 (migration 0061 ép checkout_order về 0).
-   */
-  cash_rounding: number;
   payable: number;
   change_amount: number;
   debt_amount: number;
@@ -100,7 +94,6 @@ export function calcCartTotals(cart: CartTotalsInput): CartTotals {
 
   // Không làm tròn tiền mặt (đã gỡ theo yêu cầu kế toán): payable = tiền hàng - CK
   // + ship + VAT, giữ nguyên từng đồng. Muốn làm tròn thì giảm giá/shipping rõ ràng.
-  const cash_rounding = 0;
   const payable = Math.max(0, subtotal + shipping + vat_amount - discount);
   const tendered = cart.tendered_amount || 0;
 
@@ -124,7 +117,6 @@ export function calcCartTotals(cart: CartTotalsInput): CartTotals {
     shipping_fee: shipping,
     vat_amount,
     vat_percent,
-    cash_rounding,
     payable,
     change_amount,
     debt_amount,

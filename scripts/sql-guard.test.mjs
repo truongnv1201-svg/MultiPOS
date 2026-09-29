@@ -206,16 +206,15 @@ describe('0061: đã gỡ làm tròn tiền mặt (kế toán 2026-09)', () => {
     assert.ok(!/v_rounding_denom/.test(sql), 'đã gỡ biến mệnh giá');
     // xoá hàng cấu hình để không bật lại được
     assert.match(sql, /delete from public\.settings where key = 'cash_rounding'/i);
-    // giữ cột lịch sử: không được xoá orders.cash_rounding
-    assert.ok(!/drop column[^;]*cash_rounding/i.test(sql), 'không được xoá cột lịch sử');
+    assert.ok(!/drop column[^;]*cash_rounding/i.test(sql), '0061 chưa drop cột');
   });
 
   it('client không còn tính làm tròn tiền mặt', () => {
     const pricing = read('lib/pricing.ts');
-    // payable không được trừ phần làm tròn, cash_rounding luôn 0
-    assert.match(pricing, /const cash_rounding = 0;/);
+    // payable không được trừ phần làm tròn
     assert.ok(!/cashRounding: number\) : CartTotals/.test(pricing), 'đã bỏ tham số mệnh giá');
     assert.ok(!/rawPayable % roundingDenom/.test(pricing), 'đã bỏ phép % mệnh giá');
+    assert.ok(!/cash_rounding/.test(pricing), 'đã bỏ hẳn trường cash_rounding');
     assert.match(pricing, /const payable = Math\.max\(0, subtotal \+ shipping \+ vat_amount - discount\);/);
   });
 
@@ -223,5 +222,48 @@ describe('0061: đã gỡ làm tròn tiền mặt (kế toán 2026-09)', () => {
     assert.ok(!/cashRounding/.test(read('components/settings/SettingsView.tsx')));
     assert.ok(!/cashRounding/.test(read('components/pos/MobilePaymentSheet.tsx')));
     assert.ok(!/cash-rounding-display/.test(read('components/pos/POSScreen.tsx')));
+  });
+});
+
+describe('0062: xoá cột orders.cash_rounding (dữ liệu thử nghiệm)', () => {
+  const sql = read('supabase/migrations/0062_drop_cash_rounding_column.sql');
+  // Bỏ dòng comment để assert chỉ soi phần code thực thi
+  const code = sql
+    .split('\n')
+    .filter((l) => !/^\s*--/.test(l))
+    .join('\n');
+
+  it('thay checkout_order: bỏ biến và cột, giữ nguyên công thức', () => {
+    assert.ok(!/v_cash_rounding/.test(code), 'đã bỏ biến v_cash_rounding');
+    assert.ok(!/cash_rounding = v_cash_rounding/.test(code), 'đã bỏ cột trong UPDATE orders');
+    assert.match(code, /total_amount = v_payable \+ v_vat - p_discount,/);
+  });
+
+  it('pos_checkout không còn trả khoá cash_rounding', () => {
+    assert.ok(!/'cash_rounding', o\.cash_rounding/.test(code));
+    // giữ nguyên tín hiệu 0060 (đừng làm mất)
+    assert.match(code, /'price_adjusted', v_price_adjusted\)/);
+  });
+
+  it('drop cột sau khi đã thay cả hai hàm', () => {
+    assert.match(code, /ALTER TABLE public\.orders DROP COLUMN IF EXISTS cash_rounding;/i);
+    const idxFn = code.indexOf('CREATE OR REPLACE FUNCTION public.checkout_order(');
+    const idxDrop = code.indexOf('DROP COLUMN');
+    assert.ok(idxFn > 0 && idxDrop > idxFn, 'phải thay hàm trước rồi mới drop cột');
+  });
+
+  it('client không còn đọc/ghi cash_rounding ở bất kỳ đâu', () => {
+    for (const f of [
+      'lib/types.ts',
+      'lib/pricing.ts',
+      'lib/store.tsx',
+      'lib/store/tx/orders-types.ts',
+      'lib/store/tx/orders-sync.ts',
+      'lib/store/tx/checkout.tsx',
+      'components/pos/ReceiptModal.tsx',
+      'components/orders/OrdersView.tsx',
+    ]) {
+      assert.ok(!/cash_rounding/.test(read(f)), `${f} còn nhắc cash_rounding`);
+    }
   });
 });

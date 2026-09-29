@@ -88,8 +88,7 @@ export interface Order {
   tendered_amount?: number; // Tiền khách đưa lúc checkout (để replay offline gửi đúng; đơn cũ không có)
   vat_amount?: number; // VAT bill — server 0023 tính riêng (đơn cũ: gộp trong total, = 0/undefined)
   vat_percent?: number; // % VAT lúc bán (0 | 8 | 10)
-  cash_rounding: number; // Chỉ tính khi có 'cash'
-  total_amount: number; // subtotal + shipping_fee - discount_amount - cash_rounding
+  total_amount: number; // subtotal + shipping_fee + vat_amount - discount_amount
   paid_amount: number;
   debt_amount: number;
   change_amount: number;

@@ -593,12 +593,6 @@ export function OrdersView() {
                     <span>+{formatVND(selectedOrder.vat_amount || 0)}</span>
                   </div>
                 )}
-                {selectedOrder.cash_rounding > 0 && (
-                  <div className="flex justify-between text-amber-700">
-                    <span>Làm tròn tiền mặt:</span>
-                    <span>-{formatVND(selectedOrder.cash_rounding)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between font-bold text-slate-900 pt-1 border-t border-slate-200 text-sm">
                   <span>Tổng cộng:</span>
                   <span>{formatVND(selectedOrder.total_amount)}</span>

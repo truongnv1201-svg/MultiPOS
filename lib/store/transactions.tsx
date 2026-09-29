@@ -55,8 +55,7 @@ export interface TransactionsSlice {
     shipping_fee: number;
     vat_amount: number;
     vat_percent: number;
-    cash_rounding: number;
-    payable: number;
+      payable: number;
     change_amount: number;
     debt_amount: number;
   };

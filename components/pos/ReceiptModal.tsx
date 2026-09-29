@@ -132,9 +132,6 @@ export function ReceiptModal() {
       {order.shipping_fee > 0 && (
         <div className="flex justify-between"><span>Vận chuyển:</span><span className="font-mono">+{formatVND(order.shipping_fee)}</span></div>
       )}
-      {order.cash_rounding > 0 && (
-        <div className="flex justify-between text-amber-700 font-medium"><span>Làm tròn TM:</span><span className="font-mono">-{formatVND(order.cash_rounding)}</span></div>
-      )}
       <div className="flex justify-between font-bold text-xs text-slate-950 pt-1 border-t border-slate-200">
         <span>TỔNG THANH TOÁN:</span><span className="font-mono">{formatVND(order.total_amount)}</span>
       </div>
@@ -266,7 +263,6 @@ export function ReceiptModal() {
           {order.discount_amount > 0 && <div className="flex justify-between text-rose-600"><span>Chiết khấu:</span><span className="font-mono">-{formatVND(order.discount_amount)}</span></div>}
           {(order.vat_amount || 0) > 0 && <div className="flex justify-between"><span>VAT{order.vat_percent ? ` (${order.vat_percent}%)` : ''}:</span><span className="font-mono">+{formatVND(order.vat_amount || 0)}</span></div>}
           {order.shipping_fee > 0 && <div className="flex justify-between"><span>Vận chuyển:</span><span className="font-mono">+{formatVND(order.shipping_fee)}</span></div>}
-          {order.cash_rounding > 0 && <div className="flex justify-between text-amber-700"><span>Làm tròn:</span><span className="font-mono">-{formatVND(order.cash_rounding)}</span></div>}
           <div className="flex justify-between font-bold border-t border-slate-300 pt-1"><span>TỔNG CỘNG:</span><span className="font-mono">{formatVND(order.total_amount)}</span></div>
           <div className="flex justify-between"><span>Đã thanh toán:</span><span className="font-mono font-bold">{formatVND(order.paid_amount)}</span></div>
           {order.debt_amount > 0 && <div className="flex justify-between text-rose-600 font-bold"><span>Còn phải thu:</span><span className="font-mono">{formatVND(order.debt_amount)}</span></div>}

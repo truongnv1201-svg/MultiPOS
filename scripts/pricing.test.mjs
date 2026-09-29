@@ -115,7 +115,6 @@ describe('calcCartTotals', () => {
   it('cash đủ tiền thừa: 4 keo 248000, đưa 250000 -> thối 2000, không làm tròn', () => {
     const t = calcCartTotals(cart({ items: [goods()], tendered_amount: 250000 }), 500);
     assert.equal(t.subtotal, 248000);
-    assert.equal(t.cash_rounding, 0);
     assert.equal(t.payable, 248000);
     assert.equal(t.change_amount, 2000);
     assert.equal(t.debt_amount, 0);
@@ -125,7 +124,6 @@ describe('calcCartTotals', () => {
     const t = calcCartTotals(
       cart({ items: [goods({ quantity: 2, subtotal: 124000 })], vat_percent: 8, tendered_amount: 150000 }));
     assert.equal(t.vat_amount, 9920);
-    assert.equal(t.cash_rounding, 0);
     assert.equal(t.payable, 133920);
     assert.equal(t.change_amount, 16080);
   });
@@ -133,7 +131,6 @@ describe('calcCartTotals', () => {
   it('transfer không làm tròn dù raw lẻ', () => {
     const t = calcCartTotals(
       cart({ items: [goods({ quantity: 2, subtotal: 124000 })], vat_percent: 8, payment_method: 'transfer', tendered_amount: 133920 }), 500);
-    assert.equal(t.cash_rounding, 0);
     assert.equal(t.payable, 133920);
     assert.equal(t.change_amount, 0);
   });
@@ -189,21 +186,20 @@ describe('calcCartTotals', () => {
     // 124000 + 8% VAT = 133920 -> tra dung 133920, khong xuong boi 100/500/1000
     const t = calcCartTotals(
       cart({ items: [goods({ quantity: 2, subtotal: 124000 })], vat_percent: 8, tendered_amount: 133920 }));
-    assert.equal(t.cash_rounding, 0);
     assert.equal(t.payable, 133920);
   });
 
   it('tiền mặt cũng không làm tròn (không còn mệnh giá 500/1000)', () => {
     const t = calcCartTotals(cart({ items: [goods()], tendered_amount: 250000 }));
-    assert.equal(t.cash_rounding, 0);
     assert.equal(t.payable, 248000);
+    assert.equal('cash_rounding' in t, false, 'đã bỏ hẳn trường cash_rounding');
   });
 
   it('giỏ trống -> toàn 0', () => {
     const t = calcCartTotals(cart());
     assert.deepEqual(t, {
       subtotal: 0, discount_amount: 0, shipping_fee: 0, vat_amount: 0, vat_percent: 0,
-      cash_rounding: 0, payable: 0, change_amount: 0, debt_amount: 0,
+      payable: 0, change_amount: 0, debt_amount: 0,
     });
   });
 });

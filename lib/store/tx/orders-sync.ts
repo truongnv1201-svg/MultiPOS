@@ -127,8 +127,7 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
         shipping_fee: Number(row.shipping_fee || 0),
         vat_amount: Number(row.vat_amount || 0),
         vat_percent: Number(row.vat_percent || 0),
-        cash_rounding: Number(row.cash_rounding || 0),
-        total_amount: Number(row.total_amount || 0),
+              total_amount: Number(row.total_amount || 0),
         paid_amount: Number(row.paid_amount || 0),
         debt_amount: Number(row.debt_amount || 0),
         change_amount: Number(row.change_amount || 0),
@@ -199,7 +198,7 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
           const vatResidual = Math.max(
             0,
             (o.total_amount || 0) -
-              ((o.subtotal || 0) - (o.discount_amount || 0) + (o.shipping_fee || 0) - (o.cash_rounding || 0))
+              ((o.subtotal || 0) - (o.discount_amount || 0) + (o.shipping_fee || 0))
           );
           // Replay gửi TIỀN KHÁCH ĐƯA (như checkout online) để server chia paid/change/debt.
           // Đơn mới có tendered_amount; đơn cũ fallback paid đã kẹp trong payments.

@@ -102,7 +102,6 @@ export function useTxCheckout({
       let effSubtotal = totals.subtotal;
       let effDiscount = totals.discount_amount;
       let effVat = totals.vat_amount;
-      let effRounding = totals.cash_rounding;
       let effPayable = totals.payable;
       let effChange = totals.change_amount;
       let serverOrderId: string | null = null;
@@ -174,7 +173,6 @@ export function useTxCheckout({
             subtotal: number;
             discount_amount: number;
             vat_amount?: number;
-            cash_rounding: number;
             total_amount: number;
             paid_amount: number;
             debt_amount: number;
@@ -193,8 +191,7 @@ export function useTxCheckout({
           effSubtotal = Number(res.subtotal);
           effDiscount = Number(res.discount_amount);
           effVat = res.vat_amount != null ? Number(res.vat_amount) : totals.vat_amount;
-          effRounding = Number(res.cash_rounding);
-          effPayable = Number(res.total_amount);
+            effPayable = Number(res.total_amount);
           paidAmount = Number(res.paid_amount);
           actualDebt = Number(res.debt_amount);
           effChange = Number(res.change_amount);
@@ -230,8 +227,7 @@ export function useTxCheckout({
         tendered_amount: activeCart.tendered_amount || 0,
         vat_amount: effVat,
         vat_percent: activeCart.vat_percent || 0,
-        cash_rounding: effRounding,
-        total_amount: effPayable,
+          total_amount: effPayable,
         paid_amount: paidAmount,
         debt_amount: actualDebt,
         change_amount: effChange,
