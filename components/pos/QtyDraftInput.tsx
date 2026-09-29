@@ -68,7 +68,7 @@ export function QtyDraftInput({
             }}
             // Style chung với ô đơn giá (components/common/EditableCell) để cả hai ô
             // sửa được trong giỏ trông như một.
-            className={`${editCellClass(width, `text-center font-bold ${className}`)}`}
+            className={`${editCellClass(width, `text-center font-semibold ${className}`)}`}
         />
     );
 }

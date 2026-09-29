@@ -74,11 +74,11 @@ test.describe('Gio POS: cot don vi tinh + o sua duoc', () => {
         await expect(page.locator('#cart-table-container [title^="Tăng"]')).toHaveCount(0);
         await expect(page.locator('#cart-table-container [title^="Giảm"]')).toHaveCount(0);
 
-        // 5) O so luong dung style o sua chung: co viền, cao 32px, bo cong
+        // 5) O so luong dung style o sua chung: co viền, cao 32px, bo cong 8px (rounded-lg)
         const qtyBox = await box(normalRow.locator('input[aria-label^="Số lượng"]'));
         expect(qtyBox.border).not.toBe('rgba(0, 0, 0, 0)');
         expect(qtyBox.height).toBe('32px');
-        expect(qtyBox.radius).toBe('6px');
+        expect(qtyBox.radius).toBe('8px');
     });
 
     test('mobile: chi con o so luong, khong con nut +/-', async ({ page }) => {

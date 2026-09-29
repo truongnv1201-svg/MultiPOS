@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { NumberInput } from '@/components/common/NumberInput';
 import { editCellClass } from '@/components/common/EditableCell';
@@ -48,7 +48,12 @@ export function PriceDraftInput({
             }}
             className={editCellClass(
                 width,
-                `text-right font-bold ${overridden ? 'bg-amber-50 border-amber-300 text-amber-900' : ''}`
+                // Ô đã sửa giá: nền hổ phách. Dùng `!` (important) vì EDIT_CELL_CLASS đã có
+                // bg-slate-50 và Tailwind xếp theo thứ tự utility -> không `!` thì màu này
+                // không bao giờ thắng (đo computed style: cả hai đều ra oklch xám).
+                `text-right font-semibold ${
+                    overridden ? 'border-amber-300! bg-amber-100! text-amber-900!' : ''
+                }`
             )}
         />
     );

@@ -47,6 +47,8 @@ function sameEditableStyle(a: Box, b: Box) {
     expect({ ...a, color: '', bg: '' }).toEqual({ ...b, color: '', bg: '' });
 }
 
+const bgOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).backgroundColor);
+
 test.describe('Giỏ POS: style chung cho ô sửa được', () => {
     test('Quản lý: ô số lượng và ô đơn giá cùng style', async ({ page }) => {
         test.slow();
@@ -93,6 +95,34 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         await price.fill('');
         await price.press('Tab');
         await expect(price).toHaveValue('15.000');
+    });
+
+    test('Ô đã sửa giá phải NHÌN THẤY khác ô bình thường', async ({ page }) => {
+        // Regression: ô sửa giá tô nền hổ phách, nhưng EDIT_CELL_CLASS đã có bg-slate-50 và
+        // Tailwind xếp utility theo thứ tự -> không có `!` thì màu không bao giờ thắng và
+        // cảnh báo "đã sửa giá" vô hình. Test này đo computed style thật.
+        test.slow();
+        await page.setViewportSize({ width: 1600, height: 950 });
+        await login(page, true);
+        await addFirstProduct(page, 'keo');
+        await addFirstProduct(page, 'ổ cắm');
+
+        const rowNormal = page.locator('#cart-table-container tbody tr').first();
+        const rowEdit = page.locator('#cart-table-container tbody tr').nth(1);
+        const priceEdit = rowEdit.locator('input[aria-label^="Đơn giá"]');
+
+        const bgBefore = await bgOf(rowNormal.locator('input[aria-label^="Đơn giá"]'));
+        await priceEdit.click();
+        await priceEdit.fill('18500');
+        await priceEdit.press('Enter');
+        // blur ra xa để đo trạng thái nghỉ (đang focus thì viền xanh che mất)
+        await page.locator('#cart-table-container th', { hasText: 'Thành tiền' }).click();
+        await page.waitForTimeout(400);
+
+        const bgAfter = await bgOf(priceEdit);
+        expect(bgAfter).not.toBe(bgBefore);
+        // màu nền hổ phách: hue ~95deg (oklch) -> khác hẳn nền xám lạnh
+        expect(bgAfter).toMatch(/oklch\(0\.96\d 0\.0\d\d 9\d\./);
     });
 
     test('Thu ngân: đơn giá chỉ đọc, khác style ô sửa được', async ({ page }) => {
