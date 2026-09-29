@@ -53,7 +53,7 @@ export function PriceDraftInput({
                 // Dùng `!` vì EDIT_CELL_CLASS có text-blue-700 và Tailwind xếp utility theo
                 // thứ tự -> không `!` thì màu này không bao giờ thắng, cảnh báo vô hình.
                 // `focus:` giữ phản hồi khi đang gõ (đậm hơn thay vì đổi hue).
-                `text-right font-semibold ${
+                `text-right ${
                     overridden ? 'text-amber-700! hover:text-amber-800! focus:text-amber-900!' : ''
                 }`
             )}

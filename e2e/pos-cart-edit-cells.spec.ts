@@ -49,6 +49,7 @@ function sameEditableStyle(a: Box, b: Box) {
 
 const bgOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).backgroundColor);
 const colorOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).color);
+const weightOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).fontWeight);
 
 test.describe('Giỏ POS: style chung cho ô sửa được', () => {
     test('Quản lý: ô số lượng và ô đơn giá cùng style', async ({ page }) => {
@@ -96,6 +97,26 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         await price.fill('');
         await price.press('Tab');
         await expect(price).toHaveValue('15.000');
+    });
+
+    test('Rê chuột lên ô sửa được thì chữ ĐẬM lên', async ({ page }) => {
+        await page.setViewportSize({ width: 1600, height: 950 });
+        await login(page, true);
+        await addFirstProduct(page, 'keo');
+
+        const row = page.locator('#cart-table-container tbody tr').first();
+        for (const label of [/^Số lượng /, /^Đơn giá /]) {
+            const input = row.getByLabel(label);
+            await expect(input).toBeVisible();
+            expect(await weightOf(input)).toBe('600');
+            await input.hover();
+            await page.waitForTimeout(250);
+            expect(await weightOf(input)).toBe('700');
+            // rời chuột -> về bình thường
+            await page.mouse.move(0, 0);
+            await page.waitForTimeout(250);
+            expect(await weightOf(input)).toBe('600');
+        }
     });
 
     test('Ô đã sửa giá phải NHÌN THẤY khác ô bình thường', async ({ page }) => {
