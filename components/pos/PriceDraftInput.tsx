@@ -48,11 +48,14 @@ export function PriceDraftInput({
             }}
             className={editCellClass(
                 width,
-                // Ô đã sửa giá: nền hổ phách. Dùng `!` (important) vì EDIT_CELL_CLASS đã có
-                // bg-slate-50 và Tailwind xếp theo thứ tự utility -> không `!` thì màu này
-                // không bao giờ thắng (đo computed style: cả hai đều ra oklch xám).
+                // Ô đã sửa giá: đổi màu ĐƯỜNG GẠCH CHÂN sang hổ phách, chữ vẫn xanh
+                // (đồng nhất với các ô sửa được khác). Cần `!` vì EDIT_CELL_CLASS đã có
+                // border-b-slate-200 và Tailwind xếp utility theo thứ tự -> không `!` thì
+                // màu này không bao giờ thắng, cảnh báo "đã sửa giá" vô hình.
+                // `focus:...!` buộc khi đang gõ thì gạch chân về xanh như mọi ô khác, blur
+                // ra lại hổ phách (nếu không có, dòng đã sửa mất phản hồi khi focus).
                 `text-right font-semibold ${
-                    overridden ? 'border-amber-300! bg-amber-100! text-amber-900!' : ''
+                    overridden ? 'border-b-amber-500! focus:border-b-blue-600!' : ''
                 }`
             )}
         />

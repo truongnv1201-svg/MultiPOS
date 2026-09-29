@@ -29,7 +29,15 @@ async function addProduct(page: Page, term: string) {
     await page.waitForTimeout(1000);
 }
 
-type Colors = { bg: string; color: string; border: string; height: string; radius: string };
+type Colors = {
+    bg: string;
+    color: string;
+    border: string;
+    height: string;
+    radius: string;
+    borderTopWidth: string;
+    borderBottomWidth: string;
+};
 const box = (loc: ReturnType<Page['locator']>) =>
     loc.evaluate((el: HTMLElement) => {
         const cs = getComputedStyle(el);
@@ -39,6 +47,8 @@ const box = (loc: ReturnType<Page['locator']>) =>
             border: cs.borderColor,
             height: cs.height,
             radius: cs.borderTopLeftRadius,
+            borderTopWidth: cs.borderTopWidth,
+            borderBottomWidth: cs.borderBottomWidth,
         } as Colors;
     });
 
@@ -74,11 +84,11 @@ test.describe('Gio POS: cot don vi tinh + o sua duoc', () => {
         await expect(page.locator('#cart-table-container [title^="Tăng"]')).toHaveCount(0);
         await expect(page.locator('#cart-table-container [title^="Giảm"]')).toHaveCount(0);
 
-        // 5) O so luong dung style o sua chung: co viền, cao 32px, bo cong 8px (rounded-lg)
+        // 5) O so luong dung style o sua chung: chi gach chan duoi, cao 32px
         const qtyBox = await box(normalRow.locator('input[aria-label^="Số lượng"]'));
-        expect(qtyBox.border).not.toBe('rgba(0, 0, 0, 0)');
+        expect(qtyBox.borderTopWidth).toBe('0px');
+        expect(qtyBox.borderBottomWidth).toBe('2px');
         expect(qtyBox.height).toBe('32px');
-        expect(qtyBox.radius).toBe('8px');
     });
 
     test('mobile: chi con o so luong, khong con nut +/-', async ({ page }) => {
@@ -97,9 +107,10 @@ test.describe('Gio POS: cot don vi tinh + o sua duoc', () => {
         await expect(list.locator('[aria-label^="Tăng số lượng"]')).toHaveCount(0);
         await expect(list.locator('[aria-label^="Giảm số lượng"]')).toHaveCount(0);
 
-        // Cung style o sua chung voi desktop
+        // Cung style o sua chung voi desktop: gach chan duoi, khong khung
         const qtyBox = await box(input);
         expect(qtyBox.height).toBe('32px');
-        expect(qtyBox.border).not.toBe('rgba(0, 0, 0, 0)');
+        expect(qtyBox.borderTopWidth).toBe('0px');
+        expect(qtyBox.borderBottomWidth).toBe('2px');
     });
 });
