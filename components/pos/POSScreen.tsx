@@ -6,7 +6,7 @@ import { Product, OrderItem, Customer } from '@/lib/types';
 import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import MobileCartSheet from '@/components/pos/MobileCartSheet';
-import { readOnlyCellClass } from '@/components/common/EditableCell';
+import { readOnlyCellClass, editCellClass } from '@/components/common/EditableCell';
 import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
 import { PriceDraftInput } from '@/components/pos/PriceDraftInput';
 import MobilePaymentSheet, { type MobilePaymentMethod } from '@/components/pos/MobilePaymentSheet';
@@ -18,7 +18,7 @@ import { isVietqrReady, buildVietqrUrl, vietqrAddInfo } from '@/lib/vietqr';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
 import { resolvePaidAmount } from '@/lib/pricing';
-import { allowsDecimalQty, formatQty, parseQtyInput, snapQty, QTY_MAX_DECIMALS } from '@/lib/quantity';
+import { allowsDecimalQty, formatQty, parseQtyInput, snapQty } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
 import {
   Plus,
@@ -72,6 +72,8 @@ export function POSScreen() {
     checkoutActiveOrder,
     posFlow,
     setPosFlow,
+    posProjectId,
+    setPosProjectId,
     setFlyoutMenuOpen,
     vietqr,
     currentShift,
@@ -144,6 +146,16 @@ export function POSScreen() {
   // 0059: sửa đơn giá cho riêng đơn đang bán — chỉ Quản lý/Admin (server cũng gate lần 2
   // bằng is_manager() nên thu ngân sửa trên UI cũng không lọt lên DB).
   const canOverridePrice = authReady && (!supabaseReady || profile?.role === 'admin' || profile?.role === 'manager');
+
+  // Chặn bảo vệ: Nhập hàng / Xuất CT chỉ dành cho Admin/Quản lý. posFlow nằm trong store
+  // nên mở POS từ màn khác (nút ở màn Công trình, màn Kho) hoặc đổi tài khoản có thể
+  // vào thẳng luồng này khi tab đã bị ẩn -> trả về Bán hàng.
+  useEffect(() => {
+    if (authReady && supabaseReady && !canImport && posFlow !== 'sale') {
+      setPosFlow('sale');
+      setPosProjectId(null);
+    }
+  }, [authReady, supabaseReady, canImport, posFlow, setPosFlow, setPosProjectId]);
   interface ImportLine {
     key: string;
     productId: string;
@@ -160,7 +172,9 @@ export function POSScreen() {
   // Dùng bảng dòng hàng giống luồng nhập kho nhưng TÁCH state riêng: giá là giá vốn
   // (avg_cost) chứ không phải giá nhập, và commit ghi vào project_materials.
   const [projLines, setProjLines] = useState<ImportLine[]>([]);
-  const [projProjectId, setProjProjectId] = useState<string>('');
+  // Công trình chọn nằm trong store: màn Dự án bấm "Xuất CT" sẽ nhảy thẳng qua đây
+  // và vẫn giữ đúng công trình đã chọn.
+  const projProjectId = posProjectId ?? '';
   const selectedProject = React.useMemo(
     () => projects.find((p) => p.id === projProjectId) || null,
     [projects, projProjectId]
@@ -640,6 +654,9 @@ export function POSScreen() {
               onQuantityChange={setQuickQuantity}
               quantityInputRef={quickQuantityRef}
               onPickProduct={isImportFlow ? addImportLine : isProjectFlow ? addProjectLine : undefined}
+              // Xuất vật tư công trình: Enter lần 1 nhảy ô số lượng, Enter lần 2 mới ghi dòng
+              // (giống bán hàng) vì số lượng xuất phải chính xác.
+              confirmQtyOnEnter={isProjectFlow}
               quantitySlot={(
                 <div className="w-20 sm:w-24 shrink-0">
                   <input
@@ -840,17 +857,14 @@ export function POSScreen() {
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">{formatVND(line.price)}</td>
                         <td className="py-2.5 px-2.5">
-                          <NumberInput
-                            min={0.001}
-                            allowDecimals={allowsDecimalQty(prod)}
-                            maxDecimals={QTY_MAX_DECIMALS}
-                            value={line.qty}
-                            onChange={(v) =>
-                              setProjLines((prev) =>
-                                prev.map((l) => (l.key === line.key ? { ...l, qty: snapQty(v, allowsDecimalQty(prod)) } : l))
-                              )
+                          <QtyDraftInput
+                            quantity={line.qty}
+                            allowDecimal={allowsDecimalQty(prod)}
+                            onCommit={(v) =>
+                              setProjLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, qty: v } : l)))
                             }
-                            className="w-full h-7 px-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded"
+                            ariaLabel={`Số lượng xuất ${prod.name}`}
+                            width="w-full"
                           />
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
@@ -952,21 +966,18 @@ export function POSScreen() {
                             min={0}
                             value={line.price}
                             onChange={(v) => setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, price: v } : l)))}
-                            className="w-full h-7 px-1.5 text-right font-mono text-xs bg-white border border-slate-300 rounded"
+                            className={editCellClass('w-full', 'text-right')}
                           />
                         </td>
                         <td className="py-2.5 px-2.5">
-                          <NumberInput
-                            min={0.001}
-                            allowDecimals={allowsDecimalQty(prod)}
-                            maxDecimals={QTY_MAX_DECIMALS}
-                            value={line.qty}
-                            onChange={(v) =>
-                              setImpLines((prev) =>
-                                prev.map((l) => (l.key === line.key ? { ...l, qty: snapQty(v, allowsDecimalQty(prod)) } : l))
-                              )
+                          <QtyDraftInput
+                            quantity={line.qty}
+                            allowDecimal={allowsDecimalQty(prod)}
+                            onCommit={(v) =>
+                              setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, qty: v } : l)))
                             }
-                            className="w-full h-7 px-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded"
+                            ariaLabel={`Số lượng nhập ${prod.name}`}
+                            width="w-full"
                           />
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
@@ -1210,7 +1221,7 @@ export function POSScreen() {
                     label: `${p.code} — ${p.name}`,
                     sub: `Giai đoạn ${p.phase || 1} · đã xuất ${p.materials?.length || 0} dòng`,
                   }))}
-                  onChange={(v) => setProjProjectId(v)}
+                  onChange={(v) => setPosProjectId(v || null)}
                 />
               </div>
               {!selectedProject && projLines.length > 0 && (
@@ -2117,7 +2128,7 @@ export function POSScreen() {
       )}
 
       <MobilePOSDock
-        isImportFlow={isStockFlow}
+        flow={posFlow}
         itemCount={isStockFlow ? (isProjectFlow ? projLines.length : impLines.length) : activeCart.items.length}
         total={isStockFlow ? (isProjectFlow ? projTotal : impTotal) : calculatedTotals.payable}
         disabled={

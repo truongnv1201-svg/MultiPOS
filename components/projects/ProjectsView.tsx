@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Trash2,
   X,
+  HardHat,
 } from 'lucide-react';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -33,8 +34,18 @@ const EMPTY_PROJECT_MATERIALS: ProjectMaterial[] = [];
 const EMPTY_PROJECT_WORKERS: ProjectWorker[] = [];
 
 export function ProjectsView() {
-  const { projects, customers, addProject, updateProject, products, employees, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit, syncProjects, isOnline } = useStore();
+  const { projects, customers, addProject, updateProject, products, employees, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit, syncProjects, isOnline, setPosFlow, setPosProjectId, setCurrentScreen, profile } = useStore();
   const [selectedProject, setSelectedProject] = useState<Project | null>(projects[0] || null);
+
+  /** Xuất vật tư nằm trong POS và chỉ Admin/Quản lý vào được (giống tab "Xuất CT"). */
+  const canExportMaterials = !profile || profile.role === 'admin' || profile.role === 'manager';
+
+  /** Mở thẳng màn POS ở tab "Xuất CT" với công trình hiện tại đã chọn sẵn. */
+  const goToProjectExport = (project: Project) => {
+    setPosProjectId(project.id);
+    setPosFlow('project');
+    setCurrentScreen('pos');
+  };
 
   // Bảng projects KHÔNG nằm trong publication realtime (0049 chỉ có 10 bảng nghiệp vụ) và
   // cũng không có trong TABLE_REFRESH, nên syncProjects trước đây chỉ chạy lúc đăng nhập /
@@ -498,10 +509,20 @@ export function ProjectsView() {
                     Tổng chi phí vật tư: {formatVND(currentProject.material_cost_total)}
                   </span>
                   {/* Xuất vật tư chuyển sang màn POS (tab "Xuất CT") — modal cũ đã bỏ vì
-                      mỗi lần chỉ xuất được 1 mặt hàng, thao tác lẹt. Xem tại: POS → Xuất CT. */}
-                  <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 font-medium">
-                    Xuất vật tư tại màn POS: <strong>F2 → Xuất CT</strong>
-                  </span>
+                      mỗi lần chỉ xuất được 1 mặt hàng, thao tác lẹt. */}
+                  {canExportMaterials && (
+                    <button
+                      type="button"
+                      id="btn-project-goto-export"
+                      onClick={() => goToProjectExport(currentProject)}
+                      title={`Mở màn POS → Xuất CT cho công trình ${currentProject.code}`}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 hover:bg-amber-100 active:bg-amber-200"
+                    >
+                      <HardHat className="w-3.5 h-3.5" />
+                      Xuất CT
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               </div>
 

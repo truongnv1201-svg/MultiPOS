@@ -31,6 +31,8 @@ export interface TransactionsSlice {
   cashierName: string;
   posFlow: PosFlow;
   setPosFlow: (flow: PosFlow) => void;
+  posProjectId: string | null;
+  setPosProjectId: (id: string | null) => void;
   cartTabs: CartTab[];
   activeTabId: string;
   setActiveTabId: (tabId: string) => void;
@@ -169,6 +171,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     cashierName,
     posFlow: cart.posFlow,
     setPosFlow: cart.setPosFlow,
+    posProjectId: cart.posProjectId,
+    setPosProjectId: cart.setPosProjectId,
     cartTabs: cart.cartTabs,
     activeTabId: cart.activeTabId,
     setActiveTabId: cart.setActiveTabId,

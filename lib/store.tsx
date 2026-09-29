@@ -156,6 +156,8 @@ interface StoreContextType {
   // POS State
   posFlow: PosFlow; // Luồng POS: bán hàng / nhập kho / xuất vật tư công trình
   setPosFlow: (flow: PosFlow) => void;
+  posProjectId: string | null; // Công trình đang chọn ở luồng xuất vật tư
+  setPosProjectId: (id: string | null) => void;
   cartTabs: CartTab[];
   activeTabId: string;
   setActiveTabId: (tabId: string) => void;
@@ -403,6 +405,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     cashierName,
     posFlow,
     setPosFlow,
+    posProjectId,
+    setPosProjectId,
     cartTabs,
     activeTabId,
     setActiveTabId,
@@ -803,6 +807,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     signOut,
     posFlow,
     setPosFlow,
+    posProjectId,
+    setPosProjectId,
     cartTabs,
     activeTabId,
     setActiveTabId,

@@ -26,6 +26,21 @@ async function addFirstProduct(page: Page, term: string) {
     await page.waitForTimeout(900);
 }
 
+/** Số tiền kiểu VN trong ô nội dung dòng: "45.000" -> 45000. */
+const vnNum = (raw: string | undefined): number => Number((raw || '').replace(/\./g, ''));
+
+/**
+ * Tồn còn lại phải bằng đúng (tồn gốc - SL xuất). Tồn gốc đọc từ cột "Tồn: N" của
+ * chính dòng đó, KHÔNG hardcode: DB dùng chung nên tồn đổi theo vận động thật.
+ */
+function expectStockAfter(detail: string, qty: number) {
+    const base = vnNum(detail.match(/Tồn:\s*([\d.,]+)/)?.[1]);
+    const after = vnNum(detail.match(/([\d.,]+)\s+\S+\s*$/)?.[1]);
+    expect(Number.isFinite(base)).toBe(true);
+    expect(Number.isFinite(after)).toBe(true);
+    expect(after).toBe(base - qty);
+}
+
 test.describe('POS: luồng xuất vật tư công trình', () => {
     test('có tab thứ 3, đổi bảng dòng và chặn commit khi chưa chọn công trình', async ({ page }) => {
         test.slow();
@@ -64,8 +79,9 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         await expect(qtyInput).toHaveValue('3');
         // 3 x 15.000 = 45.000 và tồn 252 - 3 = 249
         const detail = (await rows.first().innerText()).replace(/\s+/g, ' ');
+        // 3 x 15.000 = 45.000; tồn còn lại = tồn gốc - 3
         expect(detail).toContain('45.000 đ');
-        expect(detail).toContain('249');
+        expectStockAfter(detail, 3);
         await expect(page.locator('#pos-payment-panel')).toContainText('Tổng giá vốn xuất');
     });
 
@@ -90,5 +106,117 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         await page.waitForTimeout(700);
         // KHÔNG bấm commit (tránh ghi dữ liệu thật) — chỉ kiểm nút đã mở khoá
         expect(await page.locator('#btn-project-export-commit').isDisabled()).toBe(false);
+    });
+
+    test('Enter ở ô tìm nhảy ô số lượng, Enter tiếp mới ghi dòng (giống bán hàng)', async ({ page }) => {
+        // Yêu cầu: xuất vật tư không được mặc định 1. Enter lần 1 chỉ chọn hàng rồi
+        // nhảy focus sang #quick-quantity-input; Enter lần 2 mới thêm dòng với SL đã gõ.
+        test.slow();
+        await page.setViewportSize({ width: 1600, height: 950 });
+        await loginAdmin(page);
+        await page.locator('button:has-text("Xuất CT")').click();
+        await page.waitForTimeout(900);
+
+        const rows = page.locator('#project-table-container tbody tr');
+        expect(await rows.count()).toBe(0);
+
+        const search = page.locator('#f1-search-input');
+        await search.fill('keo');
+        await expect(page.locator('#search-results-dropdown')).toBeVisible({ timeout: 10_000 });
+        // Gợi ý phím phải nói đúng việc sẽ làm (không còn "[Enter] Mở F3" ở luồng này)
+        await expect(page.locator('#search-results-dropdown')).toContainText('[Enter] Nhập SL');
+        await search.press('Enter');
+
+        // Chưa ghi dòng, con trỏ đã nhảy sang ô số lượng
+        const qtyBox = page.locator('#quick-quantity-input');
+        await expect(qtyBox).toBeFocused({ timeout: 5_000 });
+        expect(await rows.count()).toBe(0);
+
+        // Gõ SL rồi Enter mới ghi dòng
+        await qtyBox.fill('2');
+        await qtyBox.press('Enter');
+        await expect(rows).toHaveCount(1, { timeout: 10_000 });
+        const detail = (await rows.first().innerText()).replace(/\s+/g, ' ');
+        expect(detail).toContain('2');
+        // tiền vốn = 2 x 15.000 = 30.000; tồn còn lại = tồn gốc - 2
+        expect(detail).toContain('30.000 đ');
+        expectStockAfter(detail, 2);
+        // Enter xong quay lại ô tìm như luồng bán hàng
+        await expect(page.locator('#f1-search-input')).toBeFocused();
+    });
+
+    test('ô số lượng Xuất CT và Nhập hàng dùng chung style ô sửa của giỏ bán', async ({ page }) => {
+        // Quy ước style (components/common/EditableCell): ô sửa được KHÔNG viền, KHÔNG nền,
+        // chữ xanh blue-600; hover/focus chỉ đổi độ đậm/màu chữ. Nhập hàng + Xuất CT
+        // trước đây dùng NumberInput có viền -> lệch với trang bán hàng.
+        test.slow();
+        await page.setViewportSize({ width: 1600, height: 950 });
+        await loginAdmin(page);
+
+        const style = (loc: ReturnType<Page['locator']>) =>
+            loc.evaluate((el: HTMLElement) => {
+                const cs = getComputedStyle(el);
+                return {
+                    bg: cs.backgroundColor,
+                    color: cs.color,
+                    border: cs.borderTopWidth,
+                    height: cs.height,
+                    weight: cs.fontWeight,
+                    shadow: cs.boxShadow,
+                };
+            });
+
+        // 1) lấy mẫu chuẩn từ giỏ bán
+        await addFirstProduct(page, 'keo');
+        const cartQty = page.locator('#cart-table-container tbody tr').first().locator('input[aria-label^="Số lượng"]');
+        const cartStyle = await style(cartQty);
+        expect(cartStyle.border).toBe('0px');
+        expect(cartStyle.bg).toBe('rgba(0, 0, 0, 0)');
+        expect(cartStyle.color).toBe('oklch(0.546 0.245 262.881)'); // blue-600
+
+        // 2) Xuất CT phải y hệt
+        await page.locator('button:has-text("Xuất CT")').click();
+        await page.waitForTimeout(700);
+        await addFirstProduct(page, 'keo');
+        const projQty = page.locator('#project-table-container tbody tr').first().locator('input[aria-label^="Số lượng xuất"]');
+        await expect(projQty).toBeVisible();
+        expect(await style(projQty)).toEqual(cartStyle);
+
+        // 3) Nhập hàng: cả ô đơn giá lẫn ô số lượng cũng phải y hệt
+        await page.locator('button:has-text("Nhập hàng")').click();
+        await page.waitForTimeout(700);
+        await addFirstProduct(page, 'keo');
+        const impRow = page.locator('#import-table-container tbody tr').first();
+        const impQty = impRow.locator('input[aria-label^="Số lượng nhập"]');
+        const impPrice = impRow.locator('input').first();
+        await expect(impQty).toBeVisible();
+        expect(await style(impQty)).toEqual(cartStyle);
+        const priceStyle = await style(impPrice);
+        expect(priceStyle.border).toBe('0px');
+        expect(priceStyle.bg).toBe('rgba(0, 0, 0, 0)');
+        expect(priceStyle.color).toBe(cartStyle.color);
+        expect(priceStyle.height).toBe(cartStyle.height);
+    });
+
+    test('trang Công trình có nút Xuất CT nhảy thẳng POS, chọn sẵn công trình', async ({ page }) => {
+        test.slow();
+        await page.setViewportSize({ width: 1600, height: 950 });
+        await loginAdmin(page);
+
+        // Alt + J sang màn Công trình
+        await page.keyboard.press('Alt+KeyJ');
+        await expect(page.locator('#projects-view')).toBeVisible({ timeout: 20_000 });
+        const goBtn = page.locator('#btn-project-goto-export');
+        await expect(goBtn).toBeVisible();
+        await expect(goBtn).toHaveText(/Xuất CT/);
+        // Dòng hướng dẫn cũ đã bị thay bằng nút bấm được
+        await expect(page.locator('#projects-view')).not.toContainText('Xuất vật tư tại màn POS');
+
+        await goBtn.click();
+        await expect(page.locator('#pos-screen')).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('#project-table-container')).toBeVisible({ timeout: 20_000 });
+        // Công trình đã chọn sẵn -> nút commit chỉ còn chặn vì chưa có vật tư
+        await expect(page.locator('#pos-payment-panel')).not.toContainText('Phải chọn công trình trước khi xuất');
+        expect(await page.locator('#btn-project-export-commit').isDisabled()).toBe(true); // chưa có dòng
     });
 });

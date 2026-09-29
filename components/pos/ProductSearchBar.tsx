@@ -55,6 +55,13 @@ interface ProductSearchBarProps {
   /** Chế độ nhập kho: khi có, chọn hàng sẽ gọi callback này thay vì thêm vào giỏ bán */
   onPickProduct?: (product: Product, quantity: number) => void;
   /**
+   * Khi bật, Enter ở ô tìm KHÔNG thêm ngay mà nhảy focus sang ô số lượng
+   * (Enter lần 2 mới commit) — giống hệt luồng bán hàng. Dùng cho xuất vật tư
+   * công trình vì số lượng xuất phải chính xác, không mặc định 1.
+   * Mặc định false: luồng nhập kho giữ nguyên thêm thẳng (máy quét nhanh).
+   */
+  confirmQtyOnEnter?: boolean;
+  /**
    * Ô số lượng do parent render (POS muốn nằm ngoài component để gắn phím tắt).
    * Khi có, component render nó đúng vị trí: sau ô tìm kiếm, trước cụm nút quét mã/bàn phím.
    */
@@ -70,6 +77,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       onQuantityChange,
       quantityInputRef: externalQuantityRef,
       onPickProduct,
+      confirmQtyOnEnter = false,
       quantitySlot,
     }: ProductSearchBarProps,
     ref
@@ -114,6 +122,9 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const [wedgeMode, setWedgeMode] = useState(false);
   // Ô số lượng: giữ chuỗi đang gõ để không mất dấu phẩy thập phân giữa các lần render
   const [qtyText, setQtyText] = useState('');
+  // Hàng đã chốt ở Enter lần 1 (chế độ confirmQtyOnEnter): Enter lần 2 ở ô SL
+  // commit đúng hàng vừa chọn, không phụ thuộc vị trí trong danh sách sau khi đổi từ khoá.
+  const pendingPickRef = useRef<Product | null>(null);
 
   const closeDropdown = useCallback(() => {
     setIsDropdownOpen(false);
@@ -140,6 +151,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     setQuantity(1);
     setIsDropdownOpen(false);
     setSelectedIndex(0);
+    pendingPickRef.current = null;
   };
 
   // Nạp cờ bàn phím từ máy (đọc trong effect để không lệch SSR, defer microtask như idiom repo)
@@ -191,6 +203,16 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       const selectedProduct = filteredProducts[selectedIndex] || filteredProducts[0];
       if (!selectedProduct) return;
       if (onPickProduct) {
+        if (confirmQtyOnEnter) {
+          // Xuất vật tư: Enter lần 1 chỉ chốt tên hàng rồi nhảy ô SL (như bán hàng),
+          // Enter lần 2 ở ô SL mới ghi dòng — tránh xuất nhầm số lượng.
+          pendingPickRef.current = selectedProduct;
+          setIsDropdownOpen(false);
+          setSearchQuery(selectedProduct.name);
+          quantityInputRef.current?.focus();
+          quantityInputRef.current?.select();
+          return;
+        }
         // Chế độ nhập kho: mọi loại hàng (kể cả m²) thêm thẳng theo SL, không mở F3
         onPickProduct(selectedProduct, quantity > 0 ? quantity : 1);
         resetSearch();
@@ -233,7 +255,8 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const selectedProduct = filteredProducts[selectedIndex] || filteredProducts[0];
+      const selectedProduct =
+        pendingPickRef.current || filteredProducts[selectedIndex] || filteredProducts[0];
       if (selectedProduct) {
         const q = commitQuantity(selectedProduct);
         if (onPickProduct) onPickProduct(selectedProduct, q);
@@ -425,6 +448,15 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
             {filteredProducts.map((prod, idx) => {
               const isSelected = idx === selectedIndex;
               const isArea = prod.product_type === 'area';
+              // Gợi ý phím phải khớp đúng hành vi: F3 chỉ mở ở luồng bán hàng,
+              // luồng nhập/xuất vật tư thì Enter đi qua ô số lượng hoặc thêm thẳng.
+              const enterHint = onPickProduct
+                ? confirmQtyOnEnter
+                  ? '[Enter] Nhập SL'
+                  : '[Enter] Thêm dòng'
+                : isArea
+                ? '[Enter] Mở F3'
+                : '[Enter] Nhập SL';
               return (
                 <div
                   key={prod.id}
@@ -477,11 +509,13 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
                       {formatVND(prod.retail_price)}
                       <span className="text-[10px] text-slate-400 font-normal">/{prod.unit}</span>
                     </div>
-                    {isArea ? (
-                      <span className="text-[10px] text-amber-600 font-semibold">[Enter] Mở F3</span>
-                    ) : (
-                      <span className="text-[10px] text-emerald-600">[Enter] Nhập SL</span>
-                    )}
+                    <span
+                      className={`text-[10px] font-semibold ${
+                        isArea && !onPickProduct ? 'text-amber-600' : 'text-emerald-600'
+                      }`}
+                    >
+                      {enterHint}
+                    </span>
                   </div>
                 </div>
               );

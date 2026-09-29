@@ -16,6 +16,10 @@ import { notify } from '@/components/common/Toast';
 export interface TxCart {
   posFlow: PosFlow;
   setPosFlow: React.Dispatch<React.SetStateAction<PosFlow>>;
+  /** Công trình đang chọn ở luồng xuất vật tư — nằm trong store để màn Công trình
+   *  nhảy thẳng sang POS (Xuất CT) mà vẫn giữ đúng công trình đã bấm. */
+  posProjectId: string | null;
+  setPosProjectId: (id: string | null) => void;
   cartTabs: CartTab[];
   activeTabId: string;
   setActiveTabId: React.Dispatch<React.SetStateAction<string>>;
@@ -43,6 +47,10 @@ export function useTxCart(): TxCart {
 
   // POS State
   const [posFlow, setPosFlow] = useState<PosFlow>('sale'); // Luồng POS hiện tại
+  const [posProjectId, setPosProjectIdState] = useState<string | null>(null);
+  const setPosProjectId = useCallback((id: string | null) => {
+    setPosProjectIdState(id);
+  }, []);
   const [cartTabs, setCartTabs] = useState<CartTab[]>([DEFAULT_TAB]);
   const [activeTabId, setActiveTabId] = useState<string>('tab-1');
 
@@ -224,6 +232,8 @@ export function useTxCart(): TxCart {
   return {
     posFlow,
     setPosFlow,
+    posProjectId,
+    setPosProjectId,
     cartTabs,
     activeTabId,
     setActiveTabId,
