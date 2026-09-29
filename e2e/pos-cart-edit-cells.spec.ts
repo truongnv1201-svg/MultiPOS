@@ -50,6 +50,7 @@ function sameEditableStyle(a: Box, b: Box) {
 const bgOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).backgroundColor);
 const colorOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).color);
 const weightOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).fontWeight);
+const shadowOf = (loc: Locator) => loc.evaluate((el: HTMLElement) => getComputedStyle(el).boxShadow);
 
 test.describe('Giỏ POS: style chung cho ô sửa được', () => {
     test('Quản lý: ô số lượng và ô đơn giá cùng style', async ({ page }) => {
@@ -99,7 +100,10 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         await expect(price).toHaveValue('15.000');
     });
 
-    test('Rê chuột lên ô sửa được thì chữ ĐẬM lên', async ({ page }) => {
+    test('Rê chuột lên ô sửa được thì nổi lên rõ ràng (nền + viền + đậm)', async ({ page }) => {
+        // Chỉ đổi độ đậm 600->700 là KHÔNG đủ ở 14px trong bảng dày — mắt gần như không
+        // thấy (đó là lý do hover trước đây bị coi như "không phản hồi"). Chuẩn chuyên nghiệp:
+        // hover -> nền xanh nhạt + viền xanh + chữ đậm; rời chuột -> sạch lại như lúc nghỉ.
         await page.setViewportSize({ width: 1600, height: 950 });
         await login(page, true);
         await addFirstProduct(page, 'keo');
@@ -108,13 +112,24 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         for (const label of [/^Số lượng /, /^Đơn giá /]) {
             const input = row.getByLabel(label);
             await expect(input).toBeVisible();
+
+            // nghỉ: trong suốt, không viền, 600
+            expect(await bgOf(input)).toBe('rgba(0, 0, 0, 0)');
+            expect(await shadowOf(input)).toBe('none');
             expect(await weightOf(input)).toBe('600');
+
+            // hover: có nền + có viền + đậm
             await input.hover();
             await page.waitForTimeout(250);
+            expect(await bgOf(input)).not.toBe('rgba(0, 0, 0, 0)');
+            expect(await shadowOf(input)).not.toBe('none');
             expect(await weightOf(input)).toBe('700');
-            // rời chuột -> về bình thường
+
+            // rời chuột -> về đúng trạng thái nghỉ
             await page.mouse.move(0, 0);
             await page.waitForTimeout(250);
+            expect(await bgOf(input)).toBe('rgba(0, 0, 0, 0)');
+            expect(await shadowOf(input)).toBe('none');
             expect(await weightOf(input)).toBe('600');
         }
     });
