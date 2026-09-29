@@ -10,7 +10,7 @@ import { useTxOrders } from './tx/orders';
 import { useTxDebts } from './tx/debts';
 import { useTxProjects } from './tx/projects';
 import { useTxShiftStock } from './tx/shift-stock';
-import type { Product, Order, OrderItem, Project, CashbookEntry, Shift, DimensionDetail, StockMovement } from '../types';
+import type { Product, Order, OrderItem, Project, CashbookEntry, Shift, DimensionDetail, StockMovement, PosFlow } from '../types';
 import type { CartTab, ReturnResult } from './types';
 
 export interface TransactionsSlice {
@@ -29,8 +29,8 @@ export interface TransactionsSlice {
   pendingQueue: Order[];
   setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;
   cashierName: string;
-  posFlow: 'sale' | 'import';
-  setPosFlow: (flow: 'sale' | 'import' | ((prev: 'sale' | 'import') => 'sale' | 'import')) => void;
+  posFlow: PosFlow;
+  setPosFlow: (flow: PosFlow) => void;
   cartTabs: CartTab[];
   activeTabId: string;
   setActiveTabId: (tabId: string) => void;

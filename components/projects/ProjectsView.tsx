@@ -33,7 +33,7 @@ const EMPTY_PROJECT_MATERIALS: ProjectMaterial[] = [];
 const EMPTY_PROJECT_WORKERS: ProjectWorker[] = [];
 
 export function ProjectsView() {
-  const { projects, customers, addProject, updateProject, products, employees, exportProjectMaterial, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit, syncProjects, isOnline } = useStore();
+  const { projects, customers, addProject, updateProject, products, employees, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit, syncProjects, isOnline } = useStore();
   const [selectedProject, setSelectedProject] = useState<Project | null>(projects[0] || null);
 
   // Bảng projects KHÔNG nằm trong publication realtime (0049 chỉ có 10 bảng nghiệp vụ) và
@@ -56,12 +56,7 @@ export function ProjectsView() {
   const [estimatedRevenue, setEstimatedRevenue] = useState(0);
   const [skipEstimate, setSkipEstimate] = useState(false);
 
-  // Phase 2: xuất vật tư
-  const [isMatModalOpen, setIsMatModalOpen] = useState(false);
-  const [matProductId, setMatProductId] = useState('');
-  const [matQty, setMatQty] = useState(1);
-  const matProduct = products.find((p) => p.id === matProductId);
-  const matPreviewTotal = matProduct ? Math.round(matQty * matProduct.avg_cost) : 0;
+  // Phase 2: xuất vật tư -> chuyển sang màn POS (tab "Xuất CT"), modal cũ đã gỡ
 
   // Phase 3: thêm thợ — chọn từ hồ sơ nhân sự (tự điền lương/việc), cho phép thợ ngoài
   const [isWorkerModalOpen, setIsWorkerModalOpen] = useState(false);
@@ -99,18 +94,6 @@ export function ProjectsView() {
     setWAllow(0);
   };
 
-  const handleExportMaterial = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentProject || !matProductId || !(matQty > 0)) return;
-    const updated = await exportProjectMaterial(currentProject.id, matProductId, matQty);
-    if (updated) {
-      setSelectedProject(updated);
-      setIsMatModalOpen(false);
-      setMatProductId('');
-      setMatQty(1);
-      notify(`Đã xuất ${matQty} ${matProduct?.unit} ${matProduct?.name} cho công trình (trừ kho + thẻ kho).`, 'success');
-    }
-  };
 
   const handleAddWorker = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -514,13 +497,11 @@ export function ProjectsView() {
                   <span className="text-xs font-mono font-bold text-slate-700">
                     Tổng chi phí vật tư: {formatVND(currentProject.material_cost_total)}
                   </span>
-                  <button
-                    onClick={() => setIsMatModalOpen(true)}
-                    className="px-3 h-8 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Xuất vật tư</span>
-                  </button>
+                  {/* Xuất vật tư chuyển sang màn POS (tab "Xuất CT") — modal cũ đã bỏ vì
+                      mỗi lần chỉ xuất được 1 mặt hàng, thao tác lẹt. Xem tại: POS → Xuất CT. */}
+                  <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 font-medium">
+                    Xuất vật tư tại màn POS: <strong>F2 → Xuất CT</strong>
+                  </span>
                 </div>
               </div>
 
@@ -698,75 +679,6 @@ export function ProjectsView() {
           </div>
         )}
       </div>
-
-      {/* Modal Phase 2: Xuất vật tư (trừ kho thật + thẻ kho export_project) */}
-      {isMatModalOpen && currentProject && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <form
-            onSubmit={handleExportMaterial}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">Xuất vật tư cho {currentProject.code}</h3>
-              <button type="button" onClick={() => setIsMatModalOpen(false)} className="p-1 text-slate-400 hover:text-white rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3 text-xs">
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Vật tư trong kho *</label>
-                <SearchableSelect
-                  value={matProductId}
-                  placeholder="Gõ để tìm hàng hóa / hàng m²…"
-                  options={products
-                    .filter((p) => p.product_type === 'goods' || p.product_type === 'area')
-                    .map((p) => ({
-                      value: p.id,
-                      label: `${p.name} — tồn ${p.stock_quantity} ${p.unit}`,
-                      sub: `${p.sku} · vốn ${formatVND(p.avg_cost)}`,
-                    }))}
-                  onChange={(v) => setMatProductId(v)}
-                />
-                {matProduct && (
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Tồn: <strong className="font-mono">{matProduct.stock_quantity} {matProduct.unit}</strong>
-                    {' '}· Đơn giá vốn áp dụng: <strong className="font-mono">{formatVND(matProduct.avg_cost)}</strong>
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Số lượng xuất *</label>
-                <NumberInput
-                  min={0}
-                  value={matQty}
-                  onChange={(v) => setMatQty(v)}
-                  className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono"
-                />
-              </div>
-              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between font-mono font-bold">
-                <span className="text-slate-700 font-sans font-semibold">Chi phí vốn:</span>
-                <span className="text-amber-700">{formatVND(matPreviewTotal)}</span>
-              </div>
-            </div>
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsMatModalOpen(false)}
-                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={!matProductId || !(matQty > 0)}
-                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded text-xs font-bold"
-              >
-                Xác nhận xuất kho
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* Modal Phase 3: Thêm thợ (tổng lương = ngày × lương + phụ cấp) */}
       {isWorkerModalOpen && currentProject && (

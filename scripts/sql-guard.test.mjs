@@ -225,6 +225,45 @@ describe('0061: đã gỡ làm tròn tiền mặt (kế toán 2026-09)', () => {
   });
 });
 
+describe('0063: RPC xuất vật tư công trình (tab POS "Xuất CT")', () => {
+  const sql = read('supabase/migrations/0063_issue_project_materials_rpc.sql');
+
+  it('tự trừ kho + ghi thẻ kho (0040 đã bỏ trigger nên hàm phải tự làm)', () => {
+    assert.match(sql, /UPDATE public\.products\s+SET stock_quantity = stock_quantity - v_qty/);
+    assert.match(sql, /INSERT INTO public\.stock_movements/);
+    assert.match(sql, /FOR UPDATE/);
+  });
+
+  it('chỉ authenticated — phải revoke PUBLIC (PostgreSQL mặc định cấp EXECUTE cho PUBLIC)', () => {
+    // Regression thật: chỉ revoke anon là KHÔNG đủ, anon vẫn gọi được và xuất kho.
+    assert.match(sql, /REVOKE EXECUTE ON FUNCTION public\.issue_project_materials\(UUID, JSONB\) FROM PUBLIC;/);
+    assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.issue_project_materials\(UUID, JSONB\) TO authenticated;/);
+  });
+
+  it('server là chân lý: tồn đủ, SKU có thật, giá vốn lấy từ avg_cost', () => {
+    assert.match(sql, /v_stock < v_qty/);
+    assert.match(sql, /IF v_pid IS NULL THEN/);
+    assert.match(sql, /unit_cost\)\s*VALUES[^;]*round\(v_avg, 2\)/);
+  });
+
+  it('tránh lỗi "column reference ambiguous" (biến plpgsql trùng alias bảng)', () => {
+    assert.ok(!/it JSONB/.test(sql), 'không khai báo biến `it` trùng alias jsonb_array_elements');
+  });
+
+  it('client gọi RPC trước khi cập nhật local (nếu không, dữ liệu mất khi sync kéo về)', () => {
+    const src = read('lib/store/tx/projects.tsx');
+    // So sánh TRONG hàm batch (hàm đầu tiên cũng có recalcProjectTotals -> dễ so nhầm chỗ)
+    const fnAt = src.indexOf('const exportProjectMaterialBatch');
+    assert.ok(fnAt > 0, 'phải còn hàm exportProjectMaterialBatch');
+    const body = src.slice(fnAt, src.indexOf('// Phase 3', fnAt));
+    const rpcAt = body.indexOf("supa.rpc('issue_project_materials'");
+    const localAt = body.indexOf('recalcProjectTotals');
+    assert.ok(rpcAt > 0, 'phải có lời gọi RPC');
+    assert.ok(localAt > 0, 'phải còn cập nhật local');
+    assert.ok(rpcAt < localAt, 'phải ghi server TRƯỚC khi cập nhật local');
+  });
+});
+
 describe('0062: xoá cột orders.cash_rounding (dữ liệu thử nghiệm)', () => {
   const sql = read('supabase/migrations/0062_drop_cash_rounding_column.sql');
   // Bỏ dòng comment để assert chỉ soi phần code thực thi

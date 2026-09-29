@@ -6,7 +6,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useCommerce } from '../commerce';
 import { useCatalog } from '../catalog';
-import type { Product, Order, OrderItem, DimensionDetail } from '../../types';
+import type { Product, Order, OrderItem, DimensionDetail, PosFlow } from '../../types';
 import type { CartTab } from '../types';
 import { DEFAULT_TAB } from '../cart';
 import { recomputeOrderItem } from '../../db';
@@ -14,8 +14,8 @@ import { calcCartTotals } from '../../pricing';
 import { notify } from '@/components/common/Toast';
 
 export interface TxCart {
-  posFlow: 'sale' | 'import';
-  setPosFlow: React.Dispatch<React.SetStateAction<'sale' | 'import'>>;
+  posFlow: PosFlow;
+  setPosFlow: React.Dispatch<React.SetStateAction<PosFlow>>;
   cartTabs: CartTab[];
   activeTabId: string;
   setActiveTabId: React.Dispatch<React.SetStateAction<string>>;
@@ -42,7 +42,7 @@ export function useTxCart(): TxCart {
   const { products } = useCatalog();
 
   // POS State
-  const [posFlow, setPosFlow] = useState<'sale' | 'import'>('sale'); // Luồng POS hiện tại
+  const [posFlow, setPosFlow] = useState<PosFlow>('sale'); // Luồng POS hiện tại
   const [cartTabs, setCartTabs] = useState<CartTab[]>([DEFAULT_TAB]);
   const [activeTabId, setActiveTabId] = useState<string>('tab-1');
 

@@ -257,7 +257,14 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     assert.match(pos, /id="pos-payment-panel"[\s\S]{0,80}?className="hidden lg:flex/);
     assert.match(pos, /id="btn-pos-mobile-payment"/);
     assert.match(pos, /<MobilePaymentSheet/);
-    assert.match(pos, /onPrimaryAction=\{isImportFlow \? handleImportCommit : \(\) => setIsMobilePaymentOpen\(true\)\}/);
+    // 2026-09: dock có 3 nhánh — bán / nhập kho / xuất vật tư công trình (tab POS "Xuất CT").
+    assert.match(
+      pos,
+      /onPrimaryAction=\{\s*isImportFlow\s*\n?\s*\?\s*handleImportCommit\s*\n?\s*:\s*isProjectFlow\s*\n?\s*\?\s*handleProjectExportCommit\s*\n?\s*:\s*\(\) => setIsMobilePaymentOpen\(true\)/
+    );
+    // 2 luồng dòng hàng (nhập/xuất CT) đều mở bảng tương ứng, không mở sheet giỏ bán
+    assert.match(pos, /isStockFlow \? \(isProjectFlow \? projLines\.length : impLines\.length\)/);
+    assert.match(pos, /open=\{isMobileCartOpen && !isStockFlow\}/);
   });
 
   it('sheet thanh toán có đủ phương thức, tiền khách đưa và nút thu tiền', () => {

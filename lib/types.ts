@@ -150,6 +150,15 @@ export interface PurchaseOrder {
 export type ProjectPhase = 1 | 2 | 3;
 // 1: Báo giá dự toán -> 2: Thi công (xuất kho vật tư + chấm công thợ) -> 3: Nghiệm thu & P&L
 
+/**
+ * Luồng của màn POS:
+ * - sale   : bán hàng (tạo đơn, thu tiền, trừ kho qua pos_checkout)
+ * - import : nhập kho (tăng kho, MAC, công nợ NCC, sổ quỹ — importStockBatch)
+ * - project: xuất vật tư cho công trình (trừ kho + ghi vào project_materials để tính
+ *            giá vốn vật tư của công trình — KHÔNG tạo đơn, KHÔNG đụng sổ quỹ)
+ */
+export type PosFlow = 'sale' | 'import' | 'project';
+
 export interface ProjectMaterial {
   product_id: string;
   sku: string;

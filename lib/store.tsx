@@ -8,6 +8,7 @@ import {
   Order,
   OrderItem,
   Project,
+  PosFlow,
   CashbookEntry,
   Shift,
   ActiveScreen,
@@ -153,8 +154,8 @@ interface StoreContextType {
   signOut: () => Promise<void>;
 
   // POS State
-  posFlow: 'sale' | 'import'; // Luồng POS: bán hàng hoặc nhập hàng (giỏ riêng, commit riêng)
-  setPosFlow: (flow: 'sale' | 'import' | ((prev: 'sale' | 'import') => 'sale' | 'import')) => void;
+  posFlow: PosFlow; // Luồng POS: bán hàng / nhập kho / xuất vật tư công trình
+  setPosFlow: (flow: PosFlow) => void;
   cartTabs: CartTab[];
   activeTabId: string;
   setActiveTabId: (tabId: string) => void;

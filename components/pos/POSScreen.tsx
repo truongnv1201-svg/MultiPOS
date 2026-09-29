@@ -36,6 +36,7 @@ import {
   ShoppingBag,
   Percent,
   Truck,
+  HardHat,
   AlertCircle,
   CheckCircle2,
   Check,
@@ -82,6 +83,8 @@ export function POSScreen() {
     authReady,
     importStockBatch,
     addSupplier,
+    projects,
+    exportProjectMaterialBatch,
   } = useStore();
 
   const [customerSearch, setCustomerSearch] = useState<string>('');
@@ -130,6 +133,11 @@ export function POSScreen() {
   // Chỉ Admin/Quản lý thấy nút chuyển (local-only thì ai cũng được, giống importStock).
   // posFlow sống ở store để màn khác (Kho) nhảy thẳng vào luồng nhập.
   const isImportFlow = posFlow === 'import';
+  // Xuất vật tư công trình: dùng CHUNG bảng dòng hàng với luồng nhập kho (thêm/xoá/sửa SL
+  // giống nhau) nhưng commit ghi vào project_materials thay vì phiếu nhập — nên gom 2 luồng
+  // "dòng hàng" vào isStockFlow để bảng/panel/dock hiển thị giống nhau.
+  const isProjectFlow = posFlow === 'project';
+  const isStockFlow = isImportFlow || isProjectFlow;
   // Hydration guard: authReady=false ở cả server lẫn client lần đầu render,
   // nên nút Bán/Nhập render giống nhau hai phía (false -> ẩn), hiện sau khi auth resolve.
   const canImport = authReady && (!supabaseReady || profile?.role === 'admin' || profile?.role === 'manager');
@@ -147,6 +155,33 @@ export function POSScreen() {
   const [impNote, setImpNote] = useState<string>('');
   const [impPaymentMethod, setImpPaymentMethod] = useState<'cash' | 'transfer' | 'debt' | 'partial'>('cash');
   const [impPaidAmount, setImpPaidAmount] = useState<number>(0);
+
+  // ---- Luồng XUẤT VẬT TƯ CÔNG TRÌNH (thay modal cũ trong trang Dự án) ----
+  // Dùng bảng dòng hàng giống luồng nhập kho nhưng TÁCH state riêng: giá là giá vốn
+  // (avg_cost) chứ không phải giá nhập, và commit ghi vào project_materials.
+  const [projLines, setProjLines] = useState<ImportLine[]>([]);
+  const [projProjectId, setProjProjectId] = useState<string>('');
+  const selectedProject = React.useMemo(
+    () => projects.find((p) => p.id === projProjectId) || null,
+    [projects, projProjectId]
+  );
+  // Tổng = số lượng × giá vốn (đúng công thức project_pnl.material_cost)
+  const projTotal = React.useMemo(
+    () => projLines.reduce((s, l) => s + (l.qty || 0) * (l.price || 0), 0),
+    [projLines]
+  );
+  // Tồn kho còn lại sau từng dòng (nối tiếp) để người dùng thấy ngay có xuất đủ không
+  const projStockPreview = React.useMemo(() => {
+    const running = new Map(products.map((p) => [p.id, p.stock_quantity]));
+    return projLines.map((line) => {
+      const cur = running.get(line.productId) ?? 0;
+      const next = Math.round((cur - (line.qty || 0)) * 1000) / 1000;
+      running.set(line.productId, next);
+      return { key: line.key, before: cur, after: next };
+    });
+  }, [projLines, products]);
+  const projHasStockError = projStockPreview.some((r) => r.after < 0);
+
 
   // Quick supplier modal
   const [isQuickSupplierModalOpen, setIsQuickSupplierModalOpen] = useState<boolean>(false);
@@ -188,6 +223,59 @@ export function POSScreen() {
     () => impLines.reduce((s, l) => s + (l.qty || 0) * (l.price || 0), 0),
     [impLines]
   );
+
+  // Thêm dòng vào phiếu xuất công trình — giá lấy GIÁ VỐN (avg_cost) vì đó là giá ghi
+  // vào project_materials (P&L công trình tính theo giá vốn, không phải giá bán).
+  const addProjectLine = useCallback((product: Product, qty: number) => {
+    if (product.product_type === 'service' || product.product_type === 'combo') {
+      notify('Hàng dịch vụ/combo không xuất cho công trình! Chọn hàng hóa hoặc hàng diện tích.', 'error');
+      return;
+    }
+    const q = snapQty(qty > 0 ? qty : 1, allowsDecimalQty(product));
+    setProjLines((prev) => {
+      const found = prev.find((l) => l.productId === product.id);
+      if (found) return prev.map((l) => (l.productId === product.id ? { ...l, qty: l.qty + q } : l));
+      return [
+        ...prev,
+        {
+          key: `proj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          productId: product.id,
+          qty: q,
+          price: product.avg_cost || 0,
+        },
+      ];
+    });
+  }, []);
+
+  // Commit xuất vật tư -> exportProjectMaterialBatch (ghi project_materials + trừ kho +
+  // thẻ kho). Không tạo đơn hàng, không đụng sổ quỹ.
+  const handleProjectExportCommit = useCallback(async () => {
+    if (projLines.length === 0) {
+      notify('Phiếu xuất chưa có dòng hàng nào!', 'error');
+      return;
+    }
+    if (!selectedProject) {
+      notify('Vui lòng chọn công trình cần xuất vật tư!', 'error');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const updated = await exportProjectMaterialBatch(
+        selectedProject.id,
+        projLines.map((l) => ({ productId: l.productId, quantity: l.qty }))
+      );
+      if (updated) {
+        setProjLines([]);
+        notify(
+          `Đã xuất ${projLines.length} dòng cho công trình ${selectedProject.code}. Tồn kho đã trừ và ghi vào chi phí vật tư.`,
+          'success'
+        );
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [projLines, selectedProject, exportProjectMaterialBatch]);
+
 
   // Preview giá vốn MAC nối tiếp theo thứ tự dòng (giống hệt importStockBatch trong store).
   // Để user thấy trước vốn cũ -> vốn mới trước khi bấm Nhập kho.
@@ -384,11 +472,19 @@ export function POSScreen() {
       const isOverlayOpen = Boolean(document.querySelector('[role="dialog"]'));
       if (isOverlayOpen) return;
 
-      // Chế độ Nhập hàng: chỉ F10 (nhập kho); phím bán hàng tạm nghỉ để khỏi nhầm giỏ
+      // Chế độ Nhập hàng / Xuất CT: chỉ F10 (commit đúng luồng); phím bán hàng tạm nghỉ
+      // để khỏi nhầm giỏ.
       if (posFlow === 'import') {
         if (e.key === 'F10') {
           e.preventDefault();
           handleImportCommit();
+        }
+        return;
+      }
+      if (posFlow === 'project') {
+        if (e.key === 'F10') {
+          e.preventDefault();
+          handleProjectExportCommit();
         }
         return;
       }
@@ -465,7 +561,7 @@ export function POSScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
     // Gỡ dimensionModalItem/receiptModalOrder/shiftModalOpen khỏi deps: guard giờ đọc DOM
     // lúc phím bấm nên không cần đăng ký lại listener khi các modal đó mở/đóng.
-  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit]);
+  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit, handleProjectExportCommit]);
 
   // Khách lẻ tại quầy: một mục CHỌN ĐƯỢC trong danh sách gợi ý (id sentinel riêng,
   // không phải bản ghi DB — tránh trùng lặp giữa các máy, nhiễu báo cáo "Phải thu KH"
@@ -543,7 +639,7 @@ export function POSScreen() {
               quantity={quickQuantity}
               onQuantityChange={setQuickQuantity}
               quantityInputRef={quickQuantityRef}
-              onPickProduct={isImportFlow ? addImportLine : undefined}
+              onPickProduct={isImportFlow ? addImportLine : isProjectFlow ? addProjectLine : undefined}
               quantitySlot={(
                 <div className="w-20 sm:w-24 shrink-0">
                   <input
@@ -574,8 +670,8 @@ export function POSScreen() {
             />
           </div>
 
-          {/* CỘT 2: Tabs hóa đơn (chỉ luồng bán; luồng nhập để trống cho gọn) */}
-          {!isImportFlow && (
+          {/* CỘT 2: Tabs hóa đơn (chỉ luồng bán; luồng nhập/xuất CT để trống cho gọn) */}
+          {!isStockFlow && (
           <div
             id="order-tabs-group"
             className="flex items-center gap-1 overflow-x-auto min-w-0"
@@ -629,18 +725,18 @@ export function POSScreen() {
             </button>
           </div>
           )}
-          {isImportFlow && <div className="min-w-0" />}
+          {isStockFlow && <div className="min-w-0" />}
 
           {/* CỘT 3: Controls — kích thước cố định theo nội dung, neo phải */}
           <div className="flex flex-wrap items-center gap-1.5">
-            {/* Chuyển luồng Bán / Nhập (chỉ Admin/Quản lý) */}
+            {/* Chuyển luồng Bán / Nhập / Xuất CT (chỉ Admin/Quản lý) */}
             {canImport && (
-              <div className="flex items-center h-9 bg-slate-100 p-0.5 rounded-md border border-slate-200" title="Chuyển giữa bán hàng và nhập hàng (giỏ bán được giữ nguyên)">
+              <div className="flex items-center h-9 bg-slate-100 p-0.5 rounded-md border border-slate-200" title="Chuyển giữa bán hàng, nhập hàng và xuất vật tư công trình (giỏ bán được giữ nguyên)">
                 <button
                   type="button"
                   onClick={() => setPosFlow('sale')}
                   className={`px-2.5 h-full rounded text-[11px] font-bold transition-all flex items-center gap-1 ${
-                    !isImportFlow ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                    posFlow === 'sale' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
@@ -656,13 +752,132 @@ export function POSScreen() {
                   <Truck className="w-3.5 h-3.5" />
                   Nhập hàng
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setPosFlow('project')}
+                  className={`px-2.5 h-full rounded text-[11px] font-bold transition-all flex items-center gap-1 ${
+                    isProjectFlow ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <HardHat className="w-3.5 h-3.5" />
+                  Xuất CT
+                </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Middle: giỏ Nhập (luồng nhập) hoặc giỏ Bán */}
-        {posFlow === 'import' ? (
+        {/* Middle: giỏ Xuất CT | giỏ Nhập | giỏ Bán */}
+        {isProjectFlow ? (
+        <div id="project-table-container" className="flex-1 overflow-auto p-2">
+          {projLines.length === 0 ? (
+            <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
+              <HardHat className="w-10 h-10 sm:w-12 sm:h-12 text-amber-300 mb-2 stroke-1" />
+              <p className="text-sm font-medium text-slate-600">Chưa có vật tư nào để xuất</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-xs text-center">
+                Tìm hoặc quét mã vạch để thêm vật tư xuất cho công trình.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Mobile: record list dòng xuất (bảng ngang chỉ dành cho desktop) */}
+              <div className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                {projLines.map((line, idx) => {
+                  const prod = products.find((p) => p.id === line.productId);
+                  if (!prod) return null;
+                  const pv = projStockPreview.find((x) => x.key === line.key);
+                  return (
+                    <div key={line.key} className="px-3 py-2.5 flex items-center gap-3">
+                      <span className="w-5 shrink-0 text-center text-[11px] font-mono text-slate-400">{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{prod.name}</p>
+                        <p className={`text-[10px] font-mono ${(pv?.after ?? 0) < 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
+                          {line.qty} {prod?.unit} × {formatVND(line.price)} · còn {pv?.after ?? prod.stock_quantity}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-xs font-mono font-bold text-slate-800">
+                        {formatVND(line.qty * line.price)}
+                      </span>
+                      <button
+                        onClick={() => setProjLines((prev) => prev.filter((l) => l.key !== line.key))}
+                        className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
+                        aria-label={`Xóa dòng xuất ${prod.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden lg:block border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+              <table className="w-full min-w-[620px] text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-amber-50 text-amber-900 font-semibold border-b border-amber-200">
+                    <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
+                    <th className="py-2.5 px-2.5">Vật tư</th>
+                    <th className="py-2.5 px-2.5 w-28 text-right" title="Giá vốn bình quân (MAC) — đây là giá ghi vào chi phí vật tư của công trình">Giá vốn</th>
+                    <th className="py-2.5 px-2.5 w-24 text-center">SL xuất</th>
+                    <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền</th>
+                    <th className="py-2.5 px-2.5 w-32 text-right" title="Tồn kho còn lại sau khi xuất dòng này (cộng dồn theo thứ tự)">Tồn còn lại</th>
+                    <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {projLines.map((line, idx) => {
+                    const prod = products.find((p) => p.id === line.productId);
+                    if (!prod) return null;
+                    const pv = projStockPreview.find((x) => x.key === line.key);
+                    const after = pv?.after ?? prod.stock_quantity;
+                    const short = after < 0;
+                    return (
+                      <tr key={line.key} className="hover:bg-amber-50/40 transition-colors">
+                        <td className="py-2.5 px-2.5 text-center text-slate-400 font-mono">{idx + 1}</td>
+                        <td className="py-2.5 px-2.5">
+                          <div className="font-bold text-slate-800 text-xs">{prod.name}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">{formatVND(line.price)}</td>
+                        <td className="py-2.5 px-2.5">
+                          <NumberInput
+                            min={0.001}
+                            allowDecimals={allowsDecimalQty(prod)}
+                            maxDecimals={QTY_MAX_DECIMALS}
+                            value={line.qty}
+                            onChange={(v) =>
+                              setProjLines((prev) =>
+                                prev.map((l) => (l.key === line.key ? { ...l, qty: snapQty(v, allowsDecimalQty(prod)) } : l))
+                              )
+                            }
+                            className="w-full h-7 px-1.5 text-center font-mono font-bold text-xs bg-white border border-slate-300 rounded"
+                          />
+                        </td>
+                        <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
+                          {formatVND((line.qty || 0) * (line.price || 0))}
+                        </td>
+                        <td className={`py-2.5 px-2.5 text-right font-mono text-xs ${short ? 'text-rose-600 font-bold' : 'text-slate-700'}`}>
+                          {formatQty(after)} {prod.unit}
+                        </td>
+                        <td className="py-2.5 px-2 text-center">
+                          <button
+                            onClick={() => setProjLines((prev) => prev.filter((l) => l.key !== line.key))}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                            title="Xóa dòng"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              </div>
+            </>
+          )}
+        </div>
+        ) : posFlow === 'import' ? (
         <div id="import-table-container" className="flex-1 overflow-auto p-2">
           {impLines.length === 0 ? (
             <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
@@ -977,7 +1192,100 @@ export function POSScreen() {
         id="pos-payment-panel"
         className="hidden lg:flex w-full lg:w-96 bg-slate-50 p-3.5 flex flex-col justify-between border-t lg:border-t-0 border-slate-200 overflow-y-auto select-none min-h-0 max-h-[52dvh] lg:max-h-none"
       >
-      {isImportFlow ? (
+      {isProjectFlow ? (
+        <div className="space-y-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2.5">
+            <div className="text-[11px] font-bold text-amber-900 uppercase flex items-center gap-1.5">
+              <HardHat className="w-3.5 h-3.5" />
+              Phiếu xuất vật tư công trình
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-600">Công trình *</label>
+              <div className="mt-1">
+                <SearchableSelect
+                  value={selectedProject?.id || ''}
+                  placeholder={projects.length > 0 ? 'Chọn công trình cần xuất vật tư...' : 'Chưa có công trình nào'}
+                  options={projects.map((p) => ({
+                    value: p.id,
+                    label: `${p.code} — ${p.name}`,
+                    sub: `Giai đoạn ${p.phase || 1} · đã xuất ${p.materials?.length || 0} dòng`,
+                  }))}
+                  onChange={(v) => setProjProjectId(v)}
+                />
+              </div>
+              {!selectedProject && projLines.length > 0 && (
+                <p className="mt-1 text-[11px] text-amber-800 font-semibold">
+                  Phải chọn công trình trước khi xuất.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">Số dòng vật tư</span>
+              <span className="font-mono font-bold text-slate-800">{projLines.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">Tổng số lượng</span>
+              <span className="font-mono font-bold text-slate-800">
+                {formatQty(projLines.reduce((s, l) => s + (l.qty || 0), 0))}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+              <span className="text-slate-600 font-semibold">Tổng giá vốn xuất</span>
+              <span className="font-mono font-bold text-amber-700 text-sm">{formatVND(projTotal)}</span>
+            </div>
+            {projHasStockError && (
+              <p className="text-[11px] text-rose-700 font-semibold bg-rose-50 border border-rose-200 rounded p-1.5">
+                Có dòng vượt tồn kho — hãy giảm số lượng trước khi xuất.
+              </p>
+            )}
+            {projLines.length > 0 && (
+              <button
+                onClick={() => setProjLines([])}
+                className="w-full py-1.5 bg-white hover:bg-slate-100 text-slate-600 rounded text-[11px] font-semibold border border-slate-200"
+              >
+                Xoá hết dòng
+              </button>
+            )}
+          </div>
+
+          {(currentShift.status !== 'open' || needLogin) && (
+            <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-900 leading-relaxed">
+              {needLogin ? (
+                <>
+                  Chưa đăng nhập —{' '}
+                  <button onClick={() => setLoginOpen(true)} className="font-bold underline hover:text-amber-700">
+                    Đăng nhập
+                  </button>{' '}
+                  để xuất vật tư.
+                </>
+              ) : (
+                <>Ca làm việc đã đóng — mở ca mới (F12) để tiếp tục xuất.</>
+              )}
+            </div>
+          )}
+          <button
+            type="button"
+            id="btn-project-export-commit"
+            disabled={
+              isProcessing ||
+              projLines.length === 0 ||
+              !selectedProject ||
+              projHasStockError ||
+              currentShift.status !== 'open' ||
+              needLogin
+            }
+            onClick={handleProjectExportCommit}
+            className="w-full py-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-lg shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+          >
+            <HardHat className="w-5 h-5" />
+            <span>XUẤT VẬT TƯ (F10)</span>
+            <span className="text-xs font-mono font-normal opacity-90">— {formatVND(projTotal)}</span>
+          </button>
+        </div>
+      ) : isImportFlow ? (
         <div className="space-y-3">
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2.5">
             <div className="text-[11px] font-bold text-emerald-800 uppercase flex items-center gap-1.5">
@@ -1787,7 +2095,7 @@ export function POSScreen() {
       </div>
 
       {/* Mobile: thanh toán ghim — mở MobilePaymentSheet (panel desktop đã ẩn ở mobile) */}
-      {!isImportFlow && (
+      {!isStockFlow && (
         <div className="lg:hidden shrink-0 border-t border-slate-200 bg-white px-3 py-2 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold text-slate-500">KHÁCH CẦN TRẢ</p>
@@ -1809,28 +2117,43 @@ export function POSScreen() {
       )}
 
       <MobilePOSDock
-        isImportFlow={isImportFlow}
-        itemCount={isImportFlow ? impLines.length : activeCart.items.length}
-        total={isImportFlow ? impTotal : calculatedTotals.payable}
+        isImportFlow={isStockFlow}
+        itemCount={isStockFlow ? (isProjectFlow ? projLines.length : impLines.length) : activeCart.items.length}
+        total={isStockFlow ? (isProjectFlow ? projTotal : impTotal) : calculatedTotals.payable}
         disabled={
-          isImportFlow
-            ? isProcessing || impLines.length === 0 || currentShift.status !== 'open' || needLogin
+          isStockFlow
+            ? isImportFlow
+              ? isProcessing || impLines.length === 0 || currentShift.status !== 'open' || needLogin
+              : isProcessing ||
+                projLines.length === 0 ||
+                !selectedProject ||
+                projHasStockError ||
+                currentShift.status !== 'open' ||
+                needLogin
             : isProcessing || activeCart.items.length === 0 || currentShift.status !== 'open' || needLogin
         }
         onOpenMenu={() => setFlyoutMenuOpen(true)}
         onOpenCart={() => {
-          if (isImportFlow) {
-            const target = document.getElementById('import-table-container');
+          if (isStockFlow) {
+            const target = document.getElementById(
+              isProjectFlow ? 'project-table-container' : 'import-table-container'
+            );
             target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
           }
           setIsMobileCartOpen(true);
         }}
-        onPrimaryAction={isImportFlow ? handleImportCommit : () => setIsMobilePaymentOpen(true)}
+        onPrimaryAction={
+          isImportFlow
+            ? handleImportCommit
+            : isProjectFlow
+              ? handleProjectExportCommit
+              : () => setIsMobilePaymentOpen(true)
+        }
       />
 
       <MobileCartSheet
-        open={isMobileCartOpen && !isImportFlow}
+        open={isMobileCartOpen && !isStockFlow}
         onClose={() => setIsMobileCartOpen(false)}
         items={activeCart.items}
         payable={calculatedTotals.payable}
@@ -1848,7 +2171,7 @@ export function POSScreen() {
       />
 
       <MobilePaymentSheet
-        open={isMobilePaymentOpen && !isImportFlow}
+        open={isMobilePaymentOpen && !isStockFlow}
         onClose={() => setIsMobilePaymentOpen(false)}
         itemCount={activeCart.items.length}
         subtotal={calculatedTotals.subtotal}

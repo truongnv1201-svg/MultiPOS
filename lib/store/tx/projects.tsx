@@ -11,6 +11,7 @@ import { cacheKeys, mirrorUpsert } from './mirror';
 import { asUuidOrNull } from './constants';
 import { stableNext } from '../stable';
 import { notify } from '@/components/common/Toast';
+import { vietnamizeError } from '@/lib/error-vi';
 
 // Tính lại tổng công trình từ dòng (mirror công thức P&L ở ProjectsView)
 function recalcProjectTotals(p: Project): Project {
@@ -403,6 +404,25 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         notify(`Phiếu có dòng lỗi, chưa xuất:\n${errors.join('\n')}`, 'error');
         return null;
       }
+
+      // 0063: ghi THẬT lên server trước khi cập nhật local. Trước đây hàm này chỉ ghi
+      // local/Dexie -> lần syncProjects kéo bản server về là mất sạch dòng vừa xuất
+      // (đã tái hiện: xuất xong tải lại trang là trống). Server chặn âm kho + chốt giá
+      // vốn; local chỉ là mirror để UI phản hồi tức thì.
+      if (supa && user) {
+        const rpcItems = items.map((i) => ({ sku: i.product.sku, quantity: i.quantity }));
+        const { data, error } = await supa.rpc('issue_project_materials', {
+          p_project_id: project.server_id || project.id,
+          p_items: rpcItems,
+        });
+        if (error || !data) {
+          notify(`Không xuất được: ${vietnamizeError(error) || 'lỗi server'}`, 'error');
+          // Kéo lại tồn kho từ server để UI không lệch với thực tế
+          void db.products.toArray().then((rows) => setProducts(rows));
+          return null;
+        }
+      }
+
       const now = new Date().toISOString();
       const newLines: ProjectMaterial[] = [];
       const movements: StockMovement[] = [];
