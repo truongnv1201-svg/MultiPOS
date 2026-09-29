@@ -181,4 +181,57 @@ describe('0064: điều chỉnh tồn / hao hụt', () => {
   it('mapping project_materials giữ cờ is_adjust khi kéo từ server', () => {
     assert.match(projects, /is_adjust: r\.is_adjust === true/);
   });
+
+  // ---- Chống ghi trùng (sổ điều chỉnh từng hiện 2 dòng giống nhau cho 1 lần lập phiếu) ----
+  it('client gửi clientRef ổn định cho mỗi dòng để server chống ghi trùng', () => {
+    const body = projects.match(/const adjustStock = useCallback\([\s\S]*?\n  \);/);
+    assert.ok(body);
+    assert.match(body[0], /clientRef: ref/);
+    // id dòng local PHẢI là clientRef đã gửi, không phải chuỗi ngẫu nhiên khác
+    assert.match(body[0], /id: clientRefs\.get\(i\.product\.id\)/);
+    // Không được tự sinh id ngẫu nhiên rời rạc (đó là nguyên nhân dòng trùng)
+    assert.ok(!/id: `adj-\$\{Date\.now\(\)\}-\$\{Math\.random/.test(body[0]));
+  });
+
+  it('server có client_ref UNIQUE và bỏ qua dòng đã ghi (idempotent)', () => {
+    assert.match(sql, /add column if not exists client_ref text/);
+    assert.match(sql, /create unique index if not exists uq_stock_adjustments_client_ref[\s\S]{0,120}where client_ref is not null/);
+    const fn = sql.match(/CREATE OR REPLACE FUNCTION public\.adjust_stock\([\s\S]*?END;\n\$\$;/);
+    assert.ok(fn);
+    assert.match(fn[0], /IF v_ref IS NOT NULL AND EXISTS \(SELECT 1 FROM public\.stock_adjustments WHERE client_ref = v_ref\) THEN[\s\S]{0,200}CONTINUE;/);
+    // Không skip được trước khi trừ tồn — CONTINUE phải nằm TRƯỚC UPDATE products
+    const skipIdx = fn[0].indexOf('CONTINUE;');
+    const updIdx = fn[0].indexOf('UPDATE public.products SET stock_quantity');
+    assert.ok(skipIdx > 0 && updIdx > skipIdx, 'phải CONTINUE (bỏ qua) trước khi trừ tồn');
+    // Báo số dòng bị bỏ qua để client biết mình vừa gửi trùng
+    assert.match(fn[0], /'skipped', v_skipped/);
+  });
+
+  it('client gộp dòng theo id thay vì cộng thẳng (cộng thẳng là lý do dòng trùng)', () => {
+    const body = projects.match(/const adjustStock = useCallback\([\s\S]*?\n  \);/);
+    assert.ok(body);
+    assert.match(body[0], /const byId = new Map\(prev\.map\(\(a\) => \[a\.id, a\]\)\);[\s\S]{0,120}byId\.set\(a\.id, a\);/);
+    assert.ok(!/setStockAdjustments\(\(prev\) => \[\.\.\.adjustments, \.\.\.prev\]\)/.test(body[0]));
+    // Dòng kéo từ server cũng dùng client_ref làm khoá để khớp dòng local
+    const refresh = projects.match(/const refreshServerStockAdjustments = useCallback\([\s\S]*?\n  \);/);
+    assert.ok(refresh);
+    assert.match(refresh[0], /id: String\(row\.client_ref \|\| row\.id\)/);
+    assert.match(refresh[0], /select\('id, client_ref, code/);
+  });
+
+  it('có nút in ấn + xuất Excel cho cả 3 tab của màn Kho', () => {
+    const inv = read('components/inventory/InventoryView.tsx');
+    // 3 tab đều có TableTools (export + print)
+    for (const tab of ['stocks', 'movements', 'adjustments']) {
+      assert.match(
+        inv,
+        new RegExp(`activeTab === '${tab}' && <TableTools`),
+        `tab ${tab} phải có nút In/Xuất Excel`
+      );
+    }
+    assert.match(inv, /const handleExportAdjustments = \(\) =>/);
+    assert.match(inv, /const handlePrintAdjustments = \(\) =>/);
+    assert.match(inv, /exportToExcel\('so-dieu-chinh-ton'/);
+    assert.match(inv, /title: 'Sổ điều chỉnh tồn kho/);
+  });
 });

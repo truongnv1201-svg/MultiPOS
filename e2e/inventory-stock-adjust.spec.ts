@@ -140,4 +140,54 @@ test.describe('Kho: điều chỉnh tồn / hao hụt', () => {
         const hasTable = await page.locator('text=Sổ điều chỉnh tồn').count();
         expect(hasEmpty + hasTable).toBeGreaterThan(0);
     });
+
+    test('cả 3 tab đều có nút Xuất Excel và In ấn', async ({ page }) => {
+        // Sổ điều chỉnh tồn là bằng chứng đối chiếu tồn thực — phải mang đi được (in/xuất).
+        test.slow();
+        await page.setViewportSize({ width: 1600, height: 950 });
+        await loginAdmin(page);
+        await openInventory(page);
+
+        const tools = page.locator('#inventory-view button[title*="Excel" i], #inventory-view button[title*="In" i], #inventory-view button[title*="in ấn" i]');
+        // Tab Tồn kho thực tế
+        await expect(tools.first()).toBeVisible();
+        const stockCount = await tools.count();
+        expect(stockCount).toBeGreaterThanOrEqual(2);
+
+        // Tab Nhật ký thẻ kho
+        await page.click('button:has-text("Nhật ký Thẻ kho")');
+        await expect(tools.first()).toBeVisible();
+
+        // Tab Điều chỉnh tồn
+        await page.click('#btn-inventory-tab-adjustments');
+        await page.waitForTimeout(1200);
+        await expect(tools.first()).toBeVisible();
+    });
+
+    test('1 lần lập phiếu không được sinh 2 dòng giống nhau trong sổ điều chỉnh', async ({ page }) => {
+        // Regression thật: trước đây dòng local (id giả "adj-...") và dòng server (uuid)
+        // khác id nên mỗi phiếu hiện 2 dòng y hệt nhau. Sửa bằng clientRef ổn định.
+        // Test này chỉ kiểm giao diện: số dòng render ra phải khớp số phiếu trên server,
+        // nên nó cần DB sạch — dùng dữ liệu sẵn có, không ghi phiếu mới.
+        test.slow();
+        await page.setViewportSize({ width: 1600, height: 950 });
+        await loginAdmin(page);
+        await openInventory(page);
+        await page.click('#btn-inventory-tab-adjustments');
+        await page.waitForTimeout(2500);
+
+        const rows = page.locator('#inventory-view tbody tr');
+        const n = await rows.count();
+        if (n === 0) return; // DB chưa có phiếu nào -> không có gì để kiểm
+        // Không được có 2 dòng liên tiếp cùng mã phiếu + cùng SKU + cùng thời điểm
+        const seen = new Set<string>();
+        for (let i = 0; i < n; i++) {
+            const text = (await rows.nth(i).innerText()).replace(/\s+/g, ' ');
+            const code = text.split(' ')[0] || '';
+            if (seen.has(code)) {
+                throw new Error(`Phát hiện dòng trùng mã phiếu ${code} trong sổ điều chỉnh:\n${text}`);
+            }
+            seen.add(code);
+        }
+    });
 });

@@ -143,7 +143,37 @@ if (proj) {
   );
 }
 
-// 3) Đếm thừa: đích là kho, không gắn công trình, movement_type = adjust_gain
+// 3) Bấm Ghi 2 lần / retry mạng: cùng clientRef phải chỉ ghi 1 dòng (idempotent).
+// Đây là nguyên nhân sổ điều chỉnh từng hiện 2 dòng giống nhau cho 1 lần lập phiếu.
+const REF = 'adj-verify-' + Date.now();
+const stockBeforeDup = Number(
+  (await (await fetch(`${URL}/rest/v1/products?select=stock_quantity&sku=eq.${goods.sku}`, { headers: admin })).json())[0]
+    .stock_quantity
+);
+const dupCall = async (tag) =>
+  rpc(admin, 'adjust_stock', {
+    p_code: CODE + '-' + tag,
+    p_items: [{ sku: goods.sku, delta: -1, reason: 'damage', clientRef: REF }],
+  });
+const d1 = await dupCall('DUP1');
+assert('lần 1 ghi thành công', d1.ok && d1.json?.adjusted === 1, d1.text);
+const d2 = await dupCall('DUP2');
+assert('lần 2 cùng clientRef -> bỏ qua (skipped)', d2.ok && d2.json?.adjusted === 0 && d2.json?.skipped === 1, d2.text);
+const dupRows = (await (await fetch(`${URL}/rest/v1/stock_adjustments?select=id,client_ref&code=like.${CODE}-DUP*`, { headers: admin })).json()) || [];
+assert('DB chỉ có 1 dòng audit cho 1 clientRef', dupRows.length === 1, JSON.stringify(dupRows));
+const stockAfterDup = Number(
+  (await (await fetch(`${URL}/rest/v1/products?select=stock_quantity&sku=eq.${goods.sku}`, { headers: admin })).json())[0]
+    .stock_quantity
+);
+assert(
+  'tồn chỉ trừ 1 lần dù gọi 2 lần',
+  Math.abs(stockBeforeDup - stockAfterDup - 1) < 0.001,
+  `${stockBeforeDup} -> ${stockAfterDup}`
+);
+const dupMv = (await (await fetch(`${URL}/rest/v1/stock_movements?select=id&reference_code=like.${CODE}-DUP*`, { headers: admin })).json()) || [];
+assert('chỉ 1 thẻ kho cho 1 clientRef', dupMv.length === 1, JSON.stringify(dupMv));
+
+// 4) Đếm thừa: đích là kho, không gắn công trình, movement_type = adjust_gain
 const gain = await rpc(admin, 'adjust_stock', {
   p_code: CODE + '-GAIN',
   p_items: [{ sku: goods.sku, delta: 1, projectId: proj ? proj.id : null, reason: 'miscount' }],
@@ -180,8 +210,7 @@ if (proj) {
 }
 
 // 5) Các chặn sai
-const neg = await rpc(admin, 'adjust_stock', {
-  p_code: CODE + '-NEG',
+const neg = await rpc(admin, 'adjust_stock', {  p_code: CODE + '-NEG',
   p_items: [{ sku: goods.sku, countedStock: -1, reason: 'damage' }],
 });
 assert('tồn thực tế âm -> từ chối', !neg.ok && /tồn thực tế không thể âm/.test(neg.text), neg.text);
@@ -251,8 +280,7 @@ if (mgmt) {
   await dbq(`delete from public.project_materials where adjust_id in (select id from public.stock_adjustments where code like '${CODE}%')`);
   await dbq(`delete from public.stock_adjustments where code like '${CODE}%'`);
   await dbq(`delete from public.stock_movements where reference_code like '${CODE}%'`);
-  await dbq(`update public.products set stock_quantity = ${startStock} where id = '${goods.id}'`);
-  const left = await dbq(`select count(*) from public.stock_adjustments where code like '${CODE}%'`);
+  await dbq(`update public.products set stock_quantity = ${startStock} where id = '${goods.id}'`);  const left = await dbq(`select count(*) from public.stock_adjustments where code like '${CODE}%'`);
   const back = await dbq(`select stock_quantity from public.products where id = '${goods.id}'`);
   assert('cleanup sạch (không còn phiếu thử)', left.includes('0'), left.slice(0, 120));
   assert('tồn kho trả về đúng ban đầu', back.includes(String(startStock)), back.slice(0, 120));

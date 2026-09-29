@@ -81,11 +81,24 @@ create table if not exists public.stock_adjustments (
   created_at timestamptz not null default now()
 );
 
+-- client_ref: khoá chống ghi trùng. Client tự sinh ref mỗi dòng rồi gửi lên; server đã
+-- ghi dòng nào có ref này rồi thì bỏ qua -> bấm Ghi 2 lần (double click, retry mạng) KHÔNG
+-- sinh 2 dòng. Cùng pattern client_ref của phiếu nhập (0053).
+-- ADD COLUMN tách khỏi CREATE TABLE: migration phải chạy lại được trên DB đã có bảng
+-- (đặt trong CREATE TABLE thì câu lệnh bị bỏ qua do "if not exists" -> thiếu cột).
+alter table public.stock_adjustments
+  add column if not exists client_ref text;
+
 create index if not exists idx_stock_adjustments_created
   on public.stock_adjustments (created_at desc);
 create index if not exists idx_stock_adjustments_unassigned
   on public.stock_adjustments (created_at desc)
   where project_id is null;
+
+-- UNIQUE + NULL cho phép dòng cũ (client_ref NULL không xung đột với nhau).
+create unique index if not exists uq_stock_adjustments_client_ref
+  on public.stock_adjustments (client_ref)
+  where client_ref is not null;
 
 alter table public.stock_adjustments enable row level security;
 
@@ -120,9 +133,10 @@ alter table public.project_materials
   foreign key (adjust_id) references public.stock_adjustments(id) on delete cascade;
 
 -- ------------------------------------------------- 4) RPC điều chỉnh tồn (chân lý server)
--- p_items: [{ sku, countedStock?, delta?, projectId?, reason, note? }]
+-- p_items: [{ sku, countedStock?, delta?, projectId?, reason, note?, clientRef? }]
 --   - Có countedStock: chấn lệch (cách anh đếm tồn thực tế).
 --   - Có delta: nhập thẳng số hao hụt/thừa (delta âm = mất hàng, dương = đếm thừa).
+--   - clientRef: khoá chống ghi trùng, dòng đã có ref thì bỏ qua và tính là "skipped".
 -- Một phiếu là một transaction: hỏng dòng nào thì hủy cả phiếu, không để lọt kẻ âm kho.
 CREATE OR REPLACE FUNCTION public.adjust_stock(
   p_code TEXT,
@@ -146,7 +160,9 @@ DECLARE
   v_project_code TEXT;
   v_new NUMERIC;
   v_adj_id UUID;
+  v_ref TEXT;
   v_inserted INT := 0;
+  v_skipped INT := 0;
   v_loss_total NUMERIC := 0;
   v_dupes INT := 0;
   v_actor_name TEXT;
@@ -188,6 +204,14 @@ BEGIN
     v_reason := btrim(COALESCE(x->>'reason', ''));
     v_note := NULLIF(btrim(COALESCE(x->>'note', '')), '');
     v_project_id := NULLIF(x->>'projectId', '')::UUID;
+    v_ref := NULLIF(btrim(COALESCE(x->>'clientRef', '')), '');
+
+    -- Chống ghi trùng: dòng này đã ghi rồi (bấm Ghi 2 lần / retry mạng) -> bỏ qua,
+    -- KHÔNG trừ tồn và KHÔNG sinh thêm thẻ kho. Nhảy tới CONTINUE trước mọi thao tác ghi.
+    IF v_ref IS NOT NULL AND EXISTS (SELECT 1 FROM public.stock_adjustments WHERE client_ref = v_ref) THEN
+      v_skipped := v_skipped + 1;
+      CONTINUE;
+    END IF;
 
     SELECT id, name, unit, product_type, stock_quantity, COALESCE(avg_cost, 0)
     INTO v_pid, v_name, v_unit, v_type, v_stock, v_avg
@@ -261,10 +285,10 @@ BEGIN
     );
 
     INSERT INTO public.stock_adjustments
-      (code, product_id, sku, previous_stock, counted_stock, delta, reason, note,
+      (code, client_ref, product_id, sku, previous_stock, counted_stock, delta, reason, note,
        project_id, unit_cost, loss_amount, adjusted_by, adjusted_by_name)
     VALUES (
-      p_code, v_pid, v_sku, v_stock, v_counted, v_delta, v_reason, v_note,
+      p_code, v_ref, v_pid, v_sku, v_stock, v_counted, v_delta, v_reason, v_note,
       v_project_id, round(v_avg, 2),
       CASE WHEN v_delta < 0 THEN round(-v_delta * v_avg, 2) ELSE 0 END,
       auth.uid(), v_actor_name
@@ -290,10 +314,16 @@ BEGIN
     v_inserted := v_inserted + 1;
   END LOOP;
 
+  -- Cả 2 vế bằng 0 = mọi dòng đã ghi trước đó (bấm Ghi 2 lần) -> coi như idempotent OK.
+  IF v_inserted = 0 AND v_skipped = 0 THEN
+    RAISE EXCEPTION 'Phiếu không còn dòng nào để ghi';
+  END IF;
+
   RETURN jsonb_build_object(
     'ok', true,
     'code', p_code,
     'adjusted', v_inserted,
+    'skipped', v_skipped,
     'loss_amount', v_loss_total
   );
 END;

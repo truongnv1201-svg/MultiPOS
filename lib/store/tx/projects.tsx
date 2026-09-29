@@ -545,7 +545,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         // Số phiếu điều chỉnh ít (vài chục/năm) nên kéo delta theo watermark, không cần cache.
         let query = supa
           .from('stock_adjustments')
-          .select('id, code, product_id, sku, previous_stock, counted_stock, delta, reason, note, project_id, unit_cost, loss_amount, adjusted_by_name, project_assigned_at, created_at')
+          .select('id, client_ref, code, product_id, sku, previous_stock, counted_stock, delta, reason, note, project_id, unit_cost, loss_amount, adjusted_by_name, project_assigned_at, created_at')
           .order('created_at', { ascending: false })
           .limit(STOCK_ADJUSTMENT_LIMIT);
         if (adjustWatermarkRef.current && !force) {
@@ -560,7 +560,10 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
           const pid = String(row.project_id || '');
           const proj = projectById.get(pid);
           return {
-            id: String(row.id),
+            // ƯU TIÊN client_ref: dòng local vừa ghi có id = clientRef, nên dùng client_ref
+            // làm khoá gộp thì dòng optimistic trong UI và dòng này là MỘT dòng, không phải hai.
+            // Dòng cũ (client_ref NULL) rơi về id server như trước.
+            id: String(row.client_ref || row.id),
             code: String(row.code || ''),
             product_id: String(row.product_id || ''),
             product_name: productById.get(String(row.product_id || ''))?.name || String(row.sku || ''),
@@ -671,15 +674,25 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       const code = generateAdjustCode();
       const rpcProjectId = project ? project.server_id || project.id : null;
 
+      // clientRef khớp 1-1 với dòng audit server -> server bỏ qua dòng đã ghi (bấm Ghi 2
+      // lần / retry mạng KHÔNG sinh dòng thứ 2), và client gộp được dòng local với dòng
+      // server khi kéo lại (trước đây id local giả "adj-..." != id server uuid nên mỗi
+      // phiếu hiện 2 dòng giống nhau trong sổ điều chỉnh).
+      const clientRefs = new Map<string, string>();
       const { data, error } = await supa.rpc('adjust_stock', {
         p_code: code,
-        p_items: items.map((i) => ({
-          sku: i.product.sku,
-          ...(i.countedStock !== undefined ? { countedStock: i.countedStock } : { delta: i.delta }),
-          projectId: rpcProjectId,
-          reason,
-          note: options?.note || '',
-        })),
+        p_items: items.map((i) => {
+          const ref = `adj-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          clientRefs.set(i.product.id, ref);
+          return {
+            sku: i.product.sku,
+            ...(i.countedStock !== undefined ? { countedStock: i.countedStock } : { delta: i.delta }),
+            projectId: rpcProjectId,
+            reason,
+            note: options?.note || '',
+            clientRef: ref,
+          };
+        }),
       });
       if (error || !data) {
         const msg = vietnamizeError(error) || 'lỗi server';
@@ -719,7 +732,10 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
           created_at: now,
         });
         adjustments.push({
-          id: `adj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          // id = clientRef đã gửi lên server: dòng local và dòng server về sau có CÙNG id
+          // nên gộp theo id không sinh dòng trùng. (Trước đây id local "adj-Date-random"
+          // khác id server uuid nên mỗi lần kéo lại là nhân đôi dòng trong sổ điều chỉnh.)
+          id: clientRefs.get(i.product.id) || `adj-${Date.now()}`,
           code,
           product_id: i.product.id,
           product_name: i.product.name,
@@ -750,7 +766,14 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         })
       );
       setStockMovements((prev) => [...movements.reverse(), ...prev]);
-      setStockAdjustments((prev) => [...adjustments, ...prev]);
+      // Gộp theo id thay vì cộng thẳng: dòng local vừa tạo có id = clientRef, và nếu
+      // phiếu này đã có trong state (vd bấm Ghi lại, hoặc kéo server vừa rồi) thì thay
+      // bản cũ thay vì thêm dòng thứ hai. Cộng thẳng là lý do sổ từng hiện 2 dòng giống nhau.
+      setStockAdjustments((prev) => {
+        const byId = new Map(prev.map((a) => [a.id, a]));
+        for (const a of adjustments) byId.set(a.id, a);
+        return [...byId.values()].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+      });
 
       // Dòng hao hụt trong sổ vật tư công trình: tồn KHÔNG trừ thêm (đã trừ ở trên),
       // nhưng recalcProjectTotals cộng hết dòng -> lợi nhuận công trình giảm đúng.
