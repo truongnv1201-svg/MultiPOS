@@ -198,16 +198,34 @@ export function printDocumentViaIframe(html: string): void {
   iframe.setAttribute('aria-hidden', 'true');
   document.body.appendChild(iframe);
   const doc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!doc) {
+  const win = iframe.contentWindow;
+  if (!doc || !win) {
     iframe.remove();
     return;
   }
-  doc.open();
-  doc.write(html);
-  doc.close();
   const cleanup = () => {
     setTimeout(() => iframe.remove(), 1000);
   };
-  iframe.contentWindow?.addEventListener('afterprint', cleanup);
+  win.addEventListener('afterprint', cleanup);
+  // KHÔNG được quên win.print(): trước đây hàm này chỉ dựng iframe rồi dọn mà không
+  // gọi print nên bấm In không hiện gì (chết trên mọi trang dùng printTable ở desktop).
+  // doc.write đồng bộ nhưng trình duyệt cần dựng xong tài liệu mới in được — gọi qua
+  // onload, kèm fallback timeout phòng onload không bắn, và cờ chống in 2 lần.
+  let printed = false;
+  const doPrint = () => {
+    if (printed) return;
+    printed = true;
+    try {
+      win.focus();
+      win.print();
+    } catch {
+      cleanup();
+    }
+  };
+  iframe.onload = doPrint;
+  doc.open();
+  doc.write(html);
+  doc.close();
+  setTimeout(doPrint, 500); // fallback nếu onload không bắn
   setTimeout(cleanup, 30000); // fallback nếu afterprint không bắn
 }

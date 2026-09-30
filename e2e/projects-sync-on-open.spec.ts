@@ -38,7 +38,7 @@ test('mở màn Dự án phải thấy dự án vừa tạo ở máy khác, khô
   await login(pageB);
   await pageB.keyboard.press('Alt+j');
   await expect(pageB.locator('#projects-view')).toBeVisible({ timeout: 20_000 });
-  await pageB.getByRole('button', { name: /Lập dự án/ }).click();
+  await pageB.click('#btn-add-project');
   await expect(pageB.locator('#new-project-name-input')).toBeVisible({ timeout: 15_000 });
   await pageB.fill('#new-project-name-input', name);
   // addProject cập nhật state cục bộ TRƯỚC rồi mới POST lên server, nên phải chờ POST

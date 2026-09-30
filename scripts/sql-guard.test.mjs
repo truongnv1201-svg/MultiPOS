@@ -7,7 +7,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
-const read = (p) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 describe('0050: server price authority (pos_checkout)', () => {
   const sql = read('supabase/migrations/0050_checkout_price_guard.sql');

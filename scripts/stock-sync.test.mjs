@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
-const read = (p) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 const shiftStock = read('lib/store/tx/shift-stock.tsx');
 const inventory = read('components/inventory/InventoryView.tsx');

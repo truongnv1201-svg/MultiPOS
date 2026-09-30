@@ -9,7 +9,7 @@ const PAGES = [
   { name: 'Khách hàng', shortcut: null, mainText: 'Thêm khách hàng mới', view: '#customers-view' },
   { name: 'Hàng hóa', shortcut: null, main: '#btn-open-add-product-modal', view: '#products-view' },
   { name: 'Đơn hàng', shortcut: null, mainText: 'Tạo đơn bán hàng', view: '#orders-view' },
-  { name: 'Công trình', shortcut: 'Alt+j', mainText: 'Lập dự án công trình mới', view: '#projects-view' },
+  { name: 'Công trình', shortcut: 'Alt+j', main: '#btn-add-project', view: '#projects-view' },
   { name: 'Kho', shortcut: 'Alt+n', mainText: 'Tạo Phiếu Nhập Kho', view: '#inventory-view' },
   { name: 'Sổ quỹ', shortcut: null, mainText: 'Lập Phiếu Chi', view: null },
 ];

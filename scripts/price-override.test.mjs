@@ -9,7 +9,7 @@ import { toRpcItems } from '../lib/store/rpc.ts';
 import { recomputeOrderItem } from '../lib/pricing.ts';
 
 const ROOT = join(import.meta.dirname, '..');
-const read = (p) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 const item = (over = {}) => ({
   id: 'item-1',

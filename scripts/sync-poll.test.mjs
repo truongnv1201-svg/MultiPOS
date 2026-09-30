@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
-const read = (p) => readFileSync(join(ROOT, p), 'utf8');
+const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 const constantsSrc = read('lib/store/tx/constants.ts');
 

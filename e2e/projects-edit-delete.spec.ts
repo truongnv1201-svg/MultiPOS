@@ -29,7 +29,7 @@ test.describe('Dự án: sửa thông tin + xoá tạo nhầm', () => {
 
         // 1) Tạo dự án cố tình sai thông tin
         const badName = 'TEST-SUAXOA-SAI ' + Date.now().toString().slice(-6);
-        await page.getByRole('button', { name: /Lập dự án/ }).click();
+        await page.click('#btn-add-project');
         await expect(page.locator('#new-project-name-input')).toBeVisible({ timeout: 15_000 });
         await page.fill('#new-project-name-input', badName);
         await page.getByRole('button', { name: /^Tạo dự án$/ }).click();

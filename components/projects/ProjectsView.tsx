@@ -520,11 +520,12 @@ export function ProjectsView() {
             </button>
           )}
           <button
+            id="btn-add-project"
             onClick={() => setIsNewProjectModalOpen(true)}
             className="px-3.5 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
           >
             <Plus className="w-4 h-4" />
-            <span>Lập dự án công trình mới</span>
+            <span>Thêm dự án</span>
           </button>
         </div>
       </div>

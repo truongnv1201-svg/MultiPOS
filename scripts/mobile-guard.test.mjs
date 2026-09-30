@@ -7,7 +7,10 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..');
-const read = (p) => readFileSync(join(ROOT, p), 'utf8');
+// Chuẩn hoá CRLF -> LF: repo không có .gitattributes, file checkout trên Windows có
+// thể là CRLF trong khi regex trong test viết với \n (VD assert khối isMobileViewport
+// trong lib/excel.ts). Không chuẩn hoá thì test đỏ oan trên máy Windows.
+const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 describe('POS: mobile cart sheet thay bảng ngang', () => {
   const pos = read('components/pos/POSScreen.tsx');
