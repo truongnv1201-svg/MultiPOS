@@ -241,6 +241,14 @@ interface StoreContextType {
     amount: number,
     paymentMethod: 'cash' | 'transfer'
   ) => Promise<Project | null>;
+  // ---- 0066: xoá dự án tạo nhầm ----
+  deleteProject: (projectId: string) => Promise<{
+    code: string;
+    material_lines: number;
+    worker_lines: number;
+    restored_lines: number;
+    unlinked_adjustments: number;
+  } | null>;
   refreshServerProjects: () => Promise<boolean>;
   syncProjects: () => Promise<void>;
   syncPendingOps: (retryFailed?: boolean) => Promise<{ synced: number; failed: number }>;
@@ -460,6 +468,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     removeProjectLine,
     updateProjectFinance,
     collectProjectDeposit,
+    deleteProject,
     refreshServerProjects,
     syncProjects,
     syncPendingOps,
@@ -873,6 +882,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     removeProjectLine,
     updateProjectFinance,
     collectProjectDeposit,
+    deleteProject,
     refreshServerProjects,
     syncProjects,
     syncPendingOps,

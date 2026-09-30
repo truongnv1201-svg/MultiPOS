@@ -21,6 +21,7 @@ import {
   Wallet,
   Banknote,
   PieChart,
+  Pencil,
 } from 'lucide-react';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -43,13 +44,16 @@ function formatDate(iso: string | undefined | null): string {
 }
 
 export function ProjectsView() {
-  const { projects, customers, cashbook, addProject, updateProject, products, employees, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit, syncProjects, isOnline, setPosFlow, setPosProjectId, setCurrentScreen, profile } = useStore();
+  const { projects, customers, cashbook, addProject, updateProject, deleteProject, products, employees, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit, syncProjects, isOnline, setPosFlow, setPosProjectId, setCurrentScreen, profile } = useStore();
   const [selectedProject, setSelectedProject] = useState<Project | null>(projects[0] || null);
   // Ô tìm kiếm của cột danh sách (lọc theo tên / mã HĐ / chủ nhà / địa chỉ)
   const [projectQuery, setProjectQuery] = useState('');
 
   /** Xuất vật tư nằm trong POS và chỉ Admin/Quản lý vào được (giống tab "Xuất CT"). */
   const canExportMaterials = !profile || profile.role === 'admin' || profile.role === 'manager';
+  /** Xoá dự án là phá huỷ (dù server có hoàn kho) nên chỉ Admin/Quản lý thấy nút.
+      Server chặn lần 2 bằng is_manager() nên gọi trực tiếp cũng không lọt. */
+  const canDeleteProject = !profile || profile.role === 'admin' || profile.role === 'manager';
 
   /** Mở thẳng màn POS ở tab "Xuất CT" với công trình hiện tại đã chọn sẵn. */
   const goToProjectExport = (project: Project) => {
@@ -77,6 +81,16 @@ export function ProjectsView() {
   const [address, setAddress] = useState('');
   const [estimatedRevenue, setEstimatedRevenue] = useState(0);
   const [skipEstimate, setSkipEstimate] = useState(false);
+
+  // ---- 0066: Sửa thông tin dự án (tạo sai tên/chủ đầu tư/địa chỉ) ----
+  // Tách khỏi modal tạo mới để không lẫn state; chỉ sửa 3 trường định danh, số tiền
+  // sửa ở modal tài chính. Mở modal là seed từ currentProject, lưu qua updateProject
+  // (đường đẩy server có sẵn — không cần RPC riêng vì đây là sửa thông tin, không
+  // đụng tồn kho/tiền).
+  const [isEditInfoOpen, setIsEditInfoOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editCustomerPick, setEditCustomerPick] = useState('');
+  const [editAddress, setEditAddress] = useState('');
 
   // Xuất vật tư -> chuyển sang màn POS (tab "Xuất CT"), modal cũ đã gỡ
 
@@ -239,6 +253,73 @@ export function ProjectsView() {
     setAddress('');
     setEstimatedRevenue(0);
     setSkipEstimate(false);
+  };
+
+  // ---- 0066: Sửa thông tin + Xoá dự án ----
+  const openEditInfoModal = () => {
+    if (!currentProject) return;
+    setEditName(currentProject.name);
+    // Ưu tiên giữ link KH cũ: nếu customer_id còn trong danh mục thì chọn sẵn id,
+    // không thì đổ tên chủ đầu tư vào ô để sửa tay (allowCustom giữ lại chữ gõ).
+    const stillLinked = currentProject.customer_id && customers.some((c) => c.id === currentProject.customer_id);
+    setEditCustomerPick(stillLinked ? (currentProject.customer_id as string) : currentProject.customer_name || '');
+    setEditAddress(currentProject.address || '');
+    setIsEditInfoOpen(true);
+  };
+
+  const handleSaveEditInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentProject || !editName.trim()) return;
+    const matched = customers.find((c) => c.id === editCustomerPick);
+    const resolvedCustomerId = matched ? matched.id : '';
+    const resolvedCustomerName = matched ? matched.name : editCustomerPick.trim() || 'Chủ đầu tư';
+    const patch = {
+      name: editName.trim(),
+      customer_id: resolvedCustomerId,
+      customer_name: resolvedCustomerName,
+      address: editAddress.trim(),
+    };
+    // updateProject trả void nhưng đã tự setProjects trong store — ở đây ghép lại object
+    // mới cho selectedProject local để UI hiện ngay mà không cần đợi sync.
+    await updateProject(currentProject.id, patch);
+    setSelectedProject({ ...currentProject, ...patch });
+    setIsEditInfoOpen(false);
+    notify(`Đã cập nhật thông tin công trình ${currentProject.code}.`, 'success');
+  };
+
+  const handleDeleteProject = async (project: Project) => {
+    // Liệt kê hậu quả TRƯỚC khi hỏi để không ai bấm nhầm: vật tư hoàn kho, tiền giữ lại.
+    const matLines = project.materials.filter((m) => !m.is_adjust).length;
+    const wasteLines = project.materials.length - matLines;
+    const deposit = project.deposit_amount || 0;
+    const lines = [
+      `Xoá vĩnh viễn công trình ${project.code} — ${project.name}?`,
+      ``,
+      `• ${matLines} dòng vật tư đã xuất sẽ HOÀN VỀ KHO${wasteLines > 0 ? ` (${wasteLines} dòng hao hụt không hoàn vì chưa từng trừ kho)` : ''}`,
+      `• ${project.workers.length} thợ sẽ bị gỡ khỏi công trình`,
+      deposit > 0
+        ? `• Đã thu ${formatVND(deposit)}: GIỮ NGUYÊN trong sổ quỹ (không xoá tiền)`
+        : `• Chưa thu khoản nào nên sổ quỹ không đổi`,
+      `• Không thể hoàn tác sau khi xoá`,
+    ];
+    const ok = await confirmDialog(lines.join('\n'), {
+      title: 'Xoá dự án',
+      confirmLabel: 'Xoá vĩnh viễn',
+      danger: true,
+    });
+    if (!ok) return;
+    const res = await deleteProject(project.id);
+    if (res) {
+      notify(
+        `Đã xoá ${res.code}: hoàn ${res.restored_lines} dòng vật tư về kho` +
+          (res.unlinked_adjustments > 0 ? `, ${res.unlinked_adjustments} khoản hao hụt chuyển về kho chung` : '') +
+          `.`,
+        'success'
+      );
+      // Chọn dự án còn lại để màn hình không trống (giữ đúng thứ tự danh sách)
+      const rest = projects.filter((x) => x.id !== project.id);
+      setSelectedProject(rest[0] || null);
+    }
   };
 
   // Cần sửa thủ công dữ liệu dự án thì gọi updateProject(id, updates) — không còn
@@ -502,9 +583,37 @@ export function ProjectsView() {
                   <Building2 className="w-4 h-4 text-blue-600" />
                   THÔNG TIN DỰ ÁN
                 </h3>
-                <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-0.5">
-                  {currentProject.code}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-0.5">
+                    {currentProject.code}
+                  </span>
+                  {/* Sửa thông tin tạo sai (tên/chủ đầu tư/địa chỉ) — không đụng số tiền,
+                      số tiền sửa ở modal tài chính ([sửa] ở ô quyết toán). */}
+                  <button
+                    type="button"
+                    id="btn-edit-project-info"
+                    onClick={openEditInfoModal}
+                    title="Sửa tên / chủ đầu tư / địa chỉ công trình"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 transition-colors"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    Sửa
+                  </button>
+                  {/* Xoá dự án tạo nhầm — chỉ Admin/Quản lý (server cũng chặn is_manager).
+                      Server hoàn kho + giữ audit, không xoá sổ quỹ. */}
+                  {canDeleteProject && (
+                    <button
+                      type="button"
+                      id="btn-delete-project"
+                      onClick={() => handleDeleteProject(currentProject)}
+                      title="Xoá dự án này (vật tư đã xuất sẽ hoàn về kho)"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 border border-slate-200 hover:border-rose-300 rounded-lg px-2 py-1 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Xoá
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="p-4 space-y-3">
@@ -1157,6 +1266,81 @@ export function ProjectsView() {
                 className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
               >
                 Tạo dự án
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Info Modal — sửa tên/chủ đầu tư/địa chỉ khi tạo sai (0066).
+          Số tiền không sửa ở đây mà ở modal tài chính để tách trách nhiệm. */}
+      {isEditInfoOpen && currentProject && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-label="Sửa thông tin công trình">
+          <form
+            onSubmit={handleSaveEditInfo}
+            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
+          >
+            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+              <h3 className="font-bold text-sm">Sửa thông tin {currentProject.code}</h3>
+              <button type="button" onClick={() => setIsEditInfoOpen(false)} className="p-1 text-slate-400 hover:text-white rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Tên công trình *</label>
+                <input
+                  id="edit-project-name-input"
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Tên công trình"
+                  className="w-full h-8 px-2.5 border border-slate-300 rounded"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Khách hàng / Chủ đầu tư (link công nợ)</label>
+                <SearchableSelect
+                  value={editCustomerPick}
+                  placeholder="Chọn KH có sẵn hoặc gõ tên mới…"
+                  allowCustom
+                  options={customers.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} — nợ ${formatVND(c.current_debt)}`,
+                    sub: `${c.code} · ${c.phone || 'không SĐT'}`,
+                  }))}
+                  onChange={(v) => setEditCustomerPick(v)}
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Đổi chủ đầu tư sẽ đổi luôn link công nợ của dự án.
+                </p>
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Địa chỉ thi công</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="Địa chỉ thi công"
+                  className="w-full h-8 px-2.5 border border-slate-300 rounded"
+                />
+              </div>
+            </div>
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditInfoOpen(false)}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                id="btn-save-project-info"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
+              >
+                Lưu thay đổi
               </button>
             </div>
           </form>

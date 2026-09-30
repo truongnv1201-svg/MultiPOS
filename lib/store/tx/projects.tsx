@@ -73,6 +73,8 @@ export interface TxProjects {
     finance: { estimated_revenue?: number; settled_revenue?: number; other_costs?: number }
   ) => Promise<Project | null>;
   collectProjectDeposit: (projectId: string, amount: number, paymentMethod: 'cash' | 'transfer') => Promise<Project | null>;
+  // ---- 0066: xoá dự án tạo nhầm (server hoàn kho + giữ audit, client chỉ mirror) ----
+  deleteProject: (projectId: string) => Promise<{ code: string; material_lines: number; worker_lines: number; restored_lines: number; unlinked_adjustments: number } | null>;
 }
 
 /** Một dòng phiếu điều chỉnh: chấn lệch (countedStock) HOẶC nhập thẳng chênh lệch (delta). */
@@ -996,6 +998,100 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
     [projects, supa, user, currentShift, setLoginOpen, setCashbook, setCurrentShift, pushProjectToServer]
   );
 
+  // ================================================================
+  // 0066 — XOÁ DỰ ÁN TẠO NHẦM
+  //
+  // Nguyên tắc (giống xuất vật tư/điều chỉnh tồn): server là chân lý — gọi RPC
+  // delete_project TRƯỚC (nó hoàn kho + giữ audit trong 1 transaction), thành công
+  // mới gỡ local. Không ghi local trước vì syncProjects kéo bản server về sẽ dựng
+  // lại dự án vừa xoá (đúng lỗi từng gặp ở xuất vật tư).
+  // Không yêu cầu mở ca: đây là thao tác sửa sai của Quản lý, không phải nghiệp vụ
+  // bán/nhập trong ca. Server vẫn chặn vai trò bằng is_manager().
+  // ================================================================
+  const deleteProject = useCallback(
+    async (
+      projectId: string
+    ): Promise<{ code: string; material_lines: number; worker_lines: number; restored_lines: number; unlinked_adjustments: number } | null> => {
+      if (supa && !user) {
+        notify('Vui lòng đăng nhập trước khi xoá dự án!', 'error');
+        setLoginOpen(true);
+        return null;
+      }
+      // Server cũng chặn is_manager() (0066) — đây chỉ để chặn sớm và báo rõ.
+      if (supa && profile && profile.role !== 'admin' && profile.role !== 'manager') {
+        notify('Chỉ Admin/Quản lý được xoá dự án!', 'error');
+        return null;
+      }
+      const project = projects.find((x) => x.id === projectId);
+      if (!project) {
+        notify('Dự án không tồn tại (có thể đã bị xoá).', 'error');
+        return null;
+      }
+      if (!supa) {
+        notify('Xoá dự án cần kết nối máy chủ (chưa cấu hình Supabase).', 'error');
+        return null;
+      }
+      if (supa && !isOnline) {
+        notify('Đang offline — cần mạng để xoá dự án trên server. Thử lại khi có mạng.', 'error');
+        return null;
+      }
+
+      const { data, error } = await supa.rpc('delete_project', {
+        p_project_id: project.server_id || project.id,
+      });
+      if (error || !data) {
+        notify(`Không xoá được dự án: ${vietnamizeError(error) || 'lỗi server'}`, 'error');
+        return null;
+      }
+
+      // ---- Server đã xoá thật. Gỡ local để UI phản hồi tức thì. ----
+      // Hoàn kho local từ project.materials sẵn có (chỉ dòng thường, giống removeProjectLine;
+      // server đã hoàn theo bản server — lần pull catalog sau server thắng nên tự khớp).
+      const now = new Date().toISOString();
+      // Cộng dồn theo mặt hàng vì 1 dự án có thể xuất cùng hàng nhiều dòng
+      const restoreQty = new Map<string, number>();
+      for (const m of project.materials) {
+        if (m.is_adjust) continue;
+        restoreQty.set(m.product_id, (restoreQty.get(m.product_id) || 0) + (m.quantity || 0));
+      }
+      if (restoreQty.size > 0) {
+        const movements: StockMovement[] = [];
+        setProducts((prev) =>
+          prev.map((x) => {
+            const qty = restoreQty.get(x.id) || 0;
+            if (!(qty > 0)) return x;
+            const ns = Math.round((x.stock_quantity + qty) * 1000) / 1000;
+            db.products.update(x.id, { stock_quantity: ns }).catch(console.warn);
+            movements.push({
+              id: `sm-delproj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              reference_code: project.code,
+              product_id: x.id,
+              product_name: x.name,
+              movement_type: 'return',
+              quantity: qty,
+              previous_stock: x.stock_quantity,
+              new_stock: ns,
+              note: `Trả kho khi xoá dự án ${project.code} (${project.name})`,
+              created_at: now,
+            });
+            return { ...x, stock_quantity: ns };
+          })
+        );
+        setStockMovements((prev) => [...movements.reverse(), ...prev]);
+      }
+      setProjects((prev) => prev.filter((x) => x.id !== projectId));
+      db.projects.delete(projectId).catch(console.warn);
+      return {
+        code: String((data as Record<string, unknown>).code || project.code),
+        material_lines: Number((data as Record<string, unknown>).material_lines || 0),
+        worker_lines: Number((data as Record<string, unknown>).worker_lines || 0),
+        restored_lines: Number((data as Record<string, unknown>).restored_lines || 0),
+        unlinked_adjustments: Number((data as Record<string, unknown>).unlinked_adjustments || 0),
+      };
+    },
+    [supa, user, profile, isOnline, projects, setLoginOpen, setProducts, setProjects, setStockMovements]
+  );
+
   const removeProjectLine = useCallback(
     async (projectId: string, kind: 'material' | 'worker', lineKey: string): Promise<Project | null> => {
       if (supa && !user) {
@@ -1081,5 +1177,6 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
     removeProjectLine,
     updateProjectFinance,
     collectProjectDeposit,
+    deleteProject,
   };
 }

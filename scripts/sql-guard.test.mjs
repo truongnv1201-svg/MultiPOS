@@ -306,3 +306,68 @@ describe('0062: xoá cột orders.cash_rounding (dữ liệu thử nghiệm)', (
     }
   });
 });
+
+describe('0066: xoá dự án tạo nhầm (delete_project)', () => {
+  const sql = read('supabase/migrations/0066_delete_project_rpc.sql');
+  const projects = read('lib/store/tx/projects.tsx');
+
+  it('tồn tại file migration', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0066_delete_project_rpc.sql')));
+  });
+
+  it('chỉ Admin/Quản lý được xoá (server chặn lần 2 bằng is_manager)', () => {
+    assert.match(sql, /IF NOT public\.is_manager\(\) THEN/);
+    assert.match(sql, /Chỉ Admin\/Quản lý được xoá dự án/);
+  });
+
+  it('chặn anon/PUBLIC (bài học 0063: chỉ revoke anon là KHÔNG đủ)', () => {
+    assert.match(sql, /REVOKE EXECUTE ON FUNCTION public\.delete_project\(UUID\) FROM PUBLIC;/);
+    assert.match(sql, /REVOKE EXECUTE ON FUNCTION public\.delete_project\(UUID\) FROM anon;/);
+    assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.delete_project\(UUID\) TO authenticated;/);
+  });
+
+  it('hoàn kho CHỈ cho dòng xuất thật, bỏ qua dòng hao hụt is_adjust', () => {
+    const fn = sql.match(/CREATE OR REPLACE FUNCTION public\.delete_project\([\s\S]*?END;\n\$\$;/);
+    assert.ok(fn, 'phải tìm được thân hàm delete_project');
+    assert.match(fn[0], /WHERE project_id = p_project_id AND NOT COALESCE\(is_adjust, false\)/);
+  });
+
+  it('ghi thẻ kho đảo movement_type=return cho mỗi dòng hoàn (giống removeProjectLine)', () => {
+    const fn = sql.match(/CREATE OR REPLACE FUNCTION public\.delete_project\([\s\S]*?END;\n\$\$;/);
+    assert.ok(fn);
+    assert.match(fn[0], /'return'/);
+    assert.match(fn[0], /Trả kho khi xoá dự án/);
+  });
+
+  it('giữ audit hao hụt: chỉ gỡ project_id về NULL, KHÔNG xoá stock_adjustments', () => {
+    const fn = sql.match(/CREATE OR REPLACE FUNCTION public\.delete_project\([\s\S]*?END;\n\$\$;/);
+    assert.ok(fn);
+    assert.match(fn[0], /UPDATE public\.stock_adjustments SET project_id = NULL WHERE project_id = p_project_id;/);
+    assert.ok(!/DELETE FROM public\.stock_adjustments/.test(fn[0]), 'không được xoá sổ audit hao hụt');
+  });
+
+  it('không đụng sổ quỹ (tiền đã thu là lịch sử, UI phải báo rõ)', () => {
+    const fn = sql.match(/CREATE OR REPLACE FUNCTION public\.delete_project\([\s\S]*?END;\n\$\$;/);
+    assert.ok(fn);
+    assert.ok(!/cashbook/i.test(fn[0]), 'RPC xoá dự án không được chạm sổ quỹ');
+    const view = read('components/projects/ProjectsView.tsx');
+    assert.match(view, /GIỮ NGUYÊN trong sổ quỹ/);
+  });
+
+  it('client ghi server TRƯỚC rồi mới gỡ local (không lặp lỗi mất dữ liệu)', () => {
+    const body = projects.match(/const deleteProject = useCallback\([\s\S]*?\n  \);/);
+    assert.ok(body, 'phải tìm được thân deleteProject');
+    const rpcIdx = body[0].indexOf("supa.rpc('delete_project'");
+    const localIdx = body[0].indexOf('setProjects((prev) => prev.filter');
+    assert.ok(rpcIdx > 0, 'phải gọi RPC delete_project');
+    assert.ok(localIdx > rpcIdx, 'RPC phải chạy TRƯỚC khi gỡ local');
+  });
+
+  it('UI có đủ nút Sửa thông tin + Xoá dự án (chỉ hiện nút Xoá cho quản lý)', () => {
+    const view = read('components/projects/ProjectsView.tsx');
+    assert.match(view, /id="btn-edit-project-info"/);
+    assert.match(view, /id="btn-delete-project"/);
+    assert.match(view, /id="btn-save-project-info"/);
+    assert.match(view, /\{canDeleteProject && \(/);
+  });
+});

@@ -112,6 +112,14 @@ export interface TransactionsSlice {
     amount: number,
     paymentMethod: 'cash' | 'transfer'
   ) => Promise<Project | null>;
+  // ---- 0066: xoá dự án tạo nhầm ----
+  deleteProject: (projectId: string) => Promise<{
+    code: string;
+    material_lines: number;
+    worker_lines: number;
+    restored_lines: number;
+    unlinked_adjustments: number;
+  } | null>;
   refreshServerProjects: () => Promise<boolean>;
   syncProjects: () => Promise<void>;
   syncPendingOps: (retryFailed?: boolean) => Promise<{ synced: number; failed: number }>;
@@ -236,6 +244,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     removeProjectLine: projects.removeProjectLine,
     updateProjectFinance: projects.updateProjectFinance,
     collectProjectDeposit: projects.collectProjectDeposit,
+    deleteProject: projects.deleteProject,
     refreshServerProjects: projects.refreshServerProjects,
     syncProjects: projects.syncProjects,
     syncPendingOps: debts.syncPendingOps,

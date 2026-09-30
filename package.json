@@ -21,6 +21,7 @@
     "test:live:return":  "node scripts/verify-return-restock.mjs",
     "test:live:price":  "node scripts/verify-price-override.mjs",
     "test:live:project": "node scripts/verify-project-materials.mjs",
+    "test:live:delete-project": "node scripts/verify-delete-project.mjs",
     "test:live:adjust": "node scripts/verify-stock-adjust.mjs",
     "test:live": "npm run test:live:pos && npm run test:live:vat && npm run test:live:customer && npm run test:live:debt && npm run test:live:return",
     "clean": "next clean"
