@@ -27,6 +27,9 @@ import {
   Wallet,
   Banknote,
   PieChart,
+  ClipboardList,
+  AlertTriangle,
+  CircleDot,
 } from 'lucide-react';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -308,6 +311,61 @@ export function ProjectsView() {
         )
         .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
     : [];
+
+  // VIỆC CẦN LÀM: chỉ những lỗ hổng / rủi ro mà chưa khối nào khác nói tới.
+  // Mọi con số P&L đã hiện ở card chi phí + cột trái + khối cơ cấu chi phí, nên khối này
+  // không lặp lại số liệu — nó chỉ ra phần đang thiếu và việc nên làm tiếp theo.
+  const projectTodos = (() => {
+    if (!currentProject) return [] as { key: string; tone: 'info' | 'warn' | 'danger'; label: string; hint: string; action?: () => void }[];
+    const out: { key: string; tone: 'info' | 'warn' | 'danger'; label: string; hint: string; action?: () => void }[] = [];
+    const p = currentProject;
+
+    if (p.settled_revenue <= 0) {
+      out.push({
+        key: 'settle',
+        tone: 'warn',
+        label: 'Chưa chốt giá trị quyết toán',
+        hint: 'Tiến độ thu tiền và lợi nhuận đang tính trên giá trị 0',
+        action: openFinModal,
+      });
+    }
+    // Đã qua giai đoạn thi công mà vật tư/nhân công = 0 thì P&L chắc chắn không sát thực tế.
+    if (p.phase >= 2 && p.materials.length === 0) {
+      out.push({
+        key: 'material',
+        tone: 'warn',
+        label: 'Đang thi công nhưng chưa xuất vật tư nào',
+        hint: 'Chi phí vật tư = 0, lợi nhuận sẽ bị tính cao',
+        action: () => goToProjectExport(p),
+      });
+    }
+    if (p.phase >= 2 && p.workers.length === 0) {
+      out.push({
+        key: 'worker',
+        tone: 'warn',
+        label: 'Đang thi công nhưng chưa ghi nhận thợ',
+        hint: 'Chi phí nhân công = 0, lợi nhuận sẽ bị tính cao',
+        action: () => setIsWorkerModalOpen(true),
+      });
+    }
+    if (p.phase >= 2 && p.settled_revenue > 0 && projectMarginPct < 10) {
+      out.push({
+        key: 'margin',
+        tone: 'danger',
+        label: `Biên lợi nhuận thấp: ${projectMarginPct.toFixed(1)}%`,
+        hint: 'Kiểm tra lại giá vốn vật tư và công thợ đã ghi',
+      });
+    }
+    if (p.phase === 3 && p.actual_profit < 0) {
+      out.push({
+        key: 'loss',
+        tone: 'danger',
+        label: 'Công trình lỗ',
+        hint: 'Quyết toán không đủ bù chi phí, cần xem lại hợp đồng',
+      });
+    }
+    return out;
+  })();
 
   // Sắp xếp 2 bảng vật tư / nhân công của công trình đang xem (bấm header để đảo chiều)
   const { sortKey: matSortKey, sortDir: matSortDir, toggleSort: toggleMatSort } = useSortState();
@@ -823,66 +881,74 @@ export function ProjectsView() {
               Cùng kiểu "thẻ neo" như cột trái: nền trắng liền mạch, các khối ngăn cách
               bằng đường viền 1px — KHÔNG phải khối nổi (nền xám + thẻ bo góc đổ bóng). */}
           <aside className="w-full xl:w-[330px] shrink-0 border-l border-slate-200 bg-white overflow-y-auto">
-            {/* Báo cáo P&L hạch toán lãi */}
+            {/* VIỆC CẦN LÀM — thay cho khối P&L (đã bỏ vì mọi số trong đó đều có ở
+                khối khác). Khối này chỉ hiện NHỮNG THỨ chưa chỗ nào hiển thị: lỗ hổng
+                dữ liệu làm P&L sai, và cảnh báo kinh doanh. */}
             <section className="border-b border-slate-200">
-              <div className="px-3 py-2.5 border-b border-slate-100 flex items-start justify-between gap-2">
-                <h3 className="text-[11px] font-bold text-slate-800 leading-tight flex items-center gap-1.5">
-                  <TrendingUp className="w-4 h-4 text-blue-600 shrink-0" />
-                  BÁO CÁO P&amp;L HẠCH TOÁN LÃI
+              <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                <h3 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                  <ClipboardList className="w-4 h-4 text-amber-600" />
+                  VIỆC CẦN LÀM
                 </h3>
-                <span className="text-[9px] font-mono text-slate-500 text-right leading-tight shrink-0">
-                  SRS v2.12
-                  <br />§3.4
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-200 text-slate-600">
+                  {projectTodos.length ? `${projectTodos.length} việc` : 'sạch'}
                 </span>
               </div>
 
-              <div className="space-y-2">
-                {/* Các ô số liền nhau, ngăn bằng đường kẻ 1px (không bo góc, không nền riêng)
-                    đúng kiểu "thẻ neo" của cột danh sách bên trái. */}
-                <div className="grid grid-cols-2 border-t border-slate-100">
-                  <div className="py-2 pr-2 border-b border-r border-slate-100">
-                    <div className="text-[9px] font-semibold text-slate-500 uppercase">Giá trị quyết toán</div>
-                    <div className="text-xs font-bold font-mono text-blue-700 mt-0.5">
-                      {formatVND(currentProject.settled_revenue)}
-                    </div>
-                  </div>
-                  <div className="py-2 pl-2 border-b border-slate-100">
-                    <div className="text-[9px] font-semibold text-slate-500 uppercase">Chi phí vật tư</div>
-                    <div className="text-xs font-bold font-mono text-rose-600 mt-0.5">
-                      -{formatVND(currentProject.material_cost_total)}
-                    </div>
-                  </div>
-                  <div className="py-2 pr-2 border-b border-r border-slate-100">
-                    <div className="text-[9px] font-semibold text-slate-500 uppercase">Chi phí nhân công</div>
-                    <div className="text-xs font-bold font-mono text-amber-600 mt-0.5">
-                      -{formatVND(currentProject.labor_cost_total)}
-                    </div>
-                  </div>
-                  {/* Ô lợi nhuận tô xanh để mắt dừng lại ở con số quan trọng nhất */}
-                  <div className="py-2 pl-2 -m-1 px-3 border-b border-emerald-200 bg-emerald-50">
-                    <div className="text-[9px] font-semibold text-emerald-800 uppercase">Lợi nhuận thực tế</div>
-                    <div className="text-sm font-extrabold font-mono text-emerald-700 mt-0.5">
-                      {formatVND(currentProject.actual_profit)}
-                    </div>
-                    <div className="text-[9px] text-emerald-700/80 font-mono">
-                      Tỷ suất: {projectMarginPct.toFixed(1)}%
-                    </div>
-                  </div>
-                  {/* Chi phí khác chỉ hiện khi có, để phép trừ của P&L luôn khớp total_cost */}
-                  {currentProject.other_costs > 0 && (
-                    <div className="col-span-2 py-2 border-b border-slate-100">
-                      <div className="text-[9px] font-semibold text-slate-500 uppercase">Chi phí khác</div>
-                      <div className="text-xs font-bold font-mono text-slate-600 mt-0.5">
-                        -{formatVND(currentProject.other_costs)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <p className="text-[10px] text-slate-400 italic leading-relaxed px-3 pb-3">
-                  * Lợi Nhuận = Giá Trị Quyết Toán − (Vật Tư + Nhân Công + Chi Phí Khác)
-                </p>
+              {/* Bối cảnh giai đoạn — ràng buộc cho danh sách việc bên dưới (những việc
+                  chỉ bắt đầu có ý nghĩa khi dự án đã qua giai đoạn báo giá). */}
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-100">
+                <span className="text-[10px] text-slate-500">Trạng thái</span>
+                <span className="text-[11px] font-mono font-semibold text-slate-800">
+                  Giai đoạn {currentProject.phase}/3 · lập ngày {formatDate(currentProject.created_at)}
+                </span>
               </div>
+
+              {projectTodos.length === 0 ? (
+                <p className="px-3 py-3 text-[11px] text-emerald-700 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  Không còn việc bổ sung — dữ liệu dự án đã đủ để tính P&amp;L.
+                </p>
+              ) : (
+                <ul>
+                  {projectTodos.map((t) => {
+                    const Icon = t.tone === 'danger' ? AlertCircle : t.tone === 'warn' ? AlertTriangle : CircleDot;
+                    const row = (
+                      <>
+                        <Icon
+                          className={`w-3.5 h-3.5 shrink-0 mt-px ${
+                            t.tone === 'danger'
+                              ? 'text-rose-600'
+                              : t.tone === 'warn'
+                              ? 'text-amber-600'
+                              : 'text-blue-600'
+                          }`}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-[11px] font-semibold text-slate-800">{t.label}</span>
+                          <span className="block text-[10px] text-slate-500 leading-snug">{t.hint}</span>
+                        </span>
+                      </>
+                    );
+                    return (
+                      <li key={t.key} className="border-b border-slate-100 last:border-0">
+                        {t.action ? (
+                          <button
+                            type="button"
+                            onClick={t.action}
+                            title="Bấm để xử lý ngay"
+                            className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors"
+                          >
+                            {row}
+                          </button>
+                        ) : (
+                          <div className="flex items-start gap-2 px-3 py-2">{row}</div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </section>
 
             {/* Tiến độ thu tiền & công nợ chủ đầu tư */}

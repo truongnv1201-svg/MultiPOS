@@ -33,7 +33,8 @@ test('màn Dự án: 3 cột đúng bố cục', async ({ page }) => {
     await expect(page.locator(`text=${label}`).first()).toBeVisible();
   }
   for (const tab of ['DỰ TOÁN', 'THI CÔNG', 'QUYẾT TOÁN']) {
-    await expect(page.locator(`button:has-text("${tab}")`)).toBeVisible();
+    // Khớp theo tiêu đề IN HOA của tab (nhãn "Chi phí vật tư" cũng chứa chuỗi này)
+    await expect(page.locator(`button:has-text("${tab}")`).first()).toBeVisible();
   }
   await expect(page.locator('h4:has-text("CHI PHÍ NHÂN CÔNG")')).toBeVisible();
   await expect(page.locator('h4:has-text("CHI PHÍ VẬT TƯ")')).toBeVisible();
@@ -44,12 +45,14 @@ test('màn Dự án: 3 cột đúng bố cục', async ({ page }) => {
   expect(mat, 'phải tìm thấy card vật tư').not.toBeNull();
   expect(labor!.y, 'nhân công phải nằm trên vật tư').toBeLessThan(mat!.y);
 
-  // Cột phải: P&L + tiền độ + cơ cấu chi phí
-  await expect(page.locator('text=BÁO CÁO P&L HẠCH TOÁN LÃI')).toBeVisible();
+  // Cột phải: VIỆC CẦN LÀM + tiến độ + cơ cấu chi phí (khối P&L đã bỏ vì trùng lặp)
+  await expect(page.locator('text=VIỆC CẦN LÀM')).toBeVisible();
   await expect(page.locator('text=TIỀN ĐỘ THU TIỀN')).toBeVisible();
   await expect(page.locator('text=CƠ CẤU CHI PHÍ DỰ ÁN')).toBeVisible();
   await expect(page.locator('#btn-project-collect-deposit')).toBeVisible();
   await expect(page.locator('text=Lợi nhuận gộp:')).toBeVisible();
+  // Khối P&L cũ phải bị gỡ khỏi UI
+  await expect(page.locator('text=BÁO CÁO P&L HẠCH TOÁN LÃI')).toHaveCount(0);
 
   // Tìm kiếm lọc được danh sách
   const countText = await page.locator('#project-list-search').locator('xpath=../..').innerText();
@@ -61,6 +64,19 @@ test('màn Dự án: 3 cột đúng bố cục', async ({ page }) => {
   await expect(page.locator('text=Không có dự án nào khớp từ khoá')).toBeVisible();
   await page.locator('#project-list-search').fill('');
   await page.waitForTimeout(600);
+
+  // Khối mới phải CẢNH BÁO được khi dự án còn thiếu dữ liệu: chọn dự án giá trị 0 đ
+  const zeroProject = page.locator('#projects-view aside button', { hasText: 'TEST-DONGBO' }).first();
+  await zeroProject.click();
+  await page.waitForTimeout(1200);
+  await expect(page.locator('text=Chưa chốt giá trị quyết toán')).toBeVisible();
+  // Việc có hành động thì bấm được (mở modal tài chính) — không phải mục chết
+  await page.locator('button:has-text("Chưa chốt giá trị quyết toán")').first().click();
+  await page.waitForTimeout(800);
+  await expect(page.locator('text=Giá trị hợp đồng quyết toán (đ)')).toBeVisible();
+  // Đóng modal lại
+  await page.locator('button:has-text("Hủy")').last().click().catch(() => {});
+  await page.waitForTimeout(500);
 
   await page.screenshot({ path: 'test-results/projects-redesign.png', fullPage: false });
 });
