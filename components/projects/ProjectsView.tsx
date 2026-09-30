@@ -819,10 +819,12 @@ export function ProjectsView() {
 
           </div>
 
-          {/* Right: P&L + tiền độ thu tiền + cơ cấu chi phí */}
-          <aside className="w-full xl:w-[330px] shrink-0 border-l border-slate-200 bg-slate-100 overflow-y-auto p-3 flex flex-col gap-3">
+          {/* Right: P&L + tiền độ thu tiền + cơ cấu chi phí
+              Cùng kiểu "thẻ neo" như cột trái: nền trắng liền mạch, các khối ngăn cách
+              bằng đường viền 1px — KHÔNG phải khối nổi (nền xám + thẻ bo góc đổ bóng). */}
+          <aside className="w-full xl:w-[330px] shrink-0 border-l border-slate-200 bg-white overflow-y-auto">
             {/* Báo cáo P&L hạch toán lãi */}
-            <section className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+            <section className="border-b border-slate-200">
               <div className="px-3 py-2.5 border-b border-slate-100 flex items-start justify-between gap-2">
                 <h3 className="text-[11px] font-bold text-slate-800 leading-tight flex items-center gap-1.5">
                   <TrendingUp className="w-4 h-4 text-blue-600 shrink-0" />
@@ -834,28 +836,30 @@ export function ProjectsView() {
                 </span>
               </div>
 
-              <div className="p-3 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+              <div className="space-y-2">
+                {/* Các ô số liền nhau, ngăn bằng đường kẻ 1px (không bo góc, không nền riêng)
+                    đúng kiểu "thẻ neo" của cột danh sách bên trái. */}
+                <div className="grid grid-cols-2 border-t border-slate-100">
+                  <div className="py-2 pr-2 border-b border-r border-slate-100">
                     <div className="text-[9px] font-semibold text-slate-500 uppercase">Giá trị quyết toán</div>
                     <div className="text-xs font-bold font-mono text-blue-700 mt-0.5">
                       {formatVND(currentProject.settled_revenue)}
                     </div>
                   </div>
-                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+                  <div className="py-2 pl-2 border-b border-slate-100">
                     <div className="text-[9px] font-semibold text-slate-500 uppercase">Chi phí vật tư</div>
                     <div className="text-xs font-bold font-mono text-rose-600 mt-0.5">
                       -{formatVND(currentProject.material_cost_total)}
                     </div>
                   </div>
-                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+                  <div className="py-2 pr-2 border-b border-r border-slate-100">
                     <div className="text-[9px] font-semibold text-slate-500 uppercase">Chi phí nhân công</div>
                     <div className="text-xs font-bold font-mono text-amber-600 mt-0.5">
                       -{formatVND(currentProject.labor_cost_total)}
                     </div>
                   </div>
-                  {/* Ô lợi nhuận viền xanh để mắt dừng lại ở con số quan trọng nhất */}
-                  <div className="p-2 rounded-lg border-2 border-emerald-500 bg-emerald-50">
+                  {/* Ô lợi nhuận tô xanh để mắt dừng lại ở con số quan trọng nhất */}
+                  <div className="py-2 pl-2 -m-1 px-3 border-b border-emerald-200 bg-emerald-50">
                     <div className="text-[9px] font-semibold text-emerald-800 uppercase">Lợi nhuận thực tế</div>
                     <div className="text-sm font-extrabold font-mono text-emerald-700 mt-0.5">
                       {formatVND(currentProject.actual_profit)}
@@ -866,7 +870,7 @@ export function ProjectsView() {
                   </div>
                   {/* Chi phí khác chỉ hiện khi có, để phép trừ của P&L luôn khớp total_cost */}
                   {currentProject.other_costs > 0 && (
-                    <div className="col-span-2 p-2 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="col-span-2 py-2 border-b border-slate-100">
                       <div className="text-[9px] font-semibold text-slate-500 uppercase">Chi phí khác</div>
                       <div className="text-xs font-bold font-mono text-slate-600 mt-0.5">
                         -{formatVND(currentProject.other_costs)}
@@ -875,14 +879,14 @@ export function ProjectsView() {
                   )}
                 </div>
 
-                <p className="text-[10px] text-slate-400 italic leading-relaxed">
+                <p className="text-[10px] text-slate-400 italic leading-relaxed px-3 pb-3">
                   * Lợi Nhuận = Giá Trị Quyết Toán − (Vật Tư + Nhân Công + Chi Phí Khác)
                 </p>
               </div>
             </section>
 
             {/* Tiến độ thu tiền & công nợ chủ đầu tư */}
-            <section className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+            <section className="border-b border-slate-200">
               <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
                 <h3 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
                   <Wallet className="w-4 h-4 text-emerald-600" />
@@ -893,29 +897,31 @@ export function ProjectsView() {
                 </span>
               </div>
 
-              <div className="p-3 space-y-2.5">
-                <div
-                  className="h-1.5 rounded-full bg-slate-200 overflow-hidden"
-                  role="progressbar"
-                  aria-valuenow={Math.round(projectReceivedPct)}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label="Tiến độ đã thu"
-                >
+              <div className="space-y-2.5">
+                <div className="px-3 pt-3">
                   <div
-                    className="h-full rounded-full bg-emerald-600 transition-[width]"
-                    style={{ width: `${Math.min(100, projectReceivedPct)}%` }}
-                  />
+                    className="h-1.5 rounded-full bg-slate-200 overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={Math.round(projectReceivedPct)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Tiến độ đã thu"
+                  >
+                    <div
+                      className="h-full rounded-full bg-emerald-600 transition-[width]"
+                      style={{ width: `${Math.min(100, projectReceivedPct)}%` }}
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+                <div className="grid grid-cols-2 border-t border-slate-100">
+                  <div className="py-2 px-3 border-b border-r border-slate-100">
                     <div className="text-[9px] font-semibold text-slate-500 uppercase">Đã thu trước</div>
                     <div className="text-xs font-bold font-mono text-emerald-700 mt-0.5">
                       {formatVND(currentProject.deposit_amount || 0)}
                     </div>
                   </div>
-                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+                  <div className="py-2 px-3 border-b border-slate-100">
                     <div className="text-[9px] font-semibold text-slate-500 uppercase">Còn phải thu</div>
                     <div className="text-xs font-bold font-mono text-amber-700 mt-0.5">
                       {formatVND(projectRemaining)}
@@ -923,41 +929,40 @@ export function ProjectsView() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  id="btn-project-collect-deposit"
-                  onClick={() => {
-                    setDepAmount(projectRemaining);
-                    setIsDepModalOpen(true);
-                  }}
-                  disabled={projectRemaining <= 0}
-                  title={
-                    projectRemaining <= 0
-                      ? 'Đã thu đủ giá trị quyết toán'
-                      : currentProject.phase >= 3
-                      ? 'Thu nốt phần quyết toán còn lại'
-                      : 'Thu cọc / tạm ứng theo đợt thi công'
-                  }
-                  className="w-full h-9 rounded-lg bg-emerald-800 hover:bg-emerald-900 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Banknote className="w-4 h-4" />
-                  {currentProject.phase >= 3 ? 'Thu tiền đợt mới / Quyết toán' : 'Thu cọc / Thu tiền đợt mới'}
-                </button>
+                <div className="px-3">
+                  <button
+                    type="button"
+                    id="btn-project-collect-deposit"
+                    onClick={() => {
+                      setDepAmount(projectRemaining);
+                      setIsDepModalOpen(true);
+                    }}
+                    disabled={projectRemaining <= 0}
+                    title={
+                      projectRemaining <= 0
+                        ? 'Đã thu đủ giá trị quyết toán'
+                        : currentProject.phase >= 3
+                        ? 'Thu nốt phần quyết toán còn lại'
+                        : 'Thu cọc / tạm ứng theo đợt thi công'
+                    }
+                    className="w-full h-9 rounded-lg bg-emerald-800 hover:bg-emerald-900 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Banknote className="w-4 h-4" />
+                    {currentProject.phase >= 3 ? 'Thu tiền đợt mới / Quyết toán' : 'Thu cọc / Thu tiền đợt mới'}
+                  </button>
+                </div>
 
                 {/* Lịch sử thu tiền lấy từ sổ quỹ thật (category 'deposit', ref = mã CT) */}
-                <div>
-                  <div className="text-[10px] font-semibold text-slate-500 mb-1">
+                <div className="px-3 pb-3">
+                  <div className="text-[10px] font-semibold text-slate-500 mb-1 pt-1 border-t border-slate-100">
                     Lịch sử thu tiền ({projectDeposits.length} phiếu)
                   </div>
                   {projectDeposits.length === 0 ? (
                     <p className="text-[10px] text-slate-400">Chưa thu khoản nào cho công trình này.</p>
                   ) : (
-                    <ul className="space-y-1">
+                    <ul className="divide-y divide-slate-100">
                       {projectDeposits.map((d) => (
-                        <li
-                          key={d.id}
-                          className="flex items-center justify-between gap-2 text-[10px] text-slate-600 border-b border-dashed border-slate-100 pb-1 last:border-0"
-                        >
+                        <li key={d.id} className="flex items-center justify-between gap-2 text-[10px] text-slate-600 py-1">
                           <span className="truncate">{d.note || `Thu ${formatVND(d.amount)}`}</span>
                           <span className="font-mono font-semibold text-emerald-700 shrink-0">
                             {formatVND(d.amount)}
@@ -976,7 +981,7 @@ export function ProjectsView() {
             </section>
 
             {/* Cơ cấu chi phí */}
-            <section className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+            <section>
               <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
                 <h3 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
                   <PieChart className="w-4 h-4 text-blue-600" />
@@ -986,12 +991,15 @@ export function ProjectsView() {
                   TỔNG: <strong className="text-slate-800">{formatVND(currentProject.total_cost)}</strong>
                 </span>
               </div>
-              <ul className="p-3 space-y-1.5 text-[11px]">
+              <ul className="py-1.5 text-[11px]">
                 {[
                   { label: 'Chi phí vật tư', value: currentProject.material_cost_total, dot: 'bg-rose-500' },
                   { label: 'Chi phí nhân công', value: currentProject.labor_cost_total, dot: 'bg-amber-500' },
                 ].map((row) => (
-                  <li key={row.label} className="flex items-center justify-between gap-2">
+                  <li
+                    key={row.label}
+                    className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-100"
+                  >
                     <span className="flex items-center gap-1.5 text-slate-600 min-w-0">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${row.dot}`} />
                       <span className="truncate">{row.label}</span>
@@ -1000,7 +1008,7 @@ export function ProjectsView() {
                   </li>
                 ))}
                 {currentProject.other_costs > 0 && (
-                  <li className="flex items-center justify-between gap-2">
+                  <li className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-100">
                     <span className="flex items-center gap-1.5 text-slate-600 min-w-0">
                       <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
                       <span className="truncate">Chi phí khác</span>
@@ -1010,7 +1018,7 @@ export function ProjectsView() {
                     </span>
                   </li>
                 )}
-                <li className="flex items-center justify-between gap-2 pt-1.5 mt-1 border-t border-slate-200">
+                <li className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50">
                   <span className="font-bold text-slate-800">Lợi nhuận gộp:</span>
                   <span
                     className={`font-mono font-extrabold ${
