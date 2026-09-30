@@ -396,7 +396,6 @@ export const INITIAL_PROJECTS: Project[] = [
     customer_id: 'cust-4',
     customer_name: 'Chị Mai Lan (Chủ Biệt thự Thảo Điền)',
     address: '28 Nguyễn Văn Hưởng, Thảo Điền, TP.Thủ Đức',
-    phase: 2, // Giai đoạn 2: Xuất kho vật tư
     estimated_revenue: 36500000,
     settled_revenue: 36500000,
     materials: [
@@ -453,7 +452,6 @@ export const INITIAL_PROJECTS: Project[] = [
     labor_cost_total: 3550000,
     total_cost: 21005000,
     actual_profit: 15495000,
-    status: 'in_progress',
     created_at: '2026-09-12T08:00:00Z',
   }
 ];

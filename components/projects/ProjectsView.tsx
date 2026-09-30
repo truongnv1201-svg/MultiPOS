@@ -78,9 +78,9 @@ export function ProjectsView() {
   const [estimatedRevenue, setEstimatedRevenue] = useState(0);
   const [skipEstimate, setSkipEstimate] = useState(false);
 
-  // Phase 2: xuất vật tư -> chuyển sang màn POS (tab "Xuất CT"), modal cũ đã gỡ
+  // Xuất vật tư -> chuyển sang màn POS (tab "Xuất CT"), modal cũ đã gỡ
 
-  // Phase 3: thêm thợ — chọn từ hồ sơ nhân sự (tự điền lương/việc), cho phép thợ ngoài
+  // Thêm thợ — chọn từ hồ sơ nhân sự (tự điền lương/việc), cho phép thợ ngoài
   const [isWorkerModalOpen, setIsWorkerModalOpen] = useState(false);
   const [wEmployeeId, setWEmployeeId] = useState('');
   const [wName, setWName] = useState('');
@@ -176,7 +176,7 @@ export function ProjectsView() {
     if (depAmount > remaining) {
       const ok = await confirmDialog(
         `Số thu ${formatVND(depAmount)} vượt số còn phải thu ${formatVND(remaining)}.\nVẫn thu?`,
-        { title: currentProject.phase >= 3 ? 'Thu quyết toán' : 'Thu cọc/đợt', confirmLabel: 'Vẫn thu' }
+        { title: 'Thu cọc/đợt', confirmLabel: 'Vẫn thu' }
       );
       if (!ok) return;
     }
@@ -211,7 +211,7 @@ export function ProjectsView() {
     const resolvedCustomerName = matchedCustomer
       ? matchedCustomer.name
       : customerPick.trim() || 'Chủ đầu tư';
-    // Bỏ qua báo giá -> vào thẳng thi công, quyết toán = 0 (chỉ quyết toán sau ở phase 3)
+    // Bỏ qua báo giá -> quyết toán = 0 (chỉ nhập sau ở modal tài chính)
     const settled = skipEstimate ? 0 : estimatedRevenue;
 
     const created = await addProject({
@@ -219,7 +219,6 @@ export function ProjectsView() {
       customer_id: resolvedCustomerId,
       customer_name: resolvedCustomerName,
       address,
-      phase: skipEstimate ? 2 : 1,
       estimated_revenue: estimatedRevenue,
       settled_revenue: settled,
       deposit_amount: 0,
@@ -230,7 +229,6 @@ export function ProjectsView() {
       labor_cost_total: 0,
       total_cost: 0,
       actual_profit: settled,
-      status: skipEstimate ? 'in_progress' : 'planning',
       created_at: new Date().toISOString(),
     });
 
@@ -243,10 +241,8 @@ export function ProjectsView() {
     setSkipEstimate(false);
   };
 
-  // Giai đoạn dự án: chỉ còn ĐỌC (badge ở danh sách bên trái + nhãn nút ở cột phải).
-  // Trước đây khối 3 tab giai đoạn là nơi DUY NHẤT bấm để chuyển giai đoạn — đã bỏ theo
-  // yêu cầu bỏ bớt khối, nên hàm đổi giai đoạn cũng gỡ theo cho khỏi chết.
-  // Cần đổi giai đoạn thì gọi updateProject(id, { phase, status }).
+  // Cần sửa thủ công dữ liệu dự án thì gọi updateProject(id, updates) — không còn
+  // khái niệm giai đoạn/trạng thái từ 0065 (chỉ để hiển thị, không điều khiển gì).
 
   const currentProject = selectedProject;
 
@@ -337,7 +333,6 @@ export function ProjectsView() {
           'Tên công trình': p.name,
           'Khách hàng': p.customer_name,
           'Địa chỉ': p.address,
-          'Giai đoạn': p.phase,
           'Dự toán': p.estimated_revenue,
           'Quyết toán': p.settled_revenue,
           'Vật tư': p.material_cost_total,
@@ -345,7 +340,6 @@ export function ProjectsView() {
           'Chi khác': p.other_costs,
           'Tổng chi': p.total_cost,
           'Lãi thực': p.actual_profit,
-          'Trạng thái': p.status,
         })),
       },
     ];
@@ -476,9 +470,6 @@ export function ProjectsView() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-[11px] font-bold text-blue-700">{p.code}</span>
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 shrink-0">
-                      Giai đoạn {p.phase}/3
-                    </span>
                   </div>
                   <h4 className="font-bold text-xs text-slate-900 mt-1 line-clamp-1">{p.name}</h4>
                   <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
@@ -811,14 +802,12 @@ export function ProjectsView() {
                     title={
                       projectRemaining <= 0
                         ? 'Đã thu đủ giá trị quyết toán'
-                        : currentProject.phase >= 3
-                        ? 'Thu nốt phần quyết toán còn lại'
                         : 'Thu cọc / tạm ứng theo đợt thi công'
                     }
                     className="w-full h-9 rounded-lg bg-emerald-800 hover:bg-emerald-900 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <Banknote className="w-4 h-4" />
-                    {currentProject.phase >= 3 ? 'Thu tiền đợt mới / Quyết toán' : 'Thu cọc / Thu tiền đợt mới'}
+                    Thu cọc / Thu tiền đợt mới
                   </button>
                 </div>
 
@@ -909,7 +898,7 @@ export function ProjectsView() {
         )}
       </div>
 
-      {/* Modal Phase 3: Thêm thợ (tổng lương = ngày × lương + phụ cấp) */}
+      {/* Modal: Thêm thợ (tổng lương = ngày × lương + phụ cấp) */}
       {isWorkerModalOpen && currentProject && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
           <form
@@ -1029,7 +1018,7 @@ export function ProjectsView() {
         </div>
       )}
 
-      {/* Modal thu tiền công trình: phase thi công = cọc/đợt, phase nghiệm thu = quyết toán */}
+      {/* Modal thu tiền công trình (cọc/đợt) */}
       {isDepModalOpen && currentProject && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
           <form
@@ -1038,7 +1027,7 @@ export function ProjectsView() {
           >
             <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="font-bold text-sm">
-                {currentProject.phase >= 3 ? 'Thu quyết toán' : 'Thu cọc/đợt'} {currentProject.code}
+                Thu cọc/đợt {currentProject.code}
               </h3>
               <button type="button" onClick={() => setIsDepModalOpen(false)} className="p-1 text-slate-400 hover:text-white rounded">
                 <X className="w-4 h-4" />

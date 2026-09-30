@@ -1220,7 +1220,7 @@ export function POSScreen() {
                   options={projects.map((p) => ({
                     value: p.id,
                     label: `${p.code} — ${p.name}`,
-                    sub: `Giai đoạn ${p.phase || 1} · đã xuất ${p.materials?.length || 0} dòng`,
+                    sub: `Đã xuất ${p.materials?.length || 0} dòng vật tư${p.customer_name ? ` · ${p.customer_name}` : ''}`,
                   }))}
                   onChange={(v) => setPosProjectId(v || null)}
                 />

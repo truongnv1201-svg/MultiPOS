@@ -52,8 +52,8 @@ test('màn Dự án: 3 cột đúng bố cục', async ({ page }) => {
   await expect(page.locator('#btn-project-collect-deposit')).toBeVisible();
   await expect(page.locator('text=Lợi nhuận gộp:')).toBeVisible();
 
-  // Giai đoạn vẫn đọc được ở danh sách trái và ở nhãn nút thu tiền
-  await expect(page.locator('#projects-view aside').first()).toContainText('Giai đoạn');
+    // Giai đoạn đã bỏ hẳn khỏi app (0065) — không còn badge ở danh sách trái
+    await expect(page.locator('#projects-view aside').first()).not.toContainText('Giai đoạn');
 
   // Tìm kiếm lọc được danh sách
   const countText = await page.locator('#project-list-search').locator('xpath=../..').innerText();

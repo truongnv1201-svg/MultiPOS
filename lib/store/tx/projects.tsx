@@ -121,12 +121,11 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
           customer_id: customerMap[project.customer_id] ?? asUuidOrNull(project.customer_id),
           customer_name: project.customer_name,
           address: project.address,
-          phase: project.phase,
+          // 0065: không gửi phase/status — cột đã drop, PostgREST báo lỗi cột không tồn tại
           estimated_revenue: Math.round(project.estimated_revenue || 0),
           settled_revenue: Math.round(project.settled_revenue || 0),
           deposit_amount: Math.round(project.deposit_amount || 0),
           other_costs: Math.round(project.other_costs || 0),
-          status: project.status,
         };
         if (serverId) {
           const { error } = await supa.from('projects').update(header).eq('id', serverId);
@@ -259,7 +258,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
           customer_id: (serverCustomerId && serverToLocalCustomer.get(serverCustomerId)) || serverCustomerId,
           customer_name: typeof row.customer_name === 'string' ? row.customer_name : '',
           address: typeof row.address === 'string' ? row.address : '',
-          phase: row.phase === 2 ? 2 : row.phase === 3 ? 3 : 1,
+          // 0065: bỏ hẳn phase/status — chỉ để hiển thị, không điều khiển nghiệp vụ nào.
           estimated_revenue: Math.round(num(row.estimated_revenue)),
           settled_revenue: Math.round(num(row.settled_revenue)),
           deposit_amount: Math.round(num(row.deposit_amount)),
@@ -270,10 +269,6 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
           labor_cost_total: 0,
           total_cost: 0,
           actual_profit: 0,
-          status:
-            row.status === 'completed' || row.status === 'in_progress'
-              ? row.status
-              : 'planning',
           created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
         };
         return recalcProjectTotals(base);
@@ -334,7 +329,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
     if (row) void pushProjectToServer(row as Project);
   }, [pushProjectToServer]);
 
-  // Phase 2: xuất vật tư cho công trình — trừ tồn kho thật + thẻ kho export_project.
+  // Xuất vật tư cho công trình — trừ tồn kho thật + thẻ kho export_project.
   // Chỉ hàng goods/area (service/combo chặn); đơn giá vốn = avg_cost hiện tại.
   const exportProjectMaterial = useCallback(
     async (projectId: string, productId: string, quantity: number): Promise<Project | null> => {
@@ -402,7 +397,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
     [projects, products, supa, user, currentShift, setLoginOpen, setProducts, setStockMovements]
   );
 
-  // Phase 2 (batch): xuất 1 phiếu nhiều dòng — validate hết trước, 1 lần trừ kho + 1 lần chốt đơn
+  // Xuất vật tư (batch): xuất 1 phiếu nhiều dòng — validate hết trước, 1 lần trừ kho + 1 lần chốt đơn
   const exportProjectMaterialBatch = useCallback(
     async (projectId: string, lines: { productId: string; quantity: number }[]): Promise<Project | null> => {
       if (supa && !user) {
@@ -845,7 +840,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
     [supa, user, projects, refreshServerProjects, refreshServerStockAdjustments]
   );
 
-  // Phase 3: đưa chi phí nhân công vào công trình (thợ lấy từ hồ sơ nhân sự, link employee_id)
+  // Đưa chi phí nhân công vào công trình (thợ lấy từ hồ sơ nhân sự, link employee_id)
   const addProjectWorker = useCallback(
     async (
       projectId: string,

@@ -255,7 +255,7 @@ describe('0063: RPC xuất vật tư công trình (tab POS "Xuất CT")', () => 
     // So sánh TRONG hàm batch (hàm đầu tiên cũng có recalcProjectTotals -> dễ so nhầm chỗ)
     const fnAt = src.indexOf('const exportProjectMaterialBatch');
     assert.ok(fnAt > 0, 'phải còn hàm exportProjectMaterialBatch');
-    const body = src.slice(fnAt, src.indexOf('// Phase 3', fnAt));
+    const body = src.slice(fnAt, src.indexOf('const addProjectWorker', fnAt));
     const rpcAt = body.indexOf("supa.rpc('issue_project_materials'");
     const localAt = body.indexOf('recalcProjectTotals');
     assert.ok(rpcAt > 0, 'phải có lời gọi RPC');

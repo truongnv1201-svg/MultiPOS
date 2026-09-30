@@ -126,8 +126,23 @@ export class MultiPOSDatabase extends Dexie {
     this.version(6).stores({
       pendingMasterData: 'id, entity, operation, status, created_at',
     });
-    // v7: hàng đợi kho/quỹ/NCC (P0) — cộng thêm, giữ nguyên dữ liệu cũ
-    this.version(7).stores({
+    // v8: bỏ index phase/status của bảng projects (0065 drop cột — chức năng
+    // giai đoạn đã bỏ hoàn toàn). Khai FULL schema thay vì chỉ bảng đổi: Dexie 4.4.6
+    // merge thiếu bảng của version trước (pendingOps của v7 mất khỏi schema native,
+    // khiến db.pendingOps undefined và refreshCatalog throw) khi version mới khai lẻ.
+    this.version(8).stores({
+      products: 'id, sku, barcode, name, category, product_type',
+      customers: 'id, code, name, phone, group',
+      suppliers: 'id, code, name, phone',
+      orders: 'id, order_code, customer_id, status, created_at',
+      projects: 'id, code, customer_id',
+      cashbook: 'id, code, type, fund_type, category, created_at',
+      shifts: 'id, status, opened_at',
+      purchaseOrders: 'id, code, supplier_id, created_at',
+      pendingOrders: 'id, order_code, created_at',
+      employees: 'id, code, status, full_name',
+      attendanceDays: 'id, employee_id, work_date',
+      pendingMasterData: 'id, entity, operation, status, created_at',
       pendingOps: 'id, kind, status, created_at',
     });
   }

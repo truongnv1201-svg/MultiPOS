@@ -75,3 +75,28 @@ describe('mirror cache Dexie: không xoá bản ghi ghi cục bộ trong lúc k�
     assert.match(store, /db\.products\.clear\(\);/);
   });
 });
+
+describe('dexie schema: version mới phải khai FULL bảng (không khai lẻ)', () => {
+  // Lỗi gốc (0065): version(8) chỉ khai { projects } khiến Dexie 4.4.6 bỏ bảng
+  // pendingOps của v7 khỏi schema active -> db.pendingOps undefined ->
+  // refreshCatalog throw ở db.pendingOps.toArray() -> catch nuốt -> catalog rỗng,
+  // tìm kiếm POS không ra hàng, center Dự án trống. Không console error nên rất khó thấy.
+  // Quy tắc từ nay: mọi version mới phải liệt kê ĐẦY ĐỦ bảng (copy khối stores gần nhất).
+  const dbSrc = read('lib/db.ts');
+
+  it('mọi bảng Table<> trong class đều có ở version mới nhất', () => {
+    const classTables = [...dbSrc.matchAll(/^  (\w+)!: Table</gm)].map((m) => m[1]);
+    assert.ok(classTables.length > 5, 'phải đọc được danh sách bảng trong class');
+
+    const versionBlocks = [...dbSrc.matchAll(/this\.version\((\d+)\)\.stores\(\{([\s\S]*?)\}\);/g)];
+    assert.ok(versionBlocks.length >= 2, 'phải có ít nhất 2 version để so');
+    const latest = versionBlocks.reduce((a, b) => (Number(a[1]) > Number(b[1]) ? a : b));
+    const latestBody = latest[2];
+    for (const t of classTables) {
+      assert.ok(
+        new RegExp(`^\\s*${t}:`, 'm').test(latestBody),
+        `version mới nhất (${latest[1]}) phải khai bảng ${t} (khai lẻ làm Dexie bỏ bảng khác)`
+      );
+    }
+  });
+});

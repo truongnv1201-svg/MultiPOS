@@ -147,9 +147,6 @@ export interface PurchaseOrder {
   created_at: string;
 }
 
-export type ProjectPhase = 1 | 2 | 3;
-// 1: Báo giá dự toán -> 2: Thi công (xuất kho vật tư + chấm công thợ) -> 3: Nghiệm thu & P&L
-
 /**
  * Luồng của màn POS:
  * - sale   : bán hàng (tạo đơn, thu tiền, trừ kho qua pos_checkout)
@@ -195,7 +192,8 @@ export interface Project {
   customer_id: string;
   customer_name: string;
   address: string;
-  phase: ProjectPhase;
+  // 0065: bỏ hẳn phase/status — chỉ để hiển thị, không điều khiển nghiệp vụ nào
+  // (không RPC nào gate/check; UI đã bỏ 3 tab giai đoạn là nơi duy nhất đổi phase).
   estimated_revenue: number;
   settled_revenue: number;
   deposit_amount?: number; // đã thu cọc/tạm ứng của chủ đầu tư (không trừ vào lãi)
@@ -206,7 +204,6 @@ export interface Project {
   labor_cost_total: number;
   total_cost: number;
   actual_profit: number; // settled_revenue - total_cost
-  status: 'planning' | 'in_progress' | 'completed';
   created_at: string;
 }
 
