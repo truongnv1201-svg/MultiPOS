@@ -20,6 +20,13 @@ import {
   Trash2,
   X,
   HardHat,
+  Search,
+  Phone,
+  MapPin,
+  CalendarDays,
+  Wallet,
+  Banknote,
+  PieChart,
 } from 'lucide-react';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -33,9 +40,19 @@ import { sortRows } from '@/lib/sort';
 const EMPTY_PROJECT_MATERIALS: ProjectMaterial[] = [];
 const EMPTY_PROJECT_WORKERS: ProjectWorker[] = [];
 
+/** Ngày dd/MM/yyyy từ chuỗi ISO; chuỗi rác hoặc thiếu -> trả về '—' thay vì "Invalid Date". */
+function formatDate(iso: string | undefined | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('vi-VN');
+}
+
 export function ProjectsView() {
-  const { projects, customers, addProject, updateProject, products, employees, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit, syncProjects, isOnline, setPosFlow, setPosProjectId, setCurrentScreen, profile } = useStore();
+  const { projects, customers, cashbook, addProject, updateProject, products, employees, addProjectWorker, removeProjectLine, updateProjectFinance, collectProjectDeposit, syncProjects, isOnline, setPosFlow, setPosProjectId, setCurrentScreen, profile } = useStore();
   const [selectedProject, setSelectedProject] = useState<Project | null>(projects[0] || null);
+  // Ô tìm kiếm của cột danh sách (lọc theo tên / mã HĐ / chủ nhà / địa chỉ)
+  const [projectQuery, setProjectQuery] = useState('');
 
   /** Xuất vật tư nằm trong POS và chỉ Admin/Quản lý vào được (giống tab "Xuất CT"). */
   const canExportMaterials = !profile || profile.role === 'admin' || profile.role === 'manager';
@@ -249,6 +266,49 @@ export function ProjectsView() {
 
   const currentProject = selectedProject;
 
+  // ---- Dữ liệu dẫn xuất cho bố cục 3 cột ----
+  // Tính thẳng (không useMemo) như sortedMaterials/sortedWorkers bên dưới: quy mô danh
+  // sách nhỏ, lọc và cộng chỉ chạy mỗi render — thêm memo chỉ gây cảnh báo React Compiler.
+
+  // Danh sách đã lọc theo ô tìm kiếm của cột trái
+  const visibleProjects = (() => {
+    const q = projectQuery.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter((p) =>
+      [p.name, p.code, p.customer_name, p.address].some((v) => (v || '').toLowerCase().includes(q))
+    );
+  })();
+
+  // SĐT chủ đầu tư tra từ danh mục KH (project chỉ lưu customer_id + tên)
+  const customerPhone =
+    (currentProject && currentProject.customer_id
+      ? customers.find((c) => c.id === currentProject.customer_id)?.phone
+      : '') || '';
+
+  // Tiền còn phải thu + tỷ lệ đã thu + tỷ suất lợi nhuận (dùng cho P&L & tiến độ)
+  const projectRemaining = Math.max(
+    0,
+    currentProject ? currentProject.settled_revenue - (currentProject.deposit_amount || 0) : 0
+  );
+  const projectReceivedPct =
+    currentProject && currentProject.settled_revenue > 0
+      ? ((currentProject.deposit_amount || 0) / currentProject.settled_revenue) * 100
+      : 0;
+  const projectMarginPct =
+    currentProject && currentProject.settled_revenue > 0
+      ? (currentProject.actual_profit / currentProject.settled_revenue) * 100
+      : 0;
+
+  // Lịch sử thu tiền của công trình: lấy từ sổ quỹ thật (phiếu 'deposit' trỏ mã CT).
+  // Không tự chế số liệu — sổ quỹ là bản ghi dòng tiền, nếu lệch thì phải thấy được ở đây.
+  const projectDeposits = currentProject
+    ? cashbook
+        .filter(
+          (e) => e.type === 'receipt' && e.category === 'deposit' && e.reference_order_code === currentProject.code
+        )
+        .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+    : [];
+
   // Sắp xếp 2 bảng vật tư / nhân công của công trình đang xem (bấm header để đảo chiều)
   const { sortKey: matSortKey, sortDir: matSortDir, toggleSort: toggleMatSort } = useSortState();
   const { sortKey: workerSortKey, sortDir: workerSortDir, toggleSort: toggleWorkerSort } = useSortState();
@@ -386,128 +446,221 @@ export function ProjectsView() {
         </div>
       </div>
 
-      {/* Main workspace */}
+      {/* Main workspace — 3 cột: danh sách | hồ sơ + chi phí | P&L & tiền độ */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* Left: Project List */}
-        <div className="w-full lg:w-80 bg-white border-r border-slate-200 flex flex-col overflow-y-auto min-h-0">
-          <div className="p-3 border-b border-slate-100 font-semibold text-xs text-slate-700">
-            Danh sách công trình đang triển khai
+        {/* Left: Tìm kiếm + Danh sách dự án */}
+        <aside className="w-full lg:w-[290px] shrink-0 bg-white border-r border-slate-200 flex flex-col min-h-0">
+          <div className="p-3 border-b border-slate-100 shrink-0">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h3 className="text-[11px] font-bold text-slate-700 tracking-wide flex items-center gap-1.5">
+                <Search className="w-3.5 h-3.5 text-blue-600" />
+                TÌM KIẾM DỰ ÁN
+              </h3>
+              <span className="text-[11px] font-mono text-slate-500">
+                {visibleProjects.length}/{projects.length}
+              </span>
+            </div>
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                id="project-list-search"
+                type="text"
+                value={projectQuery}
+                onChange={(e) => setProjectQuery(e.target.value)}
+                placeholder="Tìm theo tên, mã HĐ, chủ nhà..."
+                className="w-full h-8 pl-7 pr-2 text-xs bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden text-slate-800"
+              />
+            </div>
           </div>
-          <div className="divide-y divide-slate-100">
-            {projects.map((p) => {
+
+          <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between gap-2 shrink-0">
+            <span className="text-[11px] font-bold text-slate-700 tracking-wide">DANH SÁCH DỰ ÁN</span>
+            <span className="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px] font-mono font-bold">
+              {visibleProjects.length}
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+            {visibleProjects.map((p) => {
               const isSelected = currentProject?.id === p.id;
               return (
-                <div
+                <button
+                  type="button"
                   key={p.id}
                   onClick={() => setSelectedProject(p)}
-                  className={`p-3 cursor-pointer transition-colors ${
-                    isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-slate-50'
+                  aria-current={isSelected}
+                  className={`w-full text-left p-3 cursor-pointer transition-colors border-l-[3px] ${
+                    isSelected ? 'bg-blue-50 border-l-blue-600' : 'border-l-transparent hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold text-blue-700">{p.code}</span>
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[11px] font-bold text-blue-700">{p.code}</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 shrink-0">
                       Giai đoạn {p.phase}/3
                     </span>
                   </div>
-                  <h4 className="font-bold text-xs text-slate-800 mt-1 line-clamp-1">{p.name}</h4>
-                  <div className="text-[11px] text-slate-500 mt-0.5">{p.customer_name}</div>
-                  <div className="mt-2 flex items-center justify-between text-xs font-mono">
-                    <span className="text-slate-500">Giá trị: {formatVND(p.estimated_revenue)}</span>
-                    <span className="text-emerald-700 font-bold">Lãi: {formatVND(p.actual_profit)}</span>
+                  <h4 className="font-bold text-xs text-slate-900 mt-1 line-clamp-1">{p.name}</h4>
+                  <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                    Chủ nhà: {p.customer_name}
+                    {p.address ? ` · ${p.address}` : ''}
                   </div>
-                </div>
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] font-mono">
+                    <span className="text-slate-500">Giá trị: {formatVND(p.settled_revenue)}</span>
+                    <span className={`font-bold ${p.actual_profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                      Lãi: {formatVND(p.actual_profit)}
+                    </span>
+                  </div>
+                </button>
               );
             })}
+            {visibleProjects.length === 0 && (
+              <p className="p-6 text-center text-xs text-slate-400">Không có dự án nào khớp từ khoá.</p>
+            )}
           </div>
-        </div>
+        </aside>
 
-        {/* Right: 4-Phase Step Tracker & Detailed Management */}
+        {/* Center: Hồ sơ dự án + 2 bảng chi phí | Right: P&L + tiền độ */}
         {currentProject ? (
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-            {/* 4-Phase Progress Tracker Banner */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 gap-2">
-                <div className="min-w-0">
-                  <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                    <span>{currentProject.name}</span>
-                    <span className="font-mono text-xs text-blue-600 font-normal">({currentProject.code})</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Chủ đầu tư: <strong>{currentProject.customer_name}</strong> • Địa điểm: {currentProject.address}
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Dự toán: <strong className="font-mono">{formatVND(currentProject.estimated_revenue)}</strong>
-                    {' '}· Đã thu trước: <strong className="font-mono text-emerald-700">{formatVND(currentProject.deposit_amount || 0)}</strong>
-                    {' '}· Còn phải thu: <strong className="font-mono text-rose-600">{formatVND(Math.max(0, currentProject.settled_revenue - (currentProject.deposit_amount || 0)))}</strong>
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <button
-                    onClick={openFinModal}
-                    className="text-xs text-slate-500 hover:text-blue-700"
-                    title="Sửa dự toán / quyết toán / chi khác"
-                  >
-                    Giá trị hợp đồng quyết toán (bấm để sửa):
-                  </button>
-                  <div className="text-base font-extrabold text-blue-700 font-mono">
-                    {formatVND(currentProject.settled_revenue)}
-                  </div>
-                  <button
-                    onClick={() => {
-                      setDepAmount(Math.max(0, currentProject.settled_revenue - (currentProject.deposit_amount || 0)));
-                      setIsDepModalOpen(true);
-                    }}
-                    className="mt-1 px-3 h-7 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-colors"
-                    title={currentProject.phase >= 3 ? 'Thu nốt phần quyết toán còn lại' : 'Thu cọc / tạm ứng theo đợt thi công'}
-                  >
-                    {currentProject.phase >= 3 ? 'Thu quyết toán' : 'Thu cọc/đợt'}
-                  </button>
-                </div>
+          <>
+          <div className="flex-1 min-w-0 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
+            {/* Card: Thông tin dự án + 4 ô số tiền chủ đạo */}
+            <section className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-blue-600" />
+                  THÔNG TIN DỰ ÁN
+                </h3>
+                <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-0.5">
+                  {currentProject.code}
+                </span>
               </div>
 
-              {/* 3 Step Tracker */}
-              <div className="grid grid-cols-3 gap-2 pt-2">
-                {[
-                  { phase: 1, title: '1. Báo giá dự toán', desc: 'Khảo sát & Lập bảng giá' },
-                  { phase: 2, title: '2. Thi công', desc: 'Xuất kho vật tư & chấm công thợ' },
-                  { phase: 3, title: '3. Nghiệm thu & P&L', desc: 'Quyết toán & Hạch toán lãi' },
-                ].map((st) => {
-                  const isCurrent = currentProject.phase === st.phase;
-                  const isPassed = currentProject.phase > st.phase;
-  return (
-                    <div
-                      key={st.phase}
-                      onClick={() => handleAdvancePhase(currentProject, st.phase as ProjectPhase)}
-                      className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all ${
-                        isCurrent
-                          ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
-                          : isPassed
-                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                          : 'bg-slate-50 border-slate-200 text-slate-500'
+              <div className="p-4 space-y-3">
+                <h4 className="text-lg font-extrabold text-slate-900 leading-tight">{currentProject.name}</h4>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    Chủ đầu tư: <strong className="text-slate-700">{currentProject.customer_name || '—'}</strong>
+                  </span>
+                  {customerPhone && (
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-3 h-3" />
+                      {customerPhone}
+                    </span>
+                  )}
+                  {currentProject.address && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {currentProject.address}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="w-3 h-3" />
+                    Lập ngày {formatDate(currentProject.created_at)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="text-[10px] text-slate-500 font-semibold uppercase">Hợp đồng quyết toán</div>
+                    <div className="mt-0.5 flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-bold font-mono text-blue-700">
+                        {formatVND(currentProject.settled_revenue)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={openFinModal}
+                        className="text-[10px] font-semibold text-blue-600 hover:underline shrink-0"
+                        title="Sửa dự toán / quyết toán / chi khác"
+                      >
+                        [sửa]
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="text-[10px] text-slate-500 font-semibold uppercase">Dự toán dính thước</div>
+                    <div className="text-sm font-bold font-mono text-slate-800 mt-0.5">
+                      {formatVND(currentProject.estimated_revenue)}
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="text-[10px] text-slate-500 font-semibold uppercase">Đã thu (cọc/đợt)</div>
+                    <div className="text-sm font-bold font-mono text-emerald-700 mt-0.5">
+                      {formatVND(currentProject.deposit_amount || 0)}
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="text-[10px] text-slate-500 font-semibold uppercase">Còn phải thu</div>
+                    <div className="text-sm font-bold font-mono text-amber-700 mt-0.5">
+                      {formatVND(projectRemaining)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 3 tab giai đoạn — bấm để chuyển giai đoạn công trình */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { phase: 1, title: 'DỰ TOÁN', desc: 'Khảo sát & Bảo giá' },
+                { phase: 2, title: 'THI CÔNG', desc: 'Vật tư & Nhân công' },
+                { phase: 3, title: 'QUYẾT TOÁN', desc: 'Nghiệm thu & P&L' },
+              ].map((st) => {
+                const isCurrent = currentProject.phase === st.phase;
+                const isPassed = currentProject.phase > st.phase;
+                return (
+                  <button
+                    type="button"
+                    key={st.phase}
+                    onClick={() => handleAdvancePhase(currentProject, st.phase as ProjectPhase)}
+                    title={`Chuyển công trình sang giai đoạn: ${st.title}`}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                      isCurrent
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                        : isPassed
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span
+                      className={`w-7 h-7 rounded-lg grid place-items-center shrink-0 ${
+                        isCurrent ? 'bg-white/20' : isPassed ? 'bg-emerald-100' : 'bg-slate-100'
                       }`}
                     >
-                      <div className="flex items-center justify-between font-bold text-xs">
-                        <span>{st.title}</span>
-                        {isPassed && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
-                      </div>
-                      <div className="text-[10px] mt-0.5 opacity-80">{st.desc}</div>
-                    </div>
-                  );
-                })}
-              </div>
+                      {isPassed ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : st.phase === 1 ? (
+                        <FileCheck className="w-4 h-4" />
+                      ) : st.phase === 2 ? (
+                        <Hammer className="w-4 h-4" />
+                      ) : (
+                        <TrendingUp className="w-4 h-4" />
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold tracking-wide">{st.title}</span>
+                      <span className={`block text-[10px] ${isCurrent ? 'text-blue-100' : 'opacity-75'}`}>
+                        {st.desc}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Thi công: Vật tư xuất kho (trừ kho tự động) */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="font-bold text-xs text-slate-800 flex items-center gap-2">
-                  <Boxes className="w-4 h-4 text-amber-600" />
-                  <span>Vật tư Xuất Kho Theo Dự Án (Đã Trừ Kho Tự Động)</span>
+            {/* Chi phí vật tư (đứng sau nhân công — order-2, thứ tự DOM cũ giữ nguyên để
+                không phải di chuyển cả khối bảng) */}
+            <div className="order-2 bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 min-w-0">
+                  <Boxes className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span className="truncate">CHI PHÍ VẬT TƯ</span>
+                  <span className="text-[10px] font-normal text-slate-400 shrink-0">(Xuất kho tự động)</span>
                 </h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-slate-700">
-                    Tổng chi phí vật tư: {formatVND(currentProject.material_cost_total)}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-mono text-slate-600">
+                    Tổng: <strong className="text-slate-900">{formatVND(currentProject.material_cost_total)}</strong>
                   </span>
                   {/* Xuất vật tư chuyển sang màn POS (tab "Xuất CT") — modal cũ đã bỏ vì
                       mỗi lần chỉ xuất được 1 mặt hàng, thao tác lẹt. */}
@@ -517,20 +670,20 @@ export function ProjectsView() {
                       id="btn-project-goto-export"
                       onClick={() => goToProjectExport(currentProject)}
                       title={`Mở màn POS → Xuất CT cho công trình ${currentProject.code}`}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 hover:bg-amber-100 active:bg-amber-200"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 hover:bg-amber-100 active:bg-amber-200"
                     >
-                      <HardHat className="w-3.5 h-3.5" />
-                      Xuất CT
+                      <HardHat className="w-3 h-3" />
+                      Xuất vật tư
                       <ArrowRight className="w-3 h-3" />
                     </button>
                   )}
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-lg overflow-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                      <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                      <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                       <SortableTh className="py-2 px-3" label="Mã SKU" sortKey="sku" activeKey={matSortKey} dir={matSortDir} onSort={toggleMatSort} />
                       <SortableTh className="py-2 px-3" label="Tên vật tư" sortKey="name" activeKey={matSortKey} dir={matSortDir} onSort={toggleMatSort} />
                       <SortableTh className="py-2 px-3 text-center" label="Số lượng" sortKey="quantity" activeKey={matSortKey} dir={matSortDir} onSort={toggleMatSort} />
@@ -564,39 +717,53 @@ export function ProjectsView() {
                         </td>
                       </tr>
                     ))}
+                    {sortedMaterials.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-slate-400">
+                          Chưa xuất vật tư nào. Bấm “Xuất vật tư” để sang màn POS.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Thi công: Chấm công thợ & chi phí nhân công */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="font-bold text-xs text-slate-800 flex items-center gap-2">
-                  <Hammer className="w-4 h-4 text-blue-600" />
-                  <span>Chấm Công Thợ & Chi Phí Nhân Công Công Trình</span>
+            {/* Chi phí nhân công (đứng trước vật tư — order-1) */}
+            <div className="order-1 bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 min-w-0">
+                  <Hammer className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span className="truncate">CHI PHÍ NHÂN CÔNG</span>
+                  <span className="hidden md:inline text-[10px] font-normal text-slate-400 shrink-0">
+                    (Chấm công trợ thị công)
+                  </span>
                 </h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-slate-700">
-                    Tổng tiền công thợ: {formatVND(currentProject.labor_cost_total)}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-mono text-slate-600">
+                    Tổng tiền công:{' '}
+                    <strong className="text-slate-900">{formatVND(currentProject.labor_cost_total)}</strong>
                   </span>
                   <button
+                    type="button"
+                    id="btn-add-worker"
                     onClick={() => setIsWorkerModalOpen(true)}
-                    className="px-3 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                    title="Thêm thợ vào chấm công công trình"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg px-2 py-1 transition-colors"
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>Thêm thợ</span>
+                    <Plus className="w-3 h-3" />
+                    Thêm thợ
                   </button>
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-lg overflow-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                      <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                      <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                       <SortableTh className="py-2 px-3" label="Họ tên thợ" sortKey="worker_name" activeKey={workerSortKey} dir={workerSortDir} onSort={toggleWorkerSort} />
                       <SortableTh className="py-2 px-3" label="Công việc đảm nhiệm" sortKey="role" activeKey={workerSortKey} dir={workerSortDir} onSort={toggleWorkerSort} />
-                      <SortableTh className="py-2 px-3 text-center" label="Số ngày công" sortKey="days_worked" activeKey={workerSortKey} dir={workerSortDir} onSort={toggleWorkerSort} />
+                      <SortableTh className="py-2 px-3 text-center" label="Số công" sortKey="days_worked" activeKey={workerSortKey} dir={workerSortDir} onSort={toggleWorkerSort} />
                       <SortableTh className="py-2 px-3 text-right" label="Lương/ngày" sortKey="daily_wage" activeKey={workerSortKey} dir={workerSortDir} onSort={toggleWorkerSort} />
                       <SortableTh className="py-2 px-3 text-right" label="Phụ cấp" sortKey="allowance" activeKey={workerSortKey} dir={workerSortDir} onSort={toggleWorkerSort} />
                       <SortableTh className="py-2 px-3 text-right" label="Tổng lương" sortKey="total_wage" activeKey={workerSortKey} dir={workerSortDir} onSort={toggleWorkerSort} />
@@ -638,63 +805,225 @@ export function ProjectsView() {
                         </td>
                       </tr>
                     ))}
+                    {sortedWorkers.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-6 text-center text-slate-400">
+                          Chưa có thợ nào. Bấm “Thêm thợ” để ghi nhận công.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Nghiệm thu: Quyết toán & P&L */}
-            <div className="bg-slate-900 text-white p-5 rounded-xl shadow-md space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <h4 className="font-bold text-sm flex items-center gap-2 text-emerald-400">
-                  <TrendingUp className="w-5 h-5" />
-                  BÁO CÁO P&L HẠCH TOÁN LÃI - LỖ THỰC TẾ CÔNG TRÌNH
-                </h4>
-                <span className="text-xs font-mono text-slate-400">Chuẩn SRS v2.12 §3.4</span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-                <div className="bg-slate-800 p-3 rounded-lg border border-slate-700">
-                  <div className="text-slate-400 text-[11px]">GIÁ TRỊ QUYẾT TOÁN:</div>
-                  <div className="text-base font-bold text-blue-400 mt-1">
-                    {formatVND(currentProject.settled_revenue)}
-                  </div>
-                </div>
-
-                <div className="bg-slate-800 p-3 rounded-lg border border-slate-700">
-                  <div className="text-slate-400 text-[11px]">CHI PHÍ VẬT TƯ:</div>
-                  <div className="text-base font-bold text-rose-400 mt-1">
-                    -{formatVND(currentProject.material_cost_total)}
-                  </div>
-                </div>
-
-                <div className="bg-slate-800 p-3 rounded-lg border border-slate-700">
-                  <div className="text-slate-400 text-[11px]">CHI PHÍ NHÂN CÔNG:</div>
-                  <div className="text-base font-bold text-amber-400 mt-1">
-                    -{formatVND(currentProject.labor_cost_total)}
-                  </div>
-                </div>
-
-                <div className="bg-emerald-950/80 p-3 rounded-lg border border-emerald-700">
-                  <div className="text-emerald-300 text-[11px] font-bold">LỢI NHUẬN THỰC TẾ:</div>
-                  <div className="text-lg font-extrabold text-emerald-400 mt-1">
-                    {formatVND(currentProject.actual_profit)}
-                  </div>
-                  <div className="text-[10px] text-emerald-400/80 mt-0.5">
-                    Tỷ suất: {((currentProject.actual_profit / currentProject.settled_revenue) * 100).toFixed(1)}%
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-[11px] text-slate-400 italic font-sans">
-                * Công thức P&L: Lợi Nhuận Công Trình = Giá Trị Quyết Toán - (Chi Phí Vật Tư + Chi Phí Nhân Công + Chi Phí Khác)
-              </p>
-              <p className="text-[11px] font-sans text-slate-300">
-                Đã thu trước: <strong className="font-mono">{formatVND(currentProject.deposit_amount || 0)}</strong>
-                {' '}· Còn phải thu chủ đầu tư: <strong className="font-mono">{formatVND(Math.max(0, currentProject.settled_revenue - (currentProject.deposit_amount || 0)))}</strong>
-              </p>
-            </div>
           </div>
+
+          {/* Right: P&L + tiền độ thu tiền + cơ cấu chi phí */}
+          <aside className="w-full xl:w-[330px] shrink-0 border-l border-slate-200 bg-slate-100 overflow-y-auto p-3 flex flex-col gap-3">
+            {/* Báo cáo P&L hạch toán lãi */}
+            <section className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+              <div className="px-3 py-2.5 border-b border-slate-100 flex items-start justify-between gap-2">
+                <h3 className="text-[11px] font-bold text-slate-800 leading-tight flex items-center gap-1.5">
+                  <TrendingUp className="w-4 h-4 text-blue-600 shrink-0" />
+                  BÁO CÁO P&amp;L HẠCH TOÁN LÃI
+                </h3>
+                <span className="text-[9px] font-mono text-slate-500 text-right leading-tight shrink-0">
+                  SRS v2.12
+                  <br />§3.4
+                </span>
+              </div>
+
+              <div className="p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="text-[9px] font-semibold text-slate-500 uppercase">Giá trị quyết toán</div>
+                    <div className="text-xs font-bold font-mono text-blue-700 mt-0.5">
+                      {formatVND(currentProject.settled_revenue)}
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="text-[9px] font-semibold text-slate-500 uppercase">Chi phí vật tư</div>
+                    <div className="text-xs font-bold font-mono text-rose-600 mt-0.5">
+                      -{formatVND(currentProject.material_cost_total)}
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="text-[9px] font-semibold text-slate-500 uppercase">Chi phí nhân công</div>
+                    <div className="text-xs font-bold font-mono text-amber-600 mt-0.5">
+                      -{formatVND(currentProject.labor_cost_total)}
+                    </div>
+                  </div>
+                  {/* Ô lợi nhuận viền xanh để mắt dừng lại ở con số quan trọng nhất */}
+                  <div className="p-2 rounded-lg border-2 border-emerald-500 bg-emerald-50">
+                    <div className="text-[9px] font-semibold text-emerald-800 uppercase">Lợi nhuận thực tế</div>
+                    <div className="text-sm font-extrabold font-mono text-emerald-700 mt-0.5">
+                      {formatVND(currentProject.actual_profit)}
+                    </div>
+                    <div className="text-[9px] text-emerald-700/80 font-mono">
+                      Tỷ suất: {projectMarginPct.toFixed(1)}%
+                    </div>
+                  </div>
+                  {/* Chi phí khác chỉ hiện khi có, để phép trừ của P&L luôn khớp total_cost */}
+                  {currentProject.other_costs > 0 && (
+                    <div className="col-span-2 p-2 rounded-lg border border-slate-200 bg-slate-50">
+                      <div className="text-[9px] font-semibold text-slate-500 uppercase">Chi phí khác</div>
+                      <div className="text-xs font-bold font-mono text-slate-600 mt-0.5">
+                        -{formatVND(currentProject.other_costs)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[10px] text-slate-400 italic leading-relaxed">
+                  * Lợi Nhuận = Giá Trị Quyết Toán − (Vật Tư + Nhân Công + Chi Phí Khác)
+                </p>
+              </div>
+            </section>
+
+            {/* Tiến độ thu tiền & công nợ chủ đầu tư */}
+            <section className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+              <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                <h3 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                  <Wallet className="w-4 h-4 text-emerald-600" />
+                  TIỀN ĐỘ THU TIỀN &amp; CÔNG NỢ
+                </h3>
+                <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-[9px] font-bold font-mono">
+                  ĐÃ THU {projectReceivedPct.toFixed(0)}%
+                </span>
+              </div>
+
+              <div className="p-3 space-y-2.5">
+                <div
+                  className="h-1.5 rounded-full bg-slate-200 overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={Math.round(projectReceivedPct)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Tiến độ đã thu"
+                >
+                  <div
+                    className="h-full rounded-full bg-emerald-600 transition-[width]"
+                    style={{ width: `${Math.min(100, projectReceivedPct)}%` }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="text-[9px] font-semibold text-slate-500 uppercase">Đã thu trước</div>
+                    <div className="text-xs font-bold font-mono text-emerald-700 mt-0.5">
+                      {formatVND(currentProject.deposit_amount || 0)}
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="text-[9px] font-semibold text-slate-500 uppercase">Còn phải thu</div>
+                    <div className="text-xs font-bold font-mono text-amber-700 mt-0.5">
+                      {formatVND(projectRemaining)}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  id="btn-project-collect-deposit"
+                  onClick={() => {
+                    setDepAmount(projectRemaining);
+                    setIsDepModalOpen(true);
+                  }}
+                  disabled={projectRemaining <= 0}
+                  title={
+                    projectRemaining <= 0
+                      ? 'Đã thu đủ giá trị quyết toán'
+                      : currentProject.phase >= 3
+                      ? 'Thu nốt phần quyết toán còn lại'
+                      : 'Thu cọc / tạm ứng theo đợt thi công'
+                  }
+                  className="w-full h-9 rounded-lg bg-emerald-800 hover:bg-emerald-900 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Banknote className="w-4 h-4" />
+                  {currentProject.phase >= 3 ? 'Thu tiền đợt mới / Quyết toán' : 'Thu cọc / Thu tiền đợt mới'}
+                </button>
+
+                {/* Lịch sử thu tiền lấy từ sổ quỹ thật (category 'deposit', ref = mã CT) */}
+                <div>
+                  <div className="text-[10px] font-semibold text-slate-500 mb-1">
+                    Lịch sử thu tiền ({projectDeposits.length} phiếu)
+                  </div>
+                  {projectDeposits.length === 0 ? (
+                    <p className="text-[10px] text-slate-400">Chưa thu khoản nào cho công trình này.</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {projectDeposits.map((d) => (
+                        <li
+                          key={d.id}
+                          className="flex items-center justify-between gap-2 text-[10px] text-slate-600 border-b border-dashed border-slate-100 pb-1 last:border-0"
+                        >
+                          <span className="truncate">{d.note || `Thu ${formatVND(d.amount)}`}</span>
+                          <span className="font-mono font-semibold text-emerald-700 shrink-0">
+                            {formatVND(d.amount)}
+                            {currentProject.settled_revenue > 0 && (
+                              <span className="text-slate-400 font-normal ml-1">
+                                ({((d.amount / currentProject.settled_revenue) * 100).toFixed(0)}%)
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* Cơ cấu chi phí */}
+            <section className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+              <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
+                <h3 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                  <PieChart className="w-4 h-4 text-blue-600" />
+                  CƠ CẤU CHI PHÍ DỰ ÁN
+                </h3>
+                <span className="text-[10px] font-mono text-slate-500">
+                  TỔNG: <strong className="text-slate-800">{formatVND(currentProject.total_cost)}</strong>
+                </span>
+              </div>
+              <ul className="p-3 space-y-1.5 text-[11px]">
+                {[
+                  { label: 'Chi phí vật tư', value: currentProject.material_cost_total, dot: 'bg-rose-500' },
+                  { label: 'Chi phí nhân công', value: currentProject.labor_cost_total, dot: 'bg-amber-500' },
+                ].map((row) => (
+                  <li key={row.label} className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-slate-600 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${row.dot}`} />
+                      <span className="truncate">{row.label}</span>
+                    </span>
+                    <span className="font-mono font-semibold text-slate-800 shrink-0">{formatVND(row.value)}</span>
+                  </li>
+                ))}
+                {currentProject.other_costs > 0 && (
+                  <li className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-slate-600 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+                      <span className="truncate">Chi phí khác</span>
+                    </span>
+                    <span className="font-mono font-semibold text-slate-800 shrink-0">
+                      {formatVND(currentProject.other_costs)}
+                    </span>
+                  </li>
+                )}
+                <li className="flex items-center justify-between gap-2 pt-1.5 mt-1 border-t border-slate-200">
+                  <span className="font-bold text-slate-800">Lợi nhuận gộp:</span>
+                  <span
+                    className={`font-mono font-extrabold ${
+                      currentProject.actual_profit >= 0 ? 'text-emerald-700' : 'text-rose-600'
+                    }`}
+                  >
+                    {formatVND(currentProject.actual_profit)}
+                  </span>
+                </li>
+              </ul>
+            </section>
+          </aside>
+          </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
             Vui lòng chọn hoặc tạo dự án công trình

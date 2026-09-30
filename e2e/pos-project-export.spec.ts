@@ -210,7 +210,8 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         await expect(page.locator('#projects-view')).toBeVisible({ timeout: 20_000 });
         const goBtn = page.locator('#btn-project-goto-export');
         await expect(goBtn).toBeVisible();
-        await expect(goBtn).toHaveText(/Xuất CT/);
+        // Nhãn theo bố cục mới của trang Công trình: "Xuất vật tư →"
+        await expect(goBtn).toHaveText(/Xuất vật tư/);
         // Dòng hướng dẫn cũ đã bị thay bằng nút bấm được
         await expect(page.locator('#projects-view')).not.toContainText('Xuất vật tư tại màn POS');
 
