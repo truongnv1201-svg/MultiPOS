@@ -489,9 +489,36 @@ export function ProjectsView() {
           </span>
         </div>
 
-        {/* Nút phụ (Excel/In) trước, nút chính sát lề phải */}
+        {/* Nút phụ (Excel/In) trước, nút tác vụ dự án đang chọn ở giữa, nút chính
+            "Lập dự án" sát lề phải. Sửa/Xoá theo style nút chuẩn app (h-8, text-xs,
+            rounded-lg): Sửa = nút phụ trắng viền (như "Đồng bộ nợ"), Xoá = đỏ đặc
+            (như "Lập Phiếu Chi"). Cả hai disable khi chưa chọn dự án nào. */}
         <div className="flex items-center gap-2">
           <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
+          <button
+            type="button"
+            id="btn-edit-project-info"
+            onClick={openEditInfoModal}
+            disabled={!currentProject}
+            title={currentProject ? `Sửa tên / chủ đầu tư / địa chỉ công trình ${currentProject.code}` : 'Chọn một dự án để sửa thông tin'}
+            className="px-3 h-8 bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors text-slate-700"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span>Sửa</span>
+          </button>
+          {canDeleteProject && (
+            <button
+              type="button"
+              id="btn-delete-project"
+              onClick={() => currentProject && handleDeleteProject(currentProject)}
+              disabled={!currentProject}
+              title={currentProject ? `Xoá dự án ${currentProject.code} (vật tư đã xuất sẽ hoàn về kho)` : 'Chọn một dự án để xoá'}
+              className="px-3 h-8 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Xoá</span>
+            </button>
+          )}
           <button
             onClick={() => setIsNewProjectModalOpen(true)}
             className="px-3.5 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
@@ -583,37 +610,9 @@ export function ProjectsView() {
                   <Building2 className="w-4 h-4 text-blue-600" />
                   THÔNG TIN DỰ ÁN
                 </h3>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-0.5">
-                    {currentProject.code}
-                  </span>
-                  {/* Sửa thông tin tạo sai (tên/chủ đầu tư/địa chỉ) — không đụng số tiền,
-                      số tiền sửa ở modal tài chính ([sửa] ở ô quyết toán). */}
-                  <button
-                    type="button"
-                    id="btn-edit-project-info"
-                    onClick={openEditInfoModal}
-                    title="Sửa tên / chủ đầu tư / địa chỉ công trình"
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-blue-700 border border-slate-200 hover:border-blue-300 rounded-lg px-2 py-1 transition-colors"
-                  >
-                    <Pencil className="w-3 h-3" />
-                    Sửa
-                  </button>
-                  {/* Xoá dự án tạo nhầm — chỉ Admin/Quản lý (server cũng chặn is_manager).
-                      Server hoàn kho + giữ audit, không xoá sổ quỹ. */}
-                  {canDeleteProject && (
-                    <button
-                      type="button"
-                      id="btn-delete-project"
-                      onClick={() => handleDeleteProject(currentProject)}
-                      title="Xoá dự án này (vật tư đã xuất sẽ hoàn về kho)"
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 border border-slate-200 hover:border-rose-300 rounded-lg px-2 py-1 transition-colors"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Xoá
-                    </button>
-                  )}
-                </div>
+                <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-0.5">
+                  {currentProject.code}
+                </span>
               </div>
 
               <div className="p-4 space-y-3">

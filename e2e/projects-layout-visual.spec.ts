@@ -64,12 +64,15 @@ test('màn Dự án: 3 cột đúng bố cục', async ({ page }) => {
   await page.locator('#project-list-search').fill('');
   await page.waitForTimeout(600);
 
-  // Chọn dự án giá trị 0 đ để kiểm các ô số vẫn hiển thị đúng khi khối cảnh báo đã bỏ
+  // Kiểm thêm nhánh hiển thị khi dự án có giá trị 0 đ — nhưng KHÔNG phụ thuộc rác
+  // TEST-DONGBO còn sót từ spec khác (trên DB sạch thì không có). Có thì kiểm, không thì bỏ qua.
   const zeroProject = page.locator('#projects-view aside button', { hasText: 'TEST-DONGBO' }).first();
-  await zeroProject.click();
-  await page.waitForTimeout(1200);
-  await expect(page.locator('text=VIỆC CẦN LÀM')).toHaveCount(0);
-  await expect(page.locator('text=HỢP ĐỒNG QUYẾT TOÁN')).toBeVisible();
+  if ((await zeroProject.count()) > 0) {
+    await zeroProject.click();
+    await page.waitForTimeout(1200);
+    await expect(page.locator('text=VIỆC CẦN LÀM')).toHaveCount(0);
+    await expect(page.locator('text=HỢP ĐỒNG QUYẾT TOÁN')).toBeVisible();
+  }
 
   await page.screenshot({ path: 'test-results/projects-redesign.png', fullPage: false });
 });
