@@ -400,6 +400,11 @@ export function InventoryView() {
             )}
           </button>
         </div>
+        {/* Nút phụ (Excel/In) trước, 2 nút hành động sau — cụm dồn về mép phải.
+            Kho có 2 nút chính (Điều chỉnh tồn / Tạo phiếu nhập) nên giữ thứ tự này. */}
+        {activeTab === 'stocks' && <TableTools onExportExcel={handleExportStocks} onPrint={handlePrintStocks} />}
+        {activeTab === 'movements' && <TableTools onExportExcel={handleExportMovements} onPrint={handlePrintMovements} />}
+        {activeTab === 'adjustments' && <TableTools onExportExcel={handleExportAdjustments} onPrint={handlePrintAdjustments} />}
         <button
           id="btn-stock-adjust-open"
           onClick={() => setAdjustOpen(true)}
@@ -425,9 +430,6 @@ export function InventoryView() {
           <Plus className="w-4 h-4" />
           <span>Tạo Phiếu Nhập Kho (PN)</span>
         </button>
-        {activeTab === 'stocks' && <TableTools onExportExcel={handleExportStocks} onPrint={handlePrintStocks} />}
-        {activeTab === 'movements' && <TableTools onExportExcel={handleExportMovements} onPrint={handlePrintMovements} />}
-        {activeTab === 'adjustments' && <TableTools onExportExcel={handleExportAdjustments} onPrint={handlePrintAdjustments} />}
         </div>
       </div>
 

@@ -303,7 +303,15 @@ export function ProductsView() {
           </span>
         </div>
 
+        {/* Nút phụ (Excel/In/Mẫu/Nhập) trước, nút chính sát lề phải */}
         <div className="flex items-center gap-2 shrink-0">
+          <TableTools
+            onExportExcel={handleExportExcel}
+            onPrint={handlePrint}
+            onImportExcel={handleImportExcel}
+            onDownloadTemplate={handleDownloadTemplate}
+            importing={importing}
+          />
           <button
             id="btn-open-add-product-modal"
             onClick={() => setIsAddModalOpen(true)}
@@ -312,13 +320,6 @@ export function ProductsView() {
             <Plus className="w-4 h-4" />
             <span>Thêm hàng hóa mới</span>
           </button>
-          <TableTools
-            onExportExcel={handleExportExcel}
-            onPrint={handlePrint}
-            onImportExcel={handleImportExcel}
-            onDownloadTemplate={handleDownloadTemplate}
-            importing={importing}
-          />
         </div>
       </div>
 

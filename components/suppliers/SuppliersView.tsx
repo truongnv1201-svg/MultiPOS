@@ -318,12 +318,18 @@ export function SuppliersView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-lg text-xs">
-            <span className="text-rose-700 font-medium">Tổng nợ phải trả:</span>
-            <span className="font-bold font-mono text-rose-700">{formatVND(totalDebt)}</span>
-          </div>
-
+        {/* Cụm nút: nút phụ (Mẫu/Nhập/Excel/In) trước, nút chính sát lề phải.
+            TableTools giữ `ml-auto` nên nó hút khoảng trống còn lại, đẩy cả cụm về mép phải.
+            Bỏ nhãn "Tổng nợ phải trả" khỏi header: nó chen giữa làm lệch cụm nút, và số liệu
+            vẫn có ở toolbar bảng ("Tổng nợ nhóm này") + dòng footer bản in + file xuất Excel. */}
+        <div className="flex items-center gap-2 shrink-0">
+          <TableTools
+            onExportExcel={handleExportExcel}
+            onPrint={handlePrint}
+            onImportExcel={handleImportExcel}
+            onDownloadTemplate={handleDownloadTemplate}
+            importing={importing}
+          />
           <button
             id="btn-add-supplier"
             onClick={() => setIsAddModalOpen(true)}
@@ -332,13 +338,6 @@ export function SuppliersView() {
             <Plus className="w-4 h-4" />
             <span>Thêm NCC mới</span>
           </button>
-          <TableTools
-            onExportExcel={handleExportExcel}
-            onPrint={handlePrint}
-            onImportExcel={handleImportExcel}
-            onDownloadTemplate={handleDownloadTemplate}
-            importing={importing}
-          />
         </div>
       </div>
 

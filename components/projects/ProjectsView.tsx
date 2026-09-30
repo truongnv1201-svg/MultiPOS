@@ -373,7 +373,9 @@ export function ProjectsView() {
           </span>
         </div>
 
+        {/* Nút phụ (Excel/In) trước, nút chính sát lề phải */}
         <div className="flex items-center gap-2">
+          <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
           <button
             onClick={() => setIsNewProjectModalOpen(true)}
             className="px-3.5 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
@@ -381,7 +383,6 @@ export function ProjectsView() {
             <Plus className="w-4 h-4" />
             <span>Lập dự án công trình mới</span>
           </button>
-          <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
         </div>
       </div>
 

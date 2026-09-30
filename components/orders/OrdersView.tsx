@@ -312,7 +312,9 @@ export function OrdersView() {
           </span>
         </div>
 
+        {/* Nút phụ (Excel/In) trước, nút chính sát lề phải */}
         <div className="flex items-center gap-2">
+          <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
           <button
             onClick={() => setCurrentScreen('pos')}
             className="px-3 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
@@ -320,7 +322,6 @@ export function OrdersView() {
             <Plus className="w-4 h-4" />
             <span>Tạo đơn bán hàng (F2)</span>
           </button>
-          <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
         </div>
       </div>
 

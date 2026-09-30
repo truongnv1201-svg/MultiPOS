@@ -231,7 +231,10 @@ export function CashbookView() {
           </span>
         </div>
 
+        {/* Nút phụ (Excel/In) trước, 2 nút lập phiếu sau — cụm dồn về mép phải.
+            Sổ quỹ có 2 nút chính ngang nhau (Thu/Chi) nên giữ thứ tự Thu → Chi. */}
         <div className="flex items-center gap-2">
+          <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
           <button
             onClick={() => {
               setVoucherType('receipt');
@@ -252,7 +255,6 @@ export function CashbookView() {
             <Plus className="w-4 h-4" />
             <span>Lập Phiếu Chi (PC)</span>
           </button>
-          <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
         </div>
       </div>
 

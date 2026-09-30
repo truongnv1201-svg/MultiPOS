@@ -336,7 +336,16 @@ export function CustomersView() {
           </span>
         </div>
 
+        {/* Nút phụ (Excel/In/Mẫu/Nhập) trước, nút chính "Thêm khách hàng" sát lề phải.
+            "Đồng bộ nợ" là nút phụ nên nằm cạnh nút chính, không chen ra giữa cụm. */}
         <div className="flex items-center gap-2 shrink-0">
+          <TableTools
+            onExportExcel={handleExportExcel}
+            onPrint={handlePrint}
+            onImportExcel={handleImportExcel}
+            onDownloadTemplate={handleDownloadTemplate}
+            importing={importing}
+          />
           <button
             onClick={handleSyncDebts}
             disabled={syncingDebt}
@@ -353,13 +362,6 @@ export function CustomersView() {
             <Plus className="w-4 h-4" />
             <span>Thêm khách hàng mới</span>
           </button>
-          <TableTools
-            onExportExcel={handleExportExcel}
-            onPrint={handlePrint}
-            onImportExcel={handleImportExcel}
-            onDownloadTemplate={handleDownloadTemplate}
-            importing={importing}
-          />
         </div>
       </div>
 
