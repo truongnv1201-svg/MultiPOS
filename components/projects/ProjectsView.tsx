@@ -2,21 +2,15 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '@/lib/store';
-import { Project, ProjectPhase, ProjectMaterial, ProjectWorker } from '@/lib/types';
+import { Project, ProjectMaterial, ProjectWorker } from '@/lib/types';
 import { formatVND, formatNumber } from '@/lib/format';
 import {
   Building2,
   Plus,
   ArrowRight,
-  CheckCircle2,
   Boxes,
   Users,
-  DollarSign,
-  TrendingUp,
-  Clock,
   Hammer,
-  FileCheck,
-  AlertCircle,
   Trash2,
   X,
   HardHat,
@@ -27,9 +21,6 @@ import {
   Wallet,
   Banknote,
   PieChart,
-  ClipboardList,
-  AlertTriangle,
-  CircleDot,
 } from 'lucide-react';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -252,20 +243,10 @@ export function ProjectsView() {
     setSkipEstimate(false);
   };
 
-  const handleAdvancePhase = async (project: Project, nextPhase: ProjectPhase) => {
-    let status = project.status;
-    if (nextPhase === 2) status = 'in_progress';
-    if (nextPhase === 3) status = 'completed';
-
-    const updated = {
-      ...project,
-      phase: nextPhase,
-      status,
-    };
-
-    await updateProject(project.id, updated);
-    setSelectedProject(updated);
-  };
+  // Giai đoạn dự án: chỉ còn ĐỌC (badge ở danh sách bên trái + nhãn nút ở cột phải).
+  // Trước đây khối 3 tab giai đoạn là nơi DUY NHẤT bấm để chuyển giai đoạn — đã bỏ theo
+  // yêu cầu bỏ bớt khối, nên hàm đổi giai đoạn cũng gỡ theo cho khỏi chết.
+  // Cần đổi giai đoạn thì gọi updateProject(id, { phase, status }).
 
   const currentProject = selectedProject;
 
@@ -288,7 +269,7 @@ export function ProjectsView() {
       ? customers.find((c) => c.id === currentProject.customer_id)?.phone
       : '') || '';
 
-  // Tiền còn phải thu + tỷ lệ đã thu + tỷ suất lợi nhuận (dùng cho P&L & tiến độ)
+  // Tiền còn phải thu + tỷ lệ đã thu (dùng cho khối tiến độ thu tiền)
   const projectRemaining = Math.max(
     0,
     currentProject ? currentProject.settled_revenue - (currentProject.deposit_amount || 0) : 0
@@ -296,10 +277,6 @@ export function ProjectsView() {
   const projectReceivedPct =
     currentProject && currentProject.settled_revenue > 0
       ? ((currentProject.deposit_amount || 0) / currentProject.settled_revenue) * 100
-      : 0;
-  const projectMarginPct =
-    currentProject && currentProject.settled_revenue > 0
-      ? (currentProject.actual_profit / currentProject.settled_revenue) * 100
       : 0;
 
   // Lịch sử thu tiền của công trình: lấy từ sổ quỹ thật (phiếu 'deposit' trỏ mã CT).
@@ -312,60 +289,6 @@ export function ProjectsView() {
         .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
     : [];
 
-  // VIỆC CẦN LÀM: chỉ những lỗ hổng / rủi ro mà chưa khối nào khác nói tới.
-  // Mọi con số P&L đã hiện ở card chi phí + cột trái + khối cơ cấu chi phí, nên khối này
-  // không lặp lại số liệu — nó chỉ ra phần đang thiếu và việc nên làm tiếp theo.
-  const projectTodos = (() => {
-    if (!currentProject) return [] as { key: string; tone: 'info' | 'warn' | 'danger'; label: string; hint: string; action?: () => void }[];
-    const out: { key: string; tone: 'info' | 'warn' | 'danger'; label: string; hint: string; action?: () => void }[] = [];
-    const p = currentProject;
-
-    if (p.settled_revenue <= 0) {
-      out.push({
-        key: 'settle',
-        tone: 'warn',
-        label: 'Chưa chốt giá trị quyết toán',
-        hint: 'Tiến độ thu tiền và lợi nhuận đang tính trên giá trị 0',
-        action: openFinModal,
-      });
-    }
-    // Đã qua giai đoạn thi công mà vật tư/nhân công = 0 thì P&L chắc chắn không sát thực tế.
-    if (p.phase >= 2 && p.materials.length === 0) {
-      out.push({
-        key: 'material',
-        tone: 'warn',
-        label: 'Đang thi công nhưng chưa xuất vật tư nào',
-        hint: 'Chi phí vật tư = 0, lợi nhuận sẽ bị tính cao',
-        action: () => goToProjectExport(p),
-      });
-    }
-    if (p.phase >= 2 && p.workers.length === 0) {
-      out.push({
-        key: 'worker',
-        tone: 'warn',
-        label: 'Đang thi công nhưng chưa ghi nhận thợ',
-        hint: 'Chi phí nhân công = 0, lợi nhuận sẽ bị tính cao',
-        action: () => setIsWorkerModalOpen(true),
-      });
-    }
-    if (p.phase >= 2 && p.settled_revenue > 0 && projectMarginPct < 10) {
-      out.push({
-        key: 'margin',
-        tone: 'danger',
-        label: `Biên lợi nhuận thấp: ${projectMarginPct.toFixed(1)}%`,
-        hint: 'Kiểm tra lại giá vốn vật tư và công thợ đã ghi',
-      });
-    }
-    if (p.phase === 3 && p.actual_profit < 0) {
-      out.push({
-        key: 'loss',
-        tone: 'danger',
-        label: 'Công trình lỗ',
-        hint: 'Quyết toán không đủ bù chi phí, cần xem lại hợp đồng',
-      });
-    }
-    return out;
-  })();
 
   // Sắp xếp 2 bảng vật tư / nhân công của công trình đang xem (bấm header để đảo chiều)
   const { sortKey: matSortKey, sortDir: matSortDir, toggleSort: toggleMatSort } = useSortState();
@@ -658,55 +581,6 @@ export function ProjectsView() {
               </div>
             </section>
 
-            {/* 3 tab giai đoạn — bấm để chuyển giai đoạn công trình */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {[
-                { phase: 1, title: 'DỰ TOÁN', desc: 'Khảo sát & Bảo giá' },
-                { phase: 2, title: 'THI CÔNG', desc: 'Vật tư & Nhân công' },
-                { phase: 3, title: 'QUYẾT TOÁN', desc: 'Nghiệm thu & P&L' },
-              ].map((st) => {
-                const isCurrent = currentProject.phase === st.phase;
-                const isPassed = currentProject.phase > st.phase;
-                return (
-                  <button
-                    type="button"
-                    key={st.phase}
-                    onClick={() => handleAdvancePhase(currentProject, st.phase as ProjectPhase)}
-                    title={`Chuyển công trình sang giai đoạn: ${st.title}`}
-                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
-                      isCurrent
-                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                        : isPassed
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span
-                      className={`w-7 h-7 rounded-lg grid place-items-center shrink-0 ${
-                        isCurrent ? 'bg-white/20' : isPassed ? 'bg-emerald-100' : 'bg-slate-100'
-                      }`}
-                    >
-                      {isPassed ? (
-                        <CheckCircle2 className="w-4 h-4" />
-                      ) : st.phase === 1 ? (
-                        <FileCheck className="w-4 h-4" />
-                      ) : st.phase === 2 ? (
-                        <Hammer className="w-4 h-4" />
-                      ) : (
-                        <TrendingUp className="w-4 h-4" />
-                      )}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-xs font-bold tracking-wide">{st.title}</span>
-                      <span className={`block text-[10px] ${isCurrent ? 'text-blue-100' : 'opacity-75'}`}>
-                        {st.desc}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
             {/* Chi phí vật tư (đứng sau nhân công — order-2, thứ tự DOM cũ giữ nguyên để
                 không phải di chuyển cả khối bảng) */}
             <div className="order-2 bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
@@ -877,80 +751,10 @@ export function ProjectsView() {
 
           </div>
 
-          {/* Right: P&L + tiền độ thu tiền + cơ cấu chi phí
+          {/* Right: tiến độ thu tiền + cơ cấu chi phí.
               Cùng kiểu "thẻ neo" như cột trái: nền trắng liền mạch, các khối ngăn cách
               bằng đường viền 1px — KHÔNG phải khối nổi (nền xám + thẻ bo góc đổ bóng). */}
           <aside className="w-full xl:w-[330px] shrink-0 border-l border-slate-200 bg-white overflow-y-auto">
-            {/* VIỆC CẦN LÀM — thay cho khối P&L (đã bỏ vì mọi số trong đó đều có ở
-                khối khác). Khối này chỉ hiện NHỮNG THỨ chưa chỗ nào hiển thị: lỗ hổng
-                dữ liệu làm P&L sai, và cảnh báo kinh doanh. */}
-            <section className="border-b border-slate-200">
-              <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
-                <h3 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                  <ClipboardList className="w-4 h-4 text-amber-600" />
-                  VIỆC CẦN LÀM
-                </h3>
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border border-slate-200 text-slate-600">
-                  {projectTodos.length ? `${projectTodos.length} việc` : 'sạch'}
-                </span>
-              </div>
-
-              {/* Bối cảnh giai đoạn — ràng buộc cho danh sách việc bên dưới (những việc
-                  chỉ bắt đầu có ý nghĩa khi dự án đã qua giai đoạn báo giá). */}
-              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-100">
-                <span className="text-[10px] text-slate-500">Trạng thái</span>
-                <span className="text-[11px] font-mono font-semibold text-slate-800">
-                  Giai đoạn {currentProject.phase}/3 · lập ngày {formatDate(currentProject.created_at)}
-                </span>
-              </div>
-
-              {projectTodos.length === 0 ? (
-                <p className="px-3 py-3 text-[11px] text-emerald-700 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  Không còn việc bổ sung — dữ liệu dự án đã đủ để tính P&amp;L.
-                </p>
-              ) : (
-                <ul>
-                  {projectTodos.map((t) => {
-                    const Icon = t.tone === 'danger' ? AlertCircle : t.tone === 'warn' ? AlertTriangle : CircleDot;
-                    const row = (
-                      <>
-                        <Icon
-                          className={`w-3.5 h-3.5 shrink-0 mt-px ${
-                            t.tone === 'danger'
-                              ? 'text-rose-600'
-                              : t.tone === 'warn'
-                              ? 'text-amber-600'
-                              : 'text-blue-600'
-                          }`}
-                        />
-                        <span className="min-w-0">
-                          <span className="block text-[11px] font-semibold text-slate-800">{t.label}</span>
-                          <span className="block text-[10px] text-slate-500 leading-snug">{t.hint}</span>
-                        </span>
-                      </>
-                    );
-                    return (
-                      <li key={t.key} className="border-b border-slate-100 last:border-0">
-                        {t.action ? (
-                          <button
-                            type="button"
-                            onClick={t.action}
-                            title="Bấm để xử lý ngay"
-                            className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors"
-                          >
-                            {row}
-                          </button>
-                        ) : (
-                          <div className="flex items-start gap-2 px-3 py-2">{row}</div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-
             {/* Tiến độ thu tiền & công nợ chủ đầu tư */}
             <section className="border-b border-slate-200">
               <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2">
