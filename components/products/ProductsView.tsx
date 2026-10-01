@@ -342,6 +342,22 @@ export function ProductsView() {
           />
         </div>
 
+        {/* Type Filter */}
+        <select
+          value={typeFilter}
+          onChange={(e) => {
+            setTypeFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
+        >
+          <option value="all">Tất cả loại hàng</option>
+          <option value="area">Diện tích</option>
+          <option value="goods">Thường</option>
+          <option value="combo">Combo lắp ráp</option>
+          <option value="service">Dịch vụ</option>
+        </select>
+
         {/* Stock Status Filter */}
         <select
           value={stockStatusFilter}
@@ -349,39 +365,13 @@ export function ProductsView() {
             setStockStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="h-8 px-2 text-xs bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
+          className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
         >
           <option value="all">Tất cả mức tồn</option>
           <option value="low">Sắp hết (≤ 15)</option>
           <option value="out">Hết hàng (= 0)</option>
           <option value="in_stock">Còn nhiều (&gt; 15)</option>
         </select>
-
-        {/* Type Filter Buttons */}
-        <div className="flex items-center gap-1">
-          {[
-            { id: 'all', label: 'Tất cả' },
-            { id: 'area', label: 'Diện tích' },
-            { id: 'goods', label: 'Thường' },
-            { id: 'combo', label: 'Combo lắp ráp' },
-            { id: 'service', label: 'Dịch vụ' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setTypeFilter(tab.id);
-                setPage(1);
-              }}
-              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                typeFilter === tab.id
-                  ? 'bg-blue-600 text-white shadow-2xs font-semibold'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Summary Metrics Strip */}
