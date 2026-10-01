@@ -144,4 +144,19 @@ describe('sửa đơn giá thì thành tiền + tổng chạy theo', () => {
     const pos = read('components/pos/POSScreen.tsx');
     assert.ok(!/title=\{`Tăng /.test(pos), 'không còn nút +/- trong giỏ');
   });
+
+  it('cột tiền chỉ hiện số, đơn vị (đ) nằm trên tiêu đề cột', () => {
+    // Ô "20.000 đ" lặp đơn vị từng dòng gây nhiễu; tiêu đề đã ghi (đ) như Phí GC (đ).
+    // Áp dụng cho cả 3 bảng POS: giỏ bán, phiếu nhập, xuất vật tư công trình.
+    const pos = read('components/pos/POSScreen.tsx');
+    for (const h of ['Đơn giá \\(đ\\)<\\/th>', 'Thành tiền \\(đ\\)<\\/th>', 'Đơn giá nhập \\(đ\\)<\\/th>', 'Giá vốn mới \\(đ\\)<\\/th>', 'Giá vốn \\(đ\\)<\\/th>']) {
+      assert.match(pos, new RegExp(h), `thiếu tiêu đề ${h}`);
+    }
+    assert.match(pos, /\{formatNumber\(item\.subtotal\)\}/);
+    assert.match(pos, /\{formatNumber\(item\.unit_price\)\}/);
+    assert.match(pos, /\{item\.processing_fee > 0 \? formatNumber\(item\.processing_fee\) : '-'\}/);
+    assert.match(pos, /\{formatNumber\(\(line\.qty \|\| 0\) \* \(line\.price \|\| 0\)\)\}/);
+    assert.match(pos, /\{formatNumber\(line\.price\)\}/);
+    assert.match(pos, /Vốn cũ: \{formatNumber\(oldAvg\)\}/);
+  });
 });

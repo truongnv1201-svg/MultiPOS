@@ -80,7 +80,11 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         // 3 x 15.000 = 45.000 và tồn 252 - 3 = 249
         const detail = (await rows.first().innerText()).replace(/\s+/g, ' ');
         // 3 x 15.000 = 45.000; tồn còn lại = tồn gốc - 3
-        expect(detail).toContain('45.000 đ');
+        // (ô chỉ hiện số, đơn vị (đ) nằm trên tiêu đề cột)
+        expect(detail).toContain('45.000');
+        expect(detail).not.toContain('45.000 đ');
+        await expect(page.locator('#project-table-container th', { hasText: 'Giá vốn (đ)' })).toHaveCount(1);
+        await expect(page.locator('#project-table-container th', { hasText: 'Thành tiền (đ)' })).toHaveCount(1);
         expectStockAfter(detail, 3);
         await expect(page.locator('#pos-payment-panel')).toContainText('Tổng giá vốn xuất');
     });
@@ -139,8 +143,13 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
             await qtyBox.press('Enter');
             await expect(rows).toHaveCount(1, { timeout: 10_000 });
             const detail = (await rows.first().innerText()).replace(/\s+/g, ' ');
-            // thành tiền = 2 x 15.000 = 30.000; tồn còn lại = tồn gốc - 2 (Xuất CT)
-            expect(detail).toContain('30.000 đ');
+            // thành tiền = 2 x 15.000 = 30.000 (ô chỉ hiện số); tồn còn lại = tồn gốc - 2 (Xuất CT)
+            expect(detail).toContain('30.000');
+            expect(detail).not.toContain('30.000 đ');
+            // đơn vị (đ) nằm trên tiêu đề cột ở cả 2 luồng kho
+            const moneyTh = flow === 'Xuất CT' ? 'Giá vốn (đ)' : 'Đơn giá nhập (đ)';
+            await expect(page.locator(`${table} th`, { hasText: moneyTh })).toHaveCount(1);
+            await expect(page.locator(`${table} th`, { hasText: 'Thành tiền (đ)' })).toHaveCount(1);
             if (flow === 'Xuất CT') expectStockAfter(detail, 2);
             // Enter xong quay lại ô tìm như luồng bán hàng
             await expect(page.locator('#f1-search-input')).toBeFocused();
@@ -148,9 +157,9 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
     });
 
     test('ô số lượng Xuất CT và Nhập hàng dùng chung style ô sửa của giỏ bán', async ({ page }) => {
-        // Quy ước style (components/common/EditableCell): ô sửa được KHÔNG viền, KHÔNG nền,
-        // chữ xanh blue-600; hover/focus chỉ đổi độ đậm/màu chữ. Nhập hàng + Xuất CT
-        // trước đây dùng NumberInput có viền -> lệch với trang bán hàng.
+        // Quy ước style (components/common/EditableCell): ô sửa được là ô input có khung
+        // (viền 1px + nền trắng), chữ xanh blue-700; hover/focus đổi viền + nền + màu chữ.
+        // Nhập hàng + Xuất CT dùng chung editCellClass với giỏ bán nên phải y hệt.
         test.slow();
         await page.setViewportSize({ width: 1600, height: 950 });
         await loginAdmin(page);
@@ -172,9 +181,9 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         await addFirstProduct(page, 'keo');
         const cartQty = page.locator('#cart-table-container tbody tr').first().locator('input[aria-label^="Số lượng"]');
         const cartStyle = await style(cartQty);
-        expect(cartStyle.border).toBe('0px');
-        expect(cartStyle.bg).toBe('rgba(0, 0, 0, 0)');
-        expect(cartStyle.color).toBe('oklch(0.546 0.245 262.881)'); // blue-600
+        expect(cartStyle.border).toBe('1px');
+        expect(cartStyle.bg).toBe('rgb(255, 255, 255)');
+        expect(cartStyle.color).toBe('oklch(0.488 0.243 264.376)'); // blue-700
 
         // 2) Xuất CT phải y hệt
         await page.locator('button:has-text("Xuất CT")').click();
@@ -194,8 +203,8 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         await expect(impQty).toBeVisible();
         expect(await style(impQty)).toEqual(cartStyle);
         const priceStyle = await style(impPrice);
-        expect(priceStyle.border).toBe('0px');
-        expect(priceStyle.bg).toBe('rgba(0, 0, 0, 0)');
+        expect(priceStyle.border).toBe('1px');
+        expect(priceStyle.bg).toBe('rgb(255, 255, 255)');
         expect(priceStyle.color).toBe(cartStyle.color);
         expect(priceStyle.height).toBe(cartStyle.height);
     });

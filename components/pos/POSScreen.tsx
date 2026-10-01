@@ -838,9 +838,9 @@ export function POSScreen() {
                   <tr className="bg-amber-50 text-amber-900 font-semibold border-b border-amber-200">
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Vật tư</th>
-                    <th className="py-2.5 px-2.5 w-28 text-right" title="Giá vốn bình quân (MAC) — đây là giá ghi vào chi phí vật tư của công trình">Giá vốn</th>
+                    <th className="py-2.5 px-2.5 w-28 text-right" title="Giá vốn bình quân (MAC) — đây là giá ghi vào chi phí vật tư của công trình">Giá vốn (đ)</th>
                     <th className="py-2.5 px-2.5 w-24 text-center">SL xuất</th>
-                    <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền</th>
+                    <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
                     <th className="py-2.5 px-2.5 w-32 text-right" title="Tồn kho còn lại sau khi xuất dòng này (cộng dồn theo thứ tự)">Tồn còn lại</th>
                     <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
                   </tr>
@@ -861,7 +861,7 @@ export function POSScreen() {
                             ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit}
                           </div>
                         </td>
-                        <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">{formatVND(line.price)}</td>
+                        <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">{formatNumber(line.price)}</td>
                         <td className="py-2.5 px-2.5">
                           <QtyDraftInput
                             quantity={line.qty}
@@ -874,7 +874,7 @@ export function POSScreen() {
                           />
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
-                          {formatVND((line.qty || 0) * (line.price || 0))}
+                          {formatNumber((line.qty || 0) * (line.price || 0))}
                         </td>
                         <td className={`py-2.5 px-2.5 text-right font-mono text-xs ${short ? 'text-rose-600 font-bold' : 'text-slate-700'}`}>
                           {formatQty(after)} {prod.unit}
@@ -943,10 +943,10 @@ export function POSScreen() {
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Sản phẩm</th>
-                    <th className="py-2.5 px-2.5 w-32 text-right">Đơn giá nhập</th>
+                    <th className="py-2.5 px-2.5 w-32 text-right">Đơn giá nhập (đ)</th>
                     <th className="py-2.5 px-2.5 w-24 text-center">SL nhập</th>
-                    <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền</th>
-                    <th className="py-2.5 px-2.5 w-36 text-right" title="Giá vốn bình quân (MAC) dự kiến sau khi nhập: (tồn cũ × vốn cũ + SL × đơn giá) / tồn mới">Giá vốn mới</th>
+                    <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
+                    <th className="py-2.5 px-2.5 w-36 text-right" title="Giá vốn bình quân (MAC) dự kiến sau khi nhập: (tồn cũ × vốn cũ + SL × đơn giá) / tồn mới">Giá vốn mới (đ)</th>
                     <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
                   </tr>
                 </thead>
@@ -964,7 +964,7 @@ export function POSScreen() {
                         <td className="py-2.5 px-2.5">
                           <div className="font-bold text-slate-800 text-xs">{prod.name}</div>
                           <div className="text-[10px] text-slate-400 font-mono">
-                            ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit} · Vốn cũ: {formatVND(oldAvg)}
+                            ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit} · Vốn cũ: {formatNumber(oldAvg)}
                           </div>
                         </td>
                         <td className="py-2.5 px-2.5">
@@ -987,7 +987,7 @@ export function POSScreen() {
                           />
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
-                          {formatVND((line.qty || 0) * (line.price || 0))}
+                          {formatNumber((line.qty || 0) * (line.price || 0))}
                         </td>
                         <td
                           className="py-2.5 px-2.5 text-right font-mono text-xs"
@@ -995,11 +995,11 @@ export function POSScreen() {
                         >
                           {changed ? (
                             <>
-                              <span className="text-slate-400 line-through mr-1">{formatVND(oldAvg)}</span>
-                              <span className="font-bold text-emerald-700">→ {formatVND(newAvg)}</span>
+                              <span className="text-slate-400 line-through mr-1">{formatNumber(oldAvg)}</span>
+                              <span className="font-bold text-emerald-700">→ {formatNumber(newAvg)}</span>
                             </>
                           ) : (
-                            <span className="font-bold text-slate-700">{formatVND(newAvg)}</span>
+                            <span className="font-bold text-slate-700">{formatNumber(newAvg)}</span>
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-center">
@@ -1056,10 +1056,10 @@ export function POSScreen() {
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Sản phẩm / Quy cách</th>
                     <th className="py-2.5 px-1 w-16 text-center" title="Đơn vị tính của mặt hàng">ĐVT</th>
-                    <th className="py-2.5 px-2.5 w-28 text-right">Đơn giá</th>
+                    <th className="py-2.5 px-2.5 w-28 text-right">Đơn giá (đ)</th>
                     <th className="py-2.5 px-2.5 w-28 text-center">SL / Diện tích</th>
                     <th className="py-2.5 px-2.5 w-24 text-right">Phí GC (đ)</th>
-                    <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền</th>
+                    <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
                     <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
                   </tr>
                 </thead>
@@ -1149,7 +1149,7 @@ export function POSScreen() {
                             />
                           ) : (
                             <span className={readOnlyCellClass()} title="Chỉ Quản lý/Admin được sửa đơn giá">
-                              {formatVND(item.unit_price)}
+                              {formatNumber(item.unit_price)}
                             </span>
                           )}
                         </td>
@@ -1172,12 +1172,12 @@ export function POSScreen() {
 
                         {/* Processing fee */}
                         <td className="py-2.5 px-2.5 text-right font-mono text-amber-700 font-semibold">
-                          {item.processing_fee > 0 ? formatVND(item.processing_fee) : '-'}
+                          {item.processing_fee > 0 ? formatNumber(item.processing_fee) : '-'}
                         </td>
 
                         {/* Subtotal */}
                         <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
-                          {formatVND(item.subtotal)}
+                          {formatNumber(item.subtotal)}
                         </td>
 
                         {/* Delete button */}

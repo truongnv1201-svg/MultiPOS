@@ -76,9 +76,11 @@ test.describe('POS: quyền sửa đơn giá (migration 0059)', () => {
 
         // Không có nút/ô sửa giá cho thu ngân
         await expect(page.locator('#cart-table-container').getByLabel(/^Đơn giá /)).toHaveCount(0);
-        // Vẫn hiện giá (dạng text tĩnh) để thu ngân đối chiếu được
+        // Vẫn hiện giá (dạng text tĩnh, số thuần — đơn vị (đ) nằm trên tiêu đề cột)
+        // để thu ngân đối chiếu được
         const priceCell = page.locator('#cart-table-container tbody tr').first().locator('td').nth(3);
-        await expect(priceCell).toContainText('đ');
+        await expect(priceCell).not.toContainText('đ');
+        await expect(page.locator('#cart-table-container th', { hasText: 'Đơn giá (đ)' })).toHaveCount(1);
         await expect(priceCell.locator('span[title]')).toHaveAttribute(
             'title',
             /Chỉ Quản lý\/Admin/
