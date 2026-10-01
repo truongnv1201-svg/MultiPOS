@@ -5,6 +5,7 @@ import type { CartTab, ReturnResult } from '../types';
 
 export interface TxOrdersDeps {
   activeCart: CartTab;
+  updateActiveTab: (updater: Partial<CartTab>) => void;
   calculatedTotals: {
     subtotal: number;
     discount_amount: number;

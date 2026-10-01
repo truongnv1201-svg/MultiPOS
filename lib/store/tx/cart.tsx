@@ -114,6 +114,9 @@ export function useTxCart(): TxCart {
   // Cart Item Operations
   const addItemToCart = useCallback(
     (product: Product, quantity = 1, dimensionDetails?: DimensionDetail[], priceOverride?: number) => {
+      // Chặn SL âm/0/NaN lọt vào giỏ: SL âm trừ tồn thành CỘNG tồn (kho tăng ảo),
+      // NaN lan thành subtotal NaN. Ô nhập đã chặn nhưng đây là cửa cuối.
+      if (!(quantity > 0)) return;
       updateActiveTab((tab) => {
         const itemPrice = priceOverride !== undefined ? priceOverride : product.retail_price;
 
@@ -126,11 +129,15 @@ export function useTxCart(): TxCart {
           const updatedItems = [...tab.items];
           const current = updatedItems[existingIndex];
           const newQty = current.quantity + quantity;
+          // SL gộp về <= 0 (dữ liệu cũ) thì gỡ dòng thay vì giữ dòng âm kho
+          if (!(newQty > 0)) {
+            return { ...tab, items: updatedItems.filter((_, i) => i !== existingIndex), client_ref: undefined };
+          }
           updatedItems[existingIndex] = recomputeOrderItem({
             ...current,
             quantity: newQty,
           });
-          return { ...tab, items: updatedItems };
+          return { ...tab, items: updatedItems, client_ref: undefined };
         }
 
         // New item
@@ -151,7 +158,9 @@ export function useTxCart(): TxCart {
         };
 
         const computed = recomputeOrderItem(newItem);
-        return { ...tab, items: [...tab.items, computed] };
+        // Món trong giỏ đổi -> khóa idempotency của lần checkout hụt trước không còn
+        // khớp nội dung giỏ nữa -> xoay khóa mới để server không trả nhầm đơn cũ.
+        return { ...tab, items: [...tab.items, computed], client_ref: undefined };
       });
     },
     [updateActiveTab]
@@ -182,11 +191,15 @@ export function useTxCart(): TxCart {
   const updateCartItem = useCallback(
     (itemId: string, updates: Partial<OrderItem>) => {
       updateActiveTab((tab) => {
+        // Bỏ qua SL không dương (âm/0/NaN) nhưng vẫn áp các update khác (sửa giá
+        // không được kẹt chỉ vì SL gửi kèm lỗi) — cửa cuối sau ô nhập.
+        const { quantity, ...rest } = updates;
+        const safeUpdates = quantity !== undefined && !(quantity > 0) ? rest : updates;
         const updatedItems = tab.items.map((item) => {
           if (item.id !== itemId) return item;
-          return recomputeOrderItem({ ...item, ...updates });
+          return recomputeOrderItem({ ...item, ...safeUpdates });
         });
-        return { ...tab, items: updatedItems };
+        return { ...tab, items: updatedItems, client_ref: undefined };
       });
     },
     [updateActiveTab]
@@ -197,6 +210,7 @@ export function useTxCart(): TxCart {
       updateActiveTab((tab) => ({
         ...tab,
         items: tab.items.filter((i) => i.id !== itemId),
+        client_ref: undefined,
       }));
     },
     [updateActiveTab]
@@ -222,6 +236,7 @@ export function useTxCart(): TxCart {
       payment_method: shop.defaultPayment ?? 'cash',
       note: '',
       is_deposit_mode: false,
+      client_ref: undefined,
     });
   }, [updateActiveTab, shop.defaultVat, shop.defaultPayment]);
 

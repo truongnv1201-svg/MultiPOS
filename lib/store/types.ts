@@ -19,6 +19,12 @@ export interface CartTab {
   payment_method: 'cash' | 'transfer' | 'card' | 'debt';
   note: string;
   is_deposit_mode: boolean; // Ctrl + F9
+  /** Khóa idempotency ổn định theo tab: bấm THANH TOÁN bị timeout rồi bấm lại thì
+   *  gửi đúng khóa cũ để server (0050) trả đơn gốc (duplicate) thay vì tạo 2 đơn.
+   *  Đổi món trong giỏ -> xoay khóa mới (khóa cũ không còn khớp nội dung giỏ);
+   *  chốt đơn/xóa giỏ xong -> xóa khóa. Giỏ chỉ sống trong RAM nên không lo
+   *  tái dùng khóa qua lần tải trang. */
+  client_ref?: string;
 }
 
 export interface EmployeeInput {

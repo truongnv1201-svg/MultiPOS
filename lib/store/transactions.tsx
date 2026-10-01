@@ -160,6 +160,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   }, [debts.syncPendingOps, syncPendingOpsRef]);
   const orders = useTxOrders({
     activeCart: cart.activeCart,
+    updateActiveTab: cart.updateActiveTab,
     calculatedTotals: cart.calculatedTotals,
     clearActiveCart: cart.clearActiveCart,
     setReceiptModalOrder: cart.setReceiptModalOrder,

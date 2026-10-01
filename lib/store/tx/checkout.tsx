@@ -18,6 +18,7 @@ import { notify } from '@/components/common/Toast';
 
 export interface TxCheckoutDeps {
   activeCart: CartTab;
+  updateActiveTab: (updater: Partial<CartTab>) => void;
   calculatedTotals: TxOrdersDeps['calculatedTotals'];
   clearActiveCart: () => void;
   setReceiptModalOrder: (order: Order | null) => void;
@@ -35,6 +36,7 @@ export interface TxCheckout {
 
 export function useTxCheckout({
   activeCart,
+  updateActiveTab,
   calculatedTotals,
   clearActiveCart,
   setReceiptModalOrder,
@@ -91,9 +93,14 @@ export function useTxCheckout({
 
       const totals = calculatedTotals;
       let orderCode = generateOrderCode('HD');
-      // P0-idempotency: khóa ổn định cho 1 lần bán — gửi lên server để retry/timeout
-      // mập mờ không sinh trùng đơn; đơn offline dùng luôn id này khi replay.
-      const clientRef = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      // P0-idempotency: khóa ỔN ĐỊNH theo tab cho 1 lần bán — bấm THANH TOÁN bị
+      // timeout (server đã commit) rồi bấm lại thì gửi đúng khóa cũ, server (0050)
+      // trả đơn gốc (duplicate) thay vì tạo trùng đơn. Trước đây sinh khóa mới mỗi
+      // lần bấm nên retry sau timeout mập mờ luôn đẻ thêm đơn + trừ kho 2 lần.
+      // Khóa sống theo tab: đổi món/xóa giỏ thì xoay/xóa (xem cart.tsx).
+      const clientRef =
+        activeCart.client_ref || `ord-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      if (!activeCart.client_ref) updateActiveTab({ client_ref: clientRef });
       // Ô trống = trả đủ CHỈ cho chuyển khoản/quẹt thẻ; tiền mặt bắt buộc đã nhập (UI chặn),
       // nợ ghi 0 để rơi vào guard nợ vô chủ (chung lib/pricing với POSScreen)
       let paidAmount = resolvePaidAmount(totals.payable, activeCart.payment_method, activeCart.tendered_amount || 0);
@@ -337,13 +344,16 @@ export function useTxCheckout({
         db.cashbook.add(newEntry).catch(console.warn);
 
         // Update current shift stats
+        // Cọc (mọi kênh) chỉ vào deposit_collected, KHÔNG vào doanh thu bán —
+        // trước đây cọc chuyển khoản bị cộng vào transfer_sales (doanh thu ảo)
+        // mà deposit_collected chỉ đếm cọc tiền mặt (thiếu cọc CK).
         setCurrentShift((prev) => {
           const isCash = activeCart.payment_method === 'cash';
           const updatedShift: Shift = {
             ...prev,
             cash_sales: isCash && !isDeposit ? prev.cash_sales + paidAmount : prev.cash_sales,
-            transfer_sales: !isCash ? prev.transfer_sales + paidAmount : prev.transfer_sales,
-            deposit_collected: isDeposit && isCash ? prev.deposit_collected + paidAmount : prev.deposit_collected,
+            transfer_sales: !isCash && !isDeposit ? prev.transfer_sales + paidAmount : prev.transfer_sales,
+            deposit_collected: isDeposit ? prev.deposit_collected + paidAmount : prev.deposit_collected,
             expected_cash: isCash ? prev.expected_cash + paidAmount : prev.expected_cash,
             order_count: prev.order_count + 1,
           };
@@ -404,6 +414,7 @@ export function useTxCheckout({
     },
     [
       activeCart,
+      updateActiveTab,
       calculatedTotals,
       cashierName,
       isOnline,

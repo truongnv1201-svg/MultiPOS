@@ -2,13 +2,16 @@
 
 export function formatVND(value: number | string | undefined | null): string {
   if (value === undefined || value === null || value === '') return '0 đ';
-  const num = typeof value === 'string' ? parseFloat(value.replace(/[^\d.-]/g, '')) || 0 : value;
+  // Chuỗi kiểu VN ("1.234.567", "2,5"): chấm là phân cách nghìn -> bỏ hết,
+  // phẩy là thập phân -> đổi sang chấm rồi mới parse. Không làm vậy thì
+  // parseFloat("1.234.567") dừng ở chấm thứ 2 ra 1.234 -> hiển thị "1 đ" (lệch 10^6).
+  const num = typeof value === 'string' ? parseFloat(value.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '')) || 0 : value;
   return new Intl.NumberFormat('vi-VN').format(Math.round(num)) + ' đ';
 }
 
 export function formatNumber(value: number | string | undefined | null, decimals = 0): string {
   if (value === undefined || value === null || value === '') return '0';
-  const num = typeof value === 'string' ? parseFloat(value.replace(/[^\d.-]/g, '')) || 0 : value;
+  const num = typeof value === 'string' ? parseFloat(value.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.-]/g, '')) || 0 : value;
   return new Intl.NumberFormat('vi-VN', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,

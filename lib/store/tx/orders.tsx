@@ -11,6 +11,7 @@ export type { TxOrdersDeps, TxOrders } from './orders-types';
 
 export function useTxOrders({
   activeCart,
+  updateActiveTab,
   calculatedTotals,
   clearActiveCart,
   setReceiptModalOrder,
@@ -22,6 +23,7 @@ export function useTxOrders({
   const sync = useTxOrdersSync({ setCashbook });
   const checkout = useTxCheckout({
     activeCart,
+    updateActiveTab,
     calculatedTotals,
     clearActiveCart,
     setReceiptModalOrder,

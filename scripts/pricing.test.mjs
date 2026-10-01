@@ -216,3 +216,44 @@ describe('resolvePaidAmount', () => {
     assert.equal(resolvePaidAmount(100000, 'card', 40000), 40000);
   });
 });
+
+describe('hiển thị khớp tiền thực thu (không báo nợ ma)', () => {
+  // Trước đây: chuyển khoản để trống ô tiền thì màn hình báo "Còn thiếu (Ghi nợ)"
+  // nhưng commit vẫn thu đủ (resolvePaidAmount + checkout tự điền) — màn hình nói dối.
+  it('transfer/card trống ô tiền -> không nợ, không thối (khớp resolvePaidAmount)', () => {
+    for (const method of ['transfer', 'card']) {
+      const t = calcCartTotals(cart({ items: [goods()], payment_method: method, tendered_amount: 0 }));
+      assert.equal(t.payable, 248000);
+      assert.equal(t.debt_amount, 0);
+      assert.equal(t.change_amount, 0);
+    }
+  });
+  it('transfer trả thiếu một phần -> nợ đúng phần thiếu', () => {
+    const t = calcCartTotals(cart({ items: [goods()], payment_method: 'transfer', tendered_amount: 200000 }));
+    assert.equal(t.debt_amount, 48000);
+    assert.equal(t.change_amount, 0);
+  });
+  it('cash trống ô -> vẫn báo nợ (tiền mặt bắt buộc nhập, UI chặn)', () => {
+    const t = calcCartTotals(cart({ items: [goods()], tendered_amount: 0 }));
+    assert.equal(t.debt_amount, 248000);
+  });
+});
+
+describe('calc tự kẹp đầu vào bẩn (state cũ / DB)', () => {
+  it('CK/shipping âm bị kẹp về 0 (không trừ ngược thành thu thêm)', () => {
+    const t = calcCartTotals(cart({ items: [goods()], discount_amount: -10000, shipping_fee: -5000 }));
+    assert.equal(t.discount_amount, 0);
+    assert.equal(t.shipping_fee, 0);
+    assert.equal(t.payable, 248000);
+  });
+  it('CK % vượt 100 bị kẹp ở 100 (không miễn phí cả ship+VAT)', () => {
+    const t = calcCartTotals(cart({ items: [goods()], discount_percent: 200, shipping_fee: 10000 }));
+    assert.equal(t.discount_amount, 248000);
+    assert.equal(t.payable, 10000);
+  });
+  it('VAT % vượt 100 bị kẹp ở 100', () => {
+    const t = calcCartTotals(cart({ items: [goods()], vat_percent: 200 }));
+    assert.equal(t.vat_amount, 248000);
+    assert.equal(t.vat_percent, 100);
+  });
+});

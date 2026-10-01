@@ -78,24 +78,38 @@ export interface CartTotals {
 // không gồm ship). KHÔNG làm tròn tiền mặt — số tiền phải đúng từng đồng (yêu cầu kế toán).
 export function calcCartTotals(cart: CartTotalsInput): CartTotals {
   const subtotal = cart.items.reduce((sum, item) => sum + item.subtotal, 0);
-  let discount = cart.discount_amount;
-  if (cart.discount_percent > 0) {
-    discount = Math.round((subtotal * cart.discount_percent) / 100);
+  // Tự vệ: CK/shipping âm hoặc % vượt 100 chỉ lọt qua đường state cũ/DB (UI đã kẹp),
+  // calc là single source nên kẹp ở đây để không ra payable âm/phình. Server SQL (0023)
+  // cũng kẹp tương đương — đổi ngưỡng ở đây thì đối chiếu parity lại.
+  const discountPct = Math.min(100, Math.max(0, cart.discount_percent || 0));
+  let discount = Math.max(0, cart.discount_amount || 0);
+  if (discountPct > 0) {
+    discount = Math.round((subtotal * discountPct) / 100);
   }
   // Phụ phí: đ cố định hoặc % trên (tiền hàng - giảm giá), giống logic VAT
   const shippingBase = Math.max(0, subtotal - discount);
+  const shipPct = Math.min(100, Math.max(0, cart.shipping_percent || 0));
   const shipping =
     cart.shipping_type === 'percent'
-      ? Math.round((shippingBase * (cart.shipping_percent || 0)) / 100)
-      : cart.shipping_fee || 0;
-  const vat_percent = cart.vat_percent || 0;
+      ? Math.round((shippingBase * shipPct) / 100)
+      : Math.max(0, cart.shipping_fee || 0);
+  const vat_percent = Math.min(100, Math.max(0, cart.vat_percent || 0));
   const taxableBase = Math.max(0, subtotal - discount);
   const vat_amount = Math.round((taxableBase * vat_percent) / 100);
 
   // Không làm tròn tiền mặt (đã gỡ theo yêu cầu kế toán): payable = tiền hàng - CK
   // + ship + VAT, giữ nguyên từng đồng. Muốn làm tròn thì giảm giá/shipping rõ ràng.
   const payable = Math.max(0, subtotal + shipping + vat_amount - discount);
-  const tendered = cart.tendered_amount || 0;
+  // Ô trống = trả đủ CHỈ cho chuyển khoản/quẹt thẻ (khớp resolvePaidAmount + checkout
+  // tự điền tendered = payable trước khi gửi server). Trước đây hiển thị debt = payable
+  // trong khi commit vẫn thu đủ — màn hình nói dối thu ngân.
+  // Tiền mặt giữ nguyên: trống ô = chưa thu (UI chặn bắt nhập).
+  const tendered =
+    cart.payment_method === 'cash'
+      ? cart.tendered_amount || 0
+      : cart.payment_method === 'debt'
+        ? 0
+        : cart.tendered_amount || payable;
 
   let change_amount = 0;
   let debt_amount = 0;

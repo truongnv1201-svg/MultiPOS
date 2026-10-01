@@ -710,6 +710,10 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       await db.cashbook.clear();
       await db.shifts.clear();
       await db.pendingOrders.clear();
+      // Hàng đợi offline cũng phải dọn — giữ lại là replay thao tác mồ côi
+      // trỏ vào dữ liệu vừa xóa (nhập kho / voucher / trả NCC ma).
+      await db.pendingOps.clear().catch(() => {});
+      await db.pendingMasterData.clear().catch(() => {});
       await db.employees.clear().catch(() => {});
       await db.attendanceDays.clear().catch(() => {});
 
