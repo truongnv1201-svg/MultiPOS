@@ -31,9 +31,11 @@ test.describe('đã bỏ chế độ lưới thẻ', () => {
       expect(posText).not.toContain('Chế độ Thẻ');
       expect(posText).not.toContain('Chế độ Nhanh');
 
-      // 2) F2 không còn làm gì (không sinh lại lưới thẻ)
+      // 2) F2 về màn Bán hàng (nút header quảng cáo F2; handler đặt ở GlobalHeader)
+      await page.keyboard.press('Alt+p');
+      await expect(page.locator('#products-view')).toBeVisible({ timeout: 20_000 });
       await page.keyboard.press('F2');
-      await page.waitForTimeout(1200);
+      await expect(page.locator('#pos-screen')).toBeVisible({ timeout: 20_000 });
       await expect(page.locator('#product-grid-section')).toHaveCount(0);
 
       // 3) Vẫn chọn hàng được bằng ô tìm kiếm -> giỏ có dòng

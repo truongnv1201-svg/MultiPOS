@@ -475,8 +475,8 @@ export function POSScreen() {
   }, [activeCart.items.length, activeCart.tendered_amount, activeCart.customer_id, checkoutActiveOrder]);
 
   // Keyboard shortcut listener for POS (ma trận SRS §4.4: F3–F10, Ctrl+F9)
-  // F2 trước đây đổi chế độ Thẻ/Nhanh; chế độ lưới thẻ đã bỏ nên POS chỉ còn luồng
-  // tìm kiếm + giỏ. Nhãn "Bán hàng (F2)" ở header vẫn còn nhưng không có handler F2.
+  // F2 là phím toàn cục về màn Bán hàng (xử lý ở GlobalHeader, chung với nút BÁN HÀNG),
+  // nên POS không giữ handler F2 riêng (trước đây F2 đổi chế độ Thẻ/Nhanh đã bỏ).
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Guard: khi đang mở bất kỳ overlay nào (modal F3/F12/phiếu, sheet giỏ/thanh toán,

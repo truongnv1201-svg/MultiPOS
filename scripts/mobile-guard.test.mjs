@@ -64,6 +64,14 @@ describe('POS: đã bỏ chế độ bán hàng dạng lưới thẻ', () => {
     assert.match(pos, /id="pos-goods-toolbar"[\s\S]{0,1500}<ProductSearchBar/);
     assert.doesNotMatch(pos, /id="pos-goods-toolbar"[^>]*hidden lg/);
   });
+
+  it('F2 là phím toàn cục về màn Bán hàng (nút header quảng cáo F2 phải bấm được)', () => {
+    // F2 từng đổi chế độ Thẻ/Nhanh; bỏ lưới thẻ thì F2 thành phím về POS, xử lý ở
+    // GlobalHeader chung với nút #btn-goto-pos (đóng menu phân hệ rồi chuyển màn).
+    const header = read('components/GlobalHeader.tsx');
+    assert.match(header, /e\.key === 'F2'/);
+    assert.match(header, /go\('pos'\)/);
+  });
 });
 
 describe('POS: bàn phím phải cuộn theo dòng đang chọn trong dropdown', () => {

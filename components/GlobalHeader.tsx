@@ -88,6 +88,14 @@ export function GlobalHeader() {
         setCurrentScreen(screen);
       };
 
+      // F2: về màn hình Bán hàng (nút header BÁN HÀNG quảng cáo phím này; trước đây
+      // F2 đổi chế độ lưới thẻ, đã bỏ cùng lưới thẻ nên F2 thành phím về POS)
+      if (e.key === 'F2') {
+        e.preventDefault();
+        go('pos');
+        return;
+      }
+
       // Alt + M: Toggle Flyout Menu
       if (e.altKey && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault();
