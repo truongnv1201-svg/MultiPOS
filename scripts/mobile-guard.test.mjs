@@ -74,6 +74,24 @@ describe('POS: đã bỏ chế độ bán hàng dạng lưới thẻ', () => {
   });
 });
 
+describe('POS: gợi ý và nhảy phím F1 / F9 (thu ngân không rời bàn phím)', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+  const searchBar = read('components/pos/ProductSearchBar.tsx');
+  const header = read('components/GlobalHeader.tsx');
+
+  it('ô tìm hàng hiện huy hiệu F1 (user mới biết phím tắt, không chỉ tooltip)', () => {
+    assert.match(searchBar, /id="f1-search-input"/);
+    assert.match(searchBar, /<kbd[^>]*>[\s\S]{0,20}F1[\s\S]{0,20}<\/kbd>/);
+    assert.match(header, /getElementById\('f1-search-input'\)/);
+  });
+
+  it('F9 nhịp 1 nhảy tới ô tiền, bấm nữa điền đủ tiền (khỏi tìm nút Đủ tiền)', () => {
+    assert.match(pos, /id="f9-tendered-input"/);
+    assert.match(pos, /document\.activeElement === tenderedInputRef\.current/);
+    assert.match(pos, /updateActiveTab\(\{ tendered_amount: calculatedTotals\.payable \}\)/);
+  });
+});
+
 describe('POS: bàn phím phải cuộn theo dòng đang chọn trong dropdown', () => {
   const search = read('components/pos/ProductSearchBar.tsx');
   const select = read('components/common/SearchableSelect.tsx');

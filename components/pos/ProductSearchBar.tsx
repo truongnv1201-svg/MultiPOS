@@ -364,8 +364,11 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           onKeyDown={handleSearchKeyDown}
            placeholder="Tìm hàng hoặc quét mã..."
           title="Tìm sản phẩm (F1)"
-          className="w-full h-10 sm:h-9 pl-8 pr-3 text-xs bg-white text-slate-800 placeholder-slate-400 border border-slate-300 rounded-lg focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          className="w-full h-10 sm:h-9 pl-8 pr-9 text-xs bg-white text-slate-800 placeholder-slate-400 border border-slate-300 rounded-lg focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
+        <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[9px] font-mono bg-slate-100 border border-slate-200 rounded text-slate-500 pointer-events-none">
+          F1
+        </kbd>
       </div>
 
       {/* Ô số lượng: parent tự render (POS) hoặc component tự vẽ — luôn nằm TRƯỚC

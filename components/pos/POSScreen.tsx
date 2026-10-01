@@ -548,11 +548,16 @@ export function POSScreen() {
         return;
       }
 
-      // F9: Focus Tendered Amount
+      // F9: nhịp 1 nhảy tới ô tiền khách đưa; đang đứng ở ô đó bấm nữa thì điền
+      // đủ tiền (KHÁCH CẦN TRẢ) — khỏi rời bàn phím tìm nút "Đủ tiền".
       if (e.key === 'F9' && !e.ctrlKey) {
         e.preventDefault();
-        tenderedInputRef.current?.focus();
-        tenderedInputRef.current?.select();
+        if (document.activeElement === tenderedInputRef.current && tenderedInputRef.current) {
+          updateActiveTab({ tendered_amount: calculatedTotals.payable });
+        } else {
+          tenderedInputRef.current?.focus();
+          tenderedInputRef.current?.select();
+        }
         return;
       }
 
@@ -575,7 +580,7 @@ export function POSScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
     // Gỡ dimensionModalItem/receiptModalOrder/shiftModalOpen khỏi deps: guard giờ đọc DOM
     // lúc phím bấm nên không cần đăng ký lại listener khi các modal đó mở/đóng.
-  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit, handleProjectExportCommit]);
+  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit, handleProjectExportCommit, calculatedTotals.payable, updateActiveTab]);
 
   // Khách lẻ tại quầy: một mục CHỌN ĐƯỢC trong danh sách gợi ý (id sentinel riêng,
   // không phải bản ghi DB — tránh trùng lặp giữa các máy, nhiễu báo cáo "Phải thu KH"
@@ -1940,7 +1945,7 @@ export function POSScreen() {
           {/* Tendered Amount [F9] */}
           {activeCart.payment_method !== 'debt' && (
             <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600" title="F9: nhảy tới ô tiền — đang ở ô tiền bấm F9 lần nữa để điền đủ tiền">
                 <span>Tiền khách đưa:</span>
                 <kbd className="hidden sm:inline-flex px-1 text-[9px] font-mono bg-slate-200 rounded text-slate-600">F9</kbd>
               </div>
@@ -1965,6 +1970,7 @@ export function POSScreen() {
                 <button
                   type="button"
                   onClick={() => setQuickTender(calculatedTotals.payable)}
+                  title="Hoặc đứng ở ô tiền bấm F9 lần nữa"
                   className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-[10px] font-semibold text-slate-700"
                 >
                   Đủ tiền
