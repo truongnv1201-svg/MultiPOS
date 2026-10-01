@@ -691,25 +691,35 @@ export function ProjectsView() {
                   <span className="text-[10px] font-normal text-slate-400 shrink-0">(Xuất kho tự động)</span>
                 </h4>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] font-mono text-slate-600">
-                    Tổng: <strong className="text-slate-900">{formatVND(currentProject.material_cost_total)}</strong>
-                  </span>
                   {/* Xuất vật tư chuyển sang màn POS (tab "Xuất CT") — modal cũ đã bỏ vì
-                      mỗi lần chỉ xuất được 1 mặt hàng, thao tác lẹt. */}
+                      mỗi lần chỉ xuất được 1 mặt hàng, thao tác lẹt. Style nút chung
+                      của app (h-8, text-xs) như nút "Điều chỉnh tồn" màn Kho. */}
                   {canExportMaterials && (
                     <button
                       type="button"
                       id="btn-project-goto-export"
                       onClick={() => goToProjectExport(currentProject)}
                       title={`Mở màn POS → Xuất CT cho công trình ${currentProject.code}`}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 hover:bg-amber-100 active:bg-amber-200"
+                      className="px-3 h-8 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                     >
-                      <HardHat className="w-3 h-3" />
-                      Xuất vật tư
-                      <ArrowRight className="w-3 h-3" />
+                      <HardHat className="w-4 h-4" />
+                      <span>Xuất vật tư</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
+              </div>
+
+              {/* Dòng tổng hợp riêng dưới tiêu đề — chuẩn strip các bảng chính
+                  (px-3 py-1.5 bg-slate-100/70 border-b, chữ 11px). */}
+              <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+                <span>
+                  {sortedMaterials.length} dòng vật tư
+                </span>
+                <span>
+                  Tổng chi phí vật tư:{' '}
+                  <strong className="font-mono text-slate-900">{formatVND(currentProject.material_cost_total)}</strong>
+                </span>
               </div>
 
               <div className="overflow-x-auto">
@@ -772,21 +782,28 @@ export function ProjectsView() {
                   </span>
                 </h4>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] font-mono text-slate-600">
-                    Tổng tiền công:{' '}
-                    <strong className="text-slate-900">{formatVND(currentProject.labor_cost_total)}</strong>
-                  </span>
                   <button
                     type="button"
                     id="btn-add-worker"
                     onClick={() => setIsWorkerModalOpen(true)}
                     title="Thêm thợ vào chấm công công trình"
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg px-2 py-1 transition-colors"
+                    className="px-3 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                   >
-                    <Plus className="w-3 h-3" />
-                    Thêm thợ
+                    <Plus className="w-4 h-4" />
+                    <span>Thêm thợ</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Dòng tổng hợp riêng dưới tiêu đề — chuẩn strip các bảng chính. */}
+              <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+                <span>
+                  {sortedWorkers.length} thợ
+                </span>
+                <span>
+                  Tổng tiền công:{' '}
+                  <strong className="font-mono text-slate-900">{formatVND(currentProject.labor_cost_total)}</strong>
+                </span>
               </div>
 
               <div className="overflow-x-auto">
