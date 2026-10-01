@@ -73,7 +73,9 @@ describe('pull biến động kho: nhẹ payload + đúng tên sản phẩm', ()
     // Lọc + sắp xếp + đếm đều phải xuất phát từ `movements` (đã tra tên), không phải
     // `stockMovements` thô — nếu không thì tên sản phẩm hiển thị rỗng sau khi bỏ JOIN.
     assert.match(inventory, /const filteredMovements = movements\.filter\(/);
-    assert.match(inventory, /Nhật ký Thẻ kho \(\{movements\.length\}\)/);
+    // Số đếm nằm ở dòng tổng hợp dưới filter (chuẩn các bảng chính), không còn trên nhãn tab
+    assert.match(inventory, /Nhật ký Thẻ kho\s*\n?\s*<\/button>/);
+    assert.match(inventory, /Tìm thấy.*sortedMovements\.length.*bút toán thẻ kho/);
     // `stockMovements` chỉ còn được đọc trong useMemo dựng `movements`.
     const uses = inventory.match(/stockMovements/g) || [];
     assert.ok(uses.length <= 6, 'số chỗ đọc stockMovements phải ít (chỉ trong memo): ' + uses.length);

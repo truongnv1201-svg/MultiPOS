@@ -133,16 +133,11 @@ export function HRMView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const activeCount = useMemo(() => employees.filter((e) => e.status === 'active').length, [employees]);
   const monthRun = useMemo(() => payrollRuns.find((r) => r.month === currentMonthKey()), [payrollRuns]);
 
+  // Badge tab: chỉ giữ chấm trạng thái (đã chốt/thiếu...), KHÔNG hiện số đếm —
+  // số đếm đã có ở dòng tổng hợp của từng tab (chuẩn các bảng chính).
   const tabBadge = (id: Tab, active: boolean): React.ReactNode => {
-    if (id === 'staff' && employees.length > 0)
-      return (
-        <span className={`ml-1 px-1.5 py-0.5 text-[10px] font-extrabold rounded-full ${active ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-600'}`}>
-          {activeCount}
-        </span>
-      );
     if (id === 'attendance' && monthRun)
       return (
         <span

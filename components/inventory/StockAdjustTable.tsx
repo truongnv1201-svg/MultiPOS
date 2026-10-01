@@ -67,11 +67,11 @@ export function StockAdjustTable() {
     <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full min-h-0">
       <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-bold text-slate-700">
-          Sổ điều chỉnh tồn ({rows.length} phiếu dòng)
+          Sổ điều chỉnh tồn
         </h3>
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
           <span className="text-slate-500">
-            Tổng giá trị hao hụt:{' '}
+            {rows.length} phiếu dòng · Tổng giá trị hao hụt:{' '}
             <strong className="font-mono text-rose-700">{formatVND(totalLoss)}</strong>
           </span>
           {unassigned.length > 0 && (

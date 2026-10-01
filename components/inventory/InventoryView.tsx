@@ -379,7 +379,7 @@ export function InventoryView() {
               activeTab === 'movements' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Nhật ký Thẻ kho ({movements.length})
+            Nhật ký Thẻ kho
           </button>
           <button
             id="btn-inventory-tab-adjustments"
@@ -621,13 +621,13 @@ export function InventoryView() {
           </div>
         )}
 
-        {/* Tab 2: Create Purchase Import Order */}
-        {/* Tab 3: Movements Audit Log (Thẻ kho) */}
-        {activeTab === 'adjustments' && <StockAdjustTable />}
-        {activeTab === 'movements' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full">
-            {/* Filter Bar */}
-            <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
+          {/* Tab 2: Create Purchase Import Order */}
+          {/* Tab 3: Movements Audit Log (Thẻ kho) */}
+          {activeTab === 'adjustments' && <StockAdjustTable />}
+          {activeTab === 'movements' && (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full">
+              {/* Filter Bar */}
+              <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
                 <input
@@ -665,10 +665,21 @@ export function InventoryView() {
                 <option value="export_sales">Xuất bán POS</option>
                 <option value="export_project">Vật tư công trình</option>
                 <option value="return">Nhập lại / Trả hàng</option>
-                <option value="adjust_loss">Hao hụt / Điều chỉnh giảm</option>
-                <option value="adjust_gain">Đếm thừa / Điều chỉnh tăng</option>
-              </select>
-            </div>
+                  <option value="adjust_loss">Hao hụt / Điều chỉnh giảm</option>
+                  <option value="adjust_gain">Đếm thừa / Điều chỉnh tăng</option>
+                </select>
+              </div>
+
+              {/* Dòng tổng hợp riêng — số bút toán chuyển từ nhãn tab xuống đây.
+                  Giữ cả 2 số: đã lọc (theo ngày/loại) và tổng đã tải (như nhãn tab cũ). */}
+              <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+                <span>
+                  Tìm thấy <strong className="text-slate-900 font-mono">{sortedMovements.length}</strong> bút toán thẻ kho
+                </span>
+                <span>
+                  Tổng nhật ký: <strong className="text-slate-900 font-mono">{movements.length}</strong> bút toán
+                </span>
+              </div>
 
             {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
             <div id="movement-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">

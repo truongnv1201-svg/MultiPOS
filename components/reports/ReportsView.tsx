@@ -724,10 +724,10 @@ export function ReportsView() {
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-            {tabBtn('overview', 'Tổng quan')}
-            {tabBtn('vat', `VAT đầu ra (${vatMonthly.length})`)}
-            {tabBtn('margin', `Mặt hàng (${sortedMargin.length})`)}
-            {tabBtn('debt', `Công nợ (${sortedDebtors.length + sortedSuppliers.length})`)}
+          {tabBtn('overview', 'Tổng quan')}
+          {tabBtn('vat', 'VAT đầu ra')}
+          {tabBtn('margin', 'Mặt hàng')}
+          {tabBtn('debt', 'Công nợ')}
           </div>
           {activeTab === 'overview' && <TableTools onExportExcel={handleExportOverview} onPrint={handlePrintOverview} />}
           {activeTab === 'vat' && <TableTools onExportExcel={handleExportVat} onPrint={handlePrintVat} />}
@@ -1079,7 +1079,7 @@ export function ReportsView() {
                     debtSide === 'customer' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Phải thu KH ({sortedDebtors.length})
+                  Phải thu KH
                 </button>
                 <button
                   onClick={() => setDebtSide('supplier')}
@@ -1087,7 +1087,7 @@ export function ReportsView() {
                     debtSide === 'supplier' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Phải trả NCC ({sortedSuppliers.length})
+                  Phải trả NCC
                 </button>
               </div>
             </div>

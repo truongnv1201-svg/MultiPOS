@@ -114,7 +114,8 @@ test('một lần bán chỉ kéo delta biến động kho, nhật ký vẫn đ�
       .filter(Boolean)
       .slice(0, 8);
     return {
-      count: Number(text.match(/Nhật ký Thẻ kho \((\d+)\)/)?.[1] || 0),
+      // Tổng đã tải nằm ở dòng tổng hợp dưới filter (chuẩn các bảng chính), không còn trên nhãn tab
+      count: Number(text.match(/Tổng nhật ký:\s*(\d+)/)?.[1] || 0),
       cells,
       empty: cells.filter((c) => c === '').length,
       deleted: cells.filter((c) => /Sản phẩm đã xóa/.test(c)).length,

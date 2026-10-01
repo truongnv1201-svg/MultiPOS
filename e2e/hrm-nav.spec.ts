@@ -33,4 +33,17 @@ test.describe('HRM điều hướng (chỉ đọc)', () => {
       await expect(page.locator('#hrm-view')).toBeVisible();
     }
   });
+
+  test('tab Nhân sự không mang badge số đếm (số nằm ở dòng tổng hợp)', async ({ page }) => {
+    await loginAsCashier(page);
+    await gotoHrm(page);
+    const staffTab = page.locator('#hrm-view [role="tab"]', { hasText: 'Nhân sự' });
+    await expect(staffTab).toBeVisible({ timeout: 15_000 });
+    // Nhãn gọn đúng "Nhân sự", không kèm số kiểu "Nhân sự 5"
+    expect((await staffTab.innerText()).replace(/\s+/g, ' ').trim()).toBe('Nhân sự');
+    await staffTab.click();
+    await page.waitForTimeout(800);
+    // Số đếm nằm ở dòng tổng hợp dưới filter
+    await expect(page.locator('#hrm-view')).toContainText(/Tìm thấy\s+\d+\s+nhân viên/);
+  });
 });
