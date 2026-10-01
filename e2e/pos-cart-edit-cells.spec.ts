@@ -69,12 +69,11 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         console.log('SL=' + JSON.stringify(qb));
         console.log('DG=' + JSON.stringify(pb));
         sameEditableStyle(qb, pb);
-        // Cả hai đều là ô input có khung nhìn thấy được (khác ô chỉ đọc không khung)
-        // và cùng chiều cao
-        expect(qb.borderStyle).toBe('solid');
-        expect(pb.borderStyle).toBe('solid');
-        expect(qb.borderWidth).toBe('1px');
-        expect(pb.borderWidth).toBe('1px');
+        // Cả hai đều là ô nền hồng không viền (khác ô chỉ đọc xám trơn) và cùng chiều cao
+        expect(qb.borderWidth).toBe('0px');
+        expect(pb.borderWidth).toBe('0px');
+        expect(qb.bg).toBe('oklch(0.969 0.015 12.422)'); // rose-50
+        expect(pb.bg).toBe('oklch(0.969 0.015 12.422)');
         expect(qb.height).toBe(pb.height);
     });
 
@@ -103,11 +102,11 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         await expect(price).toHaveValue('15.000');
     });
 
-    test('Ô sửa được nhìn là biết: khung hồng + nền hồng nhạt, hover/focus phản hồi rõ', async ({ page }) => {
-        // Nguyên tắc: ô sửa được PHẢI có khung (viền 1px + nền trắng) để khác chữ tĩnh;
-        // ô chỉ đọc (xám, không khung) thì không. Phản hồi hover/focus đến từ viền +
-        // nền + màu chữ + độ đậm. Mọi màu chữ đều phải >= AA 4.5:1 trên nền trắng
-        // (số tiền phải đọc được).
+    test('Ô sửa được nhìn là biết: nền hồng ôm sát chữ, không viền', async ({ page }) => {
+        // Nguyên tắc: ô sửa được PHẢI có nền hồng để khác chữ tĩnh (không viền,
+        // đệm gọn để nền ôm sát chữ); ô chỉ đọc (xám, không nền) thì không.
+        // Phản hồi hover/focus đến từ nền + màu chữ + độ đậm. Mọi màu chữ đều
+        // phải >= AA 4.5:1 trên nền hồng (số tiền phải đọc được).
         await page.setViewportSize({ width: 1600, height: 950 });
         await login(page, true);
         await addFirstProduct(page, 'keo');
@@ -136,18 +135,17 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
             const input = row.getByLabel(label);
             await expect(input).toBeVisible();
 
-            // nghỉ: khung 1px + nền hồng nhạt, chữ đỏ đọc được
+            // nghỉ: không viền + nền hồng nhạt, chữ đỏ đọc được
             const restColor = await colorOf(input);
             expect(restColor).toBe('oklch(0.514 0.222 16.935)'); // rose-700
             expect(await contrast(input)).toBeGreaterThanOrEqual(4.5);
             const restBg = await bgOf(input);
             expect(restBg).toBe('oklch(0.969 0.015 12.422)'); // rose-50
-            const restBorderColor = await input.evaluate((el: HTMLElement) => getComputedStyle(el).borderTopColor);
-            expect(await input.evaluate((el: HTMLElement) => getComputedStyle(el).borderTopWidth)).toBe('1px');
+            expect(await input.evaluate((el: HTMLElement) => getComputedStyle(el).borderTopWidth)).toBe('0px');
             expect(await shadowOf(input)).toBe('none');
             expect(await weightOf(input)).toBe('600');
 
-            // hover: viền + nền + chữ đều đổi -> nhảy rõ ràng
+            // hover: nền + chữ đều đổi -> nhảy rõ ràng
             await input.hover();
             await page.waitForTimeout(250);
             const hoverColor = await colorOf(input);
@@ -155,14 +153,12 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
             expect(hoverColor).toBe('oklch(0.41 0.159 10.272)'); // rose-900
             expect(await weightOf(input)).toBe('700');
             expect(await bgOf(input)).not.toBe(restBg);
-            expect(await input.evaluate((el: HTMLElement) => getComputedStyle(el).borderTopColor)).not.toBe(
-                restBorderColor
-            );
 
-            // focus (click vào): ring hiện + nền trắng
+            // focus (click vào): nền đậm hơn, không ring/viền
             await input.click();
             await page.waitForTimeout(250);
-            expect(await shadowOf(input)).not.toBe('none');
+            expect(await shadowOf(input)).toBe('none');
+            expect(await bgOf(input)).not.toBe(restBg);
 
             // rời chuột + blur -> về đúng trạng thái nghỉ
             await page.mouse.move(0, 0);

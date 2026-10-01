@@ -157,9 +157,9 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
     });
 
     test('ô số lượng Xuất CT và Nhập hàng dùng chung style ô sửa của giỏ bán', async ({ page }) => {
-        // Quy ước style (components/common/EditableCell): ô sửa được là ô input có khung
-        // (viền 1px + nền trắng), chữ xanh blue-700; hover/focus đổi viền + nền + màu chữ.
-        // Nhập hàng + Xuất CT dùng chung editCellClass với giỏ bán nên phải y hệt.
+        // Quy ước style (components/common/EditableCell): ô sửa được nền hồng nhạt,
+        // chữ đỏ rose-700, KHÔNG viền. Nhập hàng + Xuất CT dùng chung editCellClass
+        // với giỏ bán nên phải y hệt.
         test.slow();
         await page.setViewportSize({ width: 1600, height: 950 });
         await loginAdmin(page);
@@ -181,7 +181,7 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         await addFirstProduct(page, 'keo');
         const cartQty = page.locator('#cart-table-container tbody tr').first().locator('input[aria-label^="Số lượng"]');
         const cartStyle = await style(cartQty);
-        expect(cartStyle.border).toBe('1px');
+        expect(cartStyle.border).toBe('0px');
         expect(cartStyle.bg).toBe('oklch(0.969 0.015 12.422)');
         expect(cartStyle.color).toBe('oklch(0.514 0.222 16.935)'); // rose-700
 
@@ -203,7 +203,7 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         await expect(impQty).toBeVisible();
         expect(await style(impQty)).toEqual(cartStyle);
         const priceStyle = await style(impPrice);
-        expect(priceStyle.border).toBe('1px');
+        expect(priceStyle.border).toBe('0px');
         expect(priceStyle.bg).toBe('oklch(0.969 0.015 12.422)');
         expect(priceStyle.color).toBe(cartStyle.color);
         expect(priceStyle.height).toBe(cartStyle.height);
