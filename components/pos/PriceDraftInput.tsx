@@ -48,15 +48,11 @@ export function PriceDraftInput({
             }}
             className={editCellClass(
                 width,
-                // Ô đã sửa giá: chuyển CHỮ sang hổ phách (khung viền/nền giữ chuẩn chung —
-                // chỉ màu chữ đổi để báo "đã sửa"), hover thì đậm hơn như mọi ô sửa được.
-                // amber-700 (5.2:1) chứ không phải amber-500 (2.1:1) vì số tiền phải đọc được.
+                // Ô đã sửa giá: chuyển CHỮ sang đỏ để báo "đã sửa".
                 // Dùng `!` vì đều là utility màu chữ như EDIT_CELL_CLASS (thứ tự Tailwind
                 // không bảo đảm ai thắng) -> không `!` thì cảnh báo "đã sửa giá" có thể bị bôi
                 // xanh đè lên, mất hoàn toàn.
-                `text-right ${
-                    overridden ? 'text-amber-700! hover:text-amber-900! focus:text-amber-950!' : ''
-                }`
+                `text-right ${overridden ? 'text-rose-700!' : ''}`
             )}
         />
     );
