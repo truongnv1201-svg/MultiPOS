@@ -387,17 +387,12 @@ export function InventoryView() {
               setActiveTab('adjustments');
               void refreshServerStockAdjustments(true);
             }}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all inline-flex items-center gap-1.5 ${
+            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
               activeTab === 'adjustments' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
             }`}
             title="Phiếu điều chỉnh tồn: hao hụt, đếm thừa, ai điều chỉnh lúc nào"
           >
             Điều chỉnh tồn
-            {unassignedLosses.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
-                {unassignedLosses.length} chưa gán CT
-              </span>
-            )}
           </button>
         </div>
         {/* Nút phụ (Excel/In) trước, 2 nút hành động sau — cụm dồn về mép phải.

@@ -159,10 +159,15 @@ describe('0064: điều chỉnh tồn / hao hụt', () => {
     assert.match(modal, /delta/);
     // Công trình TÙY CHỌN: có lựa chọn "chưa gán công trình" trong danh sách.
     assert.match(modal, /Kho \(chưa gán công trình\)/);
-    // Bảng sổ điều chỉnh cho phép gán bổ sung và cảnh báo số mục chưa gán.
+    // Bảng sổ điều chỉnh cho phép gán bổ sung và nêu số mục chưa gán ở dòng tổng hợp.
     assert.match(adjustTable, /chưa gán công trình/);
     assert.match(adjustTable, /Gán công trình/);
-    assert.match(read('components/inventory/InventoryView.tsx'), /unassignedLosses\.length > 0/);
+    // Số chưa gán nằm ở dòng tổng hợp chuẩn, không nằm trên nhãn tab.
+    assert.match(adjustTable, /adjust-search-input/);
+    assert.match(adjustTable, /px-3 py-1\.5 bg-slate-100\/70/);
+    const inv = read('components/inventory/InventoryView.tsx');
+    assert.match(inv, /unassignedLosses/);
+    assert.ok(!/chưa gán CT/.test(inv), 'nhãn tab Điều chỉnh tồn không được mang chip đếm');
   });
 
   it('client ghi server TRƯỚC rồi mới cập nhật local (không lặp lại lỗi mất dữ liệu của xuất vật tư)', () => {

@@ -132,13 +132,23 @@ test.describe('Kho: điều chỉnh tồn / hao hụt', () => {
         await expect(filter.locator('option[value="adjust_loss"]')).toHaveCount(1);
         await expect(filter.locator('option[value="adjust_gain"]')).toHaveCount(1);
 
-        // Tab sổ điều chỉnh tồn tồn tại
+        // Tab sổ điều chỉnh tồn tồn tại, nhãn tab không mang chip đếm
         await page.click('#btn-inventory-tab-adjustments');
         await page.waitForTimeout(1500);
+        await expect(page.locator('#btn-inventory-tab-adjustments')).not.toContainText('chưa gán');
         // Rỗng thì hiện lời mời ghi phiếu (không crash khi RPC chưa có bảng)
         const hasEmpty = await page.locator('text=Chưa có phiếu điều chỉnh tồn nào').count();
-        const hasTable = await page.locator('text=Sổ điều chỉnh tồn').count();
-        expect(hasEmpty + hasTable).toBeGreaterThan(0);
+        if (hasEmpty === 0) {
+            // Style chuẩn như 2 bảng chính: thanh tìm kiếm + dòng tổng hợp
+            await expect(page.locator('#adjust-search-input')).toBeVisible();
+            await expect(page.locator('text=phiếu dòng').first()).toBeVisible();
+            // Tìm kiếm lọc được dòng (bảng desktop; bản mobile ẩn ở màn hình này)
+            await page.locator('#adjust-search-input').fill('zzz-khong-ton-tai-zzz');
+            await expect(page.locator('td:has-text("Không tìm thấy phiếu điều chỉnh nào")')).toBeVisible();
+            await page.locator('#adjust-search-input').fill('');
+        } else {
+            expect(hasEmpty).toBeGreaterThan(0);
+        }
     });
 
     test('cả 3 tab đều có nút Xuất Excel và In ấn', async ({ page }) => {
