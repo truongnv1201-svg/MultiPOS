@@ -103,7 +103,7 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         await expect(price).toHaveValue('15.000');
     });
 
-    test('Ô sửa được nhìn là biết: có khung + nền trắng, hover/focus phản hồi rõ', async ({ page }) => {
+    test('Ô sửa được nhìn là biết: khung hồng + nền hồng nhạt, hover/focus phản hồi rõ', async ({ page }) => {
         // Nguyên tắc: ô sửa được PHẢI có khung (viền 1px + nền trắng) để khác chữ tĩnh;
         // ô chỉ đọc (xám, không khung) thì không. Phản hồi hover/focus đến từ viền +
         // nền + màu chữ + độ đậm. Mọi màu chữ đều phải >= AA 4.5:1 trên nền trắng
@@ -136,12 +136,12 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
             const input = row.getByLabel(label);
             await expect(input).toBeVisible();
 
-            // nghỉ: khung 1px + nền trắng, chữ xanh dương đọc được
+            // nghỉ: khung 1px + nền hồng nhạt, chữ đỏ đọc được
             const restColor = await colorOf(input);
-            expect(restColor).toBe('oklch(0.488 0.243 264.376)'); // blue-700
+            expect(restColor).toBe('oklch(0.514 0.222 16.935)'); // rose-700
             expect(await contrast(input)).toBeGreaterThanOrEqual(4.5);
             const restBg = await bgOf(input);
-            expect(['rgb(255, 255, 255)', 'oklch(1 0 0)']).toContain(restBg);
+            expect(restBg).toBe('oklch(0.969 0.015 12.422)'); // rose-50
             const restBorderColor = await input.evaluate((el: HTMLElement) => getComputedStyle(el).borderTopColor);
             expect(await input.evaluate((el: HTMLElement) => getComputedStyle(el).borderTopWidth)).toBe('1px');
             expect(await shadowOf(input)).toBe('none');
@@ -152,7 +152,7 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
             await page.waitForTimeout(250);
             const hoverColor = await colorOf(input);
             expect(hoverColor).not.toBe(restColor);
-            expect(hoverColor).toBe('oklch(0.379 0.146 265.522)'); // blue-900
+            expect(hoverColor).toBe('oklch(0.41 0.159 10.272)'); // rose-900
             expect(await weightOf(input)).toBe('700');
             expect(await bgOf(input)).not.toBe(restBg);
             expect(await input.evaluate((el: HTMLElement) => getComputedStyle(el).borderTopColor)).not.toBe(
@@ -190,8 +190,8 @@ test.describe('Giỏ POS: style chung cho ô sửa được', () => {
         const priceEdit = rowEdit.locator('input[aria-label^="Đơn giá"]');
 
         const colorBefore = await colorOf(rowNormal.locator('input[aria-label^="Đơn giá"]'));
-        // blue-700 (Tailwind v4) = oklch(0.488 0.243 264.376)
-        expect(colorBefore).toBe('oklch(0.488 0.243 264.376)');
+        // rose-700 (Tailwind v4) = oklch(0.514 0.222 16.935)
+        expect(colorBefore).toBe('oklch(0.514 0.222 16.935)');
         await priceEdit.click();
         await priceEdit.fill('18500');
         await priceEdit.press('Enter');

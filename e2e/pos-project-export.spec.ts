@@ -182,8 +182,8 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         const cartQty = page.locator('#cart-table-container tbody tr').first().locator('input[aria-label^="Số lượng"]');
         const cartStyle = await style(cartQty);
         expect(cartStyle.border).toBe('1px');
-        expect(cartStyle.bg).toBe('rgb(255, 255, 255)');
-        expect(cartStyle.color).toBe('oklch(0.488 0.243 264.376)'); // blue-700
+        expect(cartStyle.bg).toBe('oklch(0.969 0.015 12.422)');
+        expect(cartStyle.color).toBe('oklch(0.514 0.222 16.935)'); // rose-700
 
         // 2) Xuất CT phải y hệt
         await page.locator('button:has-text("Xuất CT")').click();
@@ -204,7 +204,7 @@ test.describe('POS: luồng xuất vật tư công trình', () => {
         expect(await style(impQty)).toEqual(cartStyle);
         const priceStyle = await style(impPrice);
         expect(priceStyle.border).toBe('1px');
-        expect(priceStyle.bg).toBe('rgb(255, 255, 255)');
+        expect(priceStyle.bg).toBe('oklch(0.969 0.015 12.422)');
         expect(priceStyle.color).toBe(cartStyle.color);
         expect(priceStyle.height).toBe(cartStyle.height);
     });
