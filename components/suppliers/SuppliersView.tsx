@@ -585,8 +585,10 @@ export function SuppliersView() {
               </div>
             </div>
           ) : (
-            <div className="hidden md:flex w-96 m-4 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 text-xs">
-              Chọn nhà cung cấp để xem chi tiết
+            <div className="hidden md:flex w-full md:w-96 bg-slate-100 flex-col min-h-0 p-4 pl-0">
+              <div className="flex-1 min-h-0 bg-white border border-slate-200 rounded-xl shadow-2xs flex items-center justify-center text-slate-400 text-xs p-3">
+                Chọn nhà cung cấp để xem chi tiết
+              </div>
             </div>
           )}
         </div>
