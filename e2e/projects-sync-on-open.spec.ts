@@ -28,7 +28,7 @@ test('mở màn Dự án phải thấy dự án vừa tạo ở máy khác, khô
 
   // Máy A: đăng nhập, cố ý KHÔNG mở màn Dự án
   await login(page);
-  await expect(page.locator('#network-status-toggle')).toContainText('Trực tiếp', { timeout: 30_000 });
+  await expect(page.locator('#header-sync-center-btn')).toHaveAttribute('title', /trực tiếp/i, { timeout: 30_000 });
   await page.waitForTimeout(10_000);
 
   // Máy B: tạo dự án mới

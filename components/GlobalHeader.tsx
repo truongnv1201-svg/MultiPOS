@@ -5,8 +5,6 @@ import { useStore } from '@/lib/store';
 import { notify } from '@/components/common/Toast';
 import {
   Menu,
-  Wifi,
-  WifiOff,
   User,
   Settings,
   Maximize,
@@ -303,16 +301,22 @@ export function GlobalHeader() {
         {/* If on POS screen: không còn nút Quản lý riêng — dùng Menu (Alt+M) để chuyển phân hệ */}
 
         {/* Trung tâm đồng bộ — kiểm tra & kéo số liệu mới nhất, xem hàng đợi chờ/lỗi,
-            gửi lại thao tác offline. Thay cho nút "Làm mới" rời (đã gộp vào đây). */}
+            gửi lại thao tác offline. Thay cho nút "Làm mới" rời (đã gộp vào đây).
+            MÀU NÚT chính là trạng thái mạng (gộp nút Online cũ vào đây):
+            đỏ = offline, hổ phách = có đơn chờ đẩy, xanh lá = trực tiếp realtime. */}
         <button
           id="header-sync-center-btn"
           onClick={() => setSyncCenterOpen(true)}
           className={`flex h-8 w-8 items-center justify-center border rounded-md transition-colors ${
-            lastSyncError
+            !isOnline
+              ? 'bg-rose-950/90 border-rose-700 text-rose-300 animate-pulse'
+              : lastSyncError
               ? 'bg-rose-950/80 border-rose-700 text-rose-300 hover:bg-rose-900'
               : pendingQueue.length > 0
                 ? 'bg-amber-950/80 border-amber-700 text-amber-300 hover:bg-amber-900'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                : realtimeLive
+                  ? 'bg-emerald-950/80 border-emerald-800 text-emerald-300 hover:bg-emerald-900'
+                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
           } ${isSyncing ? 'cursor-wait' : ''}`}
           title={
             !isOnline
@@ -330,22 +334,6 @@ export function GlobalHeader() {
         >
           <CloudCog className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-emerald-300' : ''}`} />
         </button>
-
-        {/* Trạng thái mạng — chỉ đọc từ trình duyệt */}
-        <div className="flex items-center">
-          <div
-            id="network-status-toggle"
-            className={`flex h-8 items-center justify-center gap-1 px-2 rounded-md leading-none text-[11px] font-medium transition-colors ${
-              isOnline
-                ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 hover:bg-emerald-900'
-                : 'bg-rose-950/90 text-rose-300 border border-rose-700 animate-pulse'
-            }`}
-            title={isOnline ? (realtimeLive ? 'Đang Online — đồng bộ trực tiếp đa máy (realtime)' : 'Đang Online — đồng bộ theo nhịp 15s (realtime chưa nối)') : 'Đang Offline — trạng thái tự động theo kết nối mạng'}
-          >
-            {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isOnline ? (realtimeLive ? 'Trực tiếp' : 'Online') : 'Offline'}</span>
-          </div>
-        </div>
 
         {/* Shift button — CHỈ hiện trạng thái ca, không hiện tên user (tránh trùng với nút user) */}
         <button

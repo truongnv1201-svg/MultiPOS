@@ -14,7 +14,7 @@ async function login(page: Page, id = LOGIN_ID, pw = LOGIN_PW) {
   await page.fill('#login-password-input', pw);
   await page.click('#btn-login-submit');
   await expect(page.locator('#pos-screen')).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('#network-status-toggle')).toContainText('Trực tiếp', { timeout: 30_000 });
+  await expect(page.locator('#header-sync-center-btn')).toHaveAttribute('title', /trực tiếp/i, { timeout: 30_000 });
   await page.waitForTimeout(6000);
 }
 

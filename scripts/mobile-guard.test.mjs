@@ -265,6 +265,14 @@ describe('Sync Center: mở được từ header, xem & gửi lại hàng đợi
     assert.match(header, /id="header-sync-center-btn"[\s\S]{0,900}?Đang đồng bộ dữ liệu mới nhất/);
     assert.match(sheet, /await refreshNow\(\)/);
   });
+
+  it('nút Online gộp vào nút đồng bộ — màu nút là trạng thái mạng', () => {
+    // Không còn pill trạng thái mạng riêng; nút sync đỏ khi offline,
+    // xanh lá khi realtime trực tiếp.
+    assert.doesNotMatch(header, /id="network-status-toggle"/);
+    assert.match(header, /\!isOnline[\s\S]{0,200}?bg-rose-950\/90/);
+    assert.match(header, /realtimeLive[\s\S]{0,200}?bg-emerald-950\/80/);
+  });
 });
 
 describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA', () => {

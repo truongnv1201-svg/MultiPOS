@@ -18,19 +18,20 @@ async function loginAsCashier(page: Page) {
 test.describe('offline / sync badge', () => {
   test('mất mạng → Offline + khóa đồng bộ trong Trung tâm; có mạng lại → Online', async ({ page, context }) => {
     await loginAsCashier(page);
-    const net = page.locator('#network-status-toggle');
-    await expect(net).toContainText(/Online|Trực tiếp/, { timeout: 30_000 });
+    // Trạng thái mạng đọc ở nút đồng bộ (title): Online/trực tiếp khi có mạng
+    const net = page.locator('#header-sync-center-btn');
+    await expect(net).toHaveAttribute('title', /Online|trực tiếp/, { timeout: 30_000 });
 
     await page.locator('#header-sync-center-btn').click();
     const syncNow = page.getByRole('button', { name: 'Đồng bộ ngay' });
     await expect(syncNow).toBeEnabled();
 
     await context.setOffline(true);
-    await expect(net).toContainText('Offline', { timeout: 10_000 });
+    await expect(net).toHaveAttribute('title', /Offline/, { timeout: 10_000 });
     await expect(syncNow).toBeDisabled();
 
     await context.setOffline(false);
-    await expect(net).toContainText(/Online|Trực tiếp/, { timeout: 30_000 });
+    await expect(net).toHaveAttribute('title', /Online|trực tiếp/, { timeout: 30_000 });
     await expect(syncNow).toBeEnabled({ timeout: 30_000 });
   });
 

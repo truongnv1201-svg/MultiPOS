@@ -58,7 +58,7 @@ test('một lần bán chỉ kéo delta biến động kho, nhật ký vẫn đ�
   const kb = (table: string) => Math.round((bytes.get(table) || 0) / 1024);
 
   await login(page, LOGIN_ID, LOGIN_PW);
-  await expect(page.locator('#network-status-toggle')).toContainText('Trực tiếp', { timeout: 30_000 });
+  await expect(page.locator('#header-sync-center-btn')).toHaveAttribute('title', /trực tiếp/i, { timeout: 30_000 });
   await page.waitForTimeout(15_000);
   bytes.clear();
 

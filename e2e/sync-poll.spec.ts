@@ -20,7 +20,7 @@ async function loginAsCashier(page: Page) {
   await page.click('#btn-login-submit');
   await expect(page.locator('#pos-screen')).toBeVisible({ timeout: 30_000 });
   // Chờ realtime kết nối (badge "trực tiếp") để poll chuyển sang nhịp dài
-  await expect(page.locator('#network-status-toggle')).toContainText('Trực tiếp', { timeout: 30_000 });
+  await expect(page.locator('#header-sync-center-btn')).toHaveAttribute('title', /trực tiếp/i, { timeout: 30_000 });
 }
 
 test.describe('poll thích ứng theo realtime', () => {
