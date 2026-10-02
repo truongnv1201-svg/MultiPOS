@@ -171,6 +171,9 @@ describe('alert() blocking đã thay bằng Toast', () => {
   const skipDirs = new Set(['.git', '.next', 'node_modules', 'test-results', 'playwright-report']);
   const hits = [];
   const walk = (dir) => {
+    // Thư mục có thể vắng mặt trên checkout mới (git không lưu thư mục rỗng,
+    // VD xóa file ma cuối cùng trong hooks/) — bỏ qua thay vì nổ scandir.
+    if (!existsSync(dir)) return;
     for (const e of readdirSync(dir, { withFileTypes: true })) {
       if (skipDirs.has(e.name)) continue;
       const p = join(dir, e.name);
