@@ -27,7 +27,7 @@ import { sortRows } from '@/lib/sort';
 import { DataTableShell } from '@/components/common/DataTableShell';
 
 export function CashbookView() {
-  const { cashbook, addCashbookEntry, employees, profile, addAdvanceVoucher } = useStore();
+  const { cashbook, addCashbookEntry, employees, profile, addAdvanceVoucher, shop } = useStore();
   const isManager = profile?.role === 'admin' || profile?.role === 'manager';
   const [search, setSearch] = useState('');
   const [fundFilter, setFundFilter] = useState<'all' | 'cash' | 'bank'>('all');
@@ -56,16 +56,18 @@ export function CashbookView() {
   const isAdvanceVoucher = voucherType === 'expense' && category === 'advance';
   const activeEmployees = employees.filter((e) => e.status === 'active');
 
-  // Total balance computations
+  // Total balance computations — cộng số dư đầu kỳ trong Cài đặt (mặc định 0).
+  // Trước đây cộng cứng 2M/15M trong code nên project mới chưa phát sinh gì vẫn
+  // hiện 17M tồn quỹ.
   const cashBalance = cashbook.reduce((sum, e) => {
     if (e.fund_type !== 'cash') return sum;
     return e.type === 'receipt' ? sum + e.amount : sum - e.amount;
-  }, 2000000); // base starting cash
+  }, shop.openingCashBalance ?? 0);
 
   const bankBalance = cashbook.reduce((sum, e) => {
     if (e.fund_type !== 'bank') return sum;
     return e.type === 'receipt' ? sum + e.amount : sum - e.amount;
-  }, 15000000); // base bank balance
+  }, shop.openingBankBalance ?? 0);
 
   const totalBalance = cashBalance + bankBalance;
 

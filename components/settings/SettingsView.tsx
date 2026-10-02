@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { useStore } from '@/lib/store';
 import { createLocalBackup, downloadLocalBackup, parseLocalBackup, restoreLocalBackup } from '@/lib/backup';
+import { NumberInput } from '@/components/common/NumberInput';
 import { clearLocalMachineData, MACHINE_PROJECT_KEY } from '@/lib/db';
 import { OfflineReadyCard } from '@/components/settings/OfflineReadyCard';
 import { VIETQR_BANKS, isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
@@ -284,6 +285,33 @@ export function SettingsView() {
               </div>
               {shopMsg && <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{shopMsg}</p>}
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Số dư đầu kỳ tiền mặt (đ)</label>
+                <NumberInput
+                  value={shop.openingCashBalance ?? 0}
+                  onChange={(val) => updateShop({ openingCashBalance: Math.max(0, Math.round(val)) })}
+                  placeholder="0"
+                  aria-label="Số dư đầu kỳ tiền mặt"
+                  disabled={!isAdmin}
+                  className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono disabled:bg-slate-50 disabled:text-slate-400 focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Số dư đầu kỳ ngân hàng (đ)</label>
+                <NumberInput
+                  value={shop.openingBankBalance ?? 0}
+                  onChange={(val) => updateShop({ openingBankBalance: Math.max(0, Math.round(val)) })}
+                  placeholder="0"
+                  aria-label="Số dư đầu kỳ ngân hàng"
+                  disabled={!isAdmin}
+                  className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono disabled:bg-slate-50 disabled:text-slate-400 focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Số dư đầu kỳ cộng vào tồn quỹ trang Sổ quỹ. Shop mới để 0 — khi nào kiểm két thực tế thì nhập đúng số đếm được rồi bấm Lưu lên máy chủ.
+            </p>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Lời cảm ơn cuối phiếu</label>
               <input

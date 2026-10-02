@@ -28,6 +28,10 @@ export interface ShopSettings {
   defaultVat: 0 | 8 | 10;
   defaultPayment: 'cash' | 'transfer' | 'card' | 'debt';
   defaultPriceBook: 'retail' | 'trade';
+  /** Số dư đầu kỳ quỹ tiền mặt — cộng vào mọi tính toán tồn quỹ (mặc định 0). */
+  openingCashBalance: number;
+  /** Số dư đầu kỳ quỹ ngân hàng — cộng vào mọi tính toán tồn quỹ (mặc định 0). */
+  openingBankBalance: number;
   otMultiplierWorkday?: number;
   otMultiplierWeekend?: number;
 }
@@ -66,6 +70,8 @@ export const DEFAULT_SHOP: ShopSettings = {
   defaultVat: 0,
   defaultPayment: 'cash',
   defaultPriceBook: 'retail',
+  openingCashBalance: 0,
+  openingBankBalance: 0,
   otMultiplierWorkday: 1.5,
   otMultiplierWeekend: 2.0,
 };

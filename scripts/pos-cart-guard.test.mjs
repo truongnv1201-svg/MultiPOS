@@ -99,6 +99,32 @@ describe('đổi project dọn máy trạm (khỏi lẫn số dư project cũ)',
   });
 });
 
+describe('số dư đầu kỳ cấu hình được (không cộng cứng trong code)', () => {
+  it('ShopSettings có 2 số dư đầu kỳ, mặc định 0', () => {
+    const shop = read('lib/store/shop.ts');
+    assert.match(shop, /openingCashBalance: number;/);
+    assert.match(shop, /openingBankBalance: number;/);
+    assert.match(shop, /openingCashBalance: 0,/);
+    assert.match(shop, /openingBankBalance: 0,/);
+  });
+
+  it('sổ quỹ cộng số dư đầu kỳ từ cấu hình, không còn số cứng', () => {
+    const cashbook = read('components/cashbook/CashbookView.tsx');
+    assert.ok(!/}, 2000000\)/.test(cashbook), 'còn cộng cứng 2M');
+    assert.ok(!/}, 15000000\)/.test(cashbook), 'còn cộng cứng 15M');
+    assert.match(cashbook, /shop\.openingCashBalance \?\? 0/);
+    assert.match(cashbook, /shop\.openingBankBalance \?\? 0/);
+  });
+
+  it('Cài đặt cho Admin sửa 2 số dư đầu kỳ', () => {
+    const settings = read('components/settings/SettingsView.tsx');
+    assert.match(settings, /Số dư đầu kỳ tiền mặt/);
+    assert.match(settings, /Số dư đầu kỳ ngân hàng/);
+    assert.match(settings, /updateShop\(\{ openingCashBalance:/);
+    assert.match(settings, /updateShop\(\{ openingBankBalance:/);
+  });
+});
+
 describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh tiền, đúng số)', () => {
   it('bảng lương không chốt đã-chi khi còn người tạm ứng vượt lương', () => {
     const hrm = read('lib/store/hrm-slice.tsx');
