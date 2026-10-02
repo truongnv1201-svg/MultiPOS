@@ -111,6 +111,16 @@ describe('đổi project dọn máy trạm (khỏi lẫn số dư project cũ)',
       assert.ok(!new RegExp(name).test(settings), `còn sót ${name}`);
     }
   });
+
+  it('lời cảm ơn + chính sách nằm ở mục nội dung phiếu in (mỗi ô đúng 1 lần)', () => {
+    const settings = read('components/settings/SettingsView.tsx');
+    assert.equal((settings.match(/Lời cảm ơn cuối phiếu/g) || []).length, 1);
+    assert.equal((settings.match(/Chính sách đổi trả \(in nhỏ cuối phiếu\)/g) || []).length, 1);
+    assert.ok(
+      settings.indexOf('Nội dung hiển thị trên phiếu in') < settings.indexOf('Lời cảm ơn cuối phiếu'),
+      '2 ô phải nằm sau tiêu đề mục nội dung phiếu in'
+    );
+  });
 });
 
 describe('số dư đầu kỳ cấu hình được (không cộng cứng trong code)', () => {

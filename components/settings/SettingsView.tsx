@@ -304,26 +304,6 @@ export function SettingsView() {
             <p className="text-[11px] text-slate-400 md:col-span-2">
               Số dư đầu kỳ cộng vào tồn quỹ trang Sổ quỹ. Shop mới để 0 — khi nào kiểm két thực tế thì nhập đúng số đếm được rồi bấm Lưu lên máy chủ.
             </p>
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">Lời cảm ơn cuối phiếu</label>
-              <input
-                type="text"
-                value={shop.footerThanks || ''}
-                disabled={!isAdmin}
-                onChange={(e) => updateShop({ footerThanks: e.target.value })}
-                className="w-full h-8 px-2.5 border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">Chính sách đổi trả (in nhỏ cuối phiếu)</label>
-              <input
-                type="text"
-                value={shop.receiptPolicy || ''}
-                disabled={!isAdmin}
-                onChange={(e) => updateShop({ receiptPolicy: e.target.value })}
-                className="w-full h-8 px-2.5 border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
-              />
-            </div>
           </div>
         </div>
 
@@ -677,6 +657,31 @@ export function SettingsView() {
               </label>
             ))}
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Lời cảm ơn cuối phiếu</label>
+              <input
+                type="text"
+                value={shop.footerThanks || ''}
+                disabled={!isAdmin}
+                onChange={(e) => updateShop({ footerThanks: e.target.value })}
+                className="w-full h-8 px-2.5 border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
+              />
+            </div>
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Chính sách đổi trả (in nhỏ cuối phiếu)</label>
+              <input
+                type="text"
+                value={shop.receiptPolicy || ''}
+                disabled={!isAdmin}
+                onChange={(e) => updateShop({ receiptPolicy: e.target.value })}
+                className="w-full h-8 px-2.5 border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            2 mục chữ cuối phiếu đồng bộ máy chủ theo nút Lưu ở khối Thông tin cửa hàng — các tick hiển thị chỉ lưu trên máy này.
+          </p>
         </div>
       </div>
     </div>
