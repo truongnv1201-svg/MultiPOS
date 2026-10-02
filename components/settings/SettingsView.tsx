@@ -55,7 +55,7 @@ export function SettingsView() {
 
   const handleSaveShop = async () => {
     const error = await saveShopSettings();
-    setShopMsg(error ? `Lỗi: ${error}` : null);
+    setShopMsg(error ? `Lỗi: ${error}` : 'Đã lưu thông tin cửa hàng lên máy chủ.');
   };
 
   const handleSavePosDefaults = async () => {

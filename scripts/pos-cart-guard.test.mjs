@@ -97,6 +97,11 @@ describe('đổi project dọn máy trạm (khỏi lẫn số dư project cũ)',
     assert.match(settings, /\{isAdmin && \(\s*\n?\s*<button\s*\n?\s*onClick=\{handleWipeMachine\}/);
     assert.match(settings, /window\.confirm\('Dọn SẠCH toàn bộ dữ liệu trên máy này/);
   });
+
+  it('lưu cửa hàng báo thành công (không im lặng khi xong)', () => {
+    const settings = read('components/settings/SettingsView.tsx');
+    assert.match(settings, /setShopMsg\(error \? `Lỗi: \$\{error\}` : 'Đã lưu thông tin cửa hàng lên máy chủ\.'\)/);
+  });
 });
 
 describe('số dư đầu kỳ cấu hình được (không cộng cứng trong code)', () => {
