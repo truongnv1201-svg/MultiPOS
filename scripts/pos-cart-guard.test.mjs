@@ -74,3 +74,37 @@ describe('reset dọn cả hàng đợi offline', () => {
     assert.match(store, /await db\.pendingMasterData\.clear\(\)/);
   });
 });
+
+describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh tiền, đúng số)', () => {
+  it('bảng lương không chốt đã-chi khi còn người tạm ứng vượt lương', () => {
+    const hrm = read('lib/store/hrm-slice.tsx');
+    assert.match(hrm, /payrollItems\.filter\(\(i\) => i\.run_id === runId && \!i\.paid && i\.net <= 0\)/);
+    assert.match(hrm, /update\(\{ status: 'finalized', paid_at: null \}\)/);
+  });
+
+  it('QR khổ K80 thu đúng số còn nợ (như khổ A4)', () => {
+    const receipt = read('components/pos/ReceiptModal.tsx');
+    assert.match(receipt, /const qrAmount = order\.debt_amount > 0 \? order\.debt_amount : order\.total_amount;/);
+    assert.match(receipt, /buildVietqrUrl\(vietqr, qrAmount,/);
+  });
+
+  it('doanh thu KPI chỉ tính đơn hoàn tất (cùng tập với lãi gộp)', () => {
+    const reports = read('components/reports/ReportsView.tsx');
+    assert.match(reports, /\.filter\(\(o\) => o\.status === 'completed'\)\s*\n\s*\.reduce\(\(sum, o\) => sum \+ o\.total_amount, 0\);/);
+  });
+
+  it('sheet mobile xóa từ khóa KH cũ khi mở đơn khác', () => {
+    const sheet = read('components/pos/MobilePaymentSheet.tsx');
+    assert.match(sheet, /if \(open && \!prevOpenRef\.current\) setCustomerQuery\(''\);/);
+  });
+
+  it('hàm nhập lẻ chết đã gỡ (cứng bank + trả đủ, không ai gọi)', () => {
+    for (const f of [
+      'lib/store/tx/shift-stock.tsx',
+      'lib/store/transactions.tsx',
+      'lib/store.tsx',
+    ]) {
+      assert.doesNotMatch(read(f), /importStock[^B]/);
+    }
+  });
+});

@@ -185,7 +185,7 @@ BEGIN
     SELECT * INTO v_dup FROM public.orders WHERE client_ref = p_client_ref;
     IF FOUND THEN
       RETURN (SELECT jsonb_build_object(
-          'ok', true, 'duplicate', true, 'order_id', o.id, 'order_code', o.code,
+          'ok', true, 'duplicate', true, 'order_id', o.id, 'order_code', o.order_code,
           'change_amount', 0,
           'subtotal', o.subtotal, 'discount_amount', o.discount_amount,
           'vat_amount', o.vat_amount, 'vat_percent', o.vat_percent,
@@ -207,7 +207,7 @@ BEGIN
     SELECT * INTO v_dup FROM public.orders WHERE client_ref = p_client_ref;
     IF FOUND THEN
       RETURN (SELECT jsonb_build_object(
-          'ok', true, 'duplicate', true, 'order_id', o.id, 'order_code', o.code,
+          'ok', true, 'duplicate', true, 'order_id', o.id, 'order_code', o.order_code,
           'change_amount', 0,
           'subtotal', o.subtotal, 'discount_amount', o.discount_amount,
           'vat_amount', o.vat_amount, 'vat_percent', o.vat_percent,

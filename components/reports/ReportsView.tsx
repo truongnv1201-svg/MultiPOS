@@ -326,8 +326,13 @@ export function ReportsView() {
     );
   }, [orders, dateFilter]);
 
-  // Revenue computations (theo kỳ đã chọn)
-  const totalRevenue = rangedOrders.reduce((sum, o) => sum + o.total_amount, 0);
+  // Revenue computations (theo kỳ đã chọn) — CHỈ đơn hoàn tất để cùng tập với
+  // lãi gộp bên dưới (đơn cọc chưa giao hàng: tiền cọc đã thu nằm ở "Thực thu"
+  // và sổ quỹ, chưa tính vào doanh thu). Trước đây cộng cả cọc vào đây nên
+  // biên lợi nhuận bị tụt giả mỗi khi có đơn cọc lớn.
+  const totalRevenue = rangedOrders
+    .filter((o) => o.status === 'completed')
+    .reduce((sum, o) => sum + o.total_amount, 0);
 
   const totalCollected = rangedOrders.reduce((sum, o) => sum + o.paid_amount, 0);
 

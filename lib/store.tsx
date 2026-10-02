@@ -255,7 +255,6 @@ interface StoreContextType {
   closeShift: (countedCash: number) => Promise<boolean>;
   openNewShift: (startingCash: number) => Promise<void>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
-  importStock: (productId: string, quantity: number, importPrice: number, supplierName?: string, note?: string) => Promise<void>;
   importStockBatch: (
     lines: { productId: string; quantity: number; importPrice: number }[],
     supplierName?: string,
@@ -476,7 +475,6 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     openNewShift,
     refreshShiftFromServer,
     addCashbookEntry,
-    importStock,
     importStockBatch,
   } = useTransactions();
 
@@ -893,7 +891,6 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     closeShift,
     openNewShift,
     addCashbookEntry,
-    importStock,
     importStockBatch,
     resetData,
   };

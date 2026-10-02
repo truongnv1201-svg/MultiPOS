@@ -56,6 +56,10 @@ describe('monthlyEmployeePay', () => {
   it('payrollItemNet = gross + PC - trừ - ứng', () => {
     assert.equal(payrollItemNet(1000000, 200000, 50000, 100000), 1050000);
   });
+  it('trần 26 công chuẩn: tháng 31 ngày đi đủ cũng chỉ 1 lương', () => {
+    assert.equal(monthlyEmployeePay(7800000, 31, 0), 7800000);
+    assert.equal(monthlyEmployeePay(7800000, 30, 2), 7912500);
+  });
 });
 
 describe('monthDays / monthKeyOf', () => {

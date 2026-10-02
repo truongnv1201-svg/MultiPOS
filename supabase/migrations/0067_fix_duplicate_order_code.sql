@@ -1,88 +1,10 @@
--- Migration 50 — Server price authority cho pos_checkout (P0 thương mại).
--- Vấn đề: pos_checkout tin unit_price/discount/processing_fee/item_type do client gửi
--- (0043:102-112 insert trực tiếp từ JSON). Tài khoản authenticated có thể gọi RPC với
--- unit_price=1 để mua giá 1đ, hoặc đẩy discount_amount khổng lồ để payable âm.
--- Thiết kế (tương thích call cũ — không đổi chữ ký 10-arg):
--- 1) Đơn giá + tên + đvt + loại hàng + waste lấy từ products theo SKU (server truth).
---    SKU không tồn tại -> RAISE (mọi mặt hàng bán qua POS đều phải có trong catalog).
--- 2) CK dòng kẹp [0, tiền dòng]; CK bill kẹp >= 0; ship >= 0; VAT allowlist (0/5/8/10);
---    quantity (0, 100000]; payments amount >= 0.
--- 3) Hàng area: rebuild processing_fee từng tấm từ grinding_services server +
---    lỗ 25k + góc 15k (khớp HOLE_PRICE/CORNER_PRICE ở lib/mock-data.ts) +
---    extra_fee kẹp [0, 20tr]; actual_m2 (0, 1000], perimeter [0, 500].
---    (checkout_order 0028 đã SUM lại fee từ dimension_details nên fee rebuild tự chảy qua.)
--- 4) Idempotency chống TOCTOU: giữ check sớm + bọc INSERT orders trong EXCEPTION
---    unique_violation -> 2 retry song song cùng client_ref thì bên thua trả
---    duplicate:true thay vì 500.
--- 5) consume_stock_for_order: khóa FOR UPDATE toàn bộ dòng kho liên quan trước khi trừ
---    để 2 checkout cùng SKU không lọt khe âm kho thoáng qua.
+-- Migration 67 — Sửa nhánh idempotent của pos_checkout (retry an toàn).
+-- Bối cảnh: 2 nhánh trả đơn trùng (check sớm + unique_violation) SELECT o.code
+-- trong khi bảng orders chỉ có order_code -> retry sau timeout CRASH
+-- "column o.code does not exist" thay vì trả đơn gốc, mất tác dụng chống
+-- double-checkout (khóa client_ref ổn định theo tab ở client). Body copy y hệt
+-- 0062, chỉ đổi o.code -> o.order_code (2 chỗ).
 
--- 5) Khóa kho trước khi trừ (sửa TOCTOU trừ kho song song)
-CREATE OR REPLACE FUNCTION public.consume_stock_for_order(p_order_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-declare
-  r record;
-begin
-  -- Khóa mọi dòng kho sẽ chạm tới (hàng thường/biến thể/linh kiện combo) để
-  -- transaction thứ 2 phải đợi transaction đầu commit/rollback rồi mới check âm.
-  PERFORM 1 FROM public.products p
-    WHERE p.id IN (SELECT oi.product_id FROM public.order_items oi
-      WHERE oi.order_id = p_order_id AND oi.product_id IS NOT NULL)
-    FOR UPDATE;
-  PERFORM 1 FROM public.product_variants v
-    WHERE v.id IN (SELECT oi.product_variant_id FROM public.order_items oi
-      WHERE oi.order_id = p_order_id AND oi.product_variant_id IS NOT NULL)
-    FOR UPDATE;
-  PERFORM 1 FROM public.products p
-    WHERE p.id IN (SELECT ci.child_product_id FROM public.order_items oi
-      JOIN public.combo_items ci ON ci.combo_product_id = oi.product_id
-      WHERE oi.order_id = p_order_id AND oi.item_type = 'combo')
-    FOR UPDATE;
-
-  -- GROUP BY product_variant_id / product_id trước khi trừ (INV-ERR-01)
-  for r in
-    select oi.product_id, oi.product_variant_id, sum(coalesce(oi.material_consumed, oi.quantity)) as need
-    from public.order_items oi
-    join public.products p on p.id = oi.product_id
-    where oi.order_id = p_order_id
-      and oi.item_type not in ('service','combo') -- INV-ERR-02
-      and oi.product_id is not null
-    group by oi.product_id, oi.product_variant_id
-  loop
-    if r.product_variant_id is not null then
-      update public.product_variants set stock_quantity = stock_quantity - r.need
-      where id = r.product_variant_id;
-      if (select stock_quantity from public.product_variants where id = r.product_variant_id) < 0 then
-        raise exception 'Tồn kho biến thể không đủ (INV-ERR-01)';
-      end if;
-    else
-      update public.products set stock_quantity = stock_quantity - r.need
-      where id = r.product_id;
-      if (select stock_quantity from public.products where id = r.product_id) < 0 then
-        raise exception 'Tồn kho không đủ (Invariant #2)';
-      end if;
-    end if;
-
-    insert into public.stock_movements (reference_code, product_id, quantity, note)
-    values ((select order_code from public.orders where id = p_order_id), r.product_id, -r.need, 'Xuất bán checkout_order');
-  end loop;
-
-  -- Combo: trừ linh kiện con theo số lượng cha
-  for r in
-    select ci.child_product_id as product_id, sum(ci.quantity * oi.quantity) as need
-    from public.order_items oi
-    join public.combo_items ci on ci.combo_product_id = oi.product_id
-    where oi.order_id = p_order_id and oi.item_type = 'combo'
-    group by ci.child_product_id
-  loop
-    update public.products set stock_quantity = stock_quantity - r.need where id = r.product_id;
-    if (select stock_quantity from public.products where id = r.product_id) < 0 then
-      raise exception 'Tồn kho linh kiện combo không đủ (INV-ERR-02)';
-    end if;
-  end loop;
-end; $$;
-
--- 1)+2)+3)+4) pos_checkout với server price authority
 CREATE OR REPLACE FUNCTION public.pos_checkout(
   p_customer_name TEXT,
   p_items JSONB,
@@ -108,6 +30,11 @@ DECLARE
   v_punit TEXT;
   v_waste NUMERIC;
   v_price NUMERIC;
+  v_ovr NUMERIC;
+  v_overridden BOOLEAN;
+  v_override_by TEXT;
+  v_sent_price NUMERIC;
+  v_price_adjusted JSONB;
   v_qty NUMERIC;
   v_disc NUMERIC;
   v_fee NUMERIC;
@@ -130,6 +57,7 @@ DECLARE
   v_child_type TEXT;
   v_dup RECORD;
 BEGIN
+  v_price_adjusted := '[]'::JSONB;
   IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
     RAISE EXCEPTION 'Giỏ hàng trống';
   END IF;
@@ -139,9 +67,6 @@ BEGIN
   v_ship := GREATEST(COALESCE(p_shipping_fee, 0), 0);
   v_vat := COALESCE(p_vat_percent, 0);
   IF v_vat NOT IN (0, 5, 8, 10) THEN
-    -- 0059 fix: chuoi thong bao co 2 dau % nhung chi truyen 1 tham so -> PL/pgSQL khong compile
-    -- ("too few parameters specified for RAISE"). Ban DB da ban version da sua; sua lai file de
-    -- cai moi tu dau (supabase db reset) khong vong loi nay.
     RAISE EXCEPTION 'VAT % không hợp lệ (chỉ chấp nhận 0/5/8/10)', v_vat;
   END IF;
   FOR v_pm IN SELECT * FROM jsonb_array_elements(COALESCE(p_payments, '[]'::JSONB)) LOOP
@@ -159,7 +84,7 @@ BEGIN
           'change_amount', 0,
           'subtotal', o.subtotal, 'discount_amount', o.discount_amount,
           'vat_amount', o.vat_amount, 'vat_percent', o.vat_percent,
-          'cash_rounding', o.cash_rounding, 'total_amount', o.total_amount,
+          'total_amount', o.total_amount,
           'paid_amount', o.paid_amount, 'debt_amount', o.debt_amount, 'status', o.status)
         FROM public.orders o WHERE o.id = v_dup.id);
     END IF;
@@ -181,7 +106,7 @@ BEGIN
           'change_amount', 0,
           'subtotal', o.subtotal, 'discount_amount', o.discount_amount,
           'vat_amount', o.vat_amount, 'vat_percent', o.vat_percent,
-          'cash_rounding', o.cash_rounding, 'total_amount', o.total_amount,
+          'total_amount', o.total_amount,
           'paid_amount', o.paid_amount, 'debt_amount', o.debt_amount, 'status', o.status)
         FROM public.orders o WHERE o.id = v_dup.id);
     END IF;
@@ -202,6 +127,36 @@ BEGIN
     END IF;
     IF v_price IS NULL OR v_price < 0 THEN
       RAISE EXCEPTION 'Giá bán SKU % chưa cấu hình', (it->>'sku');
+    END IF;
+    -- 0059: ghi đè đơn giá cho riêng đơn này (UI cho người dùng sửa trước khi bán).
+    -- Server tự gate quyền: thu ngân gửi lên -> RAISE, không tin giá client.
+    v_overridden := false;
+    v_override_by := NULL;
+    IF (it->'price_override') IS NOT NULL AND jsonb_typeof(it->'price_override') <> 'null' THEN
+      -- is_manager() đã gồm cả admin (0012:12-15)
+      IF NOT public.is_manager() THEN
+        RAISE EXCEPTION 'Chỉ Quản lý/Admin được sửa đơn giá (SKU %)', (it->>'sku');
+      END IF;
+      v_ovr := COALESCE((it->>'price_override')::NUMERIC, 0);
+      IF v_ovr < 0 OR v_ovr > 100000000 THEN
+        RAISE EXCEPTION 'Đơn giá không hợp lệ (SKU %)', (it->>'sku');
+      END IF;
+      -- Gõ lại đúng giá danh mục thì không ghi dấu vết (so sánh sau làm tròn).
+      IF round(v_ovr) <> round(v_price) THEN
+        v_price := round(v_ovr);
+        v_overridden := true;
+        v_override_by := COALESCE(auth.uid()::TEXT, 'unknown')
+          || COALESCE(' ' || (auth.jwt() ->> 'email'), '');
+      END IF;
+    END IF;
+
+    -- 0060: so GIÁ THỰC TẾ với giá client gửi -> báo lại để app không in phiếu sai
+    v_sent_price := round(COALESCE((it->>'unit_price')::NUMERIC, v_price));
+    IF round(v_price) <> v_sent_price THEN
+      v_price_adjusted := v_price_adjusted || jsonb_build_array(jsonb_build_object(
+        'sku', it->>'sku', 'name', v_pname,
+        'sent_price', v_sent_price, 'server_price', round(v_price),
+        'overridden', v_overridden));
     END IF;
     -- P0-5: combo chỉ được chứa goods — chặn sớm để khỏi trừ sai đơn vị kho
     IF v_ptype = 'combo' THEN
@@ -250,7 +205,8 @@ BEGIN
       v_fee := 0; -- fee nằm trong từng tấm, checkout_order SUM từ JSONB
       INSERT INTO public.order_items
         (order_id, product_id, sku, name, item_type, unit, quantity, unit_price,
-         discount_amount, processing_fee, subtotal, dimension_details, waste_factor, material_consumed)
+         discount_amount, processing_fee, subtotal, dimension_details, waste_factor, material_consumed,
+         price_override, price_override_by)
       VALUES
         (v_id, v_pid, it->>'sku', v_pname,
          v_ptype, v_punit,
@@ -258,7 +214,8 @@ BEGIN
          v_disc,
          v_fee, 0,
          v_new_elems,
-         COALESCE(v_waste, 0), v_mat);
+         COALESCE(v_waste, 0), v_mat,
+         v_overridden, v_override_by);
     ELSE
       v_mat := v_qty;
       v_fee := GREATEST(0, LEAST(100000000, COALESCE((it->>'processing_fee')::NUMERIC, 0)));
@@ -266,7 +223,8 @@ BEGIN
       v_disc := LEAST(v_disc, GREATEST(v_line_cap, 0));
       INSERT INTO public.order_items
         (order_id, product_id, sku, name, item_type, unit, quantity, unit_price,
-         discount_amount, processing_fee, subtotal, dimension_details, waste_factor, material_consumed)
+         discount_amount, processing_fee, subtotal, dimension_details, waste_factor, material_consumed,
+         price_override, price_override_by)
       VALUES
         (v_id, v_pid, it->>'sku', v_pname,
          v_ptype, v_punit,
@@ -274,7 +232,8 @@ BEGIN
          v_disc,
          v_fee, 0,
          CASE WHEN (it->'dimension_details') IS NOT NULL THEN (it->'dimension_details') ELSE NULL END,
-         COALESCE(v_waste, 0), v_mat);
+         COALESCE(v_waste, 0), v_mat,
+         v_overridden, v_override_by);
     END IF;
   END LOOP;
 
@@ -297,13 +256,13 @@ BEGIN
       'change_amount', r->'change_amount',
       'subtotal', o.subtotal, 'discount_amount', o.discount_amount,
       'vat_amount', o.vat_amount, 'vat_percent', o.vat_percent,
-      'cash_rounding', o.cash_rounding, 'total_amount', o.total_amount,
-      'paid_amount', o.paid_amount, 'debt_amount', o.debt_amount, 'status', o.status)
+      'total_amount', o.total_amount,
+      'paid_amount', o.paid_amount, 'debt_amount', o.debt_amount, 'status', o.status,
+      -- 0060: [] = giá lưu đúng như màn hình; khác rỗng = có dòng bị đổi giá, app phải báo
+      'price_adjusted', v_price_adjusted)
     FROM public.orders o WHERE o.id = v_id);
 END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.pos_checkout(TEXT, JSONB, NUMERIC, JSONB, TEXT, NUMERIC, BOOLEAN, UUID, NUMERIC, TEXT) FROM anon;
 GRANT EXECUTE ON FUNCTION public.pos_checkout(TEXT, JSONB, NUMERIC, JSONB, TEXT, NUMERIC, BOOLEAN, UUID, NUMERIC, TEXT) TO authenticated;
-
-NOTIFY pgrst, 'reload schema';

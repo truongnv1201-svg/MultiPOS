@@ -127,7 +127,6 @@ export interface TransactionsSlice {
   openNewShift: (startingCash: number) => Promise<void>;
   refreshShiftFromServer: () => Promise<boolean>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
-  importStock: (productId: string, quantity: number, importPrice: number, supplierName?: string, note?: string) => Promise<void>;
   importStockBatch: (
     lines: { productId: string; quantity: number; importPrice: number }[],
     supplierName?: string,
@@ -253,7 +252,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     openNewShift: shiftStock.openNewShift,
     refreshShiftFromServer: shiftStock.refreshShiftFromServer,
     addCashbookEntry: shiftStock.addCashbookEntry,
-    importStock: shiftStock.importStock,
     importStockBatch: shiftStock.importStockBatch,
   };
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;

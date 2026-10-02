@@ -35,6 +35,9 @@ export function ReceiptModal() {
   const isDeposit = order.status === 'deposit_order';
   const paidByTransfer = order.payments?.some((p) => p.method === 'transfer');
   const showVietqrBlock = !!shop.showVietqr && isVietqrReady(vietqr) && (paidByTransfer || order.debt_amount > 0);
+  // QR thu đúng số còn phải thu: đơn nợ/cọc thu phần còn lại, đơn trả đủ thu tổng đơn.
+  // (Khổ K80 từng encode tổng đơn khiến khách quét thừa tiền.)
+  const qrAmount = order.debt_amount > 0 ? order.debt_amount : order.total_amount;
 
   const fontCls =
     shop.fontSize === 'small' ? 'text-[10px]' : shop.fontSize === 'large' ? 'text-[12px]' : 'text-[11px]';
@@ -151,8 +154,8 @@ export function ReceiptModal() {
         <>
           {/* QR động theo số tiền từ img.vietqr.io — next/image không tối ưu được ảnh ngoài động + làm vỡ CSS in: giữ <img>. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={buildVietqrUrl(vietqr, order.total_amount, `${order.order_code} MULTIPOS`)} alt="VietQR" className="w-28 h-28 object-contain" />
-          <p className="text-[9px] text-slate-500 font-sans">{vietqr.bank} • {vietqr.account} • {formatVND(order.total_amount)}</p>
+          <img src={buildVietqrUrl(vietqr, qrAmount, `${order.order_code} MULTIPOS`)} alt="VietQR" className="w-28 h-28 object-contain" />
+          <p className="text-[9px] text-slate-500 font-sans">{vietqr.bank} • {vietqr.account} • {formatVND(qrAmount)}</p>
         </>
       ) : (
         <>

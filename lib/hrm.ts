@@ -156,7 +156,8 @@ export function dailyEmployeeDayPay(status: AttendanceStatus, dailyWage: number,
 }
 
 // Tổng lương tháng của NV lương-tháng:
-// lương cứng theo công thực tế (quy theo 26 ngày chuẩn) + OT (quy từ lương tháng) + phụ cấp − tạm ứng − khấu trừ
+// lương cứng theo công thực tế (quy theo 26 ngày chuẩn, TRẦN 26 công — tháng 31
+// ngày đi đủ cũng chỉ hưởng 1 tháng lương) + OT (quy từ lương tháng) + phụ cấp − tạm ứng − khấu trừ
 export function monthlyEmployeePay(
   monthlySalary: number,
   days: number,
@@ -165,8 +166,9 @@ export function monthlyEmployeePay(
   advance = 0,
   deduction = 0,
 ): number {
+  const cappedDays = Math.min(Math.max(0, days), HR_POLICY.standardDaysPerMonth);
   const perDay = monthlySalary > 0 ? monthlySalary / HR_POLICY.standardDaysPerMonth : 0;
-  const gross = perDay * days + otPay(perDay, otHours) + allowance;
+  const gross = perDay * cappedDays + otPay(perDay, otHours) + allowance;
   return Math.round(gross - advance - deduction);
 }
 
@@ -210,8 +212,10 @@ export function buildPayrollItem(
   const dayCount = days.reduce((s, d) => s + (ATTENDANCE_STATUS_META[d.status]?.days ?? 0), 0);
   const ot = days.reduce((s, d) => s + (Number(d.ot_hours) || 0), 0);
   if (emp.salary_type === 'monthly') {
+    // Trần 26 công chuẩn (xem monthlyEmployeePay): tháng 31 ngày đi đủ cũng chỉ 1 lương.
+    const cappedDays = Math.min(dayCount, HR_POLICY.standardDaysPerMonth);
     const perDay = emp.monthly_salary > 0 ? emp.monthly_salary / HR_POLICY.standardDaysPerMonth : 0;
-    const gross = Math.round(perDay * dayCount + otPay(perDay, ot));
+    const gross = Math.round(perDay * cappedDays + otPay(perDay, ot));
     const advance = Math.round(advances[emp.id] || 0);
     return {
       employee_id: emp.id,

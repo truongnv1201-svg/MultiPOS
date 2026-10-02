@@ -310,6 +310,58 @@ describe('0062: xoá cột orders.cash_rounding (dữ liệu thử nghiệm)', (
   });
 });
 
+describe('0067: nhánh duplicate trả đúng order_code (retry an toàn)', () => {
+  it('tồn tại file migration', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0067_fix_duplicate_order_code.sql')), 'thiếu 0067');
+  });
+
+  it('0067 sửa đúng chỗ (bảng orders chỉ có order_code, không có code)', () => {
+    const sql = read('supabase/migrations/0067_fix_duplicate_order_code.sql');
+    assert.equal((sql.match(/o\.order_code,/g) || []).length, 2);
+    const code = sql
+      .split('\n')
+      .filter((l) => !/^\s*--/.test(l))
+      .join('\n');
+    assert.ok(!/o\.code\b/.test(code), 'không còn o.code trong code thực thi');
+  });
+
+  it('mọi bản redefine pos_checkout đều hết o.code (project mới chạy từ đầu cũng đúng)', () => {
+    for (const f of [
+      'supabase/migrations/0043_checkout_idempotency.sql',
+      'supabase/migrations/0050_checkout_price_guard.sql',
+      'supabase/migrations/0059_pos_price_override.sql',
+      'supabase/migrations/0060_checkout_price_adjusted_signal.sql',
+      'supabase/migrations/0062_drop_cash_rounding_column.sql',
+    ]) {
+      assert.ok(!/o\.code\b/.test(read(f)), `${f} còn o.code`);
+    }
+  });
+});
+
+describe('0068: siết quyền RPC tiền/nợ + bỏ policy thừa', () => {
+  it('tồn tại file migration', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0068_money_rpc_hardening.sql')), 'thiếu 0068');
+  });
+
+  it('revoke PUBLIC + anon, chỉ authenticated được gọi RPC tiền', () => {
+    const sql = read('supabase/migrations/0068_money_rpc_hardening.sql');
+    for (const sig of [
+      'cancel_order\\(UUID\\)',
+      'return_order_items\\(UUID, NUMERIC, JSONB\\)',
+      'collect_debt\\(UUID, NUMERIC, TEXT, TEXT\\)',
+    ]) {
+      assert.match(sql, new RegExp(`REVOKE EXECUTE ON FUNCTION public\\.${sig} FROM PUBLIC;`));
+      assert.match(sql, new RegExp(`REVOKE EXECUTE ON FUNCTION public\\.${sig} FROM anon;`));
+      assert.match(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${sig} TO authenticated;`));
+    }
+  });
+
+  it('bỏ policy insert_pending_order (không luồng nào dùng, vượt price-guard)', () => {
+    const sql = read('supabase/migrations/0068_money_rpc_hardening.sql');
+    assert.match(sql, /DROP POLICY IF EXISTS "insert_pending_order" ON public\.orders;/);
+  });
+});
+
 describe('0066: xoá dự án tạo nhầm (delete_project)', () => {
   const sql = read('supabase/migrations/0066_delete_project_rpc.sql');
   const projects = read('lib/store/tx/projects.tsx');

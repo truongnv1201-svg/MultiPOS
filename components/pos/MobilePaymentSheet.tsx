@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Banknote, CheckCircle2, CreditCard, FileSpreadsheet, Plus, QrCode, User, X } from 'lucide-react';
 import { formatVND } from '@/lib/format';
 import { useClickOutside } from '@/lib/useClickOutside';
@@ -79,6 +79,12 @@ export default function MobilePaymentSheet({
     // Bấm ra ngoài thì đóng danh sách gợi ý khách hàng
     const closeCustomerList = useCallback(() => setCustomerQuery(''), []);
     useClickOutside(customerWrapRef, customerQuery.trim() !== '', closeCustomerList);
+    // Mở sheet cho đơn khác thì xóa từ khóa cũ — giữ lại sẽ lọc sai danh sách KH.
+    const prevOpenRef = useRef(open);
+    useEffect(() => {
+      if (open && !prevOpenRef.current) setCustomerQuery('');
+      prevOpenRef.current = open;
+    }, [open]);
 
     const matches = useMemo(() => {
         const q = customerQuery.trim().toLowerCase();

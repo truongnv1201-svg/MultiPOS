@@ -1160,6 +1160,10 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         notify('Không còn dòng lương nào cần chi!', 'error');
         return false;
       }
+      // Người tạm ứng vượt lương (net <= 0) bị loại khỏi đợt chi — KHÔNG được chốt
+      // cả bảng là "đã chi" nếu còn họ, không thì khoản nợ tạm ứng của họ bốc hơi
+      // khỏi sổ (không phiếu chi, không còn đọng). Giữ bảng ở đã chốt để xử lý tiếp.
+      const excluded = payrollItems.filter((i) => i.run_id === runId && !i.paid && i.net <= 0);
       if (!await confirmDialog(`Chi lương tháng ${run.month} cho ${items.length} người (${formatPayrollTotal(items)}) qua ${fund === 'cash' ? 'Tiền mặt' : 'Ngân hàng'}?`)) return false;
       try {
         for (const it of items) {
@@ -1187,6 +1191,17 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         }
         await supa.from('payroll_runs').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', runId);
         await refreshHrm();
+        if (excluded.length > 0) {
+          // Vẫn còn người chưa chi được (tạm ứng vượt lương) -> hạ trạng thái về
+          // đã chốt để bảng không báo "đã chi xong" oan; xử lý tạm ứng rồi chi tiếp.
+          await supa.from('payroll_runs').update({ status: 'finalized', paid_at: null }).eq('id', runId);
+          await refreshHrm();
+          notify(
+            `Đã chi ${items.length} người. Còn ${excluded.length} người tạm ứng vượt lương chưa chi được (${excluded.map((e) => `${e.employee_name}: ${formatPayrollTotal([e])}`).join('; ')}) — xử lý tạm ứng rồi bấm chi tiếp. Bảng giữ ở trạng thái đã chốt.`,
+            'error',
+          );
+          return false;
+        }
         return true;
       } catch (err: any) {
         notify(`Chi lương thất bại: ${vietnamizeError(err)}`, 'error');

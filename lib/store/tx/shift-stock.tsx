@@ -33,7 +33,6 @@ export interface TxShiftStock {
   openNewShift: (startingCash: number) => Promise<void>;
   refreshShiftFromServer: () => Promise<boolean>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
-  importStock: (productId: string, quantity: number, importPrice: number, supplierName?: string, note?: string) => Promise<void>;
   importStockBatch: (
     lines: { productId: string; quantity: number; importPrice: number }[],
     supplierName?: string,
@@ -444,128 +443,6 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
     [supa, user, currentShift, setLoginOpen, syncPendingOpsRef]
   );
 
-  const importStock = useCallback(
-    async (
-      productId: string,
-      quantity: number,
-      importPrice: number,
-      supplierName: string = 'Nhà Cung Cấp',
-      note: string = 'Nhập kho hàng hóa'
-    ) => {
-      // P2: thu ngân/worker không được nhập kho (khi có Supabase).
-      if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
-        notify('Chỉ Admin/Quản lý được nhập kho!', 'error');
-        return;
-      }
-      // P2-3: chặn nhập kho khi ca đóng (trước đây chỉ disable nút ở POS, gọi trực tiếp vẫn lọt).
-      if (currentShift.status !== 'open') {
-        notify('Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi nhập kho.', 'error');
-        return;
-      }
-      const product = products.find((p) => p.id === productId);
-      if (!product || quantity <= 0) return;
-
-      const curStock = product.stock_quantity;
-      const curAvgCost = product.avg_cost;
-      const newStock = curStock + quantity;
-      const newAvgCost = newStock > 0 ? Math.round((curStock * curAvgCost + quantity * importPrice) / newStock) : importPrice;
-
-      const updatedProduct = {
-        ...product,
-        stock_quantity: newStock,
-        avg_cost: newAvgCost,
-        import_price: importPrice,
-      };
-
-      setProducts((prev) => prev.map((p) => (p.id === productId ? updatedProduct : p)));
-      await db.products.update(productId, {
-        stock_quantity: newStock,
-        avg_cost: newAvgCost,
-        import_price: importPrice,
-      });
-
-      const refCode = generateImportCode();
-      const movement: StockMovement = {
-        id: `sm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        reference_code: refCode,
-        product_id: product.id,
-        product_name: product.name,
-        movement_type: 'import',
-        quantity,
-        previous_stock: curStock,
-        new_stock: newStock,
-        note: `${note} (${supplierName}) - MAC: ${curAvgCost.toLocaleString('vi-VN')}đ -> ${newAvgCost.toLocaleString('vi-VN')}đ`,
-        created_at: new Date().toISOString(),
-      };
-
-      setStockMovements((prev) => [movement, ...prev]);
-
-      const expenseEntry: CashbookEntry = {
-        id: `cb-${Date.now()}-import`,
-        code: generateOrderCode('PC'),
-        type: 'expense',
-        fund_type: 'bank',
-        category: 'material',
-        amount: quantity * importPrice,
-        partner_name: supplierName,
-        reference_order_code: refCode,
-        note: `Thanh toán tiền nhập kho ${quantity} ${product.unit} ${product.name}`,
-        created_at: new Date().toISOString(),
-      };
-      setCashbook((prev) => [expenseEntry, ...prev]);
-      db.cashbook.add(expenseEntry).catch(console.warn);
-      // P0: lưu PO local + xếp hàng đẩy nhập kho & voucher chi lên server
-      const poSingle: PurchaseOrder = {
-        id: `po-${Date.now()}`,
-        code: refCode,
-        supplier_id: '',
-        supplier_name: supplierName,
-        items: [
-          {
-            product_id: product.id,
-            sku: product.sku,
-            name: product.name,
-            quantity,
-            unit_price: importPrice,
-            subtotal: roundMoney(quantity * importPrice),
-          },
-        ],
-        subtotal: roundMoney(quantity * importPrice),
-        discount_amount: 0,
-        total_amount: roundMoney(quantity * importPrice),
-        paid_amount: roundMoney(quantity * importPrice),
-        debt_amount: 0,
-        status: 'completed',
-        created_at: new Date().toISOString(),
-      };
-      db.purchaseOrders.add(poSingle).catch(console.warn);
-      const importQueued = await enqueueOp('import', {
-        clientRef: `imp-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-        code: refCode,
-        supplierName,
-        total: roundMoney(quantity * importPrice),
-        lines: [{ productId: product.id, sku: product.sku, quantity, importPrice }],
-      });
-      if (!importQueued) {
-        notify('Không lưu được phiếu nhập vào hàng đợi đồng bộ. Hãy thử lại.', 'error');
-        return;
-      }
-      const voucherQueued = await enqueueOp('voucher', {
-        entryId: expenseEntry.id,
-        type: expenseEntry.type,
-        fund: expenseEntry.fund_type,
-        category: expenseEntry.category,
-        amount: expenseEntry.amount,
-        partner: expenseEntry.partner_name || '',
-        reference: expenseEntry.reference_order_code || '',
-        note: expenseEntry.note || '',
-      });
-      if (!voucherQueued) notify('Phiếu nhập đã lưu nhưng chưa xếp được phiếu chi để đồng bộ.', 'error');
-      void syncPendingOpsRef.current();
-    },
-    [products, supa, profile, currentShift, setProducts, syncPendingOpsRef]
-  );
-
   // Nhập 1 phiếu nhiều dòng cùng NCC: chung 1 mã NH + 1 phiếu chi tổng.
   // Dòng trùng 1 mặt hàng được cộng dồn (MAC tính nối tiếp theo thứ tự dòng).
   const importStockBatch = useCallback(
@@ -784,7 +661,6 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
     openNewShift,
     refreshShiftFromServer,
     addCashbookEntry,
-    importStock,
     importStockBatch,
   };
 }
