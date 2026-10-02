@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 // Đăng ký service worker (chỉ production để tránh cache bẩn khi dev).
-// Phát hiện bản mới: SW mới install xong (updatefound) + chủ động update() mỗi
-// 30 phút cho tab POS mở lâu không điều hướng. KHÔNG tự reload (kẻo mất giỏ
-// hàng đang bán) — hiện banner để user chủ động tải lại lúc rảnh.
+// Phát hiện bản mới bằng 2 đường (banner chung "Có bản mới"):
+//  1. SW mới install xong (updatefound) + chủ động update() mỗi 30 phút cho tab
+//     POS mở lâu không điều hướng. Đường này CHỈ bắt khi file sw.js đổi.
+//  2. So SHA deploy: hỏi /api/version (SHA commit lúc build) mỗi 5 phút + khi quay
+//     lại tab. SHA đổi = Vercel vừa deploy bản mới (dù sw.js không đổi).
+// KHÔNG tự reload (kẻo mất giỏ hàng đang bán) — hiện banner để user chủ động
+// tải lại lúc rảnh.
 export function PwaRegister() {
   const [updateReady, setUpdateReady] = useState(false);
 
@@ -41,11 +45,55 @@ export function PwaRegister() {
     };
   }, []);
 
+  // So SHA deploy (đường 2): chạy mọi môi trường, tự tắt khi server không có SHA.
+  const firstShaRef = useRef<string | null>(null);
+  const latestShaRef = useRef<string | null>(null);
+  const dismissedShaRef = useRef<string | null>(null);
+  const checkVersion = useCallback(async () => {
+    try {
+      const res = await fetch('/api/version', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = (await res.json()) as { sha?: string | null };
+      const sha = data?.sha || null;
+      if (!sha) return;
+      latestShaRef.current = sha;
+      if (firstShaRef.current === null) {
+        firstShaRef.current = sha;
+        return;
+      }
+      if (sha !== firstShaRef.current && sha !== dismissedShaRef.current) {
+        setUpdateReady(true);
+      }
+    } catch {
+      // offline/lỗi mạng: bỏ qua, lần sau kiểm tra lại
+    }
+  }, []);
+
+  useEffect(() => {
+    // Gọi async sau tick hiện tại (không setState đồng bộ trong effect — theo idiom repo)
+    const first = window.setTimeout(() => {
+      void checkVersion();
+    }, 0);
+    const timer = window.setInterval(() => {
+      void checkVersion();
+    }, 5 * 60 * 1000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void checkVersion();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [checkVersion]);
+
   const reloadNow = useCallback(() => {
     window.location.reload();
   }, []);
 
   const dismiss = useCallback(() => {
+    dismissedShaRef.current = latestShaRef.current;
     setUpdateReady(false);
   }, []);
 

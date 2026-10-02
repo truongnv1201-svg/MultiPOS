@@ -359,6 +359,17 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     assert.match(offlineCard, /beforeinstallprompt/);
     assert.match(offlineCard, /id="btn-check-app-update"/);
   });
+
+  it('báo bản mới theo SHA deploy (không phụ thuộc sw.js đổi hay không)', () => {
+    // Mỗi push = deploy mới nhưng sw.js hiếm khi đổi -> banner cũ không bao giờ hiện.
+    // API trả SHA commit lúc build, client so với lần đầu, khác = báo banner chung.
+    const route = read('app/api/version/route.ts');
+    assert.match(route, /process\.env\.VERCEL_GIT_COMMIT_SHA/);
+    const pwa = read('components/PwaRegister.tsx');
+    assert.match(pwa, /fetch\('\/api\/version', \{ cache: 'no-store' \}\)/);
+    assert.match(pwa, /sha !== firstShaRef\.current/);
+    assert.match(pwa, /dismissedShaRef\.current = latestShaRef\.current/);
+  });
 });
 
 describe('Giai đoạn 4: icon PWA + in điện thoại + bàn phím + record list giá/KH', () => {

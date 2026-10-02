@@ -81,7 +81,7 @@ export function OfflineReadyCard() {
       return;
     }
     await reg.update();
-    setMsg('Đã kiểm tra cập nhật. Nếu có bản mới, ứng dụng sẽ báo "Có bản mới" ở đầu màn hình.');
+    setMsg('Đã kiểm tra cập nhật. Nếu có bản mới, ứng dụng sẽ báo "Có bản mới" ở góc dưới màn hình.');
     await load();
   };
 
