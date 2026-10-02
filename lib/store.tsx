@@ -41,6 +41,8 @@ import {
   generateMasterCode,
   recomputeOrderItem,
   initializeDatabase,
+  clearLocalMachineData,
+  MACHINE_PROJECT_KEY,
 } from './db';
 import { AuthProvider, useAuth } from './store/auth';
 import { CommerceProvider, useCommerce } from './store/commerce';
@@ -51,6 +53,7 @@ import { HrmProvider, useHrm } from './store/hrm-slice';
 import { pickPollMs } from './store/tx/constants';
 import type { User } from '@supabase/supabase-js';
 import { vietnamizeError } from './error-vi';
+import { notify } from '@/components/common/Toast';
 
 // P3: domain modules — types giỏ/NV (./store/types), shop/in (./store/shop),
 // tab mặc định (./store/cart), payload RPC (./store/rpc), chuẩn hóa NV (./store/staff).
@@ -584,6 +587,22 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     initializeDatabase()
       .then(async () => {
       try {
+        // Đổi project Supabase (.env.local) mà giữ cache cũ thì số liệu project
+        // trước lẫn sang: dọn 1 lần rồi ghi marker. Lần đầu (chưa có marker) chỉ
+        // ghi marker, không dọn (giữ cache máy đang dùng).
+        const currentProjectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+        try {
+          const prevProjectUrl = localStorage.getItem(MACHINE_PROJECT_KEY);
+          if (currentProjectUrl && prevProjectUrl && prevProjectUrl !== currentProjectUrl) {
+            await clearLocalMachineData();
+            localStorage.setItem(MACHINE_PROJECT_KEY, currentProjectUrl);
+            notify('Đã chuyển project mới — dọn sạch dữ liệu máy trạm cũ để khỏi lẫn số liệu.', 'info');
+          } else if (currentProjectUrl && !prevProjectUrl) {
+            localStorage.setItem(MACHINE_PROJECT_KEY, currentProjectUrl);
+          }
+        } catch {
+          /* best-effort: kẹt storage cũng không chặn nạp dữ liệu */
+        }
         const storedProducts = await db.products.toArray();
         if (storedProducts.length > 0) setProducts(storedProducts);
         const storedCustomers = await db.customers.toArray();

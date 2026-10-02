@@ -75,6 +75,30 @@ describe('reset dọn cả hàng đợi offline', () => {
   });
 });
 
+describe('đổi project dọn máy trạm (khỏi lẫn số dư project cũ)', () => {
+  it('có helper dọn sạch mọi bảng Dexie + map KH local', () => {
+    const db = read('lib/db.ts');
+    assert.match(db, /export const MACHINE_PROJECT_KEY = 'multipos_project_url';/);
+    assert.match(db, /export async function clearLocalMachineData\(\): Promise<void>/);
+    assert.match(db, /await Promise\.all\(db\.tables\.map\(\(t\) => t\.clear\(\)\)\)/);
+    assert.match(db, /localStorage\.removeItem\('multipos_customer_map_v1'\)/);
+  });
+
+  it('boot phát hiện đổi URL project thì dọn + ghi marker (lần đầu chỉ ghi marker)', () => {
+    const store = read('lib/store.tsx');
+    assert.match(store, /prevProjectUrl !== currentProjectUrl/);
+    assert.match(store, /await clearLocalMachineData\(\);/);
+    assert.match(store, /localStorage\.setItem\(MACHINE_PROJECT_KEY, currentProjectUrl\)/);
+  });
+
+  it('Cài đặt có nút dọn máy trạm (chỉ Admin, có xác nhận)', () => {
+    const settings = read('components/settings/SettingsView.tsx');
+    assert.match(settings, /Dọn sạch dữ liệu máy trạm/);
+    assert.match(settings, /\{isAdmin && \(\s*\n?\s*<button\s*\n?\s*onClick=\{handleWipeMachine\}/);
+    assert.match(settings, /window\.confirm\('Dọn SẠCH toàn bộ dữ liệu trên máy này/);
+  });
+});
+
 describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh tiền, đúng số)', () => {
   it('bảng lương không chốt đã-chi khi còn người tạm ứng vượt lương', () => {
     const hrm = read('lib/store/hrm-slice.tsx');

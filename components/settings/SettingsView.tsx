@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { useStore } from '@/lib/store';
 import { createLocalBackup, downloadLocalBackup, parseLocalBackup, restoreLocalBackup } from '@/lib/backup';
+import { clearLocalMachineData, MACHINE_PROJECT_KEY } from '@/lib/db';
 import { OfflineReadyCard } from '@/components/settings/OfflineReadyCard';
 import { VIETQR_BANKS, isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
 import { PRINT_TEMPLATES } from '@/lib/store';
@@ -23,6 +24,7 @@ import {
   Zap,
   Download,
   Upload,
+  Trash2,
 } from 'lucide-react';
 
 export function SettingsView() {
@@ -114,6 +116,25 @@ export function SettingsView() {
     }
   };
 
+  const handleWipeMachine = async () => {
+    // Dọn SẠCH dữ liệu máy trạm (đơn/quỹ/kho/công nợ local...) — dùng khi đổi project
+    // Supabase hoặc máy lẫn số liệu cũ (số dư ma khi chưa phát sinh giao dịch).
+    // Dữ liệu máy chủ KHÔNG bị ảnh hưởng. Chỉ Admin.
+    if (!window.confirm('Dọn SẠCH toàn bộ dữ liệu trên máy này? Dữ liệu máy chủ không bị ảnh hưởng. Trang sẽ tải lại với dữ liệu trống.')) return;
+    try {
+      await clearLocalMachineData();
+      try {
+        localStorage.setItem(MACHINE_PROJECT_KEY, process.env.NEXT_PUBLIC_SUPABASE_URL || '');
+      } catch {
+        /* best-effort */
+      }
+      setBackupMsg('Đã dọn sạch. Trang sẽ tải lại với dữ liệu trống.');
+      window.setTimeout(() => window.location.reload(), 500);
+    } catch (error) {
+      setBackupMsg(`Không dọn được: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   return (
     <div id="settings-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
       {/* Header */}
@@ -158,6 +179,15 @@ export function SettingsView() {
           <button onClick={() => backupInputRef.current?.click()} className="px-3 h-8 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md font-bold flex items-center gap-1.5">
             <Upload className="w-3.5 h-3.5" /> Khôi phục từ tệp
           </button>
+          {isAdmin && (
+            <button
+              onClick={handleWipeMachine}
+              className="px-3 h-8 border border-rose-300 text-rose-700 hover:bg-rose-50 rounded-md font-bold flex items-center gap-1.5"
+              title="Xóa toàn bộ đơn/quỹ/kho/công nợ trên máy này (dùng khi đổi project hoặc máy lẫn số liệu cũ). Dữ liệu máy chủ không bị ảnh hưởng."
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Dọn sạch dữ liệu máy trạm
+            </button>
+          )}
           <input
             ref={backupInputRef}
             type="file"

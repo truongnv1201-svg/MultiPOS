@@ -189,3 +189,22 @@ export { calculateDimensionRow, recomputeOrderItem } from './pricing';
 export async function initializeDatabase(): Promise<void> {
   await db.open();
 }
+
+// Marker project Supabase mà cache máy trạm này đang giữ. Đổi URL project mà không
+// dọn thì đơn/quỹ/kho/công nợ project CŨ lẫn sang project mới (số dư ma khi chưa
+// phát sinh giao dịch nào).
+export const MACHINE_PROJECT_KEY = 'multipos_project_url';
+
+// Dọn SẠCH dữ liệu máy trạm (mọi bảng Dexie + map KH local) — dùng khi đổi project
+// hoặc máy lẫn số liệu cũ. KHÔNG đụng server, KHÔNG đụng cấu hình localStorage
+// (shop/vietqr/màn hình). Xong phải reload để store nạp lại từ trống.
+export async function clearLocalMachineData(): Promise<void> {
+  await db.transaction('rw', db.tables, async () => {
+    await Promise.all(db.tables.map((t) => t.clear()));
+  });
+  try {
+    localStorage.removeItem('multipos_customer_map_v1');
+  } catch {
+    /* best-effort */
+  }
+}
