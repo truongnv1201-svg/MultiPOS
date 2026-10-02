@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { useStore } from '@/lib/store';
 import { createLocalBackup, downloadLocalBackup, parseLocalBackup, restoreLocalBackup } from '@/lib/backup';
+import { notify } from '@/components/common/Toast';
 import { NumberInput } from '@/components/common/NumberInput';
 import { clearLocalMachineData, MACHINE_PROJECT_KEY } from '@/lib/db';
 import { OfflineReadyCard } from '@/components/settings/OfflineReadyCard';
@@ -46,32 +47,30 @@ export function SettingsView() {
   const isAdmin = profile?.role === 'admin';
   // Mọi việc nhân sự (tài khoản, phân quyền, hồ sơ, công, lương) làm ở trang Quản lý nhân sự.
   const [grindingDraft, setGrindingDraft] = useState<Record<string, string>>({});
-  const [grindingMsg, setGrindingMsg] = useState<string | null>(null);
-  const [shopMsg, setShopMsg] = useState<string | null>(null);
-  const [posMsg, setPosMsg] = useState<string | null>(null);
-  const [vietqrMsg, setVietqrMsg] = useState<string | null>(null);
-  const [backupMsg, setBackupMsg] = useState<string | null>(null);
   const backupInputRef = useRef<HTMLInputElement>(null);
 
   const handleSaveShop = async () => {
     const error = await saveShopSettings();
-    setShopMsg(error ? `Lỗi: ${error}` : 'Đã lưu thông tin cửa hàng lên máy chủ.');
+    if (error) notify(`Lỗi: ${error}`, 'error');
+    else notify('Đã lưu thông tin cửa hàng lên máy chủ.', 'success');
   };
 
   const handleSavePosDefaults = async () => {
     const error = await saveShopSettings();
-    setPosMsg(error ? `Lỗi: ${error}` : 'Đã lưu mặc định POS lên máy chủ.');
+    if (error) notify(`Lỗi: ${error}`, 'error');
+    else notify('Đã lưu mặc định POS lên máy chủ.', 'success');
   };
 
   const handleSaveVietqr = async () => {
     const error = await saveVietqrSettings();
-    setVietqrMsg(error ? `Lỗi: ${error}` : 'Đã lưu VietQR lên máy chủ.');
+    if (error) notify(`Lỗi: ${error}`, 'error');
+    else notify('Đã lưu VietQR lên máy chủ.', 'success');
   };
 
   const handleSaveAllGrinding = async () => {
     const changed = grindingServices.filter((g) => (grindingDraft[g.id] ?? '') !== '');
     if (changed.length === 0) {
-      setGrindingMsg('Chưa đổi giá nào — nhập đơn giá mới rồi bấm Lưu.');
+      notify('Chưa đổi giá nào — nhập đơn giá mới rồi bấm Lưu.', 'info');
       return;
     }
     const errors: string[] = [];
@@ -87,19 +86,16 @@ export function SettingsView() {
       else saved += 1;
     }
     if (saved > 0) setGrindingDraft({});
-    setGrindingMsg(
-      errors.length === 0
-        ? `Đã lưu ${saved} giá mài lên máy chủ.`
-        : `Đã lưu ${saved} giá${errors.length ? `, lỗi ${errors.length}: ${errors.join(' | ')}` : ''}.`
-    );
+    if (errors.length === 0) notify(`Đã lưu ${saved} giá mài lên máy chủ.`, 'success');
+    else notify(`Đã lưu ${saved} giá, lỗi ${errors.length}: ${errors.join(' | ')}.`, 'error');
   };
 
   const handleBackup = async () => {
     try {
       downloadLocalBackup(await createLocalBackup());
-      setBackupMsg('Đã tải tệp sao lưu dữ liệu trên máy này.');
+      notify('Đã tải tệp sao lưu dữ liệu trên máy này.', 'success');
     } catch (error) {
-      setBackupMsg(`Không thể sao lưu: ${error instanceof Error ? error.message : String(error)}`);
+      notify(`Không thể sao lưu: ${error instanceof Error ? error.message : String(error)}`, 'error');
     }
   };
 
@@ -108,10 +104,10 @@ export function SettingsView() {
       const backup = parseLocalBackup(JSON.parse(await file.text()));
       if (!window.confirm('Khôi phục sẽ thay thế dữ liệu local hiện tại trên máy này. Tiếp tục?')) return;
       await restoreLocalBackup(backup);
-      setBackupMsg('Đã khôi phục. Trang sẽ tải lại để dùng dữ liệu vừa khôi phục.');
+      notify('Đã khôi phục. Trang sẽ tải lại để dùng dữ liệu vừa khôi phục.', 'success');
       window.setTimeout(() => window.location.reload(), 500);
     } catch (error) {
-      setBackupMsg(`Không thể khôi phục: ${error instanceof Error ? error.message : String(error)}`);
+      notify(`Không thể khôi phục: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
       if (backupInputRef.current) backupInputRef.current.value = '';
     }
@@ -129,10 +125,10 @@ export function SettingsView() {
       } catch {
         /* best-effort */
       }
-      setBackupMsg('Đã dọn sạch. Trang sẽ tải lại với dữ liệu trống.');
+      notify('Đã dọn sạch. Trang sẽ tải lại với dữ liệu trống.', 'success');
       window.setTimeout(() => window.location.reload(), 500);
     } catch (error) {
-      setBackupMsg(`Không dọn được: ${error instanceof Error ? error.message : String(error)}`);
+      notify(`Không dọn được: ${error instanceof Error ? error.message : String(error)}`, 'error');
     }
   };
 
@@ -200,7 +196,6 @@ export function SettingsView() {
             }}
           />
         </div>
-        {backupMsg && <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{backupMsg}</p>}
       </div>
 
       <OfflineReadyCard />
@@ -283,7 +278,6 @@ export function SettingsView() {
                   className="w-full h-8 px-2.5 border border-slate-300 rounded disabled:bg-slate-50 disabled:text-slate-400"
                 />
               </div>
-              {shopMsg && <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{shopMsg}</p>}
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Số dư đầu kỳ tiền mặt (đ)</label>
@@ -385,9 +379,6 @@ export function SettingsView() {
               </select>
             </div>
           </div>
-          {posMsg && (
-            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{posMsg}</p>
-          )}
         </div>
 
         {/* 3. VietQR (đồng bộ máy chủ) */}
@@ -471,9 +462,6 @@ export function SettingsView() {
               </p>
             )}
           </div>
-          {vietqrMsg && (
-            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{vietqrMsg}</p>
-          )}
         </div>
 
         {/* 4. Đơn giá công mài (đồng bộ máy chủ) */}
@@ -514,9 +502,6 @@ export function SettingsView() {
               </div>
             ))}
           </div>
-          {grindingMsg && (
-            <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded p-2">{grindingMsg}</p>
-          )}
         </div>
 
         {/* 5. Trung tâm in ấn (chỉ lưu trên máy này) */}

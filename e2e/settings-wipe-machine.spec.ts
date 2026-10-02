@@ -38,4 +38,20 @@ test.describe('Cài đặt: dọn máy trạm khi đổi project', () => {
     const marker = await page.evaluate(() => localStorage.getItem('multipos_project_url'));
     expect(marker).toContain('supabase.co');
   });
+
+  test('bấm Lưu không đổi gì thì toast nổi (không hộp inline)', async ({ page }) => {
+    test.slow();
+    await page.setViewportSize({ width: 1600, height: 950 });
+    await loginAdmin(page);
+
+    await page.keyboard.press('Alt+s');
+    await expect(page.locator('#settings-view')).toBeVisible({ timeout: 20_000 });
+
+    // Không sửa giá mài nào -> bấm Lưu chỉ đọc, không ghi DB, toast info nổi góc phải
+    const saveBtn = page.locator('#settings-view button[title="Lưu một lần các đơn giá đã đổi lên máy chủ"]');
+    await saveBtn.scrollIntoViewIfNeeded();
+    await saveBtn.click();
+    const toast = page.locator('div.fixed.bottom-4.right-4');
+    await expect(toast).toContainText('Chưa đổi giá nào', { timeout: 10_000 });
+  });
 });

@@ -98,9 +98,18 @@ describe('đổi project dọn máy trạm (khỏi lẫn số dư project cũ)',
     assert.match(settings, /window\.confirm\('Dọn SẠCH toàn bộ dữ liệu trên máy này/);
   });
 
-  it('lưu cửa hàng báo thành công (không im lặng khi xong)', () => {
+  it('lưu cửa hàng báo toast (không hộp inline im lặng)', () => {
     const settings = read('components/settings/SettingsView.tsx');
-    assert.match(settings, /setShopMsg\(error \? `Lỗi: \$\{error\}` : 'Đã lưu thông tin cửa hàng lên máy chủ\.'\)/);
+    assert.match(settings, /notify\('Đã lưu thông tin cửa hàng lên máy chủ\.', 'success'\)/);
+    assert.ok(!/setShopMsg|shopMsg/.test(settings), 'không còn message inline khối cửa hàng');
+  });
+
+  it('toàn trang Cài đặt dùng toast, không còn hộp message inline', () => {
+    const settings = read('components/settings/SettingsView.tsx');
+    assert.match(settings, /import \{ notify \} from '@\/components\/common\/Toast';/);
+    for (const name of ['grindingMsg', 'posMsg', 'vietqrMsg', 'backupMsg']) {
+      assert.ok(!new RegExp(name).test(settings), `còn sót ${name}`);
+    }
   });
 });
 
