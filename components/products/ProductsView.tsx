@@ -49,7 +49,7 @@ export function ProductsView() {
   const [editImportPrice, setEditImportPrice] = useState(0);
   const [editWasteFactor, setEditWasteFactor] = useState(0);
   const [editGrindingPrice, setEditGrindingPrice] = useState(0);
-  const [editAllowDecimal, setEditAllowDecimal] = useState(false);
+  const [editIntegerOnly, setEditIntegerOnly] = useState(false);
 
   const openEditProduct = (p: Product) => {
     setEditingProduct(p);
@@ -60,7 +60,7 @@ export function ProductsView() {
     setEditImportPrice(p.import_price);
     setEditWasteFactor(p.waste_factor ?? 0);
     setEditGrindingPrice(p.default_grinding_price ?? 0);
-    setEditAllowDecimal(p.product_type === 'area' || p.allow_decimal !== false);
+    setEditIntegerOnly(p.product_type !== 'area' && p.allow_decimal === false);
   };
 
   const handleUpdateProduct = async (e: React.FormEvent) => {
@@ -74,7 +74,7 @@ export function ProductsView() {
         retail_price: Math.max(0, Math.round(editRetailPrice)),
         import_price: Math.max(0, Math.round(editImportPrice)),
         waste_factor: editProductType === 'area' ? Math.max(0, editWasteFactor) : undefined,
-        allow_decimal: editProductType === 'area' ? true : editAllowDecimal,
+        allow_decimal: editProductType === 'area' ? true : !editIntegerOnly,
         default_grinding_price: editProductType === 'area' ? Math.max(0, Math.round(editGrindingPrice)) : undefined,
       });
       setEditingProduct(null);
@@ -716,12 +716,12 @@ export function ProductsView() {
               <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={editAllowDecimal}
+                  checked={editIntegerOnly}
                   disabled={editProductType === 'area'}
-                  onChange={(e) => setEditAllowDecimal(e.target.checked)}
+                  onChange={(e) => setEditIntegerOnly(e.target.checked)}
                   className="w-4 h-4 accent-blue-600"
                 />
-                Cho phép bán số lượng thập phân (vd 2,15 kg)
+                Chỉ bán số lượng nguyên
                 {editProductType === 'area' && <span className="text-slate-400 font-normal">— hàng m² luôn tính thập phân</span>}
               </label>
 

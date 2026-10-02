@@ -144,7 +144,7 @@ describe('0054: số lượng thập phân theo mặt hàng', () => {
     const catalog = read('lib/store/catalog.tsx');
     assert.match(catalog, /allow_decimal: row\.allow_decimal === true/);
     assert.match(catalog, /allow_decimal: data\.allow_decimal === true/);
-    assert.match(read('components/products/AddProductFormModal.tsx'), /Cho phép bán số lượng thập phân/);
+    assert.match(read('components/products/AddProductFormModal.tsx'), /Chỉ bán số lượng nguyên/);
     assert.match(read('lib/types.ts'), /allow_decimal\?: boolean/);
   });
 

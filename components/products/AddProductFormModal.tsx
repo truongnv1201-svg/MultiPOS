@@ -77,8 +77,9 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
   const [retailPrice, setRetailPrice] = useState<number | ''>('');
   const [importPrice, setImportPrice] = useState<number | ''>('');
   const [stockQuantity, setStockQuantity] = useState<number | ''>('');
-  // Mặc định cho phép số lượng thập phân (2,15 kg) — tắt thủ công cho hàng đếm theo cái
-  const [allowDecimal, setAllowDecimal] = useState(true);
+  // Mặc định bán được số lượng thập phân (2,15 kg) — tick để khóa hàng đếm
+  // theo cái về số nguyên (allow_decimal = false)
+  const [integerOnly, setIntegerOnly] = useState(false);
   const [wasteFactor, setWasteFactor] = useState(5);
   const [defaultGrindingPrice, setDefaultGrindingPrice] = useState(20000);
   const [saving, setSaving] = useState(false);
@@ -97,7 +98,7 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
         import_price: Math.max(0, Math.round(importPrice || 0)),
         avg_cost: Math.max(0, Math.round(importPrice || 0)), // INT-ERR-01
         stock_quantity: Math.max(0, roundQty(stockQuantity || 0)),
-        allow_decimal: productType === 'area' ? true : allowDecimal,
+        allow_decimal: productType === 'area' ? true : !integerOnly,
         waste_factor: productType === 'area' ? wasteFactor : undefined,
         default_grinding_price: productType === 'area' ? defaultGrindingPrice : undefined,
         // SKU/Mã vạch từ quick-create POS; bỏ trống để addProduct tự sinh SP...
@@ -182,8 +183,8 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
                 onChange={(e) => {
                   const next = e.target.value;
                   setUnit(next);
-                  // Đơn vị cân nặng/thể tích (kg, l, tạ...) -> gợi ý bật số lượng thập phân
-                  if (suggestDecimalForUnit(next) && productType !== 'area') setAllowDecimal(true);
+                  // Đơn vị cân nặng/thể tích (kg, l, tạ...) -> gợi ý TẮT khóa số nguyên
+                  if (suggestDecimalForUnit(next) && productType !== 'area') setIntegerOnly(false);
                 }}
                 aria-label="Đơn vị tính"
                 className="w-full h-8 px-2.5 border border-slate-300 rounded bg-white"
@@ -257,7 +258,7 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
               <NumberInput
                 value={stockQuantity}
                 onChange={(val) => setStockQuantity(val)}
-                allowDecimals={productType === 'area' || allowDecimal}
+                allowDecimals={productType === 'area' || !integerOnly}
                 maxDecimals={QTY_MAX_DECIMALS}
                 placeholder="0"
                 className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
@@ -265,12 +266,12 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
               <label className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={productType === 'area' ? true : allowDecimal}
+                  checked={productType === 'area' ? false : integerOnly}
                   disabled={productType === 'area'}
-                  onChange={(e) => setAllowDecimal(e.target.checked)}
+                  onChange={(e) => setIntegerOnly(e.target.checked)}
                   className="w-4 h-4 accent-blue-600"
                 />
-                Cho phép bán số lượng thập phân (vd 2,15 kg)
+                Chỉ bán số lượng nguyên
                 {productType === 'area' && <span className="text-slate-400 font-normal">— hàng m² luôn tính thập phân</span>}
               </label>
             </div>
