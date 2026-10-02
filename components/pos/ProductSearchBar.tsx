@@ -66,8 +66,82 @@ interface ProductSearchBarProps {
    * Khi có, component render nó đúng vị trí: sau ô tìm kiếm, trước cụm nút quét mã/bàn phím.
    */
   quantitySlot?: React.ReactNode;
+  /**
+   * Trạng thái 2 nút công cụ do parent giữ (POS đặt nút ở cột controls bên phải).
+   * Không truyền thì component tự giữ state và vẽ nút inline như cũ.
+   */
+  externalTools?: SearchTools;
+  /** Ẩn cụm nút inline (dùng kèm externalTools khi parent vẽ nút ở chỗ khác). */
+  hideTools?: boolean;
 }
 
+
+export interface SearchTools {
+  scannerOpen: boolean;
+  setScannerOpen: (open: boolean) => void;
+  wedgeMode: boolean;
+  toggleWedgeMode: () => void;
+}
+
+// Trạng thái 2 nút công cụ (quét mã camera + chế độ bàn phím) tách riêng để màn
+// POS đặt cụm nút ở cột controls bên phải, logic quét/wedge vẫn nằm trong
+// ProductSearchBar và đọc qua tools này.
+export function useSearchTools(): SearchTools {
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [wedgeMode, setWedgeMode] = useState(false);
+  // Nạp cờ bàn phím từ máy (đọc trong effect để không lệch SSR, defer microtask như idiom repo)
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      setWedgeMode(localStorage.getItem('multipos_wedge_mode') === '1');
+    });
+  }, []);
+  const toggleWedgeMode = useCallback(() => {
+    setWedgeMode((prev) => {
+      const next = !prev;
+      localStorage.setItem('multipos_wedge_mode', next ? '1' : '0');
+      if (next) window.setTimeout(() => document.getElementById('f1-search-input')?.focus(), 0);
+      return next;
+    });
+  }, []);
+  return { scannerOpen, setScannerOpen, wedgeMode, toggleWedgeMode };
+}
+
+// Hai nút quét mã + bàn phím — cùng id/style/tooltip mọi nơi đặt.
+export function SearchToolButtons({ tools }: { tools: SearchTools }) {
+  const { wedgeMode, toggleWedgeMode, setScannerOpen } = tools;
+  return (
+    <>
+      {/* Nút quét mã vạch bằng camera (mobile-first; desktop dùng cho quầy có webcam/máy cảm ứng) */}
+      <button
+        type="button"
+        id="btn-pos-scan-barcode"
+        onClick={() => setScannerOpen(true)}
+        className="shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 active:bg-slate-100"
+        title="Quét mã vạch bằng camera"
+        aria-label="Quét mã vạch bằng camera"
+      >
+        <ScanLine className="w-4 h-4" />
+      </button>
+
+      {/* Chế độ bàn phím: máy quét USB/BT gõ nhanh thì tự thêm hàng, không cần bấm Enter */}
+      <button
+        type="button"
+        id="btn-pos-wedge-mode"
+        onClick={toggleWedgeMode}
+        aria-pressed={wedgeMode}
+        className={`shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border active:bg-slate-100 ${
+          wedgeMode
+            ? 'border-amber-400 bg-amber-50 text-amber-700'
+            : 'border-slate-300 bg-white text-slate-600'
+        }`}
+        title={wedgeMode ? 'Đang bật chế độ bàn phím — quét xong tự thêm vào giỏ' : 'Bật chế độ bàn phím (máy quét gõ nhanh)'}
+        aria-label="Chế độ bàn phím quét nhanh"
+      >
+        <Keyboard className="w-4 h-4" />
+      </button>
+    </>
+  );
+}
 
 export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearchBarProps>(
   function ProductSearchBar(
@@ -79,6 +153,8 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       onPickProduct,
       confirmQtyOnEnter = false,
       quantitySlot,
+      externalTools,
+      hideTools = false,
     }: ProductSearchBarProps,
     ref
   ) {
@@ -96,7 +172,8 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateSeed, setQuickCreateSeed] = useState('');
   const [quickCreateSeq, setQuickCreateSeq] = useState(0);
-  const [scannerOpen, setScannerOpen] = useState(false);
+  const internalTools = useSearchTools();
+  const tools = externalTools ?? internalTools;
   const openQuickCreate = (q: string) => {
     setQuickCreateSeed(q);
     setQuickCreateSeq((s) => s + 1);
@@ -119,7 +196,6 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   // Chế độ bàn phím: máy quét Wedge/USB-BT gõ nhanh rồi không bấm Enter.
   const wedgeTimerRef = useRef<number | null>(null);
   const lastKeyAtRef = useRef(0);
-  const [wedgeMode, setWedgeMode] = useState(false);
   // Ô số lượng: giữ chuỗi đang gõ để không mất dấu phẩy thập phân giữa các lần render
   const [qtyText, setQtyText] = useState('');
   // Hàng đã chốt ở Enter lần 1 (chế độ confirmQtyOnEnter): Enter lần 2 ở ô SL
@@ -131,7 +207,6 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   }, []);
 
   useClickOutside(searchWrapRef, isDropdownOpen, closeDropdown);
-
 
   const filteredProducts = React.useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -154,28 +229,13 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     pendingPickRef.current = null;
   };
 
-  // Nạp cờ bàn phím từ máy (đọc trong effect để không lệch SSR, defer microtask như idiom repo)
-  useEffect(() => {
-    Promise.resolve().then(() => {
-      setWedgeMode(localStorage.getItem('multipos_wedge_mode') === '1');
-    });
-  }, []);
-
+  // Nạp cờ bàn phím từ máy do useSearchTools giữ (tools nội bộ hoặc parent truyền).
   useEffect(
     () => () => {
       if (wedgeTimerRef.current !== null) window.clearTimeout(wedgeTimerRef.current);
     },
     []
   );
-
-  const toggleWedgeMode = () => {
-    setWedgeMode((prev) => {
-      const next = !prev;
-      localStorage.setItem('multipos_wedge_mode', next ? '1' : '0');
-      if (next) window.setTimeout(() => searchInputRef.current?.focus(), 0);
-      return next;
-    });
-  };
 
   // ENTER LẦN 1: phân nhánh — hàng m² mở ngay F3, hàng thường nhảy sang ô SL
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -305,7 +365,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   // Mã quét từ camera: ưu tiên khớp chính xác barcode/SKU để vào giỏ thẳng,
   // không khớp thì đổ mã vào ô tìm kiếm để thủ công chọn / tạo nhanh.
   const handleScannedCode = (code: string) => {
-    setScannerOpen(false);
+    tools.setScannerOpen(false);
     const normalized = code.trim().toLowerCase();
     const matched = products.find(
       (p) => (p.barcode || '').trim().toLowerCase() === normalized || p.sku.trim().toLowerCase() === normalized
@@ -326,7 +386,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     setSearchQuery(value);
     setIsDropdownOpen(true);
     setSelectedIndex(0);
-    if (!wedgeMode) return;
+    if (!tools.wedgeMode) return;
 
     const now = Date.now();
     // Ngắt quãng > 400ms = lượt gõ mới (người dùng gõ tay cũng không bị bắt nhầm).
@@ -403,34 +463,9 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         quantitySlot
       )}
 
-      {/* Nút quét mã vạch bằng camera (mobile-first; desktop dùng cho quầy có webcam/máy cảm ứng) */}
-      <button
-        type="button"
-        id="btn-pos-scan-barcode"
-        onClick={() => setScannerOpen(true)}
-        className="shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 active:bg-slate-100"
-        title="Quét mã vạch bằng camera"
-        aria-label="Quét mã vạch bằng camera"
-      >
-        <ScanLine className="w-4 h-4" />
-      </button>
-
-      {/* Chế độ bàn phím: máy quét USB/BT gõ nhanh thì tự thêm hàng, không cần bấm Enter */}
-      <button
-        type="button"
-        id="btn-pos-wedge-mode"
-        onClick={toggleWedgeMode}
-        aria-pressed={wedgeMode}
-        className={`shrink-0 inline-flex h-10 sm:h-9 w-10 sm:w-9 items-center justify-center rounded-lg border active:bg-slate-100 ${
-          wedgeMode
-            ? 'border-amber-400 bg-amber-50 text-amber-700'
-            : 'border-slate-300 bg-white text-slate-600'
-        }`}
-        title={wedgeMode ? 'Đang bật chế độ bàn phím — quét xong tự thêm vào giỏ' : 'Bật chế độ bàn phím (máy quét gõ nhanh)'}
-        aria-label="Chế độ bàn phím quét nhanh"
-      >
-        <Keyboard className="w-4 h-4" />
-      </button>
+      {/* Cụm nút quét mã/bàn phím — mặc định vẽ inline; POS đặt ở cột controls
+          bên phải thì truyền hideTools + tự vẽ <SearchToolButtons/> ở đó. */}
+      {!hideTools && <SearchToolButtons tools={tools} />}
 
       {/* Dropdown kết quả — chiều cao cố định để danh sách không nhảy khi gõ từng ký tự */}
       {isDropdownOpen && searchQuery.trim().length > 0 && (
@@ -547,7 +582,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         </div>
       )}
 
-      <BarcodeScannerSheet open={scannerOpen} onClose={() => setScannerOpen(false)} onDetected={handleScannedCode} />
+      <BarcodeScannerSheet open={tools.scannerOpen} onClose={() => tools.setScannerOpen(false)} onDetected={handleScannedCode} />
 
       {/* Tạo nhanh hàng hóa — dùng đúng form "Thêm Hàng Hóa Mới" của Danh mục,
           seed Tên/SKU từ chuỗi đang tìm; remount theo key=seq mỗi lần mở */}

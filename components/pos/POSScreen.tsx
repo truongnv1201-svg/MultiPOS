@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { Product, OrderItem, Customer } from '@/lib/types';
-import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
+import { ProductSearchBar, ProductSearchBarHandle, useSearchTools, SearchToolButtons } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import MobileCartSheet from '@/components/pos/MobileCartSheet';
 import { readOnlyCellClass, editCellClass } from '@/components/common/EditableCell';
@@ -127,6 +127,8 @@ export function POSScreen() {
   const quickQuantityRef = useRef<HTMLInputElement>(null);
   /** Ref đến ProductSearchBar để gọi handleQuantityKeyDown khi ô SL render ở ngoài */
   const searchBarRef = useRef<ProductSearchBarHandle>(null);
+  // 2 nút quét mã/bàn phím đặt ở cột controls bên phải (state dùng chung với SearchBar)
+  const searchTools = useSearchTools();
 
   // Quick customer modal: state mở/đóng ở đây, form + lưu trong POSQuickCustomerModal
   const [isQuickCustomerModalOpen, setIsQuickCustomerModalOpen] = useState<boolean>(false);
@@ -655,6 +657,8 @@ export function POSScreen() {
             <ProductSearchBar
               ref={searchBarRef}
               showQuantityInput={false}
+              externalTools={searchTools}
+              hideTools
               quantity={quickQuantity}
               onQuantityChange={setQuickQuantity}
               quantityInputRef={quickQuantityRef}
@@ -787,6 +791,8 @@ export function POSScreen() {
                 </button>
               </div>
             )}
+            {/* Quét mã + bàn phím: dời từ cạnh ô tìm sang phải để toolbar cân đối */}
+            <SearchToolButtons tools={searchTools} />
           </div>
         </div>
 

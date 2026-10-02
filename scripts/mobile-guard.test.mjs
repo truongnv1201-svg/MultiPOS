@@ -72,6 +72,16 @@ describe('POS: đã bỏ chế độ bán hàng dạng lưới thẻ', () => {
     assert.match(header, /e\.key === 'F2'/);
     assert.match(header, /go\('pos'\)/);
   });
+
+  it('2 nút quét mã/bàn phím nằm ở cột controls phải (state dùng chung với ô tìm)', () => {
+    const bar = read('components/pos/ProductSearchBar.tsx');
+    assert.match(bar, /export function useSearchTools\(\): SearchTools/);
+    assert.match(bar, /export function SearchToolButtons\(\{ tools \}/);
+    const pos = read('components/pos/POSScreen.tsx');
+    assert.match(pos, /const searchTools = useSearchTools\(\);/);
+    assert.match(pos, /externalTools=\{searchTools\}\s*\n?\s*hideTools/);
+    assert.match(pos, /<SearchToolButtons tools=\{searchTools\} \/>/);
+  });
 });
 
 describe('POS: gợi ý và nhảy phím F1 / F9 (thu ngân không rời bàn phím)', () => {
