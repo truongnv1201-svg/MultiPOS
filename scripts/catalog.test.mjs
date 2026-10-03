@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { maxSpNumber } from '../lib/codes.ts';
+import { maxSpNumber, maxCodeNumber } from '../lib/codes.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
@@ -24,11 +24,25 @@ describe('maxSpNumber', () => {
   });
 });
 
+describe('maxCodeNumber (dùng chung SP/KH/NCC)', () => {
+  it('KH/NCC nối tiếp số lớn nhất, không lấp số đã xóa', () => {
+    assert.equal(maxCodeNumber(['KH0001', 'KH0003', 'KH0004'], 'KH'), 4);
+    assert.equal(maxCodeNumber(['NCC0002'], 'NCC'), 2);
+    assert.equal(maxCodeNumber([], 'KH'), 0);
+  });
+});
+
 describe('addProduct dùng mã nối tiếp', () => {
   it('lấy maxSpNumber(products), retry cũng nối tiếp (không gọi masterSeq cứng)', () => {
     const catalog = read('lib/store/catalog.tsx');
     assert.match(catalog, /maxSpNumber\(products\)/);
     assert.match(catalog, /const takeSku = \(\) => \{/);
     assert.ok(!/generateMasterCode\('SP'\)/.test(catalog), 'không còn sinh mã từ counter cứng');
+  });
+
+  it('KH/NCC cùng quy tắc max (không lấp số đã xóa)', () => {
+    const catalog = read('lib/store/catalog.tsx');
+    assert.match(catalog, /maxCodeNumber\(\s*\n?\s*customers\.map\(\(c\) => c\.code\),\s*\n?\s*'KH'/);
+    assert.match(catalog, /maxCodeNumber\(\s*\n?\s*suppliers\.map\(\(s\) => s\.code\),\s*\n?\s*'NCC'/);
   });
 });

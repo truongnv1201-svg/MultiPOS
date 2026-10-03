@@ -8,7 +8,7 @@ import { useAuth } from './auth';
 import { useNetwork } from './network';
 import type { Product, Customer, Supplier } from '../types';
 import { db, type PendingMasterData } from '../db';
-import { maxSpNumber } from '../codes';
+import { maxCodeNumber, maxSpNumber } from '../codes';
 import { stableNext } from './stable';
 import { cacheKeys, mirrorUpsert } from './tx/mirror';
 import { notify } from '@/components/common/Toast';
@@ -627,7 +627,10 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
           if (useExisting) return dup;
         }
       }
-      let codeNum = customers.length + 1;
+      let codeNum = maxCodeNumber(
+        customers.map((c) => c.code),
+        'KH'
+      ) + 1;
       let code = `KH${String(codeNum).padStart(4, '0')}`;
       while (customers.some((c) => c.code === code)) {
         codeNum++;
@@ -713,7 +716,10 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
 
   const addSupplier = useCallback(
     async (data: Omit<Supplier, 'id' | 'code'>): Promise<Supplier> => {
-      let codeNum = suppliers.length + 1;
+      let codeNum = maxCodeNumber(
+        suppliers.map((s) => s.code),
+        'NCC'
+      ) + 1;
       let code = `NCC${String(codeNum).padStart(4, '0')}`;
       while (suppliers.some((s) => s.code === code)) {
         codeNum++;
