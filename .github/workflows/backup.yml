@@ -90,7 +90,8 @@ jobs:
             ls -lh backup/
             ENCRYPTED=true
           fi
-          sha256sum backup/* > "backup/multipos-$DATE.sha256"
+          # Ghi tên trần (không prefix backup/) để file sha dùng được ở mọi nơi.
+          (cd backup && sha256sum multipos-* > "multipos-$DATE.sha256")
           cat backup/*.sha256
           {
             echo "## Backup $DATE (UTC)"

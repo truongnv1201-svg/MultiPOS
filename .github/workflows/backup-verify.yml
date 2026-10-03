@@ -62,9 +62,10 @@ jobs:
           BASE=$(basename "$LATEST")
           DATE=$(echo "$BASE" | sed -n 's/.*multipos-\([0-9-]*\)\.dump.*/\1/p')
           # Kiểm tra SHA nếu còn file .sha256 cùng ngày trên B2.
+          # (Bỏ prefix thư mục nếu có — file sha cũ ghi dạng backup/...).
           if aws s3 cp "s3://$S3_BUCKET/daily/multipos-$DATE.sha256" ./check.sha256 \
             --endpoint-url "$S3_ENDPOINT" --region "$REGION" 2>/dev/null; then
-            grep "$BASE" ./check.sha256 | sha256sum -c -
+            grep "$BASE" ./check.sha256 | awk '{n=$2; sub(/^.*\//,"",n); print $1"  "n}' | sha256sum -c -
             echo "SHA256: OK"
           else
             echo "SHA256: không có file đối chiếu cùng ngày — bỏ qua."
