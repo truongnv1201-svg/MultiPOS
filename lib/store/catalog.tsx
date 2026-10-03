@@ -7,7 +7,8 @@ import React, { createContext, useContext, useState, useCallback, useRef } from 
 import { useAuth } from './auth';
 import { useNetwork } from './network';
 import type { Product, Customer, Supplier } from '../types';
-import { db, generateMasterCode, type PendingMasterData } from '../db';
+import { db, type PendingMasterData } from '../db';
+import { maxSpNumber } from '../codes';
 import { stableNext } from './stable';
 import { cacheKeys, mirrorUpsert } from './tx/mirror';
 import { notify } from '@/components/common/Toast';
@@ -509,7 +510,14 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Forbidden: cần quyền quản lý');
       }
       const autoSku = !data.sku;
-      let sku = data.sku || generateMasterCode('SP');
+      // Mã nối tiếp số SP lớn nhất đang có trong danh mục (kể cả khi vừa tải lại
+      // trang). Vòng retry 23505 bên dưới là lưới cuối khi 2 máy trùng nhau.
+      let nextNum = maxSpNumber(products);
+      const takeSku = () => {
+        nextNum += 1;
+        return `SP${String(nextNum).padStart(6, '0')}`;
+      };
+      let sku = data.sku || takeSku();
       const localProd: Product = {
         ...data,
         id: `prod-${Date.now()}`,
@@ -565,7 +573,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
             result.error?.code === '23505' &&
             /products_sku_key|sku/i.test(result.error.message || '');
           if (!autoSku || !duplicateSku) break;
-          sku = generateMasterCode('SP');
+          sku = takeSku();
         }
         if (!row) throw new Error(lastError?.message || 'Không thể lưu hàng hóa lên máy chủ.');
         newProd = {
@@ -580,7 +588,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       await db.products.add(newProd);
       return newProd;
     },
-    [supa, profile, user, isOnline, queueMasterData]
+    [supa, profile, user, isOnline, queueMasterData, products]
   );
 
   const updateProduct = useCallback(async (id: string, updates: Partial<Product>) => {
