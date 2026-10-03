@@ -44,16 +44,24 @@ jobs:
           mkdir -p backup
           # Dùng image postgres:17 khớp major version Supabase (config.toml major_version = 17).
           docker run --rm postgres:17 pg_dump --version
-          # Tách host/port/db/user từ connection string để tránh lộ password trong ps.
-          # Hỗ trợ dạng: postgresql://user:pass@host:port/dbname[?params]
-          CONN="$SUPABASE_DB_URL"
-          USER=$(echo "$CONN" | sed -n 's|.*://\([^:]*\):.*|\1|p')
-          HOST=$(echo "$CONN" | sed -n 's|.*@\([^:/]*\).*|\1|p')
-          PORT=$(echo "$CONN" | sed -n 's|.*@[^:]*:\([0-9]*\)/.*|\1|p')
-          DB=$(echo "$CONN" | sed -n 's|.*/[a-zA-Z0-9_]*:\([0-9]*\)/\([^?]*\).*|\2|p')
-          [ -z "$PORT" ] && PORT=5432
-          [ -z "$DB" ] && DB=postgres
-          PASS=$(echo "$CONN" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
+          # Tách host/port/db/user bằng urllib (chuẩn URL, chịu được mật khẩu có ký tự đặc biệt).
+          eval "$(python3 - <<'EOF'
+          import os, shlex, urllib.parse
+          u = urllib.parse.urlparse(os.environ['SUPABASE_DB_URL'])
+          user = u.username or 'postgres'
+          pwd = urllib.parse.unquote(u.password or '')
+          host = u.hostname or ''
+          port = u.port or 5432
+          db = (u.path or '/postgres').lstrip('/') or 'postgres'
+          print(f"USER={shlex.quote(user)}")
+          print(f"HOST={shlex.quote(host)}")
+          print(f"PORT={shlex.quote(str(port))}")
+          print(f"DB={shlex.quote(db)}")
+          print(f"PASS={shlex.quote(pwd)}")
+          EOF
+          )"
+          [ -z "$HOST" ] && { echo "❌ Không tách được host từ SUPABASE_DB_URL."; exit 1; }
+          echo "::add-mask::$PASS"
           echo "Dump $USER@$HOST:$PORT/$DB ..."
           docker run --rm \
             -e PGPASSWORD="$PASS" \
