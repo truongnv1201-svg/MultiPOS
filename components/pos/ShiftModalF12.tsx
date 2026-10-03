@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '@/lib/store';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { notify } from '@/components/common/Toast';
@@ -37,6 +37,28 @@ export function ShiftModalF12() {
   const [countedCash, setCountedCash] = useState<number>(currentShift.expected_cash || 0);
   const [newShiftStartingCash, setNewShiftStartingCash] = useState<number>(2000000);
   const [isClosing, setIsClosing] = useState<boolean>(false);
+
+  // Modal mount thường trực (đóng = return null) nên state ô nhập giữ nguyên giữa
+  // các lần mở — reset mỗi lần mở: kiểm đếm về đúng lý thuyết hiện tại, đầu ca mới
+  // mặc định = số đếm được ca trước (bàn giao két liên tục), chưa từng đếm thì 2M.
+  const prevOpenRef = useRef(shiftModalOpen);
+  useEffect(() => {
+    if (shiftModalOpen && !prevOpenRef.current) {
+      setCountedCash(currentShift.expected_cash || 0);
+      setNewShiftStartingCash(currentShift.counted_cash ?? 2000000);
+    }
+    prevOpenRef.current = shiftModalOpen;
+  }, [shiftModalOpen, currentShift.expected_cash, currentShift.counted_cash]);
+
+  // Esc đóng modal (như các modal khác; phím F12 toàn cục đã nhường khi dialog mở)
+  useEffect(() => {
+    if (!shiftModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShiftModalOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [shiftModalOpen, setShiftModalOpen]);
 
   if (!shiftModalOpen) return null;
 
@@ -82,7 +104,10 @@ export function ShiftModalF12() {
       setLoginOpen(true);
       return;
     }
-    await openNewShift(newShiftStartingCash);
+    // openNewShift tự báo lỗi chi tiết (ca đang mở/tiền sai/server fail) — chỉ
+    // đóng modal + báo thành công khi mở thật (trước đây báo thành công oan).
+    const ok = await openNewShift(newShiftStartingCash);
+    if (!ok) return;
     notify('Bắt đầu ca làm việc mới thành công!', 'success');
     setShiftModalOpen(false);
   };
@@ -282,7 +307,7 @@ export function ShiftModalF12() {
             <div className="space-y-4 text-xs">
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800">
                 <div className="font-bold mb-1">Ca làm việc trước đó đã đóng hoàn tất.</div>
-                <p>Nhập số tiền mặt đầu ca để bàn giao két cho ca làm việc mới.</p>
+                <p>Nhập số tiền mặt đầu ca để bàn giao két cho ca làm việc mới (mặc định = số đếm được ca trước).</p>
               </div>
 
               <div className="space-y-1">

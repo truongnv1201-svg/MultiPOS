@@ -213,6 +213,25 @@ describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh ti�
     assert.match(projects, /generateOrderCode\('CT'\)/);
   });
 
+  it('mở ca báo đúng: chỉ đóng modal khi mở thật (không thành công oan)', () => {
+    const modal = read('components/pos/ShiftModalF12.tsx');
+    assert.match(modal, /const ok = await openNewShift\(newShiftStartingCash\);/);
+    assert.match(modal, /if \(!ok\) return;/);
+    const shift = read('lib/store/tx/shift-stock.tsx');
+    assert.match(shift, /async \(startingCash: number\): Promise<boolean> =>/);
+  });
+
+  it('mở modal ca thì reset ô nhập (không giữ số lần mở trước)', () => {
+    const modal = read('components/pos/ShiftModalF12.tsx');
+    assert.match(modal, /if \(shiftModalOpen && !prevOpenRef\.current\) \{/);
+    assert.match(modal, /setNewShiftStartingCash\(currentShift\.counted_cash \?\? 2000000\)/);
+  });
+
+  it('Esc đóng modal ca (khớp nhãn nút)', () => {
+    const modal = read('components/pos/ShiftModalF12.tsx');
+    assert.match(modal, /if \(e\.key === 'Escape'\) setShiftModalOpen\(false\);/);
+  });
+
   it('tạo KH trùng SĐT thì hỏi dùng chung (khỏi phân mảnh công nợ)', () => {
     const catalog = read('lib/store/catalog.tsx');
     assert.match(catalog, /SĐT đã tồn tại/);

@@ -256,7 +256,7 @@ interface StoreContextType {
   syncProjects: () => Promise<void>;
   syncPendingOps: (retryFailed?: boolean) => Promise<{ synced: number; failed: number }>;
   closeShift: (countedCash: number) => Promise<boolean>;
-  openNewShift: (startingCash: number) => Promise<void>;
+  openNewShift: (startingCash: number) => Promise<boolean>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
   importStockBatch: (
     lines: { productId: string; quantity: number; importPrice: number }[],

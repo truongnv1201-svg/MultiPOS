@@ -30,7 +30,7 @@ export interface TxShiftStock {
   refreshServerStockMovements: (force?: boolean) => Promise<boolean>;
   refreshServerCashbook: () => Promise<boolean>;
   closeShift: (countedCash: number) => Promise<boolean>;
-  openNewShift: (startingCash: number) => Promise<void>;
+  openNewShift: (startingCash: number) => Promise<boolean>;
   refreshShiftFromServer: () => Promise<boolean>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
   importStockBatch: (
@@ -294,19 +294,19 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
   );
 
   const openNewShift = useCallback(
-    async (startingCash: number) => {
+    async (startingCash: number): Promise<boolean> => {
       if (supa && !user) {
         notify('Vui lòng đăng nhập trước khi mở ca!', 'error');
         setLoginOpen(true);
-        return;
+        return false;
       }
       if (currentShift.status === 'open') {
         notify('Ca hiện tại vẫn đang mở! Hãy kết ca (F12) trước khi mở ca mới.', 'error');
-        return;
+        return false;
       }
       if (!Number.isFinite(startingCash) || startingCash < 0) {
         notify('Tiền đầu ca không hợp lệ!', 'error');
-        return;
+        return false;
       }
       // P1: online + đã login -> mở qua RPC open_shift (server cấp uuid, chặn mở chồng ca).
       // Offline hoặc local-only -> mở ca local như trước, lần online sau sẽ đồng bộ khi mở ca mới.
@@ -330,10 +330,10 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           };
           setCurrentShift(serverShift);
           await db.shifts.add(serverShift).catch(() => db.shifts.put(serverShift));
-          return;
+          return true;
         } catch (err: any) {
           notify(`Mở ca server thất bại — giữ nguyên để thử lại: ${vietnamizeError(err)}`, 'error');
-          return;
+          return false;
         }
       }
       const newShift: Shift = {
@@ -351,6 +351,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       };
       setCurrentShift(newShift);
       await db.shifts.add(newShift);
+      return true;
     },
     [cashierName, supa, user, currentShift, isOnline, setLoginOpen]
   );
