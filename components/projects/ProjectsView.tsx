@@ -751,7 +751,7 @@ export function ProjectsView() {
                         <td className="py-2 px-2 text-center">
                           <button
                             onClick={() => handleRemoveLine('material', String(idx), `${m.name} x${m.quantity}`)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors"
                             title="Gỡ dòng + hoàn vật tư về kho"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -846,7 +846,7 @@ export function ProjectsView() {
                         <td className="py-2 px-2 text-center">
                           <button
                             onClick={() => handleRemoveLine('worker', w.id, w.worker_name)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors"
                             title="Gỡ thợ khỏi công trình"
                           >
                             <Trash2 className="w-4 h-4" />

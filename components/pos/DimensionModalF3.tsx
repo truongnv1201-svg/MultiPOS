@@ -422,7 +422,7 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
                     <td className="py-2 px-2 text-center">
                       <button
                         onClick={() => handleRemoveRow(row.id)}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                        className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors"
                         title="Xóa dòng kích thước"
                       >
                         <Trash2 className="w-4 h-4" />

@@ -198,7 +198,7 @@ export function AdvancesModal({
               {isManager && !locked && (
                 <button
                   onClick={() => onDelete(a.id)}
-                  className={`${a.cashbook_code ? '' : 'ml-auto'} p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer`}
+                  className={`${a.cashbook_code ? '' : 'ml-auto'} p-1 text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer`}
                   title="Xóa lần ứng này (xóa luôn phiếu chi)"
                   aria-label={`Xóa tạm ứng của ${empName(a.employee_id)}`}
                 >

@@ -121,6 +121,19 @@ describe('đổi project dọn máy trạm (khỏi lẫn số dư project cũ)',
       '2 ô phải nằm sau tiêu đề mục nội dung phiếu in'
     );
   });
+
+  it('mọi nút xóa (thùng rác) dùng đỏ thường trực, không xám-chờ-hover', () => {
+    // Chuẩn: text-rose-600 (+ hover:bg-rose-50). Kiểu cũ xám text-slate-400 chỉ đỏ
+    // khi hover khiến user không nhận ra xóa được.
+    for (const f of [
+      'components/projects/ProjectsView.tsx',
+      'components/pos/DimensionModalF3.tsx',
+      'components/pos/POSScreen.tsx',
+      'components/hrm/tabs/AdvancesModal.tsx',
+    ]) {
+      assert.ok(!/text-slate-400 hover:text-rose-600/.test(read(f)), `${f} còn nút xóa xám`);
+    }
+  });
 });
 
 describe('số dư đầu kỳ cấu hình được (không cộng cứng trong code)', () => {

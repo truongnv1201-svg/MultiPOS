@@ -888,7 +888,7 @@ export function POSScreen() {
                         <td className="py-2.5 px-2 text-center">
                           <button
                             onClick={() => setProjLines((prev) => prev.filter((l) => l.key !== line.key))}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors"
                             title="Xóa dòng"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1011,7 +1011,7 @@ export function POSScreen() {
                         <td className="py-2.5 px-2 text-center">
                           <button
                             onClick={() => setImpLines((prev) => prev.filter((l) => l.key !== line.key))}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors"
                             title="Xóa dòng"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1190,7 +1190,7 @@ export function POSScreen() {
                         <td className="py-2.5 px-2 text-center">
                           <button
                             onClick={() => removeCartItem(item.id)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                            className="p-1 text-rose-600 hover:bg-rose-50 rounded transition-colors"
                             title="Xóa sản phẩm"
                           >
                             <Trash2 className="w-4 h-4" />
