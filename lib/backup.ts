@@ -93,3 +93,35 @@ export async function restoreLocalBackup(backup: LocalBackup): Promise<void> {
     }
   });
 }
+
+// ---- Theo dõi lần sao lưu local cuối (free tier: nhắc user tải tay định kỳ) ----
+const LAST_BACKUP_AT_KEY = 'multipos_last_backup_at';
+
+/** ISO string lần tải backup local cuối, hoặc null nếu chưa từng sao lưu trên máy này. */
+export function getLastBackupAt(): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    return window.localStorage.getItem(LAST_BACKUP_AT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Ghi nhận vừa tải backup xong — gọi sau downloadLocalBackup thành công. */
+export function markBackupDone(at: string = new Date().toISOString()): void {
+  try {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(LAST_BACKUP_AT_KEY, at);
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** true khi đã quá `maxDays` ngày chưa sao lưu local (mặc định 7). */
+export function isBackupStale(maxDays = 7): boolean {
+  const last = getLastBackupAt();
+  if (!last) return true;
+  const elapsed = Date.now() - new Date(last).getTime();
+  if (!Number.isFinite(elapsed) || elapsed < 0) return true;
+  return elapsed > maxDays * 24 * 60 * 60 * 1000;
+}

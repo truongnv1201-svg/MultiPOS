@@ -1,0 +1,113 @@
+name: Verify backup (free)
+
+# Tự kiểm tra hàng tháng: tải bản dump mới nhất trên B2, restore vào Postgres
+# dùng một lần, đếm số đơn/bảng — hỏng thì báo đỏ, không cần người làm tay.
+on:
+  schedule:
+    # 01:00 UTC ngày 01 mỗi tháng = 08:00 GMT+7.
+    - cron: '0 1 1 * *'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: verify
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Check secrets
+        id: gate
+        env:
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          if [ -z "$S3_ENDPOINT" ] || [ -z "$S3_ACCESS_KEY_ID" ] || [ -z "$S3_SECRET_ACCESS_KEY" ] || [ -z "$S3_BUCKET" ]; then
+            echo "s3=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Chưa đủ secret S3_* — bỏ qua verify (xem docs/backup-free.md)."
+          else
+            echo "s3=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tải bản dump mới nhất + kiểm tra SHA
+        if: steps.gate.outputs.s3 == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          mkdir -p verify && cd verify
+          REGION="${S3_REGION:-us-east-1}"
+          LATEST=$(aws s3api list-objects-v2 --bucket "$S3_BUCKET" --prefix "daily/" \
+            --endpoint-url "$S3_ENDPOINT" --region "$REGION" \
+            --query 'sort_by(Contents, &LastModified)[-1].Key' --output text)
+          echo "Bản mới nhất: $LATEST"
+          aws s3 cp "s3://$S3_BUCKET/$LATEST" ./ \
+            --endpoint-url "$S3_ENDPOINT" --region "$REGION"
+          BASE=$(basename "$LATEST")
+          DATE=$(echo "$BASE" | sed -n 's/.*multipos-\([0-9-]*\)\.dump.*/\1/p')
+          # Kiểm tra SHA nếu còn file .sha256 cùng ngày trên B2.
+          if aws s3 cp "s3://$S3_BUCKET/daily/multipos-$DATE.sha256" ./check.sha256 \
+            --endpoint-url "$S3_ENDPOINT" --region "$REGION" 2>/dev/null; then
+            grep "$BASE" ./check.sha256 | sha256sum -c -
+            echo "SHA256: OK"
+          else
+            echo "SHA256: không có file đối chiếu cùng ngày — bỏ qua."
+          fi
+          # Giải mã (nếu .gpg) rồi giải nén ra .dump.
+          FILE="$BASE"
+          if [ "${FILE%.gpg}" != "$FILE" ]; then
+            [ -n "${BACKUP_PASSPHRASE:-}" ] || { echo "❌ File mã hóa nhưng thiếu BACKUP_PASSPHRASE."; exit 1; }
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" -d "$FILE" > plain.gz
+            FILE="plain.gz"
+          fi
+          gunzip -c "$FILE" > restore.dump
+          ls -lh
+          echo "LATEST_KEY=$LATEST" >> "$GITHUB_ENV"
+
+      - name: Restore thử + đếm dữ liệu
+        if: steps.gate.outputs.s3 == 'true'
+        env:
+          PGPASSWORD: verify
+        run: |
+          set -euo pipefail
+          cd verify
+          # Restore có thể warn về role/schema hệ thống — chấp nhận, chỉ cần bảng nghiệp vụ về đủ.
+          docker run --rm --network host -e PGPASSWORD=verify \
+            -v "$PWD:/w" postgres:17 \
+            pg_restore -h localhost -U postgres -d postgres --no-owner --no-acl /w/restore.dump > restore.log 2>&1 || true
+          tail -n 20 restore.log
+          : > counts.txt
+          ORDERS_COUNT="MISSING"
+          for t in orders products customers cashbook shifts; do
+            N=$(docker run --rm --network host -e PGPASSWORD=verify postgres:17 \
+              psql -h localhost -U postgres -d postgres -tAX -c "SELECT count(*) FROM public.\"$t\"" 2>/dev/null || echo "MISSING")
+            echo "$t: $N"
+            echo "$t=$N" >> counts.txt
+            if [ "$t" = "orders" ]; then ORDERS_COUNT="$N"; fi
+          done
+          if [ "$ORDERS_COUNT" = "MISSING" ]; then
+            echo "❌ Không restore được bảng orders — file backup có vấn đề."
+            exit 1
+          fi
+          {
+            echo "## Verify backup tháng $(date -u +%m/%Y)"
+            echo "- File: $LATEST_KEY"
+            tr '\n' ',' < counts.txt | sed 's/,/, /g; s/, $//; s/^/- /'
+            echo "- Kết luận: restore ĐƯỢC, dữ liệu đọc được."
+          } >> "$GITHUB_STEP_SUMMARY"

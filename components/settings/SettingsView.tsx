@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '@/lib/store';
-import { createLocalBackup, downloadLocalBackup, parseLocalBackup, restoreLocalBackup } from '@/lib/backup';
+import { createLocalBackup, downloadLocalBackup, parseLocalBackup, restoreLocalBackup, getLastBackupAt, markBackupDone, isBackupStale } from '@/lib/backup';
 import { notify } from '@/components/common/Toast';
 import { NumberInput } from '@/components/common/NumberInput';
 import { clearLocalMachineData, MACHINE_PROJECT_KEY } from '@/lib/db';
@@ -48,6 +48,17 @@ export function SettingsView() {
   // Mọi việc nhân sự (tài khoản, phân quyền, hồ sơ, công, lương) làm ở trang Quản lý nhân sự.
   const [grindingDraft, setGrindingDraft] = useState<Record<string, string>>({});
   const backupInputRef = useRef<HTMLInputElement>(null);
+  const [lastBackupAt, setLastBackupAt] = useState<string | null>(() => getLastBackupAt());
+  const backupRemindedRef = useRef(false);
+
+  // Nhắc sao lưu local khi mở Cài đặt mà đã quá 7 ngày chưa tải (free tier: không có auto-push server).
+  useEffect(() => {
+    if (backupRemindedRef.current) return;
+    backupRemindedRef.current = true;
+    if (isBackupStale(7)) {
+      notify('Đã quá 7 ngày chưa sao lưu dữ liệu máy này — bấm "Tải bản sao lưu" để phòng mất dữ liệu.', 'error');
+    }
+  }, []);
 
   const handleSaveShop = async () => {
     const error = await saveShopSettings();
@@ -93,6 +104,8 @@ export function SettingsView() {
   const handleBackup = async () => {
     try {
       downloadLocalBackup(await createLocalBackup());
+      markBackupDone();
+      setLastBackupAt(getLastBackupAt());
       notify('Đã tải tệp sao lưu dữ liệu trên máy này.', 'success');
     } catch (error) {
       notify(`Không thể sao lưu: ${error instanceof Error ? error.message : String(error)}`, 'error');
@@ -168,6 +181,14 @@ export function SettingsView() {
         </h3>
         <p className="text-[11px] text-slate-500">
           Sao lưu bao gồm dữ liệu offline và hàng đợi chưa đồng bộ của máy này. Dữ liệu trên máy chủ không bị thay đổi.
+          {lastBackupAt ? (
+            <>
+              {' '}Lần tải cuối: <strong className="font-mono">{new Date(lastBackupAt).toLocaleString('vi-VN')}</strong>
+              {isBackupStale(7) && <span className="text-rose-600 font-bold"> — quá 7 ngày, nên tải lại.</span>}
+            </>
+          ) : (
+            <> Chưa từng sao lưu trên máy này.</>
+          )}
         </p>
         <div className="flex flex-wrap gap-2">
           <button onClick={handleBackup} className="px-3 h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold flex items-center gap-1.5">
