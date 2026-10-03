@@ -95,7 +95,7 @@ jobs:
           tail -n 20 restore.log
           : > counts.txt
           ORDERS_COUNT="MISSING"
-          for t in orders products customers cashbook shifts; do
+          for t in orders products customers cashbook_entries shifts; do
             N=$(docker run --rm --network host -e PGPASSWORD=verify postgres:17 \
               psql -h localhost -U postgres -d postgres -tAX -c "SELECT count(*) FROM public.\"$t\"" 2>/dev/null || echo "MISSING")
             echo "$t: $N"
