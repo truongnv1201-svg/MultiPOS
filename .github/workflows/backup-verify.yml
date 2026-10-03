@@ -55,7 +55,7 @@ jobs:
           REGION="${S3_REGION:-us-east-1}"
           LATEST=$(aws s3api list-objects-v2 --bucket "$S3_BUCKET" --prefix "daily/" \
             --endpoint-url "$S3_ENDPOINT" --region "$REGION" \
-            --query 'sort_by(Contents, &LastModified)[-1].Key' --output text)
+            --query 'sort_by(Contents[?contains(Key, `.dump`)], &LastModified)[-1].Key' --output text)
           echo "Bản mới nhất: $LATEST"
           aws s3 cp "s3://$S3_BUCKET/$LATEST" ./ \
             --endpoint-url "$S3_ENDPOINT" --region "$REGION"
