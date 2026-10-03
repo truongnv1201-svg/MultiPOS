@@ -41,6 +41,7 @@ export function OrdersView() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
+  const [cashierFilter, setCashierFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
@@ -78,11 +79,14 @@ export function OrdersView() {
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
+      const q = search.toLowerCase();
       const matchesSearch =
-        o.order_code.toLowerCase().includes(search.toLowerCase()) ||
-        o.customer_name.toLowerCase().includes(search.toLowerCase()) ||
-        (o.customer_phone && o.customer_phone.includes(search));
+        o.order_code.toLowerCase().includes(q) ||
+        o.customer_name.toLowerCase().includes(q) ||
+        (o.customer_phone && o.customer_phone.includes(search)) ||
+        (o.cashier_name && o.cashier_name.toLowerCase().includes(q));
       const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
+      const matchesCashier = cashierFilter === 'all' || (o.cashier_name || '') === cashierFilter;
       const matchesDate = matchesDateFilter(o.created_at, dateFilter);
 
       let matchesPayment = true;
@@ -90,9 +94,9 @@ export function OrdersView() {
       else if (paymentFilter === 'transfer') matchesPayment = (o.payments || []).some(p => p.method === 'transfer');
       else if (paymentFilter === 'debt') matchesPayment = o.debt_amount > 0 || (o.payments || []).some(p => p.method === 'debt');
 
-      return matchesSearch && matchesStatus && matchesDate && matchesPayment;
+      return matchesSearch && matchesStatus && matchesCashier && matchesDate && matchesPayment;
     });
-  }, [orders, search, statusFilter, dateFilter, paymentFilter]);
+  }, [orders, search, statusFilter, cashierFilter, dateFilter, paymentFilter]);
 
   // Aggregate stats for filtered orders
   const stats = useMemo(() => {
@@ -107,6 +111,19 @@ export function OrdersView() {
     );
   }, [filteredOrders]);
 
+  // Danh sách thu ngân (lọc trùng, bỏ rỗng) để làm bộ lọc + cột hiển thị
+  const cashierOptions = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const o of orders) {
+      const name = (o.cashier_name || '').trim();
+      if (!name) continue;
+      set.set(name, (set.get(name) || 0) + 1);
+    }
+    return [...set.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
+      .map(([name, count]) => ({ name, count }));
+  }, [orders]);
+
   // Paginated records
   const sortedOrders = useMemo(() => {
     if (!sortKey) return filteredOrders;
@@ -114,6 +131,7 @@ export function OrdersView() {
       order_code: (o) => o.order_code,
       created_at: (o) => o.created_at,
       customer_name: (o) => o.customer_name,
+      cashier_name: (o) => o.cashier_name || '',
       total_amount: (o) => o.total_amount,
       paid_amount: (o) => o.paid_amount,
       debt_amount: (o) => o.debt_amount,
@@ -146,6 +164,13 @@ export function OrdersView() {
 
   const handlePaymentChange = (val: string) => {
     setPaymentFilter(val);
+    setCurrentPage(1);
+    setSelectedOrderId(null);
+    setSelectedOrderCode(null);
+  };
+
+  const handleCashierChange = (val: string) => {
+    setCashierFilter(val);
     setCurrentPage(1);
     setSelectedOrderId(null);
     setSelectedOrderCode(null);
@@ -215,6 +240,7 @@ export function OrdersView() {
       columns: [
         { header: 'Mã đơn' },
         { header: 'Khách hàng' },
+        { header: 'Thu ngân' },
         { header: 'Tổng tiền', align: 'right' },
         { header: 'Đã thu', align: 'right' },
         { header: 'Còn nợ', align: 'right' },
@@ -223,12 +249,13 @@ export function OrdersView() {
       rows: sortedOrders.slice(0, 1000).map((o) => [
         o.order_code,
         o.customer_name,
+        o.cashier_name || '-',
         o.total_amount.toLocaleString('vi-VN'),
         o.paid_amount.toLocaleString('vi-VN'),
         o.debt_amount.toLocaleString('vi-VN'),
         ORDER_STATUS_LABEL[o.status] || o.status,
       ]),
-      footer: ['Tổng', '', stats.totalSales.toLocaleString('vi-VN'), stats.totalPaid.toLocaleString('vi-VN'), stats.totalDebt.toLocaleString('vi-VN'), ''],
+      footer: ['Tổng', '', '', stats.totalSales.toLocaleString('vi-VN'), stats.totalPaid.toLocaleString('vi-VN'), stats.totalDebt.toLocaleString('vi-VN'), ''],
     });
   };
 
@@ -339,7 +366,7 @@ export function OrdersView() {
                 type="text"
                 value={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Mã đơn, tên khách, SĐT..."
+                placeholder="Mã đơn, tên khách, SĐT, thu ngân..."
                 className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
               />
             </div>
@@ -372,6 +399,21 @@ export function OrdersView() {
               <option value="transfer">Chuyển khoản (VietQR)</option>
               <option value="debt">Chưa thanh toán đủ (Ghi nợ)</option>
             </select>
+
+            {/* Cashier Filter */}
+            <select
+              value={cashierFilter}
+              onChange={(e) => handleCashierChange(e.target.value)}
+              className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden max-w-[180px]"
+              title="Lọc theo thu ngân"
+            >
+              <option value="all">Tất cả thu ngân</option>
+              {cashierOptions.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name} ({c.count})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Aggregate Summary Strip */}
@@ -401,6 +443,7 @@ export function OrdersView() {
                   <SortableTh className="py-2.5 px-3" label="Mã đơn" sortKey="order_code" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                   <SortableTh className="py-2.5 px-3" label="Thời gian" sortKey="created_at" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                   <SortableTh className="py-2.5 px-3" label="Khách hàng" sortKey="customer_name" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortableTh className="py-2.5 px-3" label="Thu ngân" sortKey="cashier_name" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                   <SortableTh className="py-2.5 px-3 text-right" label="Tổng tiền" sortKey="total_amount" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                   <SortableTh className="py-2.5 px-3 text-right" label="Đã trả" sortKey="paid_amount" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                   <SortableTh className="py-2.5 px-3 text-right" label="Còn nợ" sortKey="debt_amount" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
@@ -410,7 +453,7 @@ export function OrdersView() {
               <tbody className="divide-y divide-slate-100">
                 {paginatedOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <td colSpan={8} className="py-12 text-center text-slate-400">
                       Không tìm thấy đơn hàng nào phù hợp với bộ lọc.
                     </td>
                   </tr>
@@ -436,6 +479,9 @@ export function OrdersView() {
                           {ord.customer_phone && (
                             <div className="text-[10px] text-slate-400">{ord.customer_phone}</div>
                           )}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                          {ord.cashier_name || <span className="text-slate-300">-</span>}
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
                           {formatVND(ord.total_amount)}
