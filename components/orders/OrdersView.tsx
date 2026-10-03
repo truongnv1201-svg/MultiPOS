@@ -177,6 +177,7 @@ export function OrdersView() {
     completed: 'Hoàn tất',
     cancelled: 'Đã hủy',
     returned: 'Đã trả hàng',
+    partial_returned: 'Trả một phần',
   };
 
   const orderToRow = (o: Order): Record<string, unknown> => ({
@@ -356,6 +357,7 @@ export function OrdersView() {
               <option value="completed">Hoàn tất (Đã xuất hàng)</option>
               <option value="deposit_order">Đặt hàng / Nhận cọc</option>
               <option value="returned">Đã trả hàng</option>
+              <option value="partial_returned">Trả một phần (trả tiếp được)</option>
               <option value="cancelled">Đã hủy</option>
             </select>
 
@@ -458,6 +460,11 @@ export function OrdersView() {
                           {ord.status === 'returned' && (
                             <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-[10px] font-bold">
                               Đã trả hàng
+                            </span>
+                          )}
+                          {ord.status === 'partial_returned' && (
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold">
+                              Trả một phần
                             </span>
                           )}
                           {ord.status === 'cancelled' && (

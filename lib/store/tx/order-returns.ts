@@ -55,6 +55,12 @@ export function useTxOrderReturns({
       }
       const order = orders.find((o) => o.id === orderId);
       if (!order || order.status === 'cancelled' || order.status === 'returned') return false;
+      // Đơn đã trả một phần: hủy nguyên đơn sẽ hoàn tiền 2 lần (server cũng chặn) —
+      // hoàn nốt phần còn lại trước.
+      if (order.status === 'partial_returned') {
+        notify('Đơn đã trả một phần — hoàn nốt phần còn lại, không hủy nguyên đơn.', 'error');
+        return false;
+      }
 
       const serverId = await resolveServerOrderId(order);
       if (serverId && !isOnline) {
@@ -174,8 +180,9 @@ export function useTxOrderReturns({
       }
       const order = orders.find((o) => o.id === orderId);
       if (!order) return fail;
-      // 0026: chỉ đơn hiệu lực mới trả được (chặn trả lặp cả khi gọi trực tiếp hàm)
-      if (order.status !== 'completed' && order.status !== 'deposit_order') {
+      // 0026: chỉ đơn hiệu lực mới trả được (chặn trả lặp cả khi gọi trực tiếp hàm).
+      // partial_returned trả tiếp được (server cap theo đã bán - đã trả, 0069).
+      if (order.status !== 'completed' && order.status !== 'deposit_order' && order.status !== 'partial_returned') {
         notify('Đơn này đã hủy/trả rồi — không xử lý lặp.', 'error');
         return fail;
       }
@@ -215,6 +222,8 @@ export function useTxOrderReturns({
       let srvCashRefund: number | null = null;
       let srvRestocked: RestockLine[] = [];
       let srvSkipped: ReturnSkipped[] = [];
+      // 0069: server trả trạng thái thật (returned hết / partial còn trả tiếp được)
+      let srvStatus: 'returned' | 'partial_returned' | null = null;
       if (serverId && supa) {
         try {
           const { data, error } = await supa.rpc('return_order_items', {
@@ -229,6 +238,8 @@ export function useTxOrderReturns({
             srvDebtCut = cut;
             srvCashRefund = cash;
           }
+          const st = (data as any)?.status;
+          if (st === 'returned' || st === 'partial_returned') srvStatus = st;
           const rs = (data as any)?.restocked;
           if (Array.isArray(rs)) {
             srvRestocked = rs
@@ -312,10 +323,48 @@ export function useTxOrderReturns({
         db.cashbook.add(expenseEntry).catch(console.warn);
       }
 
+      // 0069: trạng thái local mirror server — online lấy theo server, offline tự
+      // tính cùng quy tắc (trả hết số trả được mới 'returned', còn lại 'partial').
+      // Hàng area/service không nhập lại nên không tính vào số phải trả.
+      const finalStatus: 'returned' | 'partial_returned' = (() => {
+        if (srvStatus) return srvStatus;
+        const sold = new Map<string, number>();
+        for (const it of order.items) {
+          if (it.product_type === 'goods') {
+            sold.set(it.sku, (sold.get(it.sku) || 0) + it.quantity);
+          } else if (it.product_type === 'combo') {
+            const combo = products.find((p) => p.id === it.product_id);
+            for (const child of combo?.combo_items || []) {
+              const cp = products.find((p) => p.id === child.product_id);
+              if (!cp) continue;
+              sold.set(cp.sku, (sold.get(cp.sku) || 0) + child.quantity * it.quantity);
+            }
+          }
+        }
+        const refunded = new Map<string, number>();
+        for (const rf of refundItems) {
+          const line = order.items.find((it) => it.id === rf.itemId);
+          if (!line || rf.quantity <= 0) continue;
+          if (line.product_type === 'goods') {
+            refunded.set(line.sku, (refunded.get(line.sku) || 0) + rf.quantity);
+          } else if (line.product_type === 'combo') {
+            const combo = products.find((p) => p.id === line.product_id);
+            for (const child of combo?.combo_items || []) {
+              const cp = products.find((p) => p.id === child.product_id);
+              if (!cp) continue;
+              refunded.set(cp.sku, (refunded.get(cp.sku) || 0) + child.quantity * rf.quantity);
+            }
+          }
+        }
+        for (const [sku, qty] of sold) {
+          if ((refunded.get(sku) || 0) < qty) return 'partial_returned';
+        }
+        return 'returned';
+      })();
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: 'returned' } : o))
+        prev.map((o) => (o.id === orderId ? { ...o, status: finalStatus } : o))
       );
-      await db.orders.update(orderId, { status: 'returned' });
+      await db.orders.update(orderId, { status: finalStatus });
       // Đơn offline chưa lên server: gỡ khỏi hàng đợi để khỏi replay đơn đã trả
       if (order.is_offline) {
         setPendingQueue((prev) => prev.filter((o) => o.id !== orderId));

@@ -362,6 +362,29 @@ describe('0068: siết quyền RPC tiền/nợ + bỏ policy thừa', () => {
   });
 });
 
+describe('0069: trả từng phần đúng trạng thái + chống hoàn kho lặp', () => {
+  const sql = read('supabase/migrations/0069_partial_return_status.sql');
+
+  it('có sổ order_return_lines + index', () => {
+    assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.order_return_lines/);
+    assert.match(sql, /CREATE INDEX IF NOT EXISTS idx_return_lines_order/);
+  });
+
+  it('cap hoàn kho trừ phần đã trả các lần trước', () => {
+    assert.match(sql, /FROM public\.order_return_lines/);
+    assert.match(sql, /GREATEST\(v_sold - v_returned, 0\)/);
+  });
+
+  it('trả hết mới returned, còn lại partial_returned (trả tiếp được)', () => {
+    assert.match(sql, /v_new_status := CASE WHEN v_total_returned >= v_total_sold THEN 'returned' ELSE 'partial_returned' END;/);
+    assert.match(sql, /'status', v_new_status\)/);
+  });
+
+  it('cancel_order từ chối đơn partial (khỏi hoàn tiền 2 lần)', () => {
+    assert.match(sql, /IF r\.status = 'partial_returned' THEN/);
+  });
+});
+
 describe('0066: xoá dự án tạo nhầm (delete_project)', () => {
   const sql = read('supabase/migrations/0066_delete_project_rpc.sql');
   const projects = read('lib/store/tx/projects.tsx');

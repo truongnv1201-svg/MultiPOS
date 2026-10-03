@@ -318,20 +318,21 @@ export function ReportsView() {
   const supplierDebtorCount = suppliers.filter((s) => s.current_debt > 0).length;
 
   // ---- KPI theo kỳ (DateFilter chung, có Tùy chọn ngày) ----
+  // Đơn hiệu lực: hoàn tất + đặt cọc + trả một phần (trả hết/hủy loại).
   const rangedOrders = useMemo(() => {
     return orders.filter(
       (o) =>
-        (o.status === 'completed' || o.status === 'deposit_order') &&
+        (o.status === 'completed' || o.status === 'deposit_order' || o.status === 'partial_returned') &&
         matchesDateFilter(o.created_at, dateFilter),
     );
   }, [orders, dateFilter]);
 
-  // Revenue computations (theo kỳ đã chọn) — CHỈ đơn hoàn tất để cùng tập với
-  // lãi gộp bên dưới (đơn cọc chưa giao hàng: tiền cọc đã thu nằm ở "Thực thu"
-  // và sổ quỹ, chưa tính vào doanh thu). Trước đây cộng cả cọc vào đây nên
-  // biên lợi nhuận bị tụt giả mỗi khi có đơn cọc lớn.
+  // Revenue computations (theo kỳ đã chọn) — CHỈ đơn đã giao xong (hoàn tất +
+  // trả một phần, phần lớn đã giao) để cùng tập với lãi gộp bên dưới.
+  // Đơn cọc chưa giao hàng: tiền cọc đã thu nằm ở "Thực thu" và sổ quỹ,
+  // chưa tính vào doanh thu (trước đây cộng cả cọc nên biên lợi nhuận tụt giả).
   const totalRevenue = rangedOrders
-    .filter((o) => o.status === 'completed')
+    .filter((o) => o.status === 'completed' || o.status === 'partial_returned')
     .reduce((sum, o) => sum + o.total_amount, 0);
 
   const totalCollected = rangedOrders.reduce((sum, o) => sum + o.paid_amount, 0);
@@ -343,9 +344,9 @@ export function ReportsView() {
     return sum + p.stock_quantity * p.avg_cost;
   }, 0);
 
-  // Profit calculation on filtered orders
+  // Profit calculation on filtered orders (cùng tập đơn đã giao với doanh thu)
   const grossProfit = rangedOrders
-    .filter((o) => o.status === 'completed')
+    .filter((o) => o.status === 'completed' || o.status === 'partial_returned')
     .reduce((sum, o) => {
       // rough gross profit = items subtotal - cost
       const orderCost = o.items.reduce((costSum, it) => {
@@ -359,8 +360,8 @@ export function ReportsView() {
   const grossMarginPct = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
   // ---- VAT đầu ra theo tháng + đối chiếu sổ quỹ (P1) ----
-  // Chỉ đơn hiệu lực (completed/deposit_order); đơn hủy/trả không tính VAT.
-  // Đơn cũ (trước bản VAT) không có vat_amount -> tính 0, có footnote ở bảng.
+  // Chỉ đơn hiệu lực (completed/deposit_order/partial_returned); đơn hủy/trả hết
+  // không tính VAT. Đơn cũ (trước bản VAT) không có vat_amount -> tính 0.
   interface VatMonthRow {
     month: string; // YYYY-MM
     orderCount: number;
@@ -373,7 +374,7 @@ export function ReportsView() {
   const vatMonthly: VatMonthRow[] = useMemo(() => {
     const map = new Map<string, VatMonthRow>();
     for (const o of orders) {
-      if (o.status !== 'completed' && o.status !== 'deposit_order') continue;
+      if (o.status !== 'completed' && o.status !== 'deposit_order' && o.status !== 'partial_returned') continue;
       const m = monthOf(o.created_at);
       if (!/^\d{4}-\d{2}$/.test(m)) continue;
       let row = map.get(m);
@@ -431,7 +432,7 @@ export function ReportsView() {
       let revenue = 0;
       let collected = 0;
       for (const o of orders) {
-        if (o.status !== 'completed' && o.status !== 'deposit_order') continue;
+        if (o.status !== 'completed' && o.status !== 'deposit_order' && o.status !== 'partial_returned') continue;
         const t = new Date(o.created_at).getTime();
         if (Number.isNaN(t) || t < d.getTime() || t >= next.getTime()) continue;
         revenue += o.total_amount || 0;

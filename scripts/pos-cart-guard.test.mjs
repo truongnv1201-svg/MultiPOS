@@ -175,9 +175,9 @@ describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh ti�
     assert.match(receipt, /buildVietqrUrl\(vietqr, qrAmount,/);
   });
 
-  it('doanh thu KPI chỉ tính đơn hoàn tất (cùng tập với lãi gộp)', () => {
+  it('doanh thu KPI chỉ tính đơn đã giao (cùng tập với lãi gộp)', () => {
     const reports = read('components/reports/ReportsView.tsx');
-    assert.match(reports, /\.filter\(\(o\) => o\.status === 'completed'\)\s*\n\s*\.reduce\(\(sum, o\) => sum \+ o\.total_amount, 0\);/);
+    assert.match(reports, /\.filter\(\(o\) => o\.status === 'completed' \|\| o\.status === 'partial_returned'\)\s*\n\s*\.reduce\(\(sum, o\) => sum \+ o\.total_amount, 0\);/);
   });
 
   it('sheet mobile xóa từ khóa KH cũ khi mở đơn khác', () => {
@@ -193,5 +193,29 @@ describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh ti�
     ]) {
       assert.doesNotMatch(read(f), /importStock[^B]/);
     }
+  });
+
+  it('trả từng phần: type + guard + trạng thái server', () => {
+    assert.match(read('lib/types.ts'), /'partial_returned'/);
+    const ret = read('lib/store/tx/order-returns.ts');
+    assert.match(ret, /order\.status !== 'partial_returned'\) \{/);
+    assert.match(ret, /Đơn đã trả một phần — hoàn nốt phần còn lại, không hủy nguyên đơn\./);
+    assert.match(ret, /let srvStatus: 'returned' \| 'partial_returned' \| null/);
+    const orders = read('components/orders/OrdersView.tsx');
+    assert.match(orders, /Trả một phần/);
+    const reports = read('components/reports/ReportsView.tsx');
+    assert.match(reports, /o\.status === 'partial_returned'/);
+  });
+
+  it('trùng mã CT không đè dự án người khác (sinh mã mới đẩy riêng)', () => {
+    const projects = read('lib/store/tx/projects.tsx');
+    assert.ok(!/select\('id'\)\.eq\('code', project\.code\)/.test(projects), 'không tra id theo code để PATCH');
+    assert.match(projects, /generateOrderCode\('CT'\)/);
+  });
+
+  it('tạo KH trùng SĐT thì hỏi dùng chung (khỏi phân mảnh công nợ)', () => {
+    const catalog = read('lib/store/catalog.tsx');
+    assert.match(catalog, /SĐT đã tồn tại/);
+    assert.match(catalog, /Dùng hồ sơ cũ/);
   });
 });

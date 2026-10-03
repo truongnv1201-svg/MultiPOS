@@ -85,6 +85,14 @@ function assert(label, cond, extra = '') {
 const catalog = await fetchCatalog(URL, H);
 const goods = pickGoods(catalog);
 const area = pickArea(catalog);
+// Server rebuild phí mài từ bảng grinding_services theo grinding_type (0062:306),
+// không tin giá client gửi — fuzz PHẢI dùng đúng giá server, random là lệch subtotal.
+// (Chính là nguyên nhân backlog "parity lệch subtotal/VAT".)
+const grindingRows = await fetch(`${URL}/rest/v1/grinding_services?select=id,price_per_md`, { headers: H })
+  .then((r) => r.json()).catch(() => []);
+const grindingPrice = Object.fromEntries(
+  (Array.isArray(grindingRows) ? grindingRows : []).map((g) => [g.id, Number(g.price_per_md) || 0])
+);
 const keoBefore = await stock(goods.sku);
 const kinhBefore = await stock(area.sku);
 // Tạm bơm tồn để fuzz nhiều case không cạn kho giữa chừng (cuối cùng restore đúng snapshot)
@@ -104,9 +112,11 @@ for (let i = 0; i < N; i++) {
   for (let k = 0; k < nItems; k++) {
     if (pick(['goods', 'goods', 'area']) === 'area') {
       const len = rint(10, 30) / 10, wid = rint(10, 30) / 10, qty = rint(1, 3);
-      const grind = rint(10000, 30000);
+      // Giá mài lấy đúng bảng server (xem trên): random sẽ lệch với server 100% case.
+      const grindType = 'xiet_bong';
+      const grind = grindingPrice[grindType] ?? rint(10000, 30000);
       const dim = calculateDimensionRow({
-        id: `d${i}-${k}`, length: len, width: wid, quantity: qty, grinding_type: 'xiet_bong',
+        id: `d${i}-${k}`, length: len, width: wid, quantity: qty, grinding_type: grindType,
         grinding_unit_price: grind, holes: 0, hole_unit_price: 25000, corners: 0,
         corner_unit_price: 15000, extra_fee: pick([0, 0, 15000]),
       });

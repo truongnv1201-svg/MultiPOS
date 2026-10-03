@@ -135,13 +135,37 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         } else {
           const { data, error } = await supa.from('projects').insert(header).select('id').single();
           if (error) {
-            // Mã CT đã tồn tại (đẩy từ máy khác) -> dùng bản server rồi update
+            // Mã CT đã tồn tại trên server (2 máy cùng orderSeq sinh trùng mã).
+            // TUYỆT ĐỐI không PATCH theo id tra từ code — đó là dự án của người
+            // khác, đè lên là mất dữ liệu (vật tư/thợ của họ bị thay + local bị
+            // gắn nhầm server_id). Sinh mã mới đẩy riêng (tối đa 3 lần), báo rõ
+            // để user đối soát trùng mã.
             if ((error as { code?: string }).code === '23505') {
-              const existing = await supa.from('projects').select('id').eq('code', project.code).single();
-              if (existing.error || !existing.data) throw error;
-              serverId = existing.data.id as string;
-              const { error: upErr } = await supa.from('projects').update(header).eq('id', serverId as string);
-              if (upErr) throw upErr;
+              let retryCode = project.code;
+              let retryData = null as null | { id: string };
+              for (let attempt = 0; attempt < 3; attempt++) {
+                retryCode = generateOrderCode('CT');
+                const retry = await supa
+                  .from('projects')
+                  .insert({ ...header, code: retryCode })
+                  .select('id')
+                  .single();
+                if (!retry.error) {
+                  retryData = retry.data as { id: string };
+                  break;
+                }
+                if ((retry.error as { code?: string }).code !== '23505') throw retry.error;
+              }
+              if (!retryData) throw error;
+              await db.projects.update(project.id, { code: retryCode }).catch(() => {});
+              setProjects((prev) =>
+                prev.map((p) => (p.id === project.id ? { ...p, code: retryCode } : p))
+              );
+              notify(
+                `Mã ${project.code} đã có trên máy chủ (trùng mã) — dự án này đã đẩy với mã mới ${retryCode}, không đè lên dự án của người khác.`,
+                'info'
+              );
+              serverId = retryData.id as string;
             } else {
               throw error;
             }

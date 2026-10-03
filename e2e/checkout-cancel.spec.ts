@@ -106,7 +106,12 @@ test.describe('checkout -> hủy (live, tự dọn)', () => {
     await page.locator('#menu-item-orders').click();
     await expect(page.locator('#orders-view')).toBeVisible({ timeout: 15_000 });
     await page.locator('#orders-view input[placeholder="Mã đơn, tên khách, SĐT..."]').fill(code!);
-    const row = page.locator('#orders-view tbody tr', { hasText: code! }).first();
+    // Chờ filter hội tụ đúng 1 dòng (realtime re-render có thể reset giữa chừng) rồi
+    // scope mọi assert sau vào dòng này — không dùng badge "Đã hủy" đầu tiên toàn view
+    // (chạy chung suite có nhiều đơn hủy của spec khác).
+    const rows = page.locator('#orders-view tbody tr', { hasText: code! });
+    await expect(rows).toHaveCount(1, { timeout: 15_000 });
+    const row = rows.first();
     await expect(row).toBeVisible({ timeout: 15_000 });
     await row.click();
     await expect(page.locator('#orders-view').getByText(code!, { exact: false }).last()).toBeVisible();
@@ -114,6 +119,6 @@ test.describe('checkout -> hủy (live, tự dọn)', () => {
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toBeVisible({ timeout: 10_000 });
     await dialog.getByRole('button', { name: 'Hủy đơn' }).click();
-    await expect(page.locator('#orders-view span:text-is("Đã hủy")').first()).toBeVisible({ timeout: 30_000 });
+    await expect(row.getByText('Đã hủy')).toBeVisible({ timeout: 30_000 });
   });
 });

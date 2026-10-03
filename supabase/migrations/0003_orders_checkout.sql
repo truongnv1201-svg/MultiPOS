@@ -9,7 +9,7 @@ create table if not exists public.orders (
   branch_id uuid references public.branches(id),
   customer_id uuid references public.customers(id),
   customer_name text not null default 'Khách Lẻ',
-  status text not null default 'pending' check (status in ('pending','deposit_order','completed','cancelled','returned')),
+  status text not null default 'pending' check (status in ('pending','deposit_order','completed','cancelled','returned','partial_returned')),
   subtotal numeric(12,2) not null default 0,
   discount_amount numeric(12,2) not null default 0,
   shipping_fee numeric(12,2) not null default 0,

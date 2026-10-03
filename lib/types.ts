@@ -71,7 +71,7 @@ export interface PaymentItem {
   reference?: string;
 }
 
-export type OrderStatus = 'pending' | 'deposit_order' | 'completed' | 'cancelled' | 'returned';
+export type OrderStatus = 'pending' | 'deposit_order' | 'completed' | 'cancelled' | 'returned' | 'partial_returned';
 
 export interface Order {
   id: string;

@@ -11,6 +11,8 @@ import { db, generateMasterCode, type PendingMasterData } from '../db';
 import { stableNext } from './stable';
 import { cacheKeys, mirrorUpsert } from './tx/mirror';
 import { notify } from '@/components/common/Toast';
+import { confirmDialog } from '@/components/common/ConfirmDialog';
+import { formatVND } from '@/lib/format';
 
 export interface CatalogSlice {
   products: Product[];
@@ -603,6 +605,20 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
 
   const addCustomer = useCallback(
     async (data: Omit<Customer, 'id' | 'code' | 'created_at'> & { created_at?: string }): Promise<Customer> => {
+      // SĐT trùng người có sẵn: server upsert LIMIT 1 sẽ nối nhầm công nợ mà không
+      // báo. Hỏi rõ 1 lần ở đây (phủ mọi form tạo KH): dùng chung hồ sơ cũ để khỏi
+      // phân mảnh nợ, hoặc vẫn tạo mới nếu là người khác dùng chung số.
+      const dupPhone = (data.phone || '').trim();
+      if (dupPhone) {
+        const dup = customers.find((c) => (c.phone || '').trim() === dupPhone);
+        if (dup) {
+          const useExisting = await confirmDialog(
+            `SĐT ${dupPhone} đã thuộc "${dup.name}" (${dup.code}, nợ hiện tại ${formatVND(dup.current_debt || 0)}).\nDùng hồ sơ có sẵn để khỏi phân mảnh công nợ, hoặc tạo mới nếu là người khác dùng chung số.`,
+            { title: 'SĐT đã tồn tại', confirmLabel: 'Dùng hồ sơ cũ', cancelLabel: 'Vẫn tạo mới' }
+          );
+          if (useExisting) return dup;
+        }
+      }
       let codeNum = customers.length + 1;
       let code = `KH${String(codeNum).padStart(4, '0')}`;
       while (customers.some((c) => c.code === code)) {
