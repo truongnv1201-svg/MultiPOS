@@ -385,6 +385,22 @@ describe('0069: trả từng phần đúng trạng thái + chống hoàn kho l�
   });
 });
 
+describe('0070: ghi dấu vết thu ngân lên đơn (ai bán)', () => {
+  const sql = read('supabase/migrations/0070_order_cashier_trace.sql');
+
+  it('có cột cashier_name + INSERT ghi cashier_id/name lúc tạo đơn', () => {
+    assert.match(sql, /ADD COLUMN IF NOT EXISTS cashier_name TEXT;/);
+    assert.match(sql, /cashier_id, cashier_name\)/);
+    assert.match(sql, /auth\.uid\(\)/);
+    assert.match(sql, /FROM public\.profiles WHERE id = auth\.uid\(\)/);
+  });
+
+  it('client hiển thị tên thật từ server, đơn cũ giữ cách cũ', () => {
+    const sync = read('lib/store/tx/orders-sync.ts');
+    assert.match(sync, /typeof row\.cashier_name === 'string' && row\.cashier_name/);
+  });
+});
+
 describe('0066: xoá dự án tạo nhầm (delete_project)', () => {
   const sql = read('supabase/migrations/0066_delete_project_rpc.sql');
   const projects = read('lib/store/tx/projects.tsx');

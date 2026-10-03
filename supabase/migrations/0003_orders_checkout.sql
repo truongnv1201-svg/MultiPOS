@@ -19,6 +19,7 @@ create table if not exists public.orders (
   debt_amount numeric(12,2) not null default 0 check (debt_amount >= 0),
   note text,
   cashier_id uuid references public.profiles(id),
+  cashier_name text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

@@ -135,7 +135,12 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
         status: row.status,
         note: row.note || undefined,
         created_at: row.created_at,
-        cashier_name: row.cashier_id === user.id ? (profile?.full_name || user.email || '') : 'Nhân viên',
+        cashier_name:
+          typeof row.cashier_name === 'string' && row.cashier_name
+            ? row.cashier_name
+            : row.cashier_id === user.id
+              ? profile?.full_name || user.email || ''
+              : 'Nhân viên',
         is_offline: false,
       }));
 
