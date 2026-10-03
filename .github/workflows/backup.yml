@@ -82,14 +82,13 @@ jobs:
           gzip -9 -c "backup/multipos-$DATE.dump" > "backup/multipos-$DATE.dump.gz"
           rm "backup/multipos-$DATE.dump"
           # Mã hóa đối xứng nếu có BACKUP_PASSPHRASE (khuyến nghị), không thì giữ file .gz thường.
+          ENCRYPTED=false
           if [ -n "${BACKUP_PASSPHRASE:-}" ]; then
             gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
               -c --cipher-algo AES256 "backup/multipos-$DATE.dump.gz"
             rm "backup/multipos-$DATE.dump.gz"
             ls -lh backup/
-            echo "ENCRYPTED=true" >> "$GITHUB_ENV"
-          else
-            echo "ENCRYPTED=false" >> "$GITHUB_ENV"
+            ENCRYPTED=true
           fi
           sha256sum backup/* > "backup/multipos-$DATE.sha256"
           cat backup/*.sha256
