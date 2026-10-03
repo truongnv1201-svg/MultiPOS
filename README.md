@@ -1,8 +1,8 @@
 # MultiPOS — Quản trị Bán hàng & Thi công Đa ngành
 
 Hệ thống POS đa ngành (nhôm kính/tấm đo m², vật tư, combo, dịch vụ), quản lý kho,
-công nợ, công trình thi công 4 phase, HRM chấm công–lương, sổ quỹ, báo cáo VAT —
-chuẩn KiotViet. PWA offline-first (Dexie) + Supabase (Postgres) làm source of truth khi online.
+công nợ, công trình thi công 4 phase, HRM chấm công–lương, sổ quỹ, báo cáo VAT.
+PWA offline-first (Dexie) + Supabase (Postgres) làm source of truth khi online.
 
 ## Stack
 
@@ -67,14 +67,3 @@ Lệnh khác: `npm run build` (lint chặn build — 0 errors), `npm run lint`, 
 - `lib/` — `types.ts`, `hrm.ts` (single source HRM), `db.ts`, `store.tsx`, `excel.ts`,
   `vietqr.ts`, `format.ts`, `error-vi.ts`
 - `scripts/` — seed, verify, sửa chữa kho (`repair-stock.mjs`, `restore-stock.mjs`)
-
-## Hướng dẫn sử dụng
-
-Hướng dẫn vận hành cho nhân viên và quản trị viên nằm tại
-[`docs/15-huong-dan-van-hanh.md`](docs/15-huong-dan-van-hanh.md). Tài liệu gồm:
-
-- đăng nhập, mở ca và thao tác bán hàng;
-- tạo hàng hóa, khách hàng, nhà cung cấp;
-- nhập kho, công nợ, công trình, nhân sự, sổ quỹ và báo cáo;
-- quy tắc khi mất mạng và kiểm tra hàng đợi đồng bộ;
-- quy trình sao lưu, bàn giao và xử lý lỗi thường gặp.
