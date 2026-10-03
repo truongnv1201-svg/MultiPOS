@@ -40,6 +40,10 @@ describe('addProduct dùng mã nối tiếp', () => {
     assert.ok(!/generateMasterCode\('SP'\)/.test(catalog), 'không còn sinh mã từ counter cứng');
   });
 
+  it('không còn import chết generateMasterCode', () => {
+    assert.ok(!/^\s*generateMasterCode,$/m.test(read('lib/store.tsx')), 'store.tsx còn import thừa');
+  });
+
   it('KH/NCC cùng quy tắc max (không lấp số đã xóa)', () => {
     const catalog = read('lib/store/catalog.tsx');
     assert.match(catalog, /maxCodeNumber\(\s*\n?\s*customers\.map\(\(c\) => c\.code\),\s*\n?\s*'KH'/);

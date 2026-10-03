@@ -38,7 +38,6 @@ import type { VietqrConfig } from './vietqr';
 import {
   db,
   generateOrderCode,
-  generateMasterCode,
   recomputeOrderItem,
   initializeDatabase,
   clearLocalMachineData,
