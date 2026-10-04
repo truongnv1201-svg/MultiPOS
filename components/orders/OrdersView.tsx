@@ -53,9 +53,11 @@ export function OrdersView() {
     setCurrentPage(1);
   };
 
-  // P2-2: chỉ lưu id đang chọn, bản detail luôn suy từ orders mới nhất qua useMemo
+  // P2-2: chỉ lưu id đang chọn, bản detail luôn suy từ dữ liệu mới nhất qua useMemo
   // (vừa khỏi stale sau hủy/trả, vừa không cần setState trong effect).
   // Reset lựa chọn khi đổi bộ lọc/trang làm trực tiếp trong các handler bên dưới.
+  // Chi tiết CHỈ hiện đơn trong danh sách đang lọc (lọc ra 0 dòng -> hiện placeholder,
+  // khỏi dính đơn cũ ngoài bộ lọc).
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(orders[0]?.id ?? null);
   // P3-loop fix: pull realtime thay hàng local (id nội bộ) bằng hàng server
   // (id `server-<uuid>`) nên tìm đúng id có thể rớt lựa chọn ngay khi user đang xem.
@@ -65,18 +67,6 @@ export function OrdersView() {
     setSelectedOrderId(id);
     setSelectedOrderCode(code);
   };
-  const selectedOrder = useMemo(() => {
-    if (!selectedOrderId && !selectedOrderCode) return null;
-    return (
-      orders.find((o) => o.id === selectedOrderId || o.server_id === selectedOrderId) ??
-      orders.find((o) => o.order_code === selectedOrderCode) ??
-      null
-    );
-  }, [orders, selectedOrderId, selectedOrderCode]);
-
-  // P2-1: modal trả 1 phần — chọn dòng + SL trả, tiền hoàn phân bổ theo tỉ trọng dòng
-  const [returnTarget, setReturnTarget] = useState<Order | null>(null);
-  const [returnSel, setReturnSel] = useState<Record<string, { checked: boolean; qty: number }>>({});
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -98,6 +88,19 @@ export function OrdersView() {
       return matchesSearch && matchesStatus && matchesCashier && matchesDate && matchesPayment;
     });
   }, [orders, search, statusFilter, cashierFilter, dateFilter, paymentFilter]);
+
+  const selectedOrder = useMemo(() => {
+    if (!selectedOrderId && !selectedOrderCode) return null;
+    return (
+      filteredOrders.find((o) => o.id === selectedOrderId || o.server_id === selectedOrderId) ??
+      filteredOrders.find((o) => o.order_code === selectedOrderCode) ??
+      null
+    );
+  }, [filteredOrders, selectedOrderId, selectedOrderCode]);
+
+  // P2-1: modal trả 1 phần — chọn dòng + SL trả, tiền hoàn phân bổ theo tỉ trọng dòng
+  const [returnTarget, setReturnTarget] = useState<Order | null>(null);
+  const [returnSel, setReturnSel] = useState<Record<string, { checked: boolean; qty: number }>>({});
 
   // Aggregate stats for filtered orders
   const stats = useMemo(() => {

@@ -254,6 +254,14 @@ export function SuppliersView() {
 
   const paginatedSuppliers = sortedSuppliers.slice((supPage - 1) * supPageSize, supPage * supPageSize);
 
+  // Chi tiết/highlight chỉ hiện NCC trong danh sách đang lọc
+  // (lọc ra 0 dòng -> placeholder, khỏi dính NCC cũ ngoài bộ lọc).
+  // Sheet mobile + các modal thao tác giữ nguyên liveSelectedSupplier.
+  const visibleSupplier =
+    liveSelectedSupplier && filteredSuppliers.some((s) => s.id === liveSelectedSupplier.id)
+      ? liveSelectedSupplier
+      : null;
+
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -400,7 +408,7 @@ export function SuppliersView() {
                         setIsMobileDetailOpen(true);
                       }}
                       className={`w-full px-3 py-3 flex items-start justify-between gap-3 text-left active:bg-slate-50 ${
-                        liveSelectedSupplier?.id === sup.id ? 'bg-blue-50/70' : ''
+                        visibleSupplier?.id === sup.id ? 'bg-blue-50/70' : ''
                       }`}
                     >
                       <span className="min-w-0">
@@ -453,7 +461,7 @@ export function SuppliersView() {
                           key={sup.id}
                           onClick={() => setSelectedSupplier(sup)}
                           className={`cursor-pointer transition-colors ${
-                            liveSelectedSupplier?.id === sup.id ? 'bg-blue-50/80 font-medium' : 'hover:bg-slate-50'
+                            visibleSupplier?.id === sup.id ? 'bg-blue-50/80 font-medium' : 'hover:bg-slate-50'
                           }`}
                         >
                           <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{sup.code}</td>
@@ -522,7 +530,7 @@ export function SuppliersView() {
           </div>
 
           {/* Right: Selected Supplier Card (desktop/tablet — mobile dùng sheet bên dưới) */}
-          {liveSelectedSupplier ? (
+          {visibleSupplier ? (
             <div className="hidden md:flex w-full md:w-96 bg-slate-100 flex-col min-h-0 p-4 pl-0">
               <div className="flex-1 min-h-0 bg-white border border-slate-200 rounded-xl shadow-2xs p-3 flex flex-col overflow-y-auto">
                 <div className="space-y-4 text-xs">
