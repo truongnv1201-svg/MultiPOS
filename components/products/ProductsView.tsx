@@ -125,8 +125,11 @@ export function ProductsView() {
       notify(`Không xóa được: ${err?.message || 'lỗi không rõ'}`, 'error');
     }
   };
-  // Sắp xếp: bấm header để đảo chiều; đổi sort/filter -> về trang 1
-  const { sortKey, sortDir, toggleSort } = useSortState();
+  // Sắp xếp: bấm header để đảo chiều; đổi sort/filter -> về trang 1.
+  // Mặc định SKU giảm dần (hàng mới lên trên, cũ xuống dưới) ngay từ lần render
+  // đầu — thứ tự xác định nên không còn hiện tượng nháy/đảo dòng khi dữ liệu
+  // server về thay dữ liệu local.
+  const { sortKey, sortDir, toggleSort } = useSortState('sku', 'desc');
   const handleSort = (key: string) => {
     toggleSort(key);
     setPage(1);
