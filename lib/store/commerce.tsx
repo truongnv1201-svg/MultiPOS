@@ -1,6 +1,8 @@
 // P3-phần 2: slice Commerce — shop info, cấu hình in, VietQR, giá mài, làm tròn tiền mặt.
-// Đồng bộ server: thông tin cửa hàng + mặc định POS + VietQR + giá mài + làm tròn.
-// Chỉ cấu hình in ấn (mẫu/tùy chọn/nội dung phiếu) giữ riêng từng máy trạm.
+// Đồng bộ server: thông tin cửa hàng + số dư đầu kỳ + giá mài.
+// GIỮ RIÊNG từng máy trạm (localStorage, không đẩy/kéo server): mặc định POS
+// (VAT/thanh toán/bảng giá), VietQR, mẫu in, tùy chọn in, nội dung phiếu
+// (kể cả lời cảm ơn + chính sách đổi trả).
 // Phụ thuộc duy nhất: AuthSlice (supa/profile) để guard RBAC.
 'use client';
 
@@ -24,8 +26,6 @@ export interface CommerceSlice {
   refreshShopSettings: () => Promise<boolean>;
   vietqr: VietqrConfig;
   updateVietqr: (patch: Partial<VietqrConfig>) => void;
-  saveVietqrSettings: () => Promise<string | null>;
-  refreshVietqr: () => Promise<boolean>;
   grindingServices: GrindingService[];
   refreshGrinding: () => Promise<boolean>;
   updateGrindingPrice: (id: string, price: number) => Promise<string | null>;
@@ -45,6 +45,13 @@ const LOCAL_SHOP_KEYS: (keyof ShopSettings)[] = [
   'showDimensions',
   'showDebt',
   'fontSize',
+  // Mặc định bán hàng theo từng máy trạm (máy quầy khác máy kho...).
+  'defaultVat',
+  'defaultPayment',
+  'defaultPriceBook',
+  // Lời cảm ơn + chính sách đổi trả in cuối phiếu cũng theo từng máy.
+  'footerThanks',
+  'receiptPolicy',
 ];
 
 function sharedShopSettings(settings: ShopSettings): Partial<ShopSettings> {
@@ -153,39 +160,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     });
   }, [supa, profile]);
 
-  // VietQR đồng bộ máy chủ (settings key 'vietqr') — máy nào đổi, máy khác kéo về.
-  const saveVietqrSettings = useCallback(async (): Promise<string | null> => {
-    if (!supa) return 'Chưa cấu hình Supabase.';
-    if (profile?.role !== 'admin') return 'Chỉ tài khoản Admin được lưu VietQR.';
-    const { error } = await supa.from('settings').upsert(
-      { key: 'vietqr', value: { bank: vietqr.bank, account: vietqr.account, name: vietqr.name } },
-      { onConflict: 'key' }
-    );
-    return error ? vietnamizeError(error) : null;
-  }, [supa, profile, vietqr]);
-
-  const refreshVietqr = useCallback(async (): Promise<boolean> => {
-    if (!supa) return false;
-    try {
-      const { data, error } = await supa.from('settings').select('value').eq('key', 'vietqr').maybeSingle();
-      const v = (data as any)?.value;
-      if (error || !v || typeof v !== 'object') return false;
-      const next: VietqrConfig = {
-        bank: String(v.bank ?? ''),
-        account: String(v.account ?? ''),
-        name: String(v.name ?? ''),
-      };
-      setVietqr(next);
-      try {
-        localStorage.setItem('multipos_vietqr_v1', JSON.stringify(next));
-      } catch {
-        /* best-effort */
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  }, [supa]);
+  // VietQR theo từng máy trạm (localStorage only) — xem updateVietqr phía trên.
 
   // Thương mại: giá công mài từ server (fallback mock khi offline)
   const [grindingServices, setGrindingServices] = useState<GrindingService[]>(() =>
@@ -217,14 +192,14 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     [supa, profile, refreshGrinding]
   );
 
-  // Vừa online / vừa có supa -> kéo cấu hình chung + VietQR từ server về máy này.
+  // Vừa online / vừa có supa -> kéo cấu hình chung từ server về máy này
+  // (VietQR + mặc định POS + nội dung phiếu giữ local, không kéo).
   useEffect(() => {
     if (!supa) return;
     Promise.resolve().then(() => {
       refreshShopSettings();
-      refreshVietqr();
     });
-  }, [supa, refreshShopSettings, refreshVietqr]);
+  }, [supa, refreshShopSettings]);
 
   const value: CommerceSlice = {
     shop,
@@ -233,8 +208,6 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     refreshShopSettings,
     vietqr,
     updateVietqr,
-    saveVietqrSettings,
-    refreshVietqr,
     grindingServices,
     refreshGrinding,
     updateGrindingPrice,

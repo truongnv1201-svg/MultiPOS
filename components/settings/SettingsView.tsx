@@ -31,7 +31,6 @@ export function SettingsView() {
     saveShopSettings,
     vietqr,
     updateVietqr,
-    saveVietqrSettings,
     grindingServices,
     updateGrindingPrice,
     user,
@@ -47,18 +46,6 @@ export function SettingsView() {
     const error = await saveShopSettings();
     if (error) notify(`Lỗi: ${error}`, 'error');
     else notify('Đã lưu thông tin cửa hàng lên máy chủ.', 'success');
-  };
-
-  const handleSavePosDefaults = async () => {
-    const error = await saveShopSettings();
-    if (error) notify(`Lỗi: ${error}`, 'error');
-    else notify('Đã lưu mặc định POS lên máy chủ.', 'success');
-  };
-
-  const handleSaveVietqr = async () => {
-    const error = await saveVietqrSettings();
-    if (error) notify(`Lỗi: ${error}`, 'error');
-    else notify('Đã lưu VietQR lên máy chủ.', 'success');
   };
 
   const handleSaveAllGrinding = async () => {
@@ -92,6 +79,12 @@ export function SettingsView() {
           <Settings className="w-5 h-5 text-blue-600" />
           <span>Cài đặt Hệ thống</span>
         </h2>
+        <p
+          className="ml-auto mr-2 hidden md:block text-[11px] text-slate-400 text-right leading-tight"
+          title="Dữ liệu được tự động sao lưu lên máy chủ mỗi đêm. Khi mất mạng vẫn bán bình thường, có mạng máy tự đồng bộ."
+        >
+          Dữ liệu tự động sao lưu mỗi đêm — không cần thao tác
+        </p>
         {!user && (
           <button
             onClick={() => setLoginOpen(true)}
@@ -112,15 +105,6 @@ export function SettingsView() {
 
       {/* Main content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-      {/* Sao lưu tự động (zero-touch): server dump mỗi đêm, máy trạm không cần thao tác */}
-      <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-2xs text-xs flex items-center gap-2">
-        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-        <p className="text-[11px] text-slate-500">
-          Dữ liệu được <strong className="text-slate-700">tự động sao lưu lên máy chủ mỗi đêm</strong> —
-          máy này không cần bấm gì thêm. Khi mất mạng vẫn bán bình thường, có mạng máy tự đồng bộ.
-        </p>
-      </div>
-
       <OfflineReadyCard />
 
         {/* 1. Store info (mở rộng) */}
@@ -144,8 +128,8 @@ export function SettingsView() {
             )}
           </h3>
           <p className="text-[11px] text-slate-400 -mt-2">
-            Thông tin cửa hàng chỉ gửi lên máy chủ khi bấm <strong>Lưu lên máy chủ</strong> trong khối này.
-            Khổ giấy, mẫu in và tùy chọn in vẫn lưu riêng trên máy này.
+            Tên, hotline, địa chỉ, số dư đầu kỳ gửi lên máy chủ khi bấm <strong>Lưu lên máy chủ</strong> trong khối này.
+            VAT/thanh toán mặc định, VietQR, khổ giấy, mẫu in và nội dung phiếu lưu riêng từng máy.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -230,7 +214,7 @@ export function SettingsView() {
           </div>
         </div>
 
-        {/* 2. Mặc định bán hàng POS (đồng bộ máy chủ) */}
+        {/* 2. Mặc định bán hàng POS (riêng từng máy — đổi là lưu ngay trên máy này) */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <ShoppingCart className="w-4 h-4 text-amber-600" />
@@ -240,16 +224,10 @@ export function SettingsView() {
                 <Lock className="w-3 h-3" /> Chỉ Admin được đổi
               </span>
             )}
-            {isAdmin && (
-              <button
-                onClick={handleSavePosDefaults}
-                className="ml-auto px-3 h-7 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-bold"
-                title="Đồng bộ VAT / phương thức thanh toán mặc định lên máy chủ"
-              >
-                Lưu lên máy chủ
-              </button>
-            )}
           </h3>
+          <p className="text-[11px] text-slate-400 -mt-2">
+            Mỗi máy trạm dùng riêng — đổi là lưu ngay trên máy này, không đồng bộ máy chủ.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">VAT mặc định</label>
@@ -284,7 +262,7 @@ export function SettingsView() {
           </div>
         </div>
 
-        {/* 3. VietQR (đồng bộ máy chủ) */}
+        {/* 3. VietQR (riêng từng máy — đổi là lưu ngay trên máy này) */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-4 text-xs">
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <QrCode className="w-4 h-4 text-blue-600" />
@@ -294,16 +272,10 @@ export function SettingsView() {
                 <Lock className="w-3 h-3" /> Chỉ Admin được đổi
               </span>
             )}
-            {isAdmin && (
-              <button
-                onClick={handleSaveVietqr}
-                className="ml-auto px-3 h-7 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-bold"
-                title="Đồng bộ tài khoản VietQR lên máy chủ"
-              >
-                Lưu lên máy chủ
-              </button>
-            )}
           </h3>
+          <p className="text-[11px] text-slate-400 -mt-2">
+            Mỗi máy trạm dùng tài khoản riêng — đổi là lưu ngay trên máy này, không đồng bộ máy chủ.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Ngân hàng</label>
@@ -603,7 +575,7 @@ export function SettingsView() {
             </div>
           </div>
           <p className="text-[11px] text-slate-400">
-            2 mục chữ cuối phiếu đồng bộ máy chủ theo nút Lưu ở khối Thông tin cửa hàng — các tick hiển thị chỉ lưu trên máy này.
+            Cả khối này chỉ lưu trên máy này, không đồng bộ máy chủ.
           </p>
         </div>
       </div>

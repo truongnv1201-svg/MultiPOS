@@ -169,6 +169,28 @@ describe('số dư đầu kỳ cấu hình được (không cộng cứng trong 
   });
 });
 
+describe('cài đặt theo máy trạm (local-only, không đồng bộ server)', () => {
+  it('mặc định POS + lời cảm ơn + chính sách nằm trong LOCAL_SHOP_KEYS', () => {
+    const commerce = read('lib/store/commerce.tsx');
+    for (const key of ['defaultVat', 'defaultPayment', 'defaultPriceBook', 'footerThanks', 'receiptPolicy']) {
+      assert.match(commerce, new RegExp(`'${key}',`), `thiếu local key ${key}`);
+    }
+  });
+
+  it('VietQR không còn đẩy/kéo server', () => {
+    const commerce = read('lib/store/commerce.tsx');
+    assert.ok(!/saveVietqrSettings/.test(commerce), 'còn sót saveVietqrSettings');
+    assert.ok(!/refreshVietqr/.test(commerce), 'còn sót refreshVietqr');
+    const settings = read('components/settings/SettingsView.tsx');
+    assert.ok(!/handleSaveVietqr|handleSavePosDefaults/.test(settings), 'còn sót nút lưu server');
+  });
+
+  it('ghi chú sao lưu tự động nằm trên header trang Cài đặt', () => {
+    const settings = read('components/settings/SettingsView.tsx');
+    assert.match(settings, /Dữ liệu tự động sao lưu mỗi đêm/);
+  });
+});
+
 describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh tiền, đúng số)', () => {
   it('bảng lương không chốt đã-chi khi còn người tạm ứng vượt lương', () => {
     const hrm = read('lib/store/hrm-slice.tsx');
