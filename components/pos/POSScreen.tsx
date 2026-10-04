@@ -648,10 +648,10 @@ export function POSScreen() {
         {/* Toolbar: CSS Grid 3 cột — [search+qty | tabs (1fr) | controls] */}
         <div
           id="pos-goods-toolbar"
-          className="bg-white border-b border-slate-200 px-2 py-1.5 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] items-center gap-2 shrink-0"
+          className="bg-white border-b border-slate-200 px-2 py-1.5 grid grid-cols-1 sm:grid-cols-[minmax(0,50%)_minmax(0,1fr)_auto] items-center gap-2 shrink-0"
         >
-          {/* CỘT 1: Search + Ô SL — kích thước cố định, không bị ảnh hưởng bởi tabs */}
-          <div className="flex items-center gap-1.5">
+          {/* CỘT 1: Search + Ô SL — chiếm 1/2 header, không bị ảnh hưởng bởi tabs */}
+          <div className="flex items-center gap-1.5 min-w-0 w-full">
             {/* Ô số lượng nhanh — nhập được số thập phân (2,15 kg).
                 Truyền qua quantitySlot để nằm GIỮA ô tìm kiếm và cụm nút quét mã/bàn phím. */}
             <ProductSearchBar
@@ -668,7 +668,7 @@ export function POSScreen() {
               // Quét mã vạch và bấm chuột vẫn thêm thẳng nên không chậm máy quét.
               confirmQtyOnEnter={isStockFlow}
               quantitySlot={(
-                <div className="w-20 sm:w-24 shrink-0">
+                <div className="w-24 sm:w-28 shrink-0">
                   <input
                     ref={quickQuantityRef}
                     id="quick-quantity-input"
