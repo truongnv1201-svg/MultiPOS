@@ -91,11 +91,18 @@ describe('đổi project dọn máy trạm (khỏi lẫn số dư project cũ)',
     assert.match(store, /localStorage\.setItem\(MACHINE_PROJECT_KEY, currentProjectUrl\)/);
   });
 
-  it('Cài đặt có nút dọn máy trạm (chỉ Admin, có xác nhận)', () => {
+  it('Cài đặt KHÔNG còn nút tay (zero-touch 10/2026: user không thạo kỹ thuật)', () => {
+    // Quyết định mới thay thế nút tay cũ: bỏ Tải/Khôi phục backup tay, bỏ nút
+    // "Dọn sạch dữ liệu máy trạm" (nguy hiểm khi bấm nhầm). An toàn đổi project
+    // vẫn giữ bằng wipe TỰ ĐỘNG lúc boot (test ngay phía trên).
     const settings = read('components/settings/SettingsView.tsx');
-    assert.match(settings, /Dọn sạch dữ liệu máy trạm/);
-    assert.match(settings, /\{isAdmin && \(\s*\n?\s*<button\s*\n?\s*onClick=\{handleWipeMachine\}/);
-    assert.match(settings, /window\.confirm\('Dọn SẠCH toàn bộ dữ liệu trên máy này/);
+    assert.ok(!/Dọn sạch dữ liệu máy trạm/.test(settings), 'không còn nút dọn máy trạm');
+    assert.ok(!/handleWipeMachine/.test(settings), 'không còn handler dọn máy trạm');
+    assert.ok(!/Tải bản sao lưu/.test(settings), 'không còn nút tải backup tay');
+    assert.ok(!/Khôi phục từ tệp/.test(settings), 'không còn nút khôi phục tay');
+    assert.ok(!/isBackupStale/.test(settings), 'không còn nhắc sao lưu tay');
+    // Thay bằng dòng trạng thái tự động, không nút bấm.
+    assert.match(settings, /tự động sao lưu/);
   });
 
   it('lưu cửa hàng báo toast (không hộp inline im lặng)', () => {
