@@ -30,3 +30,24 @@ describe('danh mục: sắp xếp mặc định mới-trên-cũ-dưới', () => 
     assert.match(products, /sortRows\(filteredProducts, get, sortDir\)/);
   });
 });
+
+describe('mọi bảng chính đều có sort mặc định mới-trên-cũ-dưới (chống nháy khi server về)', () => {
+  const cases = [
+    ['components/orders/OrdersView.tsx', "useSortState('created_at', 'desc')"],
+    ['components/customers/CustomersView.tsx', "useSortState('code', 'desc')"],
+    ['components/suppliers/SuppliersView.tsx', "useSortState('code', 'desc')"],
+    ['components/cashbook/CashbookView.tsx', "useSortState('created_at', 'desc')"],
+    ['components/products/ProductsView.tsx', "useSortState('sku', 'desc')"],
+  ];
+  for (const [file, expected] of cases) {
+    it(`${file} mặc định ${expected}`, () => {
+      assert.match(read(file), new RegExp(expected.replace(/([()])/g, '\\$1')));
+    });
+  }
+
+  it('InventoryView: cả 2 tab đều có sort mặc định', () => {
+    const inv = read('components/inventory/InventoryView.tsx');
+    assert.match(inv, /toggleStockSort \} = useSortState\('sku', 'desc'\)/);
+    assert.match(inv, /toggleMovSort \} = useSortState\('created_at', 'desc'\)/);
+  });
+});

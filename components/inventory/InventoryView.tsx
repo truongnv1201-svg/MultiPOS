@@ -53,9 +53,10 @@ export function InventoryView() {
   const [movementDateFilter, setMovementDateFilter] = useState<DateFilterState>({ preset: 'today' });
   const [movementPage, setMovementPage] = useState<number>(1);
   const [movementPageSize, setMovementPageSize] = useState<number>(25);
-  // Sắp xếp 2 bảng: bấm header để đảo chiều; đổi sort -> về trang 1
-  const { sortKey: stockSortKey, sortDir: stockSortDir, toggleSort: toggleStockSort } = useSortState();
-  const { sortKey: movSortKey, sortDir: movSortDir, toggleSort: toggleMovSort } = useSortState();
+  // Sắp xếp 2 bảng: bấm header để đảo chiều; đổi sort -> về trang 1.
+  // Mặc định mới nhất lên trên (khớp thứ tự server) để không nháy khi dữ liệu về.
+  const { sortKey: stockSortKey, sortDir: stockSortDir, toggleSort: toggleStockSort } = useSortState('sku', 'desc');
+  const { sortKey: movSortKey, sortDir: movSortDir, toggleSort: toggleMovSort } = useSortState('created_at', 'desc');
   const handleStockSort = (key: string) => {
     toggleStockSort(key);
     setStockPage(1);

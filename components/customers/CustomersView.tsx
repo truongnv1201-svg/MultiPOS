@@ -38,7 +38,8 @@ export function CustomersView() {
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
   // Sắp xếp: bấm header để đảo chiều; đổi sort -> về trang 1
-  const { sortKey, sortDir, toggleSort } = useSortState();
+  // Mặc định mã mới nhất lên trên (khớp thứ tự server) để không nháy khi dữ liệu về.
+  const { sortKey, sortDir, toggleSort } = useSortState('code', 'desc');
   const handleSort = (key: string) => {
     toggleSort(key);
     setPage(1);

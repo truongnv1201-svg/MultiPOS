@@ -36,7 +36,8 @@ export function SuppliersView() {
   const [debtFilter, setDebtFilter] = useState<'all' | 'debt' | 'clean'>('all');
   const [supPage, setSupPage] = useState(1);
   const [supPageSize, setSupPageSize] = useState(25);
-  const { sortKey: supSortKey, sortDir: supSortDir, toggleSort: toggleSupSort } = useSortState();
+  // Mặc định mã mới nhất lên trên (khớp thứ tự server) để không nháy khi dữ liệu về.
+  const { sortKey: supSortKey, sortDir: supSortDir, toggleSort: toggleSupSort } = useSortState('code', 'desc');
 
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(suppliers[0] || null);
   // Mobile: mở sheet chi tiết khi chạm 1 dòng trong record list (desktop vẫn dùng cột phải)
