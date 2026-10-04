@@ -65,8 +65,8 @@ export function useTxCart(): TxCart {
 
   // Tab operations — tab mới ăn theo mặc định POS trong Cài đặt
   const createCartTab = useCallback(() => {
-    if (cartTabs.length >= 5) {
-      notify('Chỉ được mở tối đa 5 hóa đơn cùng lúc! Hãy thanh toán hoặc đóng bớt tab.', 'error');
+    if (cartTabs.length >= 3) {
+      notify('Chỉ được mở tối đa 3 hóa đơn cùng lúc! Hãy thanh toán hoặc đóng bớt tab.', 'error');
       return;
     }
     const newId = `tab-${Date.now()}`;

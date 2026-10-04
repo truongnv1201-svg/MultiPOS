@@ -14,6 +14,7 @@ import { POSQuickCustomerModal } from '@/components/pos/POSQuickCustomerModal';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { NumberInput } from '@/components/common/NumberInput';
 import { notify } from '@/components/common/Toast';
+import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { isVietqrReady, buildVietqrUrl, vietqrAddInfo } from '@/lib/vietqr';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
@@ -733,8 +734,16 @@ export function POSScreen() {
                   )}
                   {cartTabs.length > 1 && (
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
+                        // Tab đang có hàng thì hỏi trước khi đóng để khỏi mất giỏ bấm nhầm
+                        if (tab.items.length > 0) {
+                          const ok = await confirmDialog(
+                            `${tab.name} đang có ${tab.items.length} món. Đóng là mất giỏ này, tiếp tục?`,
+                            { title: 'Đóng đơn hàng?', confirmLabel: 'Đóng đơn' }
+                          );
+                          if (!ok) return;
+                        }
                         closeCartTab(tab.id);
                       }}
                       className="opacity-60 group-hover:opacity-100 hover:text-rose-500 rounded p-0.5"
