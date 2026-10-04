@@ -70,7 +70,13 @@ export function useTxCart(): TxCart {
       return;
     }
     const newId = `tab-${Date.now()}`;
-    const newName = `HD ${cartTabs.length + 1}`;
+    // Tên tab lấy số lớn nhất đang có + 1 (không dùng length vì đóng tab giữa
+    // chừng sẽ làm length thụt lại và trùng tên, vd: HD 1, HD 3 -> HD 3 mới)
+    const maxNum = cartTabs.reduce((m, t) => {
+      const n = /^HD (\d+)$/.exec(t.name);
+      return n ? Math.max(m, parseInt(n[1], 10)) : m;
+    }, 0);
+    const newName = `HD ${maxNum + 1}`;
     const newTab: CartTab = {
       ...DEFAULT_TAB,
       id: newId,
@@ -82,7 +88,7 @@ export function useTxCart(): TxCart {
     };
     setCartTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
-  }, [cartTabs.length, shop.defaultVat, shop.defaultPayment]);
+  }, [cartTabs, shop.defaultVat, shop.defaultPayment]);
 
   const closeCartTab = useCallback((tabId: string) => {
     setCartTabs((prev) => {
