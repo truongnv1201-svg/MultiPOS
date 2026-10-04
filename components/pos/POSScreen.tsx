@@ -1992,41 +1992,41 @@ export function POSScreen() {
                 className="w-full h-9 px-3 text-right font-mono font-bold text-base text-blue-700 bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
               />
 
-              {/* Quick Cash Presets */}
-              <div className="flex items-center gap-1 pt-1 overflow-x-auto">
+              {/* Quick Cash Presets — 5 nút chia đều, fit luôn chiều rộng khối */}
+              <div className="grid grid-cols-5 gap-1 pt-1">
                 <button
                   type="button"
                   onClick={() => setQuickTender(calculatedTotals.payable)}
                   title="Hoặc đứng ở ô tiền bấm F9 lần nữa"
-                  className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-[10px] font-semibold text-slate-700"
+                  className="px-1 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-semibold text-slate-700 whitespace-nowrap"
                 >
                   Đủ tiền
                 </button>
                 <button
                   type="button"
                   onClick={() => setQuickTender(500000)}
-                  className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-[10px] font-mono font-medium text-slate-700"
+                  className="px-1 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-mono font-medium text-slate-700 whitespace-nowrap"
                 >
                   500k
                 </button>
                 <button
                   type="button"
                   onClick={() => setQuickTender(1000000)}
-                  className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-[10px] font-mono font-medium text-slate-700"
+                  className="px-1 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-mono font-medium text-slate-700 whitespace-nowrap"
                 >
                   1.000k
                 </button>
                 <button
                   type="button"
                   onClick={() => setQuickTender(2000000)}
-                  className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-[10px] font-mono font-medium text-slate-700"
+                  className="px-1 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-mono font-medium text-slate-700 whitespace-nowrap"
                 >
                   2.000k
                 </button>
                 <button
                   type="button"
                   onClick={() => setQuickTender(5000000)}
-                  className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-[10px] font-mono font-medium text-slate-700"
+                  className="px-1 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-mono font-medium text-slate-700 whitespace-nowrap"
                 >
                   5.000k
                 </button>

@@ -251,7 +251,7 @@ export default function MobilePaymentSheet({
                                 <button
                                     type="button"
                                     onClick={() => onQuickTender(payable)}
-                                    className="h-9 rounded-lg border border-slate-300 bg-white text-[10px] font-bold text-slate-700 active:bg-slate-100"
+                                    className="h-9 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-700 active:bg-slate-100"
                                 >
                                     Đủ tiền
                                 </button>
@@ -260,7 +260,7 @@ export default function MobilePaymentSheet({
                                         key={amount}
                                         type="button"
                                         onClick={() => onQuickTender(amount)}
-                                        className="h-9 rounded-lg border border-slate-300 bg-white text-[10px] font-mono font-semibold text-slate-700 active:bg-slate-100"
+                                        className="h-9 rounded-lg border border-slate-300 bg-white text-xs font-mono font-semibold text-slate-700 active:bg-slate-100"
                                     >
                                         {amount / 1000000}M
                                     </button>
