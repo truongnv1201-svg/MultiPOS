@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '@/lib/store';
 import { DimensionDetail, OrderItem } from '@/lib/types';
 import { HOLE_PRICE, CORNER_PRICE } from '@/lib/mock-data';
@@ -46,8 +46,12 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
     return [initialRow];
   });
 
+  // Ref tới handleSave (khai báo ở dưới) để Enter ở dòng trống cuối tự tổng kết
+  const handleSaveRef = useRef<() => void>(() => undefined);
+
   // Enter nhảy ô: Dài -> Rộng -> SL -> Phụ phí -> dòng tiếp theo;
-  // ô cuối của dòng cuối thì thêm dòng mới & focus ô đầu dòng mới
+  // ô cuối của dòng cuối: dòng còn trống thì tự tổng kết (XÁC NHẬN),
+  // ngược lại thêm dòng mới TRỐNG & focus ô đầu dòng mới
   const handleCellEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -58,6 +62,20 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
     const i = cells.indexOf(target);
     if (i >= 0 && i < cells.length - 1) {
       cells[i + 1].focus();
+      return;
+    }
+    const last = rows[rows.length - 1];
+    const lastEmpty = !last || !(last.length > 0 && last.width > 0);
+    if (lastEmpty) {
+      // Bỏ các dòng trống ở cuối rồi tổng kết — khỏi phải xóa tay dòng thừa
+      let end = rows.length;
+      while (end > 1 && !(rows[end - 1].length > 0 && rows[end - 1].width > 0)) end--;
+      if (end !== rows.length) {
+        setRows(rows.slice(0, end));
+        setTimeout(() => handleSaveRef.current(), 60);
+      } else {
+        handleSaveRef.current();
+      }
       return;
     }
     handleAddRow();
@@ -79,13 +97,17 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
   // Text thô khi đang gõ số lẻ (gõ "1." giữ nguyên dấu chấm tới khi thành "1.5");
   // totals dùng số parse được, blur/Enter thì chốt về số
   const [editCell, setEditCell] = useState<{ id: string; col: string; text: string } | null>(null);
-  const cellText = (rowId: string, col: string, formatted: string | number) =>
-    editCell && editCell.id === rowId && editCell.col === col ? editCell.text : formatted;
-
   const handleDecimalText = (row: DimensionDetail, col: 'length' | 'width', raw: string) => {
+    // Ô nhập bằng mm, lưu nội bộ bằng m (chia 1000)
     setEditCell({ id: row.id, col, text: raw });
-    const v = parseFloat(raw.replace(',', '.'));
-    handleUpdateRow(row.id, col, isNaN(v) ? 0 : v);
+    const mm = parseFloat(raw.replace(',', '.'));
+    handleUpdateRow(row.id, col, isNaN(mm) ? 0 : mm / 1000);
+  };
+
+  // Hiển thị m -> mm (làm tròn tới mm nguyên); đang gõ thì giữ nguyên chuỗi thô
+  const cellText = (rowId: string, col: string, meters: number) => {
+    if (editCell && editCell.id === rowId && editCell.col === col) return editCell.text;
+    return meters > 0 ? String(Math.round(meters * 1000)) : '';
   };
 
   const commitEditCell = (rowId: string, col: string) =>
@@ -120,24 +142,22 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
     );
   };
 
-  // Add new row with Auto-Inheritance (SRS 4.5.2): kích thước + loại mài + phụ phí kế thừa dòng trên
+  // Thêm dòng mới TRỐNG (không copy dòng trên); loại mài theo lựa chọn ở toolbar
   const handleAddRow = () => {
-    const lastRow = rows[rows.length - 1];
-    const newGrindingType = lastRow?.grinding_type || 'none';
-    const newGrindingPrice = lastRow?.grinding_unit_price ?? 0;
+    const g = grindingServices.find((x) => x.id === batchGrindingType);
 
     const newRow = calculateDimensionRow({
       id: `dim-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      length: lastRow?.length || 0,
-      width: lastRow?.width || 0,
+      length: 0,
+      width: 0,
       quantity: 1,
-      grinding_type: newGrindingType,
-      grinding_unit_price: newGrindingPrice,
+      grinding_type: batchGrindingType,
+      grinding_unit_price: g?.price_per_md ?? 0,
       holes: 0,
       hole_unit_price: HOLE_PRICE,
       corners: 0,
       corner_unit_price: CORNER_PRICE,
-      extra_fee: lastRow ? extraFeeOf(lastRow) : 0,
+      extra_fee: 0,
     });
 
     setRows((prev) => [...prev, newRow]);
@@ -203,6 +223,9 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
 
     onClose();
   }, [rows, isNew, product, addItemToCart, updateCartItem, item, totalActualM2, totalProcessingFee, wasteFactor, totalWasteM2, totalAmount, onClose]);
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  }, [handleSave]);
 
   // Keyboard shortcut listener for Modal (Ctrl+Enter to save, Esc to cancel)
   useEffect(() => {
@@ -294,7 +317,7 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
 
           <div className="text-[11px] text-amber-800 italic flex items-center gap-1">
             <HelpCircle className="w-3.5 h-3.5" />
-            <span>Phím Enter tại dòng cuối tự động thêm dòng mới & kế thừa loại mài</span>
+            <span>Phím Enter ở dòng trống cuối để tự tổng kết • dòng mới luôn trống</span>
           </div>
         </div>
 
@@ -304,8 +327,8 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
             <thead>
               <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
                 <th className="py-2 px-2 w-10 text-center">STT</th>
-                <th className="py-2 px-2 w-24">Dài (m)</th>
-                <th className="py-2 px-2 w-24">Rộng (m)</th>
+                <th className="py-2 px-2 w-24">Dài (mm)</th>
+                <th className="py-2 px-2 w-24">Rộng (mm)</th>
                 <th className="py-2 px-2 w-16 text-center">Số tấm</th>
                 <th className="py-2 px-2 w-28 text-right">Phụ phí (đ)</th>
                 <th className="py-2 px-2 w-24 text-right">Chu vi (md)</th>
@@ -323,14 +346,14 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
                       {index + 1}
                     </td>
 
-                    {/* Dài (m) — text + bôi đen khi focus để gõ đè; cho phép xóa trắng */}
+                    {/* Dài (mm) — nhập mm, lưu m; text + bôi đen khi focus để gõ đè; cho phép xóa trắng */}
                     <td className="py-2 px-2">
                       <input
                         type="text"
-                        inputMode="decimal"
+                        inputMode="numeric"
                         data-dim-col="length"
                         autoFocus={index === 0}
-                        value={cellText(row.id, 'length', row.length || '')}
+                        value={cellText(row.id, 'length', row.length)}
                         onChange={(e) => handleDecimalText(row, 'length', e.target.value)}
                         onFocus={(e) => {
                           commitEditCell(row.id, 'length');
@@ -343,13 +366,13 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
                       />
                     </td>
 
-                    {/* Rộng (m) */}
+                    {/* Rộng (mm) */}
                     <td className="py-2 px-2">
                       <input
                         type="text"
-                        inputMode="decimal"
+                        inputMode="numeric"
                         data-dim-col="width"
-                        value={cellText(row.id, 'width', row.width || '')}
+                        value={cellText(row.id, 'width', row.width)}
                         onChange={(e) => handleDecimalText(row, 'width', e.target.value)}
                         onFocus={(e) => {
                           commitEditCell(row.id, 'width');
@@ -440,7 +463,7 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
               id="btn-add-dimension-row"
               onClick={handleAddRow}
               type="button"
-              title="Enter tại ô Phụ phí của dòng cuối để thêm dòng mới"
+              title="Enter tại ô Phụ phí của dòng cuối để thêm dòng mới (dòng trống thì tự tổng kết)"
               className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
             >
               <Plus className="w-4 h-4" />
