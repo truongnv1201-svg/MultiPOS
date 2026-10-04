@@ -77,6 +77,8 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
   const [retailPrice, setRetailPrice] = useState<number | ''>('');
   const [importPrice, setImportPrice] = useState<number | ''>('');
   const [stockQuantity, setStockQuantity] = useState<number | ''>('');
+  // Ngưỡng tồn ít riêng của mặt hàng (lib/stock.ts) — để trống = dùng mặc định 15.
+  const [minStock, setMinStock] = useState<number | ''>('');
   // Mặc định bán được số lượng thập phân (2,15 kg) — tick để khóa hàng đếm
   // theo cái về số nguyên (allow_decimal = false)
   const [integerOnly, setIntegerOnly] = useState(false);
@@ -98,6 +100,14 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
         import_price: Math.max(0, Math.round(importPrice || 0)),
         avg_cost: Math.max(0, Math.round(importPrice || 0)), // INT-ERR-01
         stock_quantity: Math.max(0, roundQty(stockQuantity || 0)),
+        // Ô trống = mặc định (lưu 0, lib/stock.ts coi <= 0 là "chưa cấu hình").
+        // Dịch vụ/combo không giữ ngưỡng tồn.
+        min_stock:
+          productType === 'service' || productType === 'combo'
+            ? undefined
+            : minStock === ''
+              ? 0
+              : Math.max(0, roundQty(minStock)),
         allow_decimal: productType === 'area' ? true : !integerOnly,
         waste_factor: productType === 'area' ? wasteFactor : undefined,
         default_grinding_price: productType === 'area' ? defaultGrindingPrice : undefined,
@@ -253,6 +263,8 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
           )}
 
           {productType !== 'service' && productType !== 'combo' && (
+            <>
+            <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Số lượng tồn kho ban đầu</label>
               <NumberInput
@@ -263,18 +275,31 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
                 placeholder="0"
                 className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
               />
-              <label className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={productType === 'area' ? false : integerOnly}
-                  disabled={productType === 'area'}
-                  onChange={(e) => setIntegerOnly(e.target.checked)}
-                  className="w-4 h-4 accent-blue-600"
-                />
-                Chỉ bán số lượng nguyên
-                {productType === 'area' && <span className="text-slate-400 font-normal">— hàng m² luôn tính thập phân</span>}
-              </label>
             </div>
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Tồn tối thiểu (báo sắp hết)</label>
+              <NumberInput
+                value={minStock}
+                onChange={(val) => setMinStock(val)}
+                allowDecimals={productType === 'area' || !integerOnly}
+                maxDecimals={QTY_MAX_DECIMALS}
+                placeholder="Mặc định 15"
+                className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+            </div>
+            <label className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={productType === 'area' ? false : integerOnly}
+                disabled={productType === 'area'}
+                onChange={(e) => setIntegerOnly(e.target.checked)}
+                className="w-4 h-4 accent-blue-600"
+              />
+              Chỉ bán số lượng nguyên
+              {productType === 'area' && <span className="text-slate-400 font-normal">— hàng m² luôn tính thập phân</span>}
+            </label>
+            </>
           )}
         </div>
 

@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
 import { formatVND, formatNumber } from '@/lib/format';
 import { formatQty } from '@/lib/quantity';
+import { isLowStock, isOutOfStock, minStockOf, stockStatus } from '@/lib/stock';
 import {
   Boxes,
   Plus,
@@ -268,9 +269,9 @@ export function InventoryView() {
       p.name.toLowerCase().includes(stockSearch.toLowerCase()) ||
       p.sku.toLowerCase().includes(stockSearch.toLowerCase());
     let matchesStatus = true;
-    if (stockStatusFilter === 'low') matchesStatus = p.stock_quantity <= 15 && p.stock_quantity > 0;
-    else if (stockStatusFilter === 'out') matchesStatus = p.stock_quantity <= 0;
-    else if (stockStatusFilter === 'in_stock') matchesStatus = p.stock_quantity > 15;
+    if (stockStatusFilter === 'low') matchesStatus = isLowStock(p);
+    else if (stockStatusFilter === 'out') matchesStatus = isOutOfStock(p);
+    else if (stockStatusFilter === 'in_stock') matchesStatus = stockStatus(p) === 'ok';
 
     return matchesSearch && matchesStatus;
   });
@@ -278,7 +279,7 @@ export function InventoryView() {
   // Sorted products
   const sortedProducts = (() => {
     if (!stockSortKey) return filteredProducts;
-    const statusRank = (p: Product) => (p.stock_quantity <= 0 ? 0 : p.stock_quantity <= 15 ? 1 : 2);
+    const statusRank = (p: Product) => (isOutOfStock(p) ? 0 : isLowStock(p) ? 1 : 2);
     const getters: Record<string, (p: Product) => unknown> = {
       sku: (p) => p.sku,
       name: (p) => p.name,
@@ -458,9 +459,9 @@ export function InventoryView() {
                 className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
               >
                 <option value="all">Tất cả trạng thái kho</option>
-                <option value="low">Cảnh báo tồn ít (≤ 15)</option>
+                <option value="low">Cảnh báo tồn ít (≤ tồn tối thiểu)</option>
                 <option value="out">Đã hết hàng (= 0)</option>
-                <option value="in_stock">Còn nhiều hàng (&gt; 15)</option>
+                <option value="in_stock">Còn nhiều hàng (trên tồn tối thiểu)</option>
               </select>
             </div>
 
@@ -481,8 +482,8 @@ export function InventoryView() {
                 <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy vật tư nào phù hợp với bộ lọc.</p>
               ) : (
                 paginatedProducts.map((p) => {
-                  const isLow = p.stock_quantity <= 15 && p.stock_quantity > 0;
-                  const isOut = p.stock_quantity <= 0;
+                  const isLow = isLowStock(p);
+                  const isOut = isOutOfStock(p);
                   const stockValue = p.stock_quantity * p.avg_cost;
                   return (
                     <div key={p.id} className="px-3 py-2.5 active:bg-slate-50">
@@ -537,8 +538,8 @@ export function InventoryView() {
                   </tr>
                 ) : (
                   paginatedProducts.map((p) => {
-                    const isLow = p.stock_quantity <= 15 && p.stock_quantity > 0;
-                    const isOut = p.stock_quantity <= 0;
+                    const isLow = isLowStock(p);
+                    const isOut = isOutOfStock(p);
                     const stockValue = p.stock_quantity * p.avg_cost;
                     return (
                       <tr key={p.id} className="hover:bg-slate-50 transition-colors">
@@ -588,7 +589,7 @@ export function InventoryView() {
                           ) : isLow ? (
                             <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" />
-                              Sắp hết (≤15)
+                              Sắp hết (≤{minStockOf(p)})
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-semibold">

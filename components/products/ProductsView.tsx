@@ -24,6 +24,8 @@ import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
+import { QTY_MAX_DECIMALS } from '@/lib/quantity';
+import { isLowStock, isOutOfStock, stockStatus } from '@/lib/stock';
 import { DataTableShell } from '@/components/common/DataTableShell';
 import { AddProductFormModal, UNIT_OPTIONS } from '@/components/products/AddProductFormModal';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
@@ -50,6 +52,7 @@ export function ProductsView() {
   const [editWasteFactor, setEditWasteFactor] = useState(0);
   const [editGrindingPrice, setEditGrindingPrice] = useState(0);
   const [editIntegerOnly, setEditIntegerOnly] = useState(false);
+  const [editMinStock, setEditMinStock] = useState<number | ''>('');
 
   const openEditProduct = (p: Product) => {
     setEditingProduct(p);
@@ -61,6 +64,8 @@ export function ProductsView() {
     setEditWasteFactor(p.waste_factor ?? 0);
     setEditGrindingPrice(p.default_grinding_price ?? 0);
     setEditIntegerOnly(p.product_type !== 'area' && p.allow_decimal === false);
+    // Chỉ hiện số khi > 0 — 0/undefined nghĩa là "dùng mặc định 15" (lib/stock.ts).
+    setEditMinStock(p.min_stock && p.min_stock > 0 ? p.min_stock : '');
   };
 
   const handleUpdateProduct = async (e: React.FormEvent) => {
@@ -73,6 +78,14 @@ export function ProductsView() {
         product_type: editProductType,
         retail_price: Math.max(0, Math.round(editRetailPrice)),
         import_price: Math.max(0, Math.round(editImportPrice)),
+        // Ô trống = reset về mặc định (lưu 0 để local/server/hàng đợi offline đồng nhất,
+        // lib/stock.ts coi <= 0 là "chưa cấu hình"). Dịch vụ/combo không giữ ngưỡng.
+        min_stock:
+          editProductType === 'service' || editProductType === 'combo'
+            ? undefined
+            : editMinStock === ''
+              ? 0
+              : Math.max(0, editMinStock),
         waste_factor: editProductType === 'area' ? Math.max(0, editWasteFactor) : undefined,
         allow_decimal: editProductType === 'area' ? true : !editIntegerOnly,
         default_grinding_price: editProductType === 'area' ? Math.max(0, Math.round(editGrindingPrice)) : undefined,
@@ -128,9 +141,9 @@ export function ProductsView() {
       const matchesType = typeFilter === 'all' || p.product_type === typeFilter;
 
       let matchesStock = true;
-      if (stockStatusFilter === 'low') matchesStock = p.product_type !== 'service' && p.stock_quantity <= 15 && p.stock_quantity > 0;
-      else if (stockStatusFilter === 'out') matchesStock = p.product_type !== 'service' && p.stock_quantity <= 0;
-      else if (stockStatusFilter === 'in_stock') matchesStock = p.product_type !== 'service' && p.stock_quantity > 15;
+      if (stockStatusFilter === 'low') matchesStock = p.product_type !== 'service' && isLowStock(p);
+      else if (stockStatusFilter === 'out') matchesStock = p.product_type !== 'service' && isOutOfStock(p);
+      else if (stockStatusFilter === 'in_stock') matchesStock = p.product_type !== 'service' && stockStatus(p) === 'ok';
 
       return matchesSearch && matchesType && matchesStock;
     });
@@ -368,9 +381,9 @@ export function ProductsView() {
           className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
         >
           <option value="all">Tất cả mức tồn</option>
-          <option value="low">Sắp hết (≤ 15)</option>
+          <option value="low">Sắp hết (≤ tồn tối thiểu)</option>
           <option value="out">Hết hàng (= 0)</option>
-          <option value="in_stock">Còn nhiều (&gt; 15)</option>
+          <option value="in_stock">Còn nhiều (trên tồn tối thiểu)</option>
         </select>
       </div>
 
@@ -557,7 +570,7 @@ export function ProductsView() {
                         ) : p.product_type === 'combo' ? (
                           <span className="text-purple-600 font-normal text-[10px]">Trừ kho con</span>
                         ) : (
-                          <span className={p.stock_quantity < 20 ? 'text-rose-600' : 'text-slate-800'}>
+                          <span className={isOutOfStock(p) || isLowStock(p) ? 'text-rose-600' : 'text-slate-800'}>
                             {p.stock_quantity} {p.unit}
                           </span>
                         )}
@@ -684,6 +697,20 @@ export function ProductsView() {
                   />
                 </div>
               </div>
+
+              {editProductType !== 'service' && editProductType !== 'combo' && (
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Tồn tối thiểu (báo sắp hết)</label>
+                  <NumberInput
+                    value={editMinStock}
+                    onChange={(val) => setEditMinStock(val)}
+                    allowDecimals
+                    maxDecimals={QTY_MAX_DECIMALS}
+                    placeholder="Để trống = mặc định 15"
+                    className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
+                  />
+                </div>
+              )}
 
               {editProductType === 'area' && (
                 <div className="grid grid-cols-2 gap-2 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
