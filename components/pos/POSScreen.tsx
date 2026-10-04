@@ -668,7 +668,7 @@ export function POSScreen() {
               // Quét mã vạch và bấm chuột vẫn thêm thẳng nên không chậm máy quét.
               confirmQtyOnEnter={isStockFlow}
               quantitySlot={(
-                <div className="w-24 sm:w-28 shrink-0">
+                <div className="w-14 sm:w-16 shrink-0">
                   <input
                     ref={quickQuantityRef}
                     id="quick-quantity-input"
