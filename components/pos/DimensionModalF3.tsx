@@ -7,6 +7,7 @@ import { HOLE_PRICE, CORNER_PRICE } from '@/lib/mock-data';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { calculateDimensionRow } from '@/lib/db';
 import { notify } from '@/components/common/Toast';
+import { NumberInput } from '@/components/common/NumberInput';
 import { Plus, Trash2, Settings2, RefreshCw, X, Check, HelpCircle } from 'lucide-react';
 
 interface DialogProps {
@@ -94,24 +95,6 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
   const wasteFactor = item.waste_factor ?? product?.waste_factor ?? 5;
   const unitPrice = item.unit_price;
 
-  // Text thô khi đang gõ số lẻ (gõ "1." giữ nguyên dấu chấm tới khi thành "1.5");
-  // totals dùng số parse được, blur/Enter thì chốt về số
-  const [editCell, setEditCell] = useState<{ id: string; col: string; text: string } | null>(null);
-  const handleDecimalText = (row: DimensionDetail, col: 'length' | 'width', raw: string) => {
-    // Ô nhập bằng mm, lưu nội bộ bằng m (chia 1000)
-    setEditCell({ id: row.id, col, text: raw });
-    const mm = parseFloat(raw.replace(',', '.'));
-    handleUpdateRow(row.id, col, isNaN(mm) ? 0 : mm / 1000);
-  };
-
-  // Hiển thị m -> mm (làm tròn tới mm nguyên); đang gõ thì giữ nguyên chuỗi thô
-  const cellText = (rowId: string, col: string, meters: number) => {
-    if (editCell && editCell.id === rowId && editCell.col === col) return editCell.text;
-    return meters > 0 ? String(Math.round(meters * 1000)) : '';
-  };
-
-  const commitEditCell = (rowId: string, col: string) =>
-    setEditCell((cur) => (cur && cur.id === rowId && cur.col === col ? null : cur));
   // Công mài = chu vi × đơn giá mài; Phụ phí = phần còn lại (nhập tay, tương thích legacy lỗ/góc)
   const grindingFeeOf = (r: DimensionDetail) => Math.round(r.perimeter_md * (r.grinding_unit_price || 0));
   const extraFeeOf = (r: DimensionDetail) => Math.max(0, r.processing_fee - grindingFeeOf(r));
@@ -356,20 +339,14 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
                       {index + 1}
                     </td>
 
-                    {/* Dài (mm) — nhập mm, lưu m; text + bôi đen khi focus để gõ đè; cho phép xóa trắng */}
+                    {/* Dài (mm) — nhập mm, lưu m; phân tách hàng nghìn trực tiếp khi gõ */}
                     <td className="py-2 px-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
+                      <NumberInput
                         data-dim-col="length"
                         autoFocus={index === 0}
-                        value={cellText(row.id, 'length', row.length)}
-                        onChange={(e) => handleDecimalText(row, 'length', e.target.value)}
-                        onFocus={(e) => {
-                          commitEditCell(row.id, 'length');
-                          e.target.select();
-                        }}
-                        onBlur={() => commitEditCell(row.id, 'length')}
+                        value={row.length > 0 ? Math.round(row.length * 1000) : ''}
+                        onChange={(mm) => handleUpdateRow(row.id, 'length', mm / 1000)}
+                        onFocus={(e) => e.target.select()}
                         onKeyDown={handleCellEnter}
                         placeholder="0"
                         className="w-full h-8 px-2 text-right font-mono bg-white border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
@@ -378,34 +355,23 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
 
                     {/* Rộng (mm) */}
                     <td className="py-2 px-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
+                      <NumberInput
                         data-dim-col="width"
-                        value={cellText(row.id, 'width', row.width)}
-                        onChange={(e) => handleDecimalText(row, 'width', e.target.value)}
-                        onFocus={(e) => {
-                          commitEditCell(row.id, 'width');
-                          e.target.select();
-                        }}
-                        onBlur={() => commitEditCell(row.id, 'width')}
+                        value={row.width > 0 ? Math.round(row.width * 1000) : ''}
+                        onChange={(mm) => handleUpdateRow(row.id, 'width', mm / 1000)}
+                        onFocus={(e) => e.target.select()}
                         onKeyDown={handleCellEnter}
                         placeholder="0"
                         className="w-full h-8 px-2 text-right font-mono bg-white border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
                       />
                     </td>
 
-                    {/* Số tấm (SL) */}
+                    {/* Số tấm (SL) — phân tách hàng nghìn trực tiếp khi gõ */}
                     <td className="py-2 px-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
+                      <NumberInput
                         data-dim-col="quantity"
-                        value={row.quantity || ''}
-                        onChange={(e) => {
-                          const v = parseInt(e.target.value.replace(/[^\d]/g, ''), 10);
-                          handleUpdateRow(row.id, 'quantity', isNaN(v) ? 0 : v);
-                        }}
+                        value={row.quantity > 0 ? row.quantity : ''}
+                        onChange={(v) => handleUpdateRow(row.id, 'quantity', v)}
                         onFocus={(e) => e.target.select()}
                         onKeyDown={handleCellEnter}
                         placeholder="1"
