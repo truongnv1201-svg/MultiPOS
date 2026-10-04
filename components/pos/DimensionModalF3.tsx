@@ -195,34 +195,44 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
   const totalAmount = totalGlassSubtotal + totalProcessingFee;
   const totalWasteM2 = Math.round(totalActualM2 * (1 + wasteFactor / 100) * 1000) / 1000;
 
-  // Save to Cart
+  // Save to Cart — tự bỏ các dòng trống ở cuối (dòng mới thêm chưa nhập)
+  // rồi mới tổng kết, nên Ctrl+Enter / nút Xác nhận luôn chạy được
   const handleSave = useCallback(() => {
     if (rows.length === 0) return;
+    let end = rows.length;
+    while (end > 1 && !(rows[end - 1].length > 0 && rows[end - 1].width > 0)) end--;
+    const list = end !== rows.length ? rows.slice(0, end) : rows;
+    if (end !== rows.length) setRows(list);
 
     // Chặn dòng thiếu kích thước (ô đang để trống/0)
-    const badIdx = rows.findIndex((r) => !(r.length > 0 && r.width > 0 && r.quantity > 0));
+    const badIdx = list.findIndex((r) => !(r.length > 0 && r.width > 0 && r.quantity > 0));
     if (badIdx >= 0) {
       notify(`Dòng ${badIdx + 1} chưa đủ kích thước! Dài, Rộng và Số tấm phải lớn hơn 0.`, 'error');
       return;
     }
 
+    const m2 = Math.round(list.reduce((sum, r) => sum + r.actual_m2, 0) * 1000) / 1000;
+    const fee = list.reduce((sum, r) => sum + r.processing_fee, 0);
+    const waste = Math.round(m2 * (1 + wasteFactor / 100) * 1000) / 1000;
+    const amount = Math.round(m2 * unitPrice) + fee;
+
     if (isNew) {
       if (product) {
-        addItemToCart(product, totalActualM2, rows);
+        addItemToCart(product, m2, list);
       }
     } else {
       updateCartItem(item.id, {
-        quantity: totalActualM2,
-        dimension_details: rows,
-        processing_fee: totalProcessingFee,
+        quantity: m2,
+        dimension_details: list,
+        processing_fee: fee,
         waste_factor: wasteFactor,
-        material_consumed: totalWasteM2,
-        subtotal: totalAmount - item.discount_amount,
+        material_consumed: waste,
+        subtotal: amount - item.discount_amount,
       });
     }
 
     onClose();
-  }, [rows, isNew, product, addItemToCart, updateCartItem, item, totalActualM2, totalProcessingFee, wasteFactor, totalWasteM2, totalAmount, onClose]);
+  }, [rows, isNew, product, addItemToCart, updateCartItem, item, wasteFactor, unitPrice, onClose]);
   useEffect(() => {
     handleSaveRef.current = handleSave;
   }, [handleSave]);
