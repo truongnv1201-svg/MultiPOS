@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { Product, OrderItem, Customer } from '@/lib/types';
-import { ProductSearchBar, ProductSearchBarHandle, useSearchTools, SearchToolButtons } from '@/components/pos/ProductSearchBar';
+import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import MobileCartSheet from '@/components/pos/MobileCartSheet';
 import { readOnlyCellClass, editCellClass } from '@/components/common/EditableCell';
@@ -128,8 +128,18 @@ export function POSScreen() {
   const quickQuantityRef = useRef<HTMLInputElement>(null);
   /** Ref đến ProductSearchBar để gọi handleQuantityKeyDown khi ô SL render ở ngoài */
   const searchBarRef = useRef<ProductSearchBarHandle>(null);
-  // 2 nút quét mã/bàn phím đặt ở cột controls bên phải (state dùng chung với SearchBar)
-  const searchTools = useSearchTools();
+  // Cụm nút quét mã/bàn phím đã bỏ khỏi toolbar cho rộng chỗ:
+  // tools vô hiệu hóa để sheet quét không mở và wedge không tự bật.
+  // (Component SearchToolButtons + ids vẫn giữ trong ProductSearchBar để dùng lại khi cần.)
+  const searchTools = React.useMemo(
+    () => ({
+      scannerOpen: false,
+      setScannerOpen: () => undefined,
+      wedgeMode: false,
+      toggleWedgeMode: () => undefined,
+    }),
+    []
+  );
 
   // Quick customer modal: state mở/đóng ở đây, form + lưu trong POSQuickCustomerModal
   const [isQuickCustomerModalOpen, setIsQuickCustomerModalOpen] = useState<boolean>(false);
@@ -654,7 +664,7 @@ export function POSScreen() {
           {/* CỘT 1: Search + Ô SL — chiếm 1/2 header, không bị ảnh hưởng bởi tabs */}
           <div className="flex items-center gap-1.5 min-w-0 w-full">
             {/* Ô số lượng nhanh — nhập được số thập phân (2,15 kg).
-                Truyền qua quantitySlot để nằm GIỮA ô tìm kiếm và cụm nút quét mã/bàn phím. */}
+                Truyền qua quantitySlot để nằm cạnh ô tìm kiếm. */}
             <ProductSearchBar
               ref={searchBarRef}
               showQuantityInput={false}
@@ -666,7 +676,7 @@ export function POSScreen() {
               onPickProduct={isImportFlow ? addImportLine : isProjectFlow ? addProjectLine : undefined}
               // Nhập hàng + Xuất CT: Enter lần 1 nhảy ô số lượng, Enter lần 2 mới ghi dòng
               // (giống bán hàng). Số lượng nhập/xuất phải chính xác, không mặc định 1.
-              // Quét mã vạch và bấm chuột vẫn thêm thẳng nên không chậm máy quét.
+              // Bấm chuột vẫn thêm thẳng nên không chậm.
               confirmQtyOnEnter={isStockFlow}
               quantitySlot={(
                 <div className="w-14 sm:w-16 shrink-0">
@@ -804,8 +814,6 @@ export function POSScreen() {
                 </button>
               </div>
             )}
-            {/* Quét mã + bàn phím: dời từ cạnh ô tìm sang phải để toolbar cân đối */}
-            <SearchToolButtons tools={searchTools} />
           </div>
         </div>
 

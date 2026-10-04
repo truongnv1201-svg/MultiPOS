@@ -87,22 +87,6 @@ test.describe('POS mobile (live backend)', () => {
       await payDialog.locator('button[aria-label="Đóng thanh toán"]').first().click();
       await expect(payDialog).toHaveCount(0);
 
-      // Quayét mã vạch: mở được sheet, camera không khả dụng thì có ô nhập tay
-      await page.locator('#btn-pos-scan-barcode').click();
-      const scanDialog = page.getByRole('dialog', { name: 'Quét mã vạch' });
-      await expect(scanDialog).toBeVisible();
-      await expect(page.locator('#barcode-manual-input')).toBeVisible();
-      await scanDialog.locator('button[aria-label="Đóng quét mã"]').first().click();
-      await expect(scanDialog).toHaveCount(0);
-
-      // Chế độ bàn phím: bật/tắt được và nhớ trên máy
-      const wedge = page.locator('#btn-pos-wedge-mode');
-      await expect(wedge).toHaveAttribute('aria-pressed', 'false');
-      await wedge.click();
-      await expect(wedge).toHaveAttribute('aria-pressed', 'true');
-      await wedge.click();
-      await expect(wedge).toHaveAttribute('aria-pressed', 'false');
-
       // Sync Center mở được từ header và đóng lại được
       await page.locator('#header-sync-center-btn').click();
       await expect(page.getByRole('dialog', { name: 'Trung tâm đồng bộ' })).toBeVisible();

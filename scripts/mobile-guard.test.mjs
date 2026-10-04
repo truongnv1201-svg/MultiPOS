@@ -73,14 +73,13 @@ describe('POS: đã bỏ chế độ bán hàng dạng lưới thẻ', () => {
     assert.match(header, /go\('pos'\)/);
   });
 
-  it('2 nút quét mã/bàn phím nằm ở cột controls phải (state dùng chung với ô tìm)', () => {
+  it('toolbar POS đã bỏ 2 nút quét mã/bàn phím cho rộng chỗ (giữ component để dùng lại)', () => {
     const bar = read('components/pos/ProductSearchBar.tsx');
     assert.match(bar, /export function useSearchTools\(\): SearchTools/);
     assert.match(bar, /export function SearchToolButtons\(\{ tools \}/);
     const pos = read('components/pos/POSScreen.tsx');
-    assert.match(pos, /const searchTools = useSearchTools\(\);/);
+    assert.doesNotMatch(pos, /<SearchToolButtons tools=\{searchTools\} \/>/);
     assert.match(pos, /externalTools=\{searchTools\}\s*\n?\s*hideTools/);
-    assert.match(pos, /<SearchToolButtons tools=\{searchTools\} \/>/);
   });
 });
 
