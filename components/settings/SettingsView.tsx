@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useStore } from '@/lib/store';
-import { createLocalBackup, downloadLocalBackup, parseLocalBackup, restoreLocalBackup, getLastBackupAt, markBackupDone, isBackupStale } from '@/lib/backup';
 import { notify } from '@/components/common/Toast';
 import { NumberInput } from '@/components/common/NumberInput';
-import { clearLocalMachineData, MACHINE_PROJECT_KEY } from '@/lib/db';
 import { OfflineReadyCard } from '@/components/settings/OfflineReadyCard';
 import { VIETQR_BANKS, isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
 import { PRINT_TEMPLATES } from '@/lib/store';
@@ -24,9 +22,6 @@ import {
   Copy,
   Type,
   Zap,
-  Download,
-  Upload,
-  Trash2,
 } from 'lucide-react';
 
 export function SettingsView() {
@@ -47,18 +42,6 @@ export function SettingsView() {
   const isAdmin = profile?.role === 'admin';
   // Mọi việc nhân sự (tài khoản, phân quyền, hồ sơ, công, lương) làm ở trang Quản lý nhân sự.
   const [grindingDraft, setGrindingDraft] = useState<Record<string, string>>({});
-  const backupInputRef = useRef<HTMLInputElement>(null);
-  const [lastBackupAt, setLastBackupAt] = useState<string | null>(() => getLastBackupAt());
-  const backupRemindedRef = useRef(false);
-
-  // Nhắc sao lưu local khi mở Cài đặt mà đã quá 7 ngày chưa tải (free tier: không có auto-push server).
-  useEffect(() => {
-    if (backupRemindedRef.current) return;
-    backupRemindedRef.current = true;
-    if (isBackupStale(7)) {
-      notify('Đã quá 7 ngày chưa sao lưu dữ liệu máy này — bấm "Tải bản sao lưu" để phòng mất dữ liệu.', 'error');
-    }
-  }, []);
 
   const handleSaveShop = async () => {
     const error = await saveShopSettings();
@@ -101,50 +84,6 @@ export function SettingsView() {
     else notify(`Đã lưu ${saved} giá, lỗi ${errors.length}: ${errors.join(' | ')}.`, 'error');
   };
 
-  const handleBackup = async () => {
-    try {
-      downloadLocalBackup(await createLocalBackup());
-      markBackupDone();
-      setLastBackupAt(getLastBackupAt());
-      notify('Đã tải tệp sao lưu dữ liệu trên máy này.', 'success');
-    } catch (error) {
-      notify(`Không thể sao lưu: ${error instanceof Error ? error.message : String(error)}`, 'error');
-    }
-  };
-
-  const handleRestore = async (file: File) => {
-    try {
-      const backup = parseLocalBackup(JSON.parse(await file.text()));
-      if (!window.confirm('Khôi phục sẽ thay thế dữ liệu local hiện tại trên máy này. Tiếp tục?')) return;
-      await restoreLocalBackup(backup);
-      notify('Đã khôi phục. Trang sẽ tải lại để dùng dữ liệu vừa khôi phục.', 'success');
-      window.setTimeout(() => window.location.reload(), 500);
-    } catch (error) {
-      notify(`Không thể khôi phục: ${error instanceof Error ? error.message : String(error)}`, 'error');
-    } finally {
-      if (backupInputRef.current) backupInputRef.current.value = '';
-    }
-  };
-
-  const handleWipeMachine = async () => {
-    // Dọn SẠCH dữ liệu máy trạm (đơn/quỹ/kho/công nợ local...) — dùng khi đổi project
-    // Supabase hoặc máy lẫn số liệu cũ (số dư ma khi chưa phát sinh giao dịch).
-    // Dữ liệu máy chủ KHÔNG bị ảnh hưởng. Chỉ Admin.
-    if (!window.confirm('Dọn SẠCH toàn bộ dữ liệu trên máy này? Dữ liệu máy chủ không bị ảnh hưởng. Trang sẽ tải lại với dữ liệu trống.')) return;
-    try {
-      await clearLocalMachineData();
-      try {
-        localStorage.setItem(MACHINE_PROJECT_KEY, process.env.NEXT_PUBLIC_SUPABASE_URL || '');
-      } catch {
-        /* best-effort */
-      }
-      notify('Đã dọn sạch. Trang sẽ tải lại với dữ liệu trống.', 'success');
-      window.setTimeout(() => window.location.reload(), 500);
-    } catch (error) {
-      notify(`Không dọn được: ${error instanceof Error ? error.message : String(error)}`, 'error');
-    }
-  };
-
   return (
     <div id="settings-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
       {/* Header */}
@@ -173,50 +112,13 @@ export function SettingsView() {
 
       {/* Main content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-      {/* Sao lưu local */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 text-xs">
-        <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
-          <Download className="w-4 h-4 text-emerald-600" />
-          <span>Sao lưu dữ liệu trên máy</span>
-        </h3>
+      {/* Sao lưu tự động (zero-touch): server dump mỗi đêm, máy trạm không cần thao tác */}
+      <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-2xs text-xs flex items-center gap-2">
+        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
         <p className="text-[11px] text-slate-500">
-          Sao lưu bao gồm dữ liệu offline và hàng đợi chưa đồng bộ của máy này. Dữ liệu trên máy chủ không bị thay đổi.
-          {lastBackupAt ? (
-            <>
-              {' '}Lần tải cuối: <strong className="font-mono">{new Date(lastBackupAt).toLocaleString('vi-VN')}</strong>
-              {isBackupStale(7) && <span className="text-rose-600 font-bold"> — quá 7 ngày, nên tải lại.</span>}
-            </>
-          ) : (
-            <> Chưa từng sao lưu trên máy này.</>
-          )}
+          Dữ liệu được <strong className="text-slate-700">tự động sao lưu lên máy chủ mỗi đêm</strong> —
+          máy này không cần bấm gì thêm. Khi mất mạng vẫn bán bình thường, có mạng máy tự đồng bộ.
         </p>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={handleBackup} className="px-3 h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold flex items-center gap-1.5">
-            <Download className="w-3.5 h-3.5" /> Tải bản sao lưu
-          </button>
-          <button onClick={() => backupInputRef.current?.click()} className="px-3 h-8 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md font-bold flex items-center gap-1.5">
-            <Upload className="w-3.5 h-3.5" /> Khôi phục từ tệp
-          </button>
-          {isAdmin && (
-            <button
-              onClick={handleWipeMachine}
-              className="px-3 h-8 border border-rose-300 text-rose-700 hover:bg-rose-50 rounded-md font-bold flex items-center gap-1.5"
-              title="Xóa toàn bộ đơn/quỹ/kho/công nợ trên máy này (dùng khi đổi project hoặc máy lẫn số liệu cũ). Dữ liệu máy chủ không bị ảnh hưởng."
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Dọn sạch dữ liệu máy trạm
-            </button>
-          )}
-          <input
-            ref={backupInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void handleRestore(file);
-            }}
-          />
-        </div>
       </div>
 
       <OfflineReadyCard />
