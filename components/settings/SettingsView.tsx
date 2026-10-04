@@ -130,7 +130,6 @@ export function SettingsView() {
           <p className="text-[11px] text-slate-400 -mt-2">
             Tên, hotline, địa chỉ, số dư đầu kỳ gửi lên máy chủ khi bấm <strong>Lưu lên máy chủ</strong> trong khối này
             (số dư đầu kỳ cộng vào tồn quỹ trang Sổ quỹ — shop mới để 0, kiểm két thực tế bao nhiêu thì nhập đúng số đó).
-            VAT/thanh toán mặc định, VietQR, khổ giấy, mẫu in và nội dung phiếu lưu riêng từng máy.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -217,15 +216,15 @@ export function SettingsView() {
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <ShoppingCart className="w-4 h-4 text-amber-600" />
             <span>Mặc định bán hàng (áp dụng cho hóa đơn mới)</span>
+            <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 font-semibold" title="Đổi là lưu ngay trên máy này, không đồng bộ máy chủ">
+              Riêng máy này
+            </span>
             {!isAdmin && (
-              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
+              <span className="text-[11px] text-slate-400 font-normal flex items-center gap-1">
                 <Lock className="w-3 h-3" /> Chỉ Admin được đổi
               </span>
             )}
           </h3>
-          <p className="text-[11px] text-slate-400 -mt-2">
-            Mỗi máy trạm dùng riêng — đổi là lưu ngay trên máy này, không đồng bộ máy chủ.
-          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">VAT mặc định</label>
@@ -265,15 +264,15 @@ export function SettingsView() {
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <QrCode className="w-4 h-4 text-blue-600" />
             <span>Tài khoản VietQR (hiện mã QR thật ở POS & phiếu in)</span>
+            <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 font-semibold" title="Mỗi máy dùng tài khoản riêng — đổi là lưu ngay trên máy này">
+              Riêng máy này
+            </span>
             {!isAdmin && (
-              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
+              <span className="text-[11px] text-slate-400 font-normal flex items-center gap-1">
                 <Lock className="w-3 h-3" /> Chỉ Admin được đổi
               </span>
             )}
           </h3>
-          <p className="text-[11px] text-slate-400 -mt-2">
-            Mỗi máy trạm dùng tài khoản riêng — đổi là lưu ngay trên máy này, không đồng bộ máy chủ.
-          </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Ngân hàng</label>
@@ -382,15 +381,15 @@ export function SettingsView() {
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <Printer className="w-4 h-4 text-indigo-600" />
             <span>Trung tâm in ấn — mẫu phiếu & tùy chọn bản in</span>
+            <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 font-semibold" title="Mẫu in và tùy chọn in chỉ lưu trên máy này">
+              Riêng máy này
+            </span>
             {!isAdmin && (
-              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
+              <span className="text-[11px] text-slate-400 font-normal flex items-center gap-1">
                 <Lock className="w-3 h-3" /> Chỉ Admin được đổi
               </span>
             )}
           </h3>
-          <p className="text-[11px] text-slate-400 -mt-2">
-            Mẫu in và tùy chọn in chỉ lưu trên máy này, không đồng bộ máy chủ.
-          </p>
             {/* Mẫu phiếu — khổ giấy gắn liền theo mẫu, chỉ chọn 1 nơi */}
             <div>
               <p className="font-bold text-slate-800 mb-0.5">Mẫu phiếu mặc định</p>
@@ -517,15 +516,15 @@ export function SettingsView() {
           <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
             <Receipt className="w-4 h-4 text-emerald-600" />
             <span>Nội dung hiển thị trên phiếu in</span>
+            <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 font-semibold" title="Cả khối này chỉ lưu trên máy này">
+              Riêng máy này
+            </span>
             {!isAdmin && (
-              <span className="ml-auto text-[11px] text-slate-400 font-normal flex items-center gap-1">
+              <span className="text-[11px] text-slate-400 font-normal flex items-center gap-1">
                 <Lock className="w-3 h-3" /> Chỉ Admin được đổi
               </span>
             )}
           </h3>
-          <p className="text-[11px] text-slate-400 -mt-1">
-            Các mục hiển thị chỉ lưu trên máy này, không đồng bộ máy chủ.
-          </p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {[
               { key: 'showLogo' as const, label: 'Logo / tên nổi bật' },
@@ -572,9 +571,6 @@ export function SettingsView() {
               />
             </div>
           </div>
-          <p className="text-[11px] text-slate-400">
-            Cả khối này chỉ lưu trên máy này, không đồng bộ máy chủ.
-          </p>
         </div>
       </div>
     </div>
