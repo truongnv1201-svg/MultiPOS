@@ -128,7 +128,8 @@ export function SettingsView() {
             )}
           </h3>
           <p className="text-[11px] text-slate-400 -mt-2">
-            Tên, hotline, địa chỉ, số dư đầu kỳ gửi lên máy chủ khi bấm <strong>Lưu lên máy chủ</strong> trong khối này.
+            Tên, hotline, địa chỉ, số dư đầu kỳ gửi lên máy chủ khi bấm <strong>Lưu lên máy chủ</strong> trong khối này
+            (số dư đầu kỳ cộng vào tồn quỹ trang Sổ quỹ — shop mới để 0, kiểm két thực tế bao nhiêu thì nhập đúng số đó).
             VAT/thanh toán mặc định, VietQR, khổ giấy, mẫu in và nội dung phiếu lưu riêng từng máy.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -208,9 +209,6 @@ export function SettingsView() {
                 className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono disabled:bg-slate-50 disabled:text-slate-400 focus:border-blue-500 focus:outline-hidden"
               />
             </div>
-            <p className="text-[11px] text-slate-400 md:col-span-2">
-              Số dư đầu kỳ cộng vào tồn quỹ trang Sổ quỹ. Shop mới để 0 — khi nào kiểm két thực tế thì nhập đúng số đếm được rồi bấm Lưu lên máy chủ.
-            </p>
           </div>
         </div>
 
