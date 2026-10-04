@@ -676,8 +676,12 @@ export function POSScreen() {
                     inputMode="decimal"
                     value={quickQtyText !== '' ? quickQtyText : formatQty(quickQuantity)}
                     onChange={(e) => {
-                      setQuickQtyText(e.target.value);
-                      setQuickQuantity(parseQtyInput(e.target.value));
+                      const raw = e.target.value;
+                      // Đang gõ số nguyên thì dùng luôn formatQty có sẵn để tách nghìn
+                      // ("10000" -> "10.000"); đang gõ dở thập phân thì giữ nguyên
+                      // để không mất dấu chấm/phẩy giữa chừng ("2.5", "2,15").
+                      setQuickQtyText(/^\d+$/.test(raw) ? formatQty(parseQtyInput(raw)) : raw);
+                      setQuickQuantity(parseQtyInput(raw));
                     }}
                     onFocus={(e) => {
                       setQuickQtyText(String(quickQuantity));

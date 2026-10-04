@@ -49,7 +49,7 @@ export function QtyDraftInput({
             aria-label={ariaLabel}
             onChange={(e) => {
                 const next = e.target.value;
-                setDraft(next);
+                setDraft(/^\d+$/.test(next) ? formatQty(parseQtyInput(next)) : next);
                 const parsed = parseQtyInput(next);
                 // Cập nhật giỏ ngay khi giá trị hợp lệ để thành tiền chạy theo;
                 // giá trị rỗng/đang gõ dở thì giữ nguyên số cũ, không rơi về 0.001.
