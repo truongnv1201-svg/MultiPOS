@@ -911,7 +911,7 @@ export function POSScreen() {
                         </p>
                         {prod.product_type === 'area' && (
                           <span className="mt-1 inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                            {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
+                            {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m²)
                           </span>
                         )}
                       </div>
@@ -970,7 +970,7 @@ export function POSScreen() {
                             {prod.product_type === 'area' && (
                               <>
                               <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                                {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
+                                {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m²)
                               </span>
                               <button
                                 onClick={() => openStockAreaModal(prod, line.qty, line)}
@@ -1052,7 +1052,7 @@ export function POSScreen() {
                         </p>
                         {prod.product_type === 'area' && (
                           <span className="mt-1 inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                            {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
+                            {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m²)
                           </span>
                         )}
                       </div>
@@ -1112,7 +1112,7 @@ export function POSScreen() {
                             {prod.product_type === 'area' && (
                               <>
                               <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                                {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
+                                {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m²)
                               </span>
                               <button
                                 onClick={() => openStockAreaModal(prod, line.qty, line)}
@@ -1287,7 +1287,7 @@ export function POSScreen() {
                             {isArea && item.dimension_details && (
                               <>
                                 <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                                  {item.dimension_details.length} tấm ({item.quantity.toFixed(3)} m²)
+                                  {item.dimension_details.length} tấm ({formatQty(item.quantity)} m²)
                                 </span>
                                 <button
                                   onClick={() => setDimensionModalItem({ item, isNew: false })}
@@ -1359,7 +1359,7 @@ export function POSScreen() {
                         <td className="py-2.5 px-2.5 text-center">
                           {isArea ? (
                             <div className="font-bold font-mono text-blue-700 text-xs">
-                              {item.quantity.toFixed(3)}
+                              {formatQty(item.quantity)}
                             </div>
                           ) : (
                             <QtyDraftInput
