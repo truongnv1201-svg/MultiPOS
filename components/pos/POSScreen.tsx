@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { Product, OrderItem, Customer } from '@/lib/types';
-import { ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
+import { createBlankAreaItem, ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import { readOnlyCellClass, editCellClass } from '@/components/common/EditableCell';
 import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
@@ -269,6 +269,26 @@ export function POSScreen() {
       ];
     });
   }, []);
+
+  const openStockAreaModal = useCallback(
+    (product: Product, quantity: number) => {
+      const isImport = posFlow === 'import';
+      const unitPrice = isImport ? product.import_price : product.avg_cost || 0;
+      const { item } = createBlankAreaItem(product, quantity, unitPrice);
+      setDimensionModalItem({
+        item,
+        isNew: true,
+        onSave: (areaItem) => {
+          if (isImport) {
+            addImportLine(product, areaItem.quantity);
+          } else {
+            addProjectLine(product, areaItem.material_consumed ?? areaItem.quantity);
+          }
+        },
+      });
+    },
+    [posFlow, setDimensionModalItem, addImportLine, addProjectLine]
+  );
 
   // Commit xuất vật tư -> exportProjectMaterialBatch (ghi project_materials + trừ kho +
   // thẻ kho). Không tạo đơn hàng, không đụng sổ quỹ.
@@ -679,6 +699,7 @@ export function POSScreen() {
               onQuantityChange={setQuickQuantity}
               quantityInputRef={quickQuantityRef}
               onPickProduct={isImportFlow ? addImportLine : isProjectFlow ? addProjectLine : undefined}
+              onPickArea={isStockFlow ? openStockAreaModal : undefined}
               // Nhập hàng + Xuất CT: Enter lần 1 nhảy ô số lượng, Enter lần 2 mới ghi dòng
               // (giống bán hàng). Số lượng nhập/xuất phải chính xác, không mặc định 1.
               // Bấm chuột vẫn thêm thẳng nên không chậm.

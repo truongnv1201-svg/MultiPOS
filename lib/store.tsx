@@ -176,8 +176,8 @@ interface StoreContextType {
   clearActiveCart: () => void;
 
   // Modals
-  dimensionModalItem: { item: OrderItem; isNew?: boolean } | null;
-  setDimensionModalItem: (item: { item: OrderItem; isNew?: boolean } | null) => void;
+  dimensionModalItem: { item: OrderItem; isNew?: boolean; onSave?: (item: OrderItem) => void } | null;
+  setDimensionModalItem: (item: { item: OrderItem; isNew?: boolean; onSave?: (item: OrderItem) => void } | null) => void;
   receiptModalOrder: Order | null;
   setReceiptModalOrder: (order: Order | null) => void;
   shiftModalOpen: boolean;

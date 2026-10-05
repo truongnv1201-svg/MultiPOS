@@ -11,7 +11,7 @@ import { AddProductFormModal } from '@/components/products/AddProductFormModal';
 import { BarcodeScannerSheet } from '@/components/pos/BarcodeScannerSheet';
 import { formatVND } from '@/lib/format';
 
-function createBlankAreaItem(product: Product, quantity: number) {
+export function createBlankAreaItem(product: Product, quantity: number, unitPrice = product.retail_price) {
   // Item trống — mọi số liệu do Modal F3 tính. Không seed số giả.
   const qty = quantity > 0 ? quantity : 1;
   const uniqueId = `item-${product.id}-${Math.random().toString(36).substring(2, 9)}`;
@@ -23,7 +23,7 @@ function createBlankAreaItem(product: Product, quantity: number) {
       name: product.name,
       product_type: 'area' as const,
       unit: product.unit,
-      unit_price: product.retail_price,
+      unit_price: unitPrice,
       quantity: qty,
       discount_amount: 0,
       processing_fee: 0,
@@ -54,6 +54,8 @@ interface ProductSearchBarProps {
   quantityInputRef?: React.RefObject<HTMLInputElement | null>;
   /** Chế độ nhập kho: khi có, chọn hàng sẽ gọi callback này thay vì thêm vào giỏ bán */
   onPickProduct?: (product: Product, quantity: number) => void;
+  /** Hàng diện tích cần nhập kích thước trước khi được thêm vào luồng kho. */
+  onPickArea?: (product: Product, quantity: number) => void;
   /**
    * Khi bật, Enter ở ô tìm KHÔNG thêm ngay mà nhảy focus sang ô số lượng
    * (Enter lần 2 mới commit) — giống hệt luồng bán hàng. Dùng cho Nhập hàng và
@@ -151,6 +153,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       onQuantityChange,
       quantityInputRef: externalQuantityRef,
       onPickProduct,
+      onPickArea,
       confirmQtyOnEnter = false,
       quantitySlot,
       externalTools,
@@ -273,7 +276,11 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           quantityInputRef.current?.select();
           return;
         }
-        // Chế độ nhập kho: mọi loại hàng (kể cả m²) thêm thẳng theo SL, không mở F3
+        if (selectedProduct.product_type === 'area' && onPickArea) {
+          onPickArea(selectedProduct, quantity > 0 ? quantity : 1);
+          resetSearch();
+          return;
+        }
         onPickProduct(selectedProduct, quantity > 0 ? quantity : 1);
         resetSearch();
         searchInputRef.current?.focus();
@@ -319,7 +326,8 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
         pendingPickRef.current || filteredProducts[selectedIndex] || filteredProducts[0];
       if (selectedProduct) {
         const q = commitQuantity(selectedProduct);
-        if (onPickProduct) onPickProduct(selectedProduct, q);
+        if (selectedProduct.product_type === 'area' && onPickArea) onPickArea(selectedProduct, q);
+        else if (onPickProduct) onPickProduct(selectedProduct, q);
         else addItemToCart(selectedProduct, q);
       }
       resetSearch();
@@ -331,6 +339,12 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   };
 
   const handleSelectProductClick = (product: Product) => {
+    if (product.product_type === 'area' && onPickArea) {
+      onPickArea(product, commitQuantity(product));
+      resetSearch();
+      searchInputRef.current?.focus();
+      return;
+    }
     if (onPickProduct) {
       onPickProduct(product, commitQuantity(product));
       resetSearch();
@@ -351,7 +365,9 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   // Tạo mới xong: nhánh như chọn sản phẩm thường (nhập kho / m² mở F3 / thêm giỏ)
   const handleQuickCreated = (product: Product) => {
     setQuickCreateOpen(false);
-    if (onPickProduct) {
+    if (product.product_type === 'area' && onPickArea) {
+      onPickArea(product, commitQuantity(product));
+    } else if (onPickProduct) {
       onPickProduct(product, commitQuantity(product));
     } else if (product.product_type === 'area') {
       setDimensionModalItem(createBlankAreaItem(product, quantity > 0 ? quantity : 1));

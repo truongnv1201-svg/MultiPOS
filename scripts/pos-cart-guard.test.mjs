@@ -34,6 +34,25 @@ describe('nhập kho: ô tiền trả NCC như bán lẻ (thiếu tự nợ, tr�
   });
 });
 
+describe('POS: hàng diện tích mở F3 trong luồng nhập/xuất kho', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+  const search = read('components/pos/ProductSearchBar.tsx');
+  const dimension = read('components/pos/DimensionModalF3.tsx');
+
+  it('chọn hàng diện tích bằng chuột hoặc Enter gọi onPickArea thay vì thêm thẳng', () => {
+    assert.match(pos, /onPickArea=\{isStockFlow \? openStockAreaModal : undefined\}/);
+    assert.match(search, /product\.product_type === 'area' && onPickArea[\s\S]{0,160}onPickArea\(product, commitQuantity\(product\)\)/);
+    assert.match(search, /selectedProduct\.product_type === 'area' && onPickArea\) onPickArea\(selectedProduct, q\)/);
+  });
+
+  it('F3 xác nhận chuyển số đo sang callback của phiếu nhập/xuất, không đưa vào giỏ bán', () => {
+    assert.match(pos, /createBlankAreaItem\(product, quantity, unitPrice\)/);
+    assert.match(pos, /onSave: \(areaItem\) => \{[\s\S]{0,240}addImportLine\(product, areaItem\.quantity\)[\s\S]{0,140}addProjectLine\(product, areaItem\.material_consumed \?\? areaItem\.quantity\)/);
+    assert.match(dimension, /onSave\(\{[\s\S]{0,240}material_consumed: waste/);
+    assert.match(dimension, /\} else if \(product\) \{\s+addItemToCart\(product, m2, list\);/);
+  });
+});
+
 describe('giỏ chặn SL bẩn (âm/0/NaN) trước khi trừ tồn', () => {
   const cart = read('lib/store/tx/cart.tsx');
 

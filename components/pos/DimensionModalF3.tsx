@@ -13,10 +13,11 @@ import { Plus, Trash2, Settings2, RefreshCw, X, Check, HelpCircle } from 'lucide
 interface DialogProps {
   item: OrderItem;
   isNew: boolean;
+  onSave?: (item: OrderItem) => void;
   onClose: () => void;
 }
 
-function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
+function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
   const { updateCartItem, addItemToCart, products, grindingServices } = useStore();
 
   const grindingLabel = (id: string) => {
@@ -200,7 +201,17 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
     const amount = Math.round(m2 * unitPrice) + fee;
 
     if (isNew) {
-      if (product) {
+      if (onSave) {
+        onSave({
+          ...item,
+          quantity: m2,
+          dimension_details: list,
+          processing_fee: fee,
+          waste_factor: wasteFactor,
+          material_consumed: waste,
+          subtotal: amount - item.discount_amount,
+        });
+      } else if (product) {
         addItemToCart(product, m2, list);
       }
     } else {
@@ -215,7 +226,7 @@ function DimensionModalDialog({ item, isNew, onClose }: DialogProps) {
     }
 
     onClose();
-  }, [rows, isNew, product, addItemToCart, updateCartItem, item, wasteFactor, unitPrice, onClose]);
+  }, [rows, isNew, product, onSave, addItemToCart, updateCartItem, item, wasteFactor, unitPrice, onClose]);
   useEffect(() => {
     handleSaveRef.current = handleSave;
   }, [handleSave]);
@@ -525,8 +536,8 @@ export function DimensionModalF3() {
     <DimensionModalDialog
       item={dimensionModalItem.item}
       isNew={Boolean(dimensionModalItem.isNew)}
+      onSave={dimensionModalItem.onSave}
       onClose={() => setDimensionModalItem(null)}
     />
   );
 }
-
