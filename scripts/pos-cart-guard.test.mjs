@@ -15,9 +15,11 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 describe('nhập kho: ô tiền trả NCC như bán lẻ (thiếu tự nợ, trống = trả đủ)', () => {
   const pos = read('components/pos/POSScreen.tsx');
 
-  it('có ô Tiền trả NCC + nút Đủ tiền (3 thức, không còn Trả 1 phần)', () => {
+  it('có ô Tiền trả NCC + phím tắt F9 (không còn nút Đủ tiền)', () => {
     assert.match(pos, /id="imp-tendered-input"/);
-    assert.match(pos, /onClick=\{\(\) => setImpTendered\(impTotal\)\}/);
+    assert.match(pos, /document\.activeElement === impTenderedInputRef\.current/);
+    assert.match(pos, /setImpTendered\(impTotal\)/);
+    assert.doesNotMatch(pos, /onClick=\{\(\) => setImpTendered\(impTotal\)\}/);
     assert.doesNotMatch(pos, /setImpPaymentMethod\('partial'\)/);
   });
 

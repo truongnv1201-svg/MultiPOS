@@ -388,6 +388,7 @@ export function POSScreen() {
   const shippingInputRef = useRef<HTMLInputElement>(null);
   const discountInputRef = useRef<HTMLInputElement>(null);
   const tenderedInputRef = useRef<HTMLInputElement>(null);
+  const impTenderedInputRef = useRef<HTMLInputElement>(null);
 
   // Bấm ra ngoài thì đóng dropdown khách hàng (trước đây kẹt mở, che giỏ hàng)
   const closeCustomerDropdown = useCallback(() => {
@@ -493,9 +494,19 @@ export function POSScreen() {
       const isOverlayOpen = Boolean(document.querySelector('[role="dialog"]'));
       if (isOverlayOpen) return;
 
-      // Chế độ Nhập hàng / Xuất CT: chỉ F10 (commit đúng luồng); phím bán hàng tạm nghỉ
-      // để khỏi nhầm giỏ.
+      // Chế độ Nhập hàng / Xuất CT: F9 nhảy đến ô tiền NCC và bấm lần nữa điền đủ tiền;
+      // F10 commit đúng luồng; phím bán hàng tạm nghỉ để khỏi nhầm giỏ.
       if (posFlow === 'import') {
+        if (e.key === 'F9' && !e.ctrlKey) {
+          e.preventDefault();
+          if (document.activeElement === impTenderedInputRef.current && impTenderedInputRef.current) {
+            setImpTendered(impTotal);
+          } else {
+            impTenderedInputRef.current?.focus();
+            impTenderedInputRef.current?.select();
+          }
+          return;
+        }
         if (e.key === 'F10') {
           e.preventDefault();
           handleImportCommit();
@@ -587,7 +598,7 @@ export function POSScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
     // Gỡ dimensionModalItem/receiptModalOrder/shiftModalOpen khỏi deps: guard giờ đọc DOM
     // lúc phím bấm nên không cần đăng ký lại listener khi các modal đó mở/đóng.
-  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit, handleProjectExportCommit, calculatedTotals.payable, updateActiveTab]);
+  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, handleImportCommit, handleProjectExportCommit, calculatedTotals.payable, updateActiveTab, impTotal]);
 
   // Khách lẻ tại quầy: một mục CHỌN ĐƯỢC trong danh sách gợi ý (id sentinel riêng,
   // không phải bản ghi DB — tránh trùng lặp giữa các máy, nhiễu báo cáo "Phải thu KH"
@@ -1502,10 +1513,12 @@ export function POSScreen() {
           {/* Tendered Amount — y hệt Tiền khách đưa bên bán: thiếu tự ghi nợ */}
           {impPaymentMethod !== 'debt' && (
             <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600" title="F9: nhảy tới ô tiền — đang ở ô tiền bấm F9 lần nữa để điền đủ tiền">
                 <span>Tiền trả NCC:</span>
+                <kbd className="hidden sm:inline-flex px-1 text-[9px] font-mono bg-slate-200 rounded text-slate-600">F9</kbd>
               </div>
               <input
+                ref={impTenderedInputRef}
                 id="imp-tendered-input"
                 type="text"
                 value={
@@ -1519,13 +1532,6 @@ export function POSScreen() {
                 placeholder="0"
                 className="w-full h-9 px-3 text-right font-mono font-bold text-base text-blue-700 bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
               />
-              <button
-                type="button"
-                onClick={() => setImpTendered(impTotal)}
-                className="w-full px-1 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-semibold text-slate-700 whitespace-nowrap"
-              >
-                Đủ tiền
-              </button>
             </div>
           )}
 
