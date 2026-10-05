@@ -42,6 +42,10 @@ describe('POS: hàng diện tích mở F3 trong luồng nhập/xuất kho', () =
   it('chọn hàng diện tích bằng chuột hoặc Enter gọi onPickArea thay vì thêm thẳng', () => {
     assert.match(pos, /onPickArea=\{isStockFlow \? openStockAreaModal : undefined\}/);
     assert.match(search, /product\.product_type === 'area' && onPickArea[\s\S]{0,160}onPickArea\(product, commitQuantity\(product\)\)/);
+    const enterAreaBranch = search.indexOf("if (selectedProduct.product_type === 'area' && onPickArea)");
+    const enterQtyBranch = search.indexOf('if (confirmQtyOnEnter)', enterAreaBranch);
+    assert.ok(enterAreaBranch >= 0, 'Enter phải mở F3 cho hàng diện tích');
+    assert.ok(enterQtyBranch > enterAreaBranch, 'hàng diện tích phải mở F3 trước khi xét luồng nhập SL');
     assert.match(search, /selectedProduct\.product_type === 'area' && onPickArea\) onPickArea\(selectedProduct, q\)/);
   });
 

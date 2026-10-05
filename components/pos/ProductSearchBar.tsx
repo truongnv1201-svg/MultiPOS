@@ -265,6 +265,11 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       e.preventDefault();
       const selectedProduct = filteredProducts[selectedIndex] || filteredProducts[0];
       if (!selectedProduct) return;
+      if (selectedProduct.product_type === 'area' && onPickArea) {
+        onPickArea(selectedProduct, quantity > 0 ? quantity : 1);
+        resetSearch();
+        return;
+      }
       if (onPickProduct) {
         if (confirmQtyOnEnter) {
           // Nhập kho / xuất vật tư: Enter lần 1 chỉ chốt tên hàng rồi nhảy ô SL
@@ -274,11 +279,6 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           setSearchQuery(selectedProduct.name);
           quantityInputRef.current?.focus();
           quantityInputRef.current?.select();
-          return;
-        }
-        if (selectedProduct.product_type === 'area' && onPickArea) {
-          onPickArea(selectedProduct, quantity > 0 ? quantity : 1);
-          resetSearch();
           return;
         }
         onPickProduct(selectedProduct, quantity > 0 ? quantity : 1);
