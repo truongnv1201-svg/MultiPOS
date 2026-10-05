@@ -37,7 +37,6 @@ import {
   Percent,
   Truck,
   HardHat,
-  AlertCircle,
   CheckCircle2,
   Check,
 } from 'lucide-react';
@@ -1425,19 +1424,17 @@ export function POSScreen() {
             </div>
           </div>
 
-          {/* Phương thức thanh toán cho NCC */}
-          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-2">
-            <label className="text-[11px] font-bold text-slate-700 uppercase block">
-              Hình thức thanh toán NCC
-            </label>
-            <div className="grid grid-cols-2 gap-1.5">
+          {/* Phương thức thanh toán cho NCC — cùng UI với luồng bán để thao tác quen tay */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-slate-600">Phương thức thanh toán:</label>
+            <div className="grid grid-cols-4 gap-1">
               <button
                 type="button"
                 onClick={() => setImpPaymentMethod('cash')}
-                className={`py-1.5 px-2 rounded border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
                   impPaymentMethod === 'cash'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <Banknote className="w-3.5 h-3.5" />
@@ -1446,25 +1443,25 @@ export function POSScreen() {
               <button
                 type="button"
                 onClick={() => setImpPaymentMethod('transfer')}
-                className={`py-1.5 px-2 rounded border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
                   impPaymentMethod === 'transfer'
                     ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                <CreditCard className="w-3.5 h-3.5" />
+                <QrCode className="w-3.5 h-3.5" />
                 <span>Chuyển khoản</span>
               </button>
               <button
                 type="button"
                 onClick={() => setImpPaymentMethod('debt')}
-                className={`py-1.5 px-2 rounded border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
                   impPaymentMethod === 'debt'
-                    ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                <AlertCircle className="w-3.5 h-3.5" />
+                <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Nợ 100%</span>
               </button>
               <button
@@ -1473,10 +1470,10 @@ export function POSScreen() {
                   setImpPaymentMethod('partial');
                   if (impPaidAmount === 0) setImpPaidAmount(Math.round(impTotal * 0.5));
                 }}
-                className={`py-1.5 px-2 rounded border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
                   impPaymentMethod === 'partial'
                     ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <Percent className="w-3.5 h-3.5" />
@@ -1485,15 +1482,15 @@ export function POSScreen() {
             </div>
 
             {impPaymentMethod === 'partial' && (
-              <div className="pt-2 border-t border-slate-100">
-                <label className="text-[11px] font-semibold text-slate-600 block mb-1">
-                  Số tiền trả trước cho NCC
-                </label>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                  <span>Số tiền trả trước cho NCC:</span>
+                </div>
                 <NumberInput
                   value={impPaidAmount}
                   onChange={(v) => setImpPaidAmount(v)}
                   placeholder="0"
-                  className="w-full h-8 px-2.5 text-xs font-mono font-bold bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+                  className="w-full h-9 px-3 text-right font-mono font-bold text-base text-blue-700 bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
                 />
               </div>
             )}
@@ -1510,35 +1507,43 @@ export function POSScreen() {
                 {formatQty(impLines.reduce((s, l) => s + (l.qty || 0), 0))}
               </span>
             </div>
-            <div className="flex items-center justify-between font-bold border-t border-slate-200 pt-1.5">
-              <span>TỔNG TIỀN NHẬP:</span>
-              <span className="font-mono text-blue-700 text-sm">{formatVND(impTotal)}</span>
+            {/* Divider */}
+            <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
+              <span className="font-bold text-sm text-slate-900">TỔNG TIỀN NHẬP:</span>
+              <span className="font-bold text-base text-blue-700 font-mono">{formatVND(impTotal)}</span>
             </div>
-            <div className="pt-1.5 border-t border-slate-100 text-[11px] space-y-1">
+            <div className="pt-2 flex items-center justify-between text-xs font-semibold">
               {impPaymentMethod === 'cash' && (
-                <div className="text-emerald-700 font-medium">Thanh toán đủ bằng Tiền mặt (Két quầy)</div>
+                <>
+                  <span className="text-emerald-700">Thanh toán đủ tiền mặt:</span>
+                  <span className="font-mono text-emerald-700 text-sm font-bold">
+                    {formatVND(impTotal)}
+                  </span>
+                </>
               )}
               {impPaymentMethod === 'transfer' && (
-                <div className="text-blue-700 font-medium">Thanh toán đủ bằng Chuyển khoản (Ngân hàng)</div>
+                <>
+                  <span className="text-emerald-700">Thanh toán đủ chuyển khoản:</span>
+                  <span className="font-mono text-emerald-700 text-sm font-bold">
+                    {formatVND(impTotal)}
+                  </span>
+                </>
               )}
               {impPaymentMethod === 'debt' && (
-                <div className="text-rose-700 font-medium">Ghi nợ NCC 100%: +{formatVND(impTotal)} vào công nợ</div>
+                <>
+                  <span className="text-rose-600">Ghi nợ NCC:</span>
+                  <span className="font-mono text-rose-600 text-sm font-bold">
+                    {formatVND(impTotal)}
+                  </span>
+                </>
               )}
               {impPaymentMethod === 'partial' && (
-                <div className="space-y-0.5 text-slate-600">
-                  <div className="flex justify-between">
-                    <span>Đã trả NCC:</span>
-                    <span className="font-mono font-bold text-emerald-700">
-                      {formatVND(Math.max(0, Math.min(impTotal, impPaidAmount || 0)))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Ghi nợ còn lại:</span>
-                    <span className="font-mono font-bold text-rose-600">
-                      {formatVND(Math.max(0, impTotal - Math.max(0, Math.min(impTotal, impPaidAmount || 0))))}
-                    </span>
-                  </div>
-                </div>
+                <>
+                  <span className="text-amber-700">Còn nợ lại:</span>
+                  <span className="font-mono text-amber-700 text-sm font-bold">
+                    {formatVND(Math.max(0, impTotal - Math.max(0, Math.min(impTotal, impPaidAmount || 0))))}
+                  </span>
+                </>
               )}
             </div>
           </div>
