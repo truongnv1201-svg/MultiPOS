@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
-import { Product, OrderItem, Customer } from '@/lib/types';
+import { Product, OrderItem, Customer, DimensionDetail } from '@/lib/types';
 import { createBlankAreaItem, ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import { readOnlyCellClass, editCellClass } from '@/components/common/EditableCell';
@@ -169,6 +169,8 @@ export function POSScreen() {
     productId: string;
     qty: number;
     price: number;
+    dimensionDetails?: DimensionDetail[];
+    wasteFactor?: number;
   }
   const [impLines, setImpLines] = useState<ImportLine[]>([]);
   const [impSupplier, setImpSupplier] = useState<string>('');
@@ -271,23 +273,44 @@ export function POSScreen() {
   }, []);
 
   const openStockAreaModal = useCallback(
-    (product: Product, quantity: number) => {
+    (product: Product, quantity: number, existingLine?: ImportLine) => {
       const isImport = posFlow === 'import';
-      const unitPrice = isImport ? product.import_price : product.avg_cost || 0;
-      const { item } = createBlankAreaItem(product, quantity, unitPrice);
+      const unitPrice = existingLine?.price ?? (isImport ? product.import_price : product.avg_cost || 0);
+      const areaQuantity = existingLine?.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? quantity;
+      const item: OrderItem = createBlankAreaItem(product, areaQuantity, unitPrice).item;
+      if (existingLine?.dimensionDetails) {
+        item.dimension_details = existingLine.dimensionDetails;
+        item.waste_factor = existingLine.wasteFactor ?? product.waste_factor ?? 0;
+        item.material_consumed = existingLine.qty;
+      }
       setDimensionModalItem({
         item,
         isNew: true,
         onSave: (areaItem) => {
+          const line = {
+            productId: product.id,
+            qty: isImport ? areaItem.quantity : areaItem.material_consumed ?? areaItem.quantity,
+            price: unitPrice,
+            dimensionDetails: areaItem.dimension_details,
+            wasteFactor: areaItem.waste_factor,
+          };
           if (isImport) {
-            addImportLine(product, areaItem.quantity);
+            setImpLines((prev) =>
+              existingLine
+                ? prev.map((current) => current.key === existingLine.key ? { ...current, ...line } : current)
+                : [...prev, { ...line, key: `imp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }]
+            );
           } else {
-            addProjectLine(product, areaItem.material_consumed ?? areaItem.quantity);
+            setProjLines((prev) =>
+              existingLine
+                ? prev.map((current) => current.key === existingLine.key ? { ...current, ...line } : current)
+                : [...prev, { ...line, key: `proj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` }]
+            );
           }
         },
       });
     },
-    [posFlow, setDimensionModalItem, addImportLine, addProjectLine]
+    [posFlow, setDimensionModalItem]
   );
 
   // Commit xuất vật tư -> exportProjectMaterialBatch (ghi project_materials + trừ kho +
@@ -516,6 +539,14 @@ export function POSScreen() {
 
       // Chế độ Nhập hàng / Xuất CT dùng phím riêng, không chạy phím bán hàng để khỏi nhầm giỏ.
       if (posFlow === 'import') {
+        if (e.key === 'F3') {
+          e.preventDefault();
+          const lastAreaLine = [...impLines].reverse().find((line) => products.find((p) => p.id === line.productId)?.product_type === 'area');
+          const product = lastAreaLine && products.find((p) => p.id === lastAreaLine.productId);
+          if (lastAreaLine && product) openStockAreaModal(product, lastAreaLine.qty, lastAreaLine);
+          else document.getElementById('f1-search-input')?.focus();
+          return;
+        }
         if (e.key === 'F9' && !e.ctrlKey && impPaymentMethod !== 'debt') {
           e.preventDefault();
           const input = impTenderedInputRef.current;
@@ -534,6 +565,14 @@ export function POSScreen() {
         return;
       }
       if (posFlow === 'project') {
+        if (e.key === 'F3') {
+          e.preventDefault();
+          const lastAreaLine = [...projLines].reverse().find((line) => products.find((p) => p.id === line.productId)?.product_type === 'area');
+          const product = lastAreaLine && products.find((p) => p.id === lastAreaLine.productId);
+          if (lastAreaLine && product) openStockAreaModal(product, lastAreaLine.qty, lastAreaLine);
+          else document.getElementById('f1-search-input')?.focus();
+          return;
+        }
         if (e.key === 'F10') {
           e.preventDefault();
           handleProjectExportCommit();
@@ -618,7 +657,7 @@ export function POSScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
     // Gỡ dimensionModalItem/receiptModalOrder/shiftModalOpen khỏi deps: guard giờ đọc DOM
     // lúc phím bấm nên không cần đăng ký lại listener khi các modal đó mở/đóng.
-  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, impPaymentMethod, impTotal, handleImportCommit, handleProjectExportCommit, calculatedTotals.payable, updateActiveTab]);
+  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, impPaymentMethod, impTotal, handleImportCommit, handleProjectExportCommit, calculatedTotals.payable, updateActiveTab, impLines, projLines, products, openStockAreaModal]);
 
   // Khách lẻ tại quầy: một mục CHỌN ĐƯỢC trong danh sách gợi ý (id sentinel riêng,
   // không phải bản ghi DB — tránh trùng lặp giữa các máy, nhiễu báo cáo "Phải thu KH"
@@ -870,10 +909,25 @@ export function POSScreen() {
                         <p className={`text-[10px] font-mono ${(pv?.after ?? 0) < 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
                           {line.qty} {prod?.unit} × {formatVND(line.price)} · còn {pv?.after ?? prod.stock_quantity}
                         </p>
+                        {prod.product_type === 'area' && line.dimensionDetails && (
+                          <p className="text-[10px] text-slate-500">
+                            {line.dimensionDetails.length} tấm · {formatQty(line.dimensionDetails.reduce((sum, row) => sum + row.actual_m2, 0))} m²
+                          </p>
+                        )}
                       </div>
                       <span className="shrink-0 text-xs font-mono font-bold text-slate-800">
                         {formatVND(line.qty * line.price)}
                       </span>
+                      {prod.product_type === 'area' && (
+                        <button
+                          onClick={() => openStockAreaModal(prod, line.qty, line)}
+                          className="shrink-0 inline-flex h-9 items-center justify-center rounded-lg border border-amber-200 px-2 text-[11px] font-semibold text-amber-800 bg-amber-50 active:bg-amber-100"
+                          aria-label={`Sửa quy cách ${prod.name}`}
+                          title="Sửa quy cách (F3)"
+                        >
+                          F3
+                        </button>
+                      )}
                       <button
                         onClick={() => setProjLines((prev) => prev.filter((l) => l.key !== line.key))}
                         className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
@@ -913,18 +967,39 @@ export function POSScreen() {
                           <div className="text-[10px] text-slate-400 font-mono">
                             ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit}
                           </div>
+                          {prod.product_type === 'area' && (
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-[10px] text-slate-500">
+                                {line.dimensionDetails
+                                  ? `${line.dimensionDetails.length} tấm · ${formatQty(line.dimensionDetails.reduce((sum, row) => sum + row.actual_m2, 0))} m²`
+                                  : `${formatQty(line.qty)} m²`}
+                              </span>
+                              <button
+                                onClick={() => openStockAreaModal(prod, line.qty, line)}
+                                className="rounded border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100"
+                                title="Sửa quy cách (F3)"
+                                aria-label={`Sửa quy cách ${prod.name}`}
+                              >
+                                Sửa F3
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">{formatNumber(line.price)}</td>
                         <td className="py-2.5 px-2.5">
-                          <QtyDraftInput
-                            quantity={line.qty}
-                            allowDecimal={allowsDecimalQty(prod)}
-                            onCommit={(v) =>
-                              setProjLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, qty: v } : l)))
-                            }
-                            ariaLabel={`Số lượng xuất ${prod.name}`}
-                            width="w-full"
-                          />
+                          {prod.product_type === 'area' ? (
+                            <span className="block text-center font-mono text-slate-700">{formatQty(line.qty)} {prod.unit}</span>
+                          ) : (
+                            <QtyDraftInput
+                              quantity={line.qty}
+                              allowDecimal={allowsDecimalQty(prod)}
+                              onCommit={(v) =>
+                                setProjLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, qty: v } : l)))
+                              }
+                              ariaLabel={`Số lượng xuất ${prod.name}`}
+                              width="w-full"
+                            />
+                          )}
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
                           {formatNumber((line.qty || 0) * (line.price || 0))}
@@ -975,10 +1050,25 @@ export function POSScreen() {
                         <p className="text-[10px] text-slate-500 font-mono">
                           {line.qty} {prod?.unit} × {formatVND(line.price)}
                         </p>
+                        {prod.product_type === 'area' && line.dimensionDetails && (
+                          <p className="text-[10px] text-slate-500">
+                            {line.dimensionDetails.length} tấm · {formatQty(line.dimensionDetails.reduce((sum, row) => sum + row.actual_m2, 0))} m²
+                          </p>
+                        )}
                       </div>
                       <span className="shrink-0 text-xs font-mono font-bold text-slate-800">
                         {formatVND(line.qty * line.price)}
                       </span>
+                      {prod.product_type === 'area' && (
+                        <button
+                          onClick={() => openStockAreaModal(prod, line.qty, line)}
+                          className="shrink-0 inline-flex h-9 items-center justify-center rounded-lg border border-amber-200 px-2 text-[11px] font-semibold text-amber-800 bg-amber-50 active:bg-amber-100"
+                          aria-label={`Sửa quy cách ${prod.name}`}
+                          title="Sửa quy cách (F3)"
+                        >
+                          F3
+                        </button>
+                      )}
                       <button
                         onClick={() => setImpLines((prev) => prev.filter((l) => l.key !== line.key))}
                         className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
@@ -1019,6 +1109,23 @@ export function POSScreen() {
                           <div className="text-[10px] text-slate-400 font-mono">
                             ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit} · Vốn cũ: {formatNumber(oldAvg)}
                           </div>
+                          {prod.product_type === 'area' && (
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-[10px] text-slate-500">
+                                {line.dimensionDetails
+                                  ? `${line.dimensionDetails.length} tấm · ${formatQty(line.dimensionDetails.reduce((sum, row) => sum + row.actual_m2, 0))} m²`
+                                  : `${formatQty(line.qty)} m²`}
+                              </span>
+                              <button
+                                onClick={() => openStockAreaModal(prod, line.qty, line)}
+                                className="rounded border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100"
+                                title="Sửa quy cách (F3)"
+                                aria-label={`Sửa quy cách ${prod.name}`}
+                              >
+                                Sửa F3
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td className="py-2.5 px-2.5">
                           <NumberInput
@@ -1029,15 +1136,19 @@ export function POSScreen() {
                           />
                         </td>
                         <td className="py-2.5 px-2.5">
-                          <QtyDraftInput
-                            quantity={line.qty}
-                            allowDecimal={allowsDecimalQty(prod)}
-                            onCommit={(v) =>
-                              setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, qty: v } : l)))
-                            }
-                            ariaLabel={`Số lượng nhập ${prod.name}`}
-                            width="w-full"
-                          />
+                          {prod.product_type === 'area' ? (
+                            <span className="block text-center font-mono text-slate-700">{formatQty(line.qty)} {prod.unit}</span>
+                          ) : (
+                            <QtyDraftInput
+                              quantity={line.qty}
+                              allowDecimal={allowsDecimalQty(prod)}
+                              onCommit={(v) =>
+                                setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, qty: v } : l)))
+                              }
+                              ariaLabel={`Số lượng nhập ${prod.name}`}
+                              width="w-full"
+                            />
+                          )}
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
                           {formatNumber((line.qty || 0) * (line.price || 0))}

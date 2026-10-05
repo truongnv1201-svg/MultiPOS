@@ -49,9 +49,13 @@ describe('POS: hàng diện tích mở F3 trong luồng nhập/xuất kho', () =
     assert.match(search, /selectedProduct\.product_type === 'area' && onPickArea\) onPickArea\(selectedProduct, q\)/);
   });
 
-  it('F3 xác nhận chuyển số đo sang callback của phiếu nhập/xuất, không đưa vào giỏ bán', () => {
-    assert.match(pos, /createBlankAreaItem\(product, quantity, unitPrice\)/);
-    assert.match(pos, /onSave: \(areaItem\) => \{[\s\S]{0,240}addImportLine\(product, areaItem\.quantity\)[\s\S]{0,140}addProjectLine\(product, areaItem\.material_consumed \?\? areaItem\.quantity\)/);
+  it('giữ số đo trong dòng phiếu và cập nhật đúng dòng khi sửa', () => {
+    assert.match(pos, /createBlankAreaItem\(product, areaQuantity, unitPrice\)/);
+    assert.match(pos, /dimensionDetails\?: DimensionDetail\[\]/);
+    assert.match(pos, /item\.dimension_details = existingLine\.dimensionDetails/);
+    assert.match(pos, /onSave: \(areaItem\) => \{[\s\S]{0,240}dimensionDetails: areaItem\.dimension_details[\s\S]{0,500}current\.key === existingLine\.key \? \{ \.\.\.current, \.\.\.line \}/);
+    assert.match(pos, /openStockAreaModal\(prod, line\.qty, line\)/);
+    assert.match(pos, /if \(e\.key === 'F3'\)[\s\S]{0,450}lastAreaLine[\s\S]{0,220}openStockAreaModal\(product, lastAreaLine\.qty, lastAreaLine\)/);
     assert.match(dimension, /onSave\(\{[\s\S]{0,240}material_consumed: waste/);
     assert.match(dimension, /\} else if \(product\) \{\s+addItemToCart\(product, m2, list\);/);
   });
