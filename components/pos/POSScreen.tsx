@@ -14,7 +14,6 @@ import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { NumberInput } from '@/components/common/NumberInput';
 import { notify } from '@/components/common/Toast';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
-import { isVietqrReady, buildVietqrUrl, vietqrAddInfo } from '@/lib/vietqr';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
 import { resolvePaidAmount } from '@/lib/pricing';
@@ -76,7 +75,6 @@ export function POSScreen() {
     posProjectId,
     setPosProjectId,
     setFlyoutMenuOpen,
-    vietqr,
     currentShift,
     user,
     profile,
@@ -1963,49 +1961,8 @@ export function POSScreen() {
             </div>
           </div>
 
-          {/* VietQR Dynamic Code Preview if transfer selected */}
-          {activeCart.payment_method === 'transfer' && (
-            <div
-              id="vietqr-preview-box"
-              className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3 animate-in fade-in-50"
-            >
-              {isVietqrReady(vietqr) ? (
-                <>
-                  {/* QR động theo số tiền từ img.vietqr.io — next/image không tối ưu được ảnh ngoài động: giữ <img>. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={buildVietqrUrl(vietqr, calculatedTotals.payable, `MULTIPOS ${activeCart.name}`)}
-                    alt="VietQR thanh toán"
-                    className="w-24 h-24 bg-white p-1 rounded border border-blue-300 object-contain"
-                  />
-                  <div className="text-[11px] leading-relaxed">
-                    <div className="font-bold text-blue-900">Mã VietQR Động Chuẩn Napas247</div>
-                    <div className="text-slate-600">
-                      {vietqr.bank} • {vietqr.account} • {vietqr.name}
-                    </div>
-                    <div className="text-slate-600 font-mono font-semibold">
-                      Số tiền: {formatVND(calculatedTotals.payable)}
-                    </div>
-                    <div className="text-[10px] text-blue-700 font-mono">
-                      Nội dung: {vietqrAddInfo(`MULTIPOS ${activeCart.name}`)}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="w-16 h-16 bg-white p-1 rounded border border-blue-300 flex items-center justify-center">
-                    <QrCode className="w-14 h-14 text-slate-300" />
-                  </div>
-                  <div className="text-[11px] leading-relaxed">
-                    <div className="font-bold text-amber-800">Chưa cấu hình VietQR</div>
-                    <div className="text-slate-600">
-                      Vào Cài đặt (Alt+S) → VietQR để nhập ngân hàng & số tài khoản, mã QR thật sẽ hiện ở đây.
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+          {/* VietQR preview đã bỏ theo yêu cầu: thanh toán chuyển khoản thao tác
+              giống tiền mặt (nhập tiền khách đưa + tiền thừa, không hiện mã QR). */}
 
           {/* Tendered Amount [F9] */}
           {activeCart.payment_method !== 'debt' && (
