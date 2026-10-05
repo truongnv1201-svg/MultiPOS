@@ -66,6 +66,8 @@ export interface OrderItem {
 }
 
 export interface PaymentItem {
+  // 'card' (quẹt thẻ) đã bỏ khỏi UI chọn (chỉ còn Tiền mặt/Chuyển khoản/Ghi nợ)
+  // nhưng giữ trong type để đơn cũ vẫn đọc/hiển thị được.
   method: 'cash' | 'transfer' | 'card' | 'debt';
   amount: number;
   reference?: string;

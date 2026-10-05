@@ -353,12 +353,19 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     assert.doesNotMatch(pos, /open=\{isMobileCartOpen/);
   });
 
-  it('sheet thanh toán có đủ phương thức, tiền khách đưa và nút thu tiền', () => {
+  it('panel desktop đúng 3 phương thức, không còn Quẹt thẻ', () => {
+    assert.match(pos, /id="pos-payment-methods" className="grid grid-cols-3 gap-1"/);
+    assert.doesNotMatch(pos, /id="payment-method-card"/);
+    assert.doesNotMatch(pos, /Quẹt thẻ/);
+    assert.match(pos, /<span>Chuyển khoản<\/span>/);
+  });
+
+  it('sheet thanh toán đúng 3 phương thức (Tiền mặt/Chuyển khoản/Ghi nợ), tiền khách đưa và nút thu tiền', () => {
     assert.match(pay, /aria-label="Thanh toán"/);
     assert.match(pay, /Tiền mặt/);
-    assert.match(pay, /VietQR/);
-    assert.match(pay, /Quẹt thẻ/);
+    assert.match(pay, /Chuyển khoản/);
     assert.match(pay, /Ghi nợ/);
+    assert.doesNotMatch(pay, /Quẹt thẻ/);
     assert.match(pay, /id="mobile-payment-tendered-input"/);
     assert.match(pay, /id="btn-pos-mobile-payment-confirm"/);
     assert.match(pay, /pb-\[env\(safe-area-inset-bottom\)\]/);

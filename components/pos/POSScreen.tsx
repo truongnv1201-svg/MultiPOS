@@ -1902,7 +1902,7 @@ export function POSScreen() {
           {/* Payment Method Selector */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold text-slate-600">Phương thức thanh toán:</label>
-            <div id="pos-payment-methods" className="grid grid-cols-4 gap-1">
+            <div id="pos-payment-methods" className="grid grid-cols-3 gap-1">
               <button
                 id="payment-method-cash"
                 type="button"
@@ -1928,21 +1928,7 @@ export function POSScreen() {
                 }`}
               >
                 <QrCode className="w-3.5 h-3.5" />
-                <span>VietQR</span>
-              </button>
-
-              <button
-                id="payment-method-card"
-                type="button"
-                onClick={() => updateActiveTab({ payment_method: 'card' })}
-                className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
-                  activeCart.payment_method === 'card'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Quẹt thẻ</span>
+                <span>Chuyển khoản</span>
               </button>
 
               <button

@@ -101,7 +101,7 @@ export function useTxCheckout({
       const clientRef =
         activeCart.client_ref || `ord-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
       if (!activeCart.client_ref) updateActiveTab({ client_ref: clientRef });
-      // Ô trống = trả đủ CHỈ cho chuyển khoản/quẹt thẻ; tiền mặt bắt buộc đã nhập (UI chặn),
+      // Ô trống = trả đủ CHỈ cho chuyển khoản; tiền mặt bắt buộc đã nhập (UI chặn),
       // nợ ghi 0 để rơi vào guard nợ vô chủ (chung lib/pricing với POSScreen)
       let paidAmount = resolvePaidAmount(totals.payable, activeCart.payment_method, activeCart.tendered_amount || 0);
       let actualDebt = totals.payable - paidAmount;

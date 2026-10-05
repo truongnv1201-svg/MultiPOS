@@ -65,11 +65,13 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
   const { supa, profile } = useAuth();
 
   // Thương mại: shop info + VietQR theo máy trạm (localStorage)
+  // 'card' đã bỏ khỏi UI chọn -> máy cũ còn lưu thì về 'transfer' (cùng cách tính tiền).
   const [shop, setShop] = useState<ShopSettings>(() => {
     try {
       const raw = localStorage.getItem('multipos_shop_v1');
       if (!raw) return DEFAULT_SHOP;
       const parsed = JSON.parse(raw);
+      if ((parsed as any)?.defaultPayment === 'card') parsed.defaultPayment = 'transfer';
       return {
         ...DEFAULT_SHOP,
         ...parsed,

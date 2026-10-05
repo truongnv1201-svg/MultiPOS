@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Banknote, CheckCircle2, CreditCard, FileSpreadsheet, Plus, QrCode, User, X } from 'lucide-react';
+import { AlertTriangle, Banknote, CheckCircle2, FileSpreadsheet, Plus, QrCode, User, X } from 'lucide-react';
 import { formatVND } from '@/lib/format';
 import { useClickOutside } from '@/lib/useClickOutside';
 import type { Customer } from '@/lib/types';
@@ -39,8 +39,7 @@ interface MobilePaymentSheetProps {
 
 const METHODS: { key: MobilePaymentMethod; label: string; icon: typeof Banknote; active: string; idle: string }[] = [
     { key: 'cash', label: 'Tiền mặt', icon: Banknote, active: 'bg-blue-600 text-white border-blue-600', idle: 'bg-white text-slate-700 border-slate-200' },
-    { key: 'transfer', label: 'VietQR', icon: QrCode, active: 'bg-blue-600 text-white border-blue-600', idle: 'bg-white text-slate-700 border-slate-200' },
-    { key: 'card', label: 'Quẹt thẻ', icon: CreditCard, active: 'bg-blue-600 text-white border-blue-600', idle: 'bg-white text-slate-700 border-slate-200' },
+    { key: 'transfer', label: 'Chuyển khoản', icon: QrCode, active: 'bg-blue-600 text-white border-blue-600', idle: 'bg-white text-slate-700 border-slate-200' },
     { key: 'debt', label: 'Ghi nợ', icon: FileSpreadsheet, active: 'bg-amber-500 text-white border-amber-500', idle: 'bg-white text-slate-700 border-slate-200' },
 ];
 
@@ -213,7 +212,7 @@ export default function MobilePaymentSheet({
 
                     <div>
                         <label className="block text-[11px] font-semibold text-slate-600 mb-1">Phương thức thanh toán</label>
-                        <div className="grid grid-cols-4 gap-1.5">
+                        <div className="grid grid-cols-3 gap-1.5">
                             {METHODS.map((m) => {
                                 const Icon = m.icon;
                                 const isActive = paymentMethod === m.key;

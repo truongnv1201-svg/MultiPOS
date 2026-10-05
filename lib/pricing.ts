@@ -52,6 +52,8 @@ export function recomputeOrderItem(item: OrderItem): OrderItem {
 }
 
 export type PaymentMethod = 'cash' | 'transfer' | 'card' | 'debt';
+// LƯU Ý: 'card' chỉ còn cho đơn cũ (không còn nút chọn) — logic tiền coi card
+// như transfer (không phải cash/debt), xem calcCartTotals + resolvePaidAmount.
 
 export interface CartTotalsInput {
   items: OrderItem[];
@@ -102,7 +104,7 @@ export function calcCartTotals(cart: CartTotalsInput): CartTotals {
   // Không làm tròn tiền mặt (đã gỡ theo yêu cầu kế toán): payable = tiền hàng - CK
   // + ship + VAT, giữ nguyên từng đồng. Muốn làm tròn thì giảm giá/shipping rõ ràng.
   const payable = Math.max(0, subtotal + shipping + vat_amount - discount);
-  // Ô trống = trả đủ CHỈ cho chuyển khoản/quẹt thẻ (khớp resolvePaidAmount + checkout
+  // Ô trống = trả đủ CHỈ cho chuyển khoản (khớp resolvePaidAmount + checkout
   // tự điền tendered = payable trước khi gửi server). Trước đây hiển thị debt = payable
   // trong khi commit vẫn thu đủ — màn hình nói dối thu ngân.
   // Tiền mặt giữ nguyên: trống ô = chưa thu (UI chặn bắt nhập).
@@ -140,7 +142,7 @@ export function calcCartTotals(cart: CartTotalsInput): CartTotals {
 }
 
 // Số tiền khách đã trả hiệu dụng từ ô tendered:
-// Ô trống = trả đủ CHỈ cho chuyển khoản/quẹt thẻ; tiền mặt bắt buộc đã nhập (UI chặn),
+// Ô trống = trả đủ CHỈ cho chuyển khoản; tiền mặt bắt buộc đã nhập (UI chặn),
 // nợ ghi 0 để rơi vào guard nợ vô chủ. Dùng chung cho POSScreen (chặn nợ vô chủ) và
 // checkout (số paid gửi server) — trước đây 2 nơi implement riêng, dễ lệch.
 export function resolvePaidAmount(payable: number, method: PaymentMethod, tendered: number): number {
