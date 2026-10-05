@@ -61,6 +61,16 @@ describe('POS: hàng diện tích mở F3 trong luồng nhập/xuất kho', () =
   });
 });
 
+describe('POS bán hàng: mã và tồn kho hiển thị dưới tên sản phẩm', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+
+  it('đưa SKU và tồn kho vào dòng phụ trong bảng desktop, cạnh badge quy cách area', () => {
+    assert.match(pos, /<div className="font-bold text-slate-800 text-xs">\{item\.name\}<\/div>\s*<div className="mt-1 flex flex-wrap items-center gap-1\.5 text-\[10px\] text-slate-400 font-mono">[\s\S]{0,500}\(\{item\.sku\}\) · Tồn: \{formatQty\(productById\(item\.product_id\)\?\.stock_quantity \?\? 0\)\} \{item\.unit\}/);
+    assert.match(pos, /Tồn: \{formatQty\(productById\(item\.product_id\)\?\.stock_quantity \?\? 0\)\} \{item\.unit\}[\s\S]{0,400}item\.dimension_details\.length/);
+    assert.match(pos, /text-purple-600 mt-1/);
+  });
+});
+
 describe('giỏ chặn SL bẩn (âm/0/NaN) trước khi trừ tồn', () => {
   const cart = read('lib/store/tx/cart.tsx');
 

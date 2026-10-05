@@ -1275,32 +1275,28 @@ export function POSScreen() {
 
                         {/* Product info & dimension badge */}
                         <td className="py-2.5 px-2.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-slate-800 text-xs">{item.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">({item.sku})</span>
+                          <div className="font-bold text-slate-800 text-xs">{item.name}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                            <span>
+                              ({item.sku}) · Tồn: {formatQty(productById(item.product_id)?.stock_quantity ?? 0)} {item.unit}
+                            </span>
+                            {isArea && item.dimension_details && (
+                              <>
+                                <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
+                                  {item.dimension_details.length} tấm ({item.quantity.toFixed(3)} m²)
+                                </span>
+                                <button
+                                  onClick={() => setDimensionModalItem({ item, isNew: false })}
+                                  className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-sans font-bold flex items-center gap-1 transition-colors"
+                                  aria-label={`Sửa quy cách ${item.name}`}
+                                  title="Sửa quy cách tấm cắt (F3)"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  <span>Sửa quy cách (F3)</span>
+                                </button>
+                              </>
+                            )}
                           </div>
-
-                          {/* Area m2 dimensions summary & F3 shortcut */}
-                          {isArea && item.dimension_details && (
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                                {item.dimension_details.length} tấm ({item.quantity.toFixed(3)} m²)
-                              </span>
-                              <button
-                                onClick={() =>
-                                  setDimensionModalItem({
-                                    item,
-                                    isNew: false,
-                                  })
-                                }
-                                className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
-                                title="Sửa quy cách tấm cắt (F3)"
-                              >
-                                <Edit3 className="w-3 h-3" />
-                                <span>Sửa quy cách (F3)</span>
-                              </button>
-                            </div>
-                          )}
 
                           {/* Combo component preview (P0-5: đọc BOM thật, không hard-code) */}
                           {item.product_type === 'combo' &&
@@ -1311,7 +1307,7 @@ export function POSScreen() {
                                 return `${cp?.name || c.sku} x${c.quantity}`;
                               });
                               return (
-                                <div className="text-[10px] text-purple-600 mt-0.5">
+                                <div className="text-[10px] text-purple-600 mt-1">
                                   {parts.length > 0
                                     ? `Trừ kho linh kiện con: ${parts.join(' + ')} (x${item.quantity})`
                                     : 'Combo chưa cấu hình BOM — kiểm tra lại!'}
