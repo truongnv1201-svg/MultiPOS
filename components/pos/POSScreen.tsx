@@ -1280,10 +1280,11 @@ export function POSScreen() {
           Mobile dùng MobilePaymentSheet + thanh toán ghim dưới màn hình. */}
       <div
         id="pos-payment-panel"
-        className="hidden lg:flex w-full lg:w-96 bg-slate-50 p-3.5 flex flex-col justify-between border-t lg:border-t-0 border-slate-200 overflow-y-auto select-none min-h-0 max-h-[52dvh] lg:max-h-none"
+        className={`hidden lg:flex w-full lg:w-96 bg-slate-50 p-3.5 flex flex-col justify-between border-t lg:border-t-0 border-slate-200 ${isStockFlow ? 'overflow-hidden' : 'overflow-y-auto'} select-none min-h-0 max-h-[52dvh] lg:max-h-none`}
       >
       {isProjectFlow ? (
-        <div className="space-y-3">
+        <div className="flex flex-1 min-h-0 flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2.5">
             <div className="text-[11px] font-bold text-amber-900 uppercase flex items-center gap-1.5">
               <HardHat className="w-3.5 h-3.5" />
@@ -1340,7 +1341,8 @@ export function POSScreen() {
               </button>
             )}
           </div>
-
+        </div>
+        <div className="shrink-0 pt-3 border-t border-slate-200 space-y-2">
           {(currentShift.status !== 'open' || needLogin) && (
             <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-900 leading-relaxed">
               {needLogin ? (
@@ -1375,8 +1377,10 @@ export function POSScreen() {
             <span className="text-xs font-mono font-normal opacity-90">— {formatVND(projTotal)}</span>
           </button>
         </div>
+        </div>
       ) : isImportFlow ? (
-        <div className="space-y-3">
+        <div className="flex flex-1 min-h-0 flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2.5">
             <div className="text-[11px] font-bold text-emerald-800 uppercase flex items-center gap-1.5">
               <Truck className="w-3.5 h-3.5" />
@@ -1545,6 +1549,18 @@ export function POSScreen() {
               className="w-full p-2 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
             />
           </div>
+          {impLines.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setImpLines([])}
+              className="w-full py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Xóa hết dòng nhập</span>
+            </button>
+          )}
+        </div>
+        <div className="shrink-0 pt-3 border-t border-slate-200 space-y-2">
           {(currentShift.status !== 'open' || needLogin) && (
             <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-900 leading-relaxed">
               {needLogin ? (
@@ -1570,16 +1586,7 @@ export function POSScreen() {
             <span>NHẬP KHO (F10)</span>
             <span className="text-xs font-mono font-normal opacity-90">— {formatVND(impTotal)}</span>
           </button>
-          {impLines.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setImpLines([])}
-              className="w-full py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Xóa hết dòng nhập</span>
-            </button>
-          )}
+        </div>
         </div>
       ) : (
         <>
@@ -2145,6 +2152,41 @@ export function POSScreen() {
             <CreditCard className="w-4 h-4" />
             Thanh toán
           </button>
+        </div>
+      )}
+      {isStockFlow && (
+        <div className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-3 py-2 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-slate-500">
+                {isProjectFlow ? 'TỔNG GIÁ VỐN XUẤT' : 'TỔNG TIỀN NHẬP'}
+              </p>
+              <p className={`text-base font-black font-mono leading-tight ${isProjectFlow ? 'text-amber-700' : 'text-emerald-700'}`}>
+                {formatVND(isProjectFlow ? projTotal : impTotal)}
+              </p>
+            </div>
+            <button
+              type="button"
+              id="btn-pos-mobile-stock-action"
+              onClick={isProjectFlow ? handleProjectExportCommit : handleImportCommit}
+              disabled={
+                isProcessing ||
+                (isProjectFlow
+                  ? projLines.length === 0 ||
+                    !selectedProject ||
+                    projHasStockError ||
+                    currentShift.status !== 'open' ||
+                    needLogin
+                  : impLines.length === 0 || currentShift.status !== 'open' || needLogin)
+              }
+              className={`shrink-0 inline-flex h-12 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500 ${
+                isProjectFlow ? 'bg-amber-600 active:bg-amber-700' : 'bg-emerald-600 active:bg-emerald-700'
+              }`}
+            >
+              {isProjectFlow ? <HardHat className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
+              {isProjectFlow ? 'Xuất vật tư' : 'Nhập kho'}
+            </button>
+          </div>
         </div>
       )}
 

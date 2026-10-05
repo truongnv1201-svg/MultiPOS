@@ -75,6 +75,16 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(pos, /max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40/);
   });
 
+  it('nút nhập kho/xuất vật tư ghim đáy panel desktop và điện thoại', () => {
+    const pos = read('components/pos/POSScreen.tsx');
+    assert.match(pos, /isStockFlow \? 'overflow-hidden' : 'overflow-y-auto'/);
+    assert.match(pos, /className="flex-1 min-h-0 overflow-y-auto space-y-3"/);
+    assert.match(pos, /className="shrink-0 pt-3 border-t border-slate-200 space-y-2"/);
+    assert.match(pos, /id="btn-pos-mobile-stock-action"/);
+    assert.match(pos, /isProjectFlow \? 'Xuất vật tư' : 'Nhập kho'/);
+    assert.match(pos, /md:hidden fixed inset-x-0 bottom-0 z-40/);
+  });
+
   it('cụm luồng Bán/Nhập/Xuất CT chia đều full-width trên điện thoại', () => {
     const pos = read('components/pos/POSScreen.tsx');
     assert.match(pos, /max-md:flex-1 max-md:grid max-md:grid-cols-3/);
@@ -340,7 +350,7 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
   const offlineCard = read('components/settings/OfflineReadyCard.tsx');
 
   it('panel thanh toán desktop ẩn trên mobile, thay bằng thanh ghim + sheet', () => {
-    assert.match(pos, /id="pos-payment-panel"[\s\S]{0,80}?className="hidden lg:flex/);
+    assert.match(pos, /id="pos-payment-panel"[\s\S]{0,100}?className=\{`hidden lg:flex/);
     assert.match(pos, /id="btn-pos-mobile-payment"/);
     assert.match(pos, /<MobilePaymentSheet/);
     // 2026-09: dock có 3 nhánh — bán / nhập kho / xuất vật tư công trình (tab POS "Xuất CT").
