@@ -909,10 +909,10 @@ export function POSScreen() {
                         <p className={`text-[10px] font-mono ${(pv?.after ?? 0) < 0 ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
                           {line.qty} {prod?.unit} × {formatVND(line.price)} · còn {pv?.after ?? prod.stock_quantity}
                         </p>
-                        {prod.product_type === 'area' && line.dimensionDetails && (
-                          <p className="text-[10px] text-slate-500">
-                            {line.dimensionDetails.length} tấm · {formatQty(line.dimensionDetails.reduce((sum, row) => sum + row.actual_m2, 0))} m²
-                          </p>
+                        {prod.product_type === 'area' && (
+                          <span className="mt-1 inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
+                            {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
+                          </span>
                         )}
                       </div>
                       <span className="shrink-0 text-xs font-mono font-bold text-slate-800">
@@ -921,11 +921,11 @@ export function POSScreen() {
                       {prod.product_type === 'area' && (
                         <button
                           onClick={() => openStockAreaModal(prod, line.qty, line)}
-                          className="shrink-0 inline-flex h-9 items-center justify-center rounded-lg border border-amber-200 px-2 text-[11px] font-semibold text-amber-800 bg-amber-50 active:bg-amber-100"
+                          className="shrink-0 inline-flex h-9 px-2 items-center justify-center gap-1 rounded-lg border border-blue-200 text-blue-600 bg-blue-50 active:bg-blue-100 text-[11px] font-bold"
                           aria-label={`Sửa quy cách ${prod.name}`}
-                          title="Sửa quy cách (F3)"
                         >
-                          F3
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Sửa (F3)</span>
                         </button>
                       )}
                       <button
@@ -969,18 +969,16 @@ export function POSScreen() {
                           </div>
                           {prod.product_type === 'area' && (
                             <div className="mt-1 flex items-center gap-2">
-                              <span className="text-[10px] text-slate-500">
-                                {line.dimensionDetails
-                                  ? `${line.dimensionDetails.length} tấm · ${formatQty(line.dimensionDetails.reduce((sum, row) => sum + row.actual_m2, 0))} m²`
-                                  : `${formatQty(line.qty)} m²`}
+                              <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
+                                {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
                               </span>
                               <button
                                 onClick={() => openStockAreaModal(prod, line.qty, line)}
-                                className="rounded border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100"
-                                title="Sửa quy cách (F3)"
+                                className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
                                 aria-label={`Sửa quy cách ${prod.name}`}
                               >
-                                Sửa F3
+                                <Edit3 className="w-3 h-3" />
+                                <span>Sửa quy cách (F3)</span>
                               </button>
                             </div>
                           )}
@@ -1050,10 +1048,10 @@ export function POSScreen() {
                         <p className="text-[10px] text-slate-500 font-mono">
                           {line.qty} {prod?.unit} × {formatVND(line.price)}
                         </p>
-                        {prod.product_type === 'area' && line.dimensionDetails && (
-                          <p className="text-[10px] text-slate-500">
-                            {line.dimensionDetails.length} tấm · {formatQty(line.dimensionDetails.reduce((sum, row) => sum + row.actual_m2, 0))} m²
-                          </p>
+                        {prod.product_type === 'area' && (
+                          <span className="mt-1 inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
+                            {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
+                          </span>
                         )}
                       </div>
                       <span className="shrink-0 text-xs font-mono font-bold text-slate-800">
@@ -1062,11 +1060,11 @@ export function POSScreen() {
                       {prod.product_type === 'area' && (
                         <button
                           onClick={() => openStockAreaModal(prod, line.qty, line)}
-                          className="shrink-0 inline-flex h-9 items-center justify-center rounded-lg border border-amber-200 px-2 text-[11px] font-semibold text-amber-800 bg-amber-50 active:bg-amber-100"
+                          className="shrink-0 inline-flex h-9 px-2 items-center justify-center gap-1 rounded-lg border border-blue-200 text-blue-600 bg-blue-50 active:bg-blue-100 text-[11px] font-bold"
                           aria-label={`Sửa quy cách ${prod.name}`}
-                          title="Sửa quy cách (F3)"
                         >
-                          F3
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Sửa (F3)</span>
                         </button>
                       )}
                       <button
@@ -1111,18 +1109,16 @@ export function POSScreen() {
                           </div>
                           {prod.product_type === 'area' && (
                             <div className="mt-1 flex items-center gap-2">
-                              <span className="text-[10px] text-slate-500">
-                                {line.dimensionDetails
-                                  ? `${line.dimensionDetails.length} tấm · ${formatQty(line.dimensionDetails.reduce((sum, row) => sum + row.actual_m2, 0))} m²`
-                                  : `${formatQty(line.qty)} m²`}
+                              <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
+                                {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
                               </span>
                               <button
                                 onClick={() => openStockAreaModal(prod, line.qty, line)}
-                                className="rounded border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100"
-                                title="Sửa quy cách (F3)"
+                                className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
                                 aria-label={`Sửa quy cách ${prod.name}`}
                               >
-                                Sửa F3
+                                <Edit3 className="w-3 h-3" />
+                                <span>Sửa quy cách (F3)</span>
                               </button>
                             </div>
                           )}
