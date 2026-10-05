@@ -21,12 +21,13 @@ export function MobileBottomNav() {
     { screen: 'customers', label: 'Khách', icon: Users },
   ];
 
+  // Điện thoại (< 768px) khóa POS nên không cần nav — chỉ hiện trên tablet (md -> lg).
   if (currentScreen === 'pos') return null;
 
   return (
     <nav
       aria-label="Điều hướng nhanh"
-      className="lg:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-2 pt-1.5 shadow-[0_-6px_20px_rgba(15,23,42,0.1)] backdrop-blur safe-bottom"
+      className="hidden md:block lg:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-2 pt-1.5 shadow-[0_-6px_20px_rgba(15,23,42,0.1)] backdrop-blur safe-bottom"
     >
       <div className="mx-auto flex max-w-xl items-center justify-around gap-1">
         {items.map((item) => {

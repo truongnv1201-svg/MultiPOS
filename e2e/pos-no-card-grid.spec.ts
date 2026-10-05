@@ -31,12 +31,15 @@ test.describe('đã bỏ chế độ lưới thẻ', () => {
       expect(posText).not.toContain('Chế độ Thẻ');
       expect(posText).not.toContain('Chế độ Nhanh');
 
-      // 2) F2 về màn Bán hàng (nút header quảng cáo F2; handler đặt ở GlobalHeader)
-      await page.keyboard.press('Alt+p');
-      await expect(page.locator('#products-view')).toBeVisible({ timeout: 20_000 });
-      await page.keyboard.press('F2');
-      await expect(page.locator('#pos-screen')).toBeVisible({ timeout: 20_000 });
-      await expect(page.locator('#product-grid-section')).toHaveCount(0);
+      // 2) F2 về màn Bán hàng (nút header quảng cáo F2; handler đặt ở GlobalHeader).
+      // Điện thoại khóa POS nên bỏ qua bước rời POS trên viewport mobile.
+      if (vp.width >= 768) {
+        await page.keyboard.press('Alt+p');
+        await expect(page.locator('#products-view')).toBeVisible({ timeout: 20_000 });
+        await page.keyboard.press('F2');
+        await expect(page.locator('#pos-screen')).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('#product-grid-section')).toHaveCount(0);
+      }
 
       // 3) Vẫn chọn hàng được bằng ô tìm kiếm -> giỏ có dòng
       const search = page.locator('#f1-search-input');
@@ -51,9 +54,8 @@ test.describe('đã bỏ chế độ lưới thẻ', () => {
         const cart = page.locator('#cart-table-container tbody tr');
         if ((await cart.count()) > 0) return; // desktop: đã vào giỏ
       }
-      // mobile: mở sheet giỏ để kiểm tra dòng đã thêm
+      // mobile: giỏ hiện thẳng trong trang, không cần mở sheet
       if (vp.width < 1024) {
-        await page.locator('#btn-pos-mobile-cart').click();
         await expect(page.locator('#cart-record-list')).toBeVisible({ timeout: 15_000 });
         await expect(page.locator('#cart-record-list li, #cart-record-list tr, #cart-record-list div').first()).toBeVisible();
       }

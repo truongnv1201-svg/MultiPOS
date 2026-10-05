@@ -39,7 +39,7 @@ export function MobilePOSDock({
       : 'btn-pos-mobile-import';
 
   return (
-    <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 pt-2 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur safe-bottom">
+    <div className="hidden md:block lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 pt-2 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur safe-bottom">
       <div className="mx-auto flex max-w-xl items-center gap-2">
         <button
           type="button"

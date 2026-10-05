@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useStore } from '@/lib/store';
+import { useIsPhone } from '@/hooks/useIsPhone';
 import { ActiveScreen } from '@/lib/types';
 import {
   ShoppingCart,
@@ -43,6 +44,8 @@ export function FlyoutMenu() {
   } = useStore();
 
   const isRestricted = profile?.role === 'cashier' || profile?.role === 'worker';
+  // Điện thoại khóa POS nên không có menu phân hệ.
+  const isPhone = useIsPhone();
   // Manager được vào Cài đặt để tự thêm/quản lý NV (cấu hình hệ thống vẫn chỉ Admin sửa được).
   const canAccessSettings = profile?.role === 'admin' || profile?.role === 'manager';
   const menuItems: MenuItem[] = [
@@ -79,7 +82,7 @@ export function FlyoutMenu() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [flyoutMenuOpen, setFlyoutMenuOpen]);
 
-  if (!flyoutMenuOpen) return null;
+  if (!flyoutMenuOpen || isPhone) return null;
 
   return (
     <div

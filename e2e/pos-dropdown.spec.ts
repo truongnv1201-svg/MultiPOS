@@ -116,7 +116,8 @@ test.describe('đóng dropdown khi bấm ra ngoài', () => {
       try {
         await expect(page.locator('#search-results-dropdown')).toBeVisible({ timeout: 4_000 });
         await page.locator('#search-results-dropdown div[id^="search-item-"]').first().click();
-        await expect(page.locator('#btn-pos-mobile-cart-summary')).toBeVisible({ timeout: 10_000 });
+        // Gio hien thang trong trang (khong nut tom tat / sheet tach roi)
+        await expect(page.locator('#cart-record-list > div').first()).toBeVisible({ timeout: 10_000 });
         added = true;
         break;
       } catch {

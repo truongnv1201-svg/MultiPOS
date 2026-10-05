@@ -34,14 +34,15 @@ async function loginAsAdmin(page: Page) {
 
 test.describe('POS mobile (live backend)', () => {
   for (const vp of PHONE_VIEWPORTS) {
-    test(`dock + cart sheet + sync center @ ${vp.name}`, async ({ page }) => {
+    test(`giỏ inline + thanh toán ghim đáy @ ${vp.name}`, async ({ page }) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await loginAsCashier(page);
 
       // Bảng giỏ ngang phải ẩn trên mobile (record list thay thế)
       await expect(page.locator('#cart-table-container table')).toBeHidden();
 
-      // Thêm 1 hàng vào giỏ rồi mở sheet từ dock (hàng m² đi qua modal F3 → xác nhận luôn)
+      // Thêm 1 hàng vào giỏ (hàng m² đi qua modal F3 → xác nhận luôn) — dòng hiện
+      // thẳng trong trang, không còn nút tóm tắt / sheet tách rời
       const search = page.locator('#f1-search-input');
       let added = false;
       for (const term of ['a', 'e', 'o', '0', '1', 'k']) {
@@ -59,7 +60,7 @@ test.describe('POS mobile (live backend)', () => {
             await page.locator('#btn-confirm-dimension-modal').click();
             await expect(page.locator('#dimension-modal-overlay')).toHaveCount(0);
           }
-          await expect(page.locator('#btn-pos-mobile-cart-summary')).toBeVisible({ timeout: 10_000 });
+          await expect(page.locator('#btn-pos-mobile-cart-summary')).toHaveCount(0);
           added = true;
           break;
         } catch {
@@ -71,14 +72,20 @@ test.describe('POS mobile (live backend)', () => {
       }
       expect(added).toBe(true);
 
-      await page.locator('#btn-pos-mobile-cart').click();
-      await expect(page.locator('#cart-record-list')).toBeVisible();
-      // Nút Thanh toán trong sheet giỏ mở sheet thanh toán (không thu tiền thẳng)
-      await page.locator('#cart-record-list button[aria-label="Đóng giỏ hàng"]').click();
-      await expect(page.locator('#cart-record-list')).toHaveCount(0);
+      // Dòng giỏ hiện thẳng trong #cart-record-list: sửa được SL, xóa được
+      const list = page.locator('#cart-record-list');
+      await expect(list).toBeVisible({ timeout: 10_000 });
+      await expect(list.locator(':scope > div').first()).toBeVisible({ timeout: 10_000 });
+      await expect(list.locator('input[aria-label^="Số lượng"], button[aria-label^="Xóa "]').first()).toBeVisible();
+
+      // Thanh toán ghim đáy màn hình (thay dock đã bỏ)
+      const payBtn = page.locator('#btn-pos-mobile-payment');
+      await expect(payBtn).toBeVisible();
+      const payBox = await payBtn.boundingBox();
+      expect((payBox?.y ?? 0) + (payBox?.height ?? 0)).toBeGreaterThan(vp.height - 120);
 
       // Thanh toán ghim mở sheet: đổi phương thức, nhập tiền khách đưa, đóng lại được
-      await page.locator('#btn-pos-mobile-payment').click();
+      await payBtn.click();
       const payDialog = page.getByRole('dialog', { name: 'Thanh toán' });
       await expect(payDialog).toBeVisible();
       await expect(payDialog.getByRole('button', { name: 'Tiền mặt' })).toBeVisible();
@@ -95,8 +102,8 @@ test.describe('POS mobile (live backend)', () => {
     });
   }
 
-  test('kho + NCC dùng record list, mở sheet chi tiết NCC @ 390x844', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+  test('kho + NCC dùng record list, mở sheet chi tiết NCC @ tablet 768x1024 (điện thoại khóa POS)', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
     await loginAsAdmin(page);
 
     // Kho: Alt+N là phân hệ bị chặn với cashier, admin đi qua menu phân hệ
@@ -121,8 +128,8 @@ test.describe('POS mobile (live backend)', () => {
     await expect(page.getByRole('dialog', { name: 'Chi tiết nhà cung cấp' })).toHaveCount(0);
   });
 
-  test('trả nợ NCC dạng sheet + card offline trong Cài đặt @ 390x844', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+  test('trả nợ NCC dạng sheet + card offline trong Cài đặt @ tablet 768x1024 (điện thoại khóa POS)', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
     await loginAsAdmin(page);
 
     await page.keyboard.press('Alt+k');
@@ -146,8 +153,8 @@ test.describe('POS mobile (live backend)', () => {
     await expect(page.getByText('Hàng hóa đã cache')).toBeVisible();
   });
 
-  test('bảng giá + khách hàng dùng record list, mở sheet chi tiết KH @ 390x844', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+  test('bảng giá + khách hàng dùng record list, mở sheet chi tiết KH @ tablet 768x1024 (điện thoại khóa POS)', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
     await loginAsAdmin(page);
 
     // Bảng giá (Alt+P)
@@ -172,8 +179,8 @@ test.describe('POS mobile (live backend)', () => {
     await expect(detail).toHaveCount(0);
   });
 
-  test('mở tab in từ điện thoại được (biên nhận + bảng in) @ 390x844', async ({ page, context }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+  test('mở tab in từ tablet được (biên nhận + bảng in) @ 768x1024 (điện thoại khóa POS)', async ({ page, context }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
     await loginAsCashier(page);
 
     // In bảng: nút In của TableTools mở tab in (blob) thay vì auto-print iframe

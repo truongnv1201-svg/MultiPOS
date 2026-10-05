@@ -12,32 +12,72 @@ const ROOT = join(import.meta.dirname, '..');
 // trong lib/excel.ts). Không chuẩn hoá thì test đỏ oan trên máy Windows.
 const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
-describe('POS: mobile cart sheet thay bảng ngang', () => {
+describe('POS: giỏ hiện thẳng trong trang trên mobile (không sheet tách rời)', () => {
   const pos = read('components/pos/POSScreen.tsx');
-  const sheet = read('components/pos/MobileCartSheet.tsx');
 
   it('bảng giỏ bán chỉ hiện từ lg trở lên', () => {
     assert.match(pos, /hidden lg:block border border-slate-200 rounded-lg overflow-hidden shadow-2xs/);
   });
 
-  it('bảng dòng nhập chỉ hiện từ lg trở lên', () => {
-    assert.match(pos, /lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100/);
+  it('record list giỏ hiện thẳng dưới lg, cùng id ổn định cho e2e', () => {
+    assert.match(pos, /id="cart-record-list"[\s\S]{0,120}className="lg:hidden/);
+    assert.doesNotMatch(pos, /id="btn-pos-mobile-cart-summary"/);
   });
 
-  it('nút Giỏ trên dock mở sheet thay vì cuộn tới bảng', () => {
-    assert.match(pos, /onOpenCart=\{\(\) => \{[\s\S]{0,400}setIsMobileCartOpen\(true\)/);
+  it('dòng giỏ inline sửa được SL / quy cách / xóa (dùng lại callback giỏ sẵn có)', () => {
+    assert.match(pos, /onCommit=\{\(value\) => updateCartItem\(item\.id, \{ quantity: value \}\)\}/);
+    assert.match(pos, /onClick=\{\(\) => removeCartItem\(item\.id\)\}/);
+    assert.match(pos, /onClick=\{\(\) => setDimensionModalItem\(\{ item \}\)\}/);
+    assert.match(pos, /allowDecimal=\{allowsDecimalQty\(productById\(item\.product_id\)\)\}/);
   });
 
-  it('sheet có id ổn định + nút đóng + thanh toán, có safe-area', () => {
-    assert.match(sheet, /id="cart-record-list"/);
-    assert.match(sheet, /aria-label="Đóng giỏ hàng"/);
-    assert.match(sheet, /onCheckout/);
-    assert.match(sheet, /pb-\[env\(safe-area-inset-bottom\)\]/);
+  it('không còn sheet giỏ tách rời (file đã xóa, không còn state mở sheet)', () => {
+    assert.ok(!existsSync(join(ROOT, 'components/pos/MobileCartSheet.tsx')), 'file sheet phải bị xóa');
+    assert.doesNotMatch(pos, /MobileCartSheet/);
+    assert.doesNotMatch(pos, /isMobileCartOpen/);
   });
 
-  it('sheet dùng lại callback giỏ sẵn có (không nhân bản logic giỏ)', () => {
-    assert.match(pos, /onQuantityChange=\{\(itemId, quantity\) => updateCartItem\(itemId, \{ quantity \}\)\}/);
-    assert.match(pos, /onRemove=\{removeCartItem\}/);
+  it('nút Giỏ trên dock (tablet) cuộn tới danh sách giỏ trong trang', () => {
+    assert.match(pos, /getElementById\(\s*isProjectFlow \? 'project-table-container' : isImportFlow \? 'import-table-container' : 'cart-record-list'\s*\)/);
+    assert.match(pos, /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
+  });
+});
+
+describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu phân hệ', () => {
+  const page = read('app/page.tsx');
+
+  it('có hook useIsPhone theo breakpoint md', () => {
+    assert.ok(existsSync(join(ROOT, 'hooks/useIsPhone.ts')), 'thiếu hooks/useIsPhone.ts');
+    assert.match(read('hooks/useIsPhone.ts'), /max-width: 767px/);
+  });
+
+  it('page ép màn POS trên điện thoại (kể cả restore màn cũ / ?screen=)', () => {
+    assert.match(page, /const effectiveScreen = isPhone \? 'pos' : currentScreen;/);
+    assert.ok(!/\{currentScreen === 'pos' && <POSScreen/.test(page), 'còn render theo currentScreen thô');
+  });
+
+  it('bottom nav + dock chỉ hiện trên tablet (md -> lg), ẩn trên điện thoại', () => {
+    const nav = read('components/MobileBottomNav.tsx');
+    assert.match(nav, /hidden md:block lg:hidden fixed inset-x-0 bottom-0/);
+    const dock = read('components/pos/MobilePOSDock.tsx');
+    assert.match(dock, /hidden md:block lg:hidden fixed inset-x-0 bottom-0/);
+  });
+
+  it('menu phân hệ không mở trên điện thoại + nút menu/header ẩn', () => {
+    const flyout = read('components/FlyoutMenu.tsx');
+    assert.match(flyout, /if \(!flyoutMenuOpen \|\| isPhone\) return null;/);
+    const header = read('components/GlobalHeader.tsx');
+    assert.match(header, /max-md:hidden flex h-9/);
+  });
+
+  it('thanh toán ghim cố định đáy điện thoại thay dock', () => {
+    const pos = read('components/pos/POSScreen.tsx');
+    assert.match(pos, /max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40/);
+  });
+
+  it('cụm luồng Bán/Nhập/Xuất CT chia đều full-width trên điện thoại', () => {
+    const pos = read('components/pos/POSScreen.tsx');
+    assert.match(pos, /max-md:flex-1 max-md:grid max-md:grid-cols-3/);
   });
 });
 
@@ -310,7 +350,7 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     );
     // 2 luồng dòng hàng (nhập/xuất CT) đều mở bảng tương ứng, không mở sheet giỏ bán
     assert.match(pos, /isStockFlow \? \(isProjectFlow \? projLines\.length : impLines\.length\)/);
-    assert.match(pos, /open=\{isMobileCartOpen && !isStockFlow\}/);
+    assert.doesNotMatch(pos, /open=\{isMobileCartOpen/);
   });
 
   it('sheet thanh toán có đủ phương thức, tiền khách đưa và nút thu tiền', () => {

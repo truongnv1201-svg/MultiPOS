@@ -228,7 +228,7 @@ export function GlobalHeader() {
         <button
           id="flyout-menu-trigger"
           onClick={() => setFlyoutMenuOpen((prev) => !prev)}
-          className={`flex h-9 w-9 sm:h-8 sm:w-auto items-center justify-center gap-2 px-2.5 rounded-lg leading-none border text-xs font-semibold transition-all ${
+          className={`max-md:hidden flex h-9 w-9 sm:h-8 sm:w-auto items-center justify-center gap-2 px-2.5 rounded-lg leading-none border text-xs font-semibold transition-all ${
             flyoutMenuOpen
               ? 'bg-blue-600 border-blue-500 text-white'
               : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
@@ -391,7 +391,7 @@ export function GlobalHeader() {
             }
             setCurrentScreen('settings');
           }}
-          className="hidden sm:flex h-8 w-8 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
+          className="hidden md:flex h-8 w-8 items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-md text-slate-300 transition-colors"
           title="Cài đặt hệ thống & nhân viên (Alt + S)"
         >
           <Settings className="w-3.5 h-3.5" />

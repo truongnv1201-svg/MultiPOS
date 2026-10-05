@@ -98,7 +98,7 @@ test.describe('Gio POS: cot don vi tinh + o sua duoc', () => {
         await login(page);
 
         await addProduct(page, 'keo');
-        await page.locator('#btn-pos-mobile-cart').click();
+        // Gio hien thang trong trang (khong nut tom tat / sheet tach roi)
         const list = page.locator('#cart-record-list');
         await expect(list).toBeVisible({ timeout: 15_000 });
 

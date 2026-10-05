@@ -23,6 +23,7 @@ import { SettingsView } from '@/components/settings/SettingsView';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { ConfirmDialogHost } from '@/components/common/ConfirmDialog';
 import { ToastHost } from '@/components/common/Toast';
+import { useIsPhone } from '@/hooks/useIsPhone';
 
 // Màn hình hạ cánh sau đăng nhập: mọi vai trò đều vào Bán hàng (POS).
 // (Không export: file page của Next.js chỉ được export default + các named chuẩn).
@@ -57,6 +58,11 @@ function AppContent() {
   // Cổng bắt buộc: đã cấu hình Supabase + xác thực xong mà chưa login -> chặn toàn app.
   // Chế độ local-only (chưa cấu hình env) không có backend tài khoản nên vào thẳng demo.
   const needGate = supabaseReady && authReady && !user;
+
+  // Điện thoại (< 768px) chỉ dùng màn POS: không bottom nav, không menu phân hệ,
+  // mở app (kể cả restore màn hình cũ / shortcut ?screen=) cũng hạ cánh về POS.
+  const isPhone = useIsPhone();
+  const effectiveScreen = isPhone ? 'pos' : currentScreen;
 
   // Cổng hiện thì form login phải mở (defer microtask để khỏi set-state-in-effect)
   useEffect(() => {
@@ -108,22 +114,22 @@ function AppContent() {
       {/* Flyout Navigation Menu (Alt + M) */}
       <FlyoutMenu />
 
-      {/* Dynamic Screen View */}
-      <main className={`flex-1 flex flex-col min-h-0 overflow-hidden ${currentScreen === 'pos' ? '' : 'mobile-main-bottom-space'}`}>
-        {currentScreen === 'pos' && <POSScreen />}
-        {currentScreen === 'orders' && <OrdersView />}
-        {currentScreen === 'products' && <ProductsView />}
-        {currentScreen === 'inventory' && <InventoryView />}
-        {currentScreen === 'customers' && <CustomersView />}
-        {currentScreen === 'suppliers' && <SuppliersView />}
-        {currentScreen === 'projects' && <ProjectsView />}
-        {(currentScreen === 'hr' || currentScreen === 'attendance' || currentScreen === 'leave' || currentScreen === 'payroll') && <HRMView />}
-        {currentScreen === 'cashbook' && <CashbookView />}
-        {currentScreen === 'reports' && <ReportsView />}
-        {currentScreen === 'settings' && <SettingsView />}
+      {/* Dynamic Screen View (điện thoại khóa về POS) */}
+      <main className={`flex-1 flex flex-col min-h-0 overflow-hidden ${effectiveScreen === 'pos' ? '' : 'mobile-main-bottom-space'}`}>
+        {effectiveScreen === 'pos' && <POSScreen />}
+        {effectiveScreen === 'orders' && <OrdersView />}
+        {effectiveScreen === 'products' && <ProductsView />}
+        {effectiveScreen === 'inventory' && <InventoryView />}
+        {effectiveScreen === 'customers' && <CustomersView />}
+        {effectiveScreen === 'suppliers' && <SuppliersView />}
+        {effectiveScreen === 'projects' && <ProjectsView />}
+        {(effectiveScreen === 'hr' || effectiveScreen === 'attendance' || effectiveScreen === 'leave' || effectiveScreen === 'payroll') && <HRMView />}
+        {effectiveScreen === 'cashbook' && <CashbookView />}
+        {effectiveScreen === 'reports' && <ReportsView />}
+        {effectiveScreen === 'settings' && <SettingsView />}
       </main>
 
-      <MobileBottomNav />
+      {!isPhone && <MobileBottomNav />}
 
       {/* Global Modals */}
       <DimensionModalF3 />
