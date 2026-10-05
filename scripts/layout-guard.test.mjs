@@ -35,3 +35,10 @@ describe('panel trống cùng hình học panel có dữ liệu (lề đều 4 c
     assert.match(src, /hidden md:flex w-full md:w-96 bg-slate-100 flex-col min-h-0 p-4 pl-0">\s*$/m);
   });
 });
+
+describe('font mono: số 0 không gạch chéo (ưu tiên Consolas)', () => {
+  it('globals.css đè --font-mono, Consolas đứng đầu', () => {
+    const css = read('app/globals.css');
+    assert.match(css, /--font-mono:\s*Consolas,/);
+  });
+});

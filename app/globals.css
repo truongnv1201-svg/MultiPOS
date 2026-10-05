@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Số 0 không gạch chéo: stack mono mặc định của Tailwind trên Windows Chrome
+   trỏ tới Cascadia Mono (số 0 có gạch) — ưu tiên Consolas (số 0 trơn, có sẵn
+   trên Windows). Mac/Linux giữ nguyên Menlo/DejaVu phía sau. */
+@theme {
+  --font-mono: Consolas, "Lucida Console", Menlo, Monaco, "Liberation Mono", "Courier New", monospace;
+}
+
 /* ---------- Tối ưu smartphone ---------- */
 html {
   -webkit-tap-highlight-color: transparent;
