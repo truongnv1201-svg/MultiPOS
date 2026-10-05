@@ -11,12 +11,16 @@ import {
   ArrowDownLeft,
   Banknote,
   QrCode,
-  Search,
   Filter,
   CheckCircle2,
   Calendar,
 } from 'lucide-react';
 import { PaginationBar } from '@/components/common/PaginationBar';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
+import { SummaryStrip, TableEmpty } from '@/components/ui/ListStates';
+import { AppButton } from '@/components/ui/AppButton';
 import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/common/DateFilter';
 import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, printTable } from '@/lib/excel';
@@ -223,43 +227,36 @@ export function CashbookView() {
   return (
     <div id="cashbook-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
       {/* Header */}
-      <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-blue-600" />
-            <span>Sổ Quỹ Thu - Chi</span>
-          </h2>
-          <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
-            {cashbook.length} bút toán
-          </span>
-        </div>
-
-        {/* Nút phụ (Excel/In) trước, 2 nút lập phiếu sau — cụm dồn về mép phải.
-            Sổ quỹ có 2 nút chính ngang nhau (Thu/Chi) nên giữ thứ tự Thu → Chi. */}
-        <div className="flex items-center gap-2">
-          <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
-          <button
-            onClick={() => {
-              setVoucherType('receipt');
-              setIsModalOpen(true);
-            }}
-            className="px-3 h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Lập Phiếu Thu (PT)</span>
-          </button>
-          <button
-            onClick={() => {
-              setVoucherType('expense');
-              setIsModalOpen(true);
-            }}
-            className="px-3 h-8 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Lập Phiếu Chi (PC)</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Wallet className="w-5 h-5 text-blue-600" />}
+        title="Sổ Quỹ Thu - Chi"
+        count={`${cashbook.length} bút toán`}
+        actions={
+          <>
+            <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
+            <AppButton
+              tone="emerald"
+              onClick={() => {
+                setVoucherType('receipt');
+                setIsModalOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Lập Phiếu Thu (PT)</span>
+            </AppButton>
+            <AppButton
+              tone="rose"
+              onClick={() => {
+                setVoucherType('expense');
+                setIsModalOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Lập Phiếu Chi (PC)</span>
+            </AppButton>
+          </>
+        }
+      />
 
       {/* Overview Metric Cards — thẻ tổng hợp nằm thẳng trên nền trang (đồng bộ Reports).
           px-4 pt-4 (không pb) để khoảng cách giữa 2 khối = khoảng cách cạnh bên. */}
@@ -303,19 +300,15 @@ export function CashbookView() {
         <DataTableShell>
         {/* Filters */}
         <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-          <div className="relative min-w-[200px] flex-1">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Tìm theo Mã phiếu PT/PC, đối tác, nội dung..."
-              className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
+            placeholder="Tìm theo Mã phiếu PT/PC, đối tác, nội dung..."
+            minWidthClass="min-w-[200px]"
+          />
 
           <div className="flex flex-wrap items-center gap-2">
             {/* Date Filter */}
@@ -327,57 +320,54 @@ export function CashbookView() {
               }}
             />
 
-            {/* Fund Filter */}
-            <select
+            <FilterSelect
               value={fundFilter}
-              onChange={(e) => {
-                setFundFilter(e.target.value as any);
+              onChange={(val) => {
+                setFundFilter(val as any);
                 setPage(1);
               }}
-              className="h-8 px-2 text-xs bg-slate-50 border border-slate-300 rounded-md text-slate-700"
-            >
-              <option value="all">Tất cả quỹ</option>
-              <option value="cash">Tiền mặt</option>
-              <option value="bank">Ngân hàng</option>
-            </select>
+              options={[
+                { value: 'all', label: 'Tất cả quỹ' },
+                { value: 'cash', label: 'Tiền mặt' },
+                { value: 'bank', label: 'Ngân hàng' },
+              ]}
+            />
 
-            {/* Type Filter */}
-            <select
+            <FilterSelect
               value={typeFilter}
-              onChange={(e) => {
-                setTypeFilter(e.target.value as any);
+              onChange={(val) => {
+                setTypeFilter(val as any);
                 setPage(1);
               }}
-              className="h-8 px-2 text-xs bg-slate-50 border border-slate-300 rounded-md text-slate-700"
-            >
-              <option value="all">Thu & Chi</option>
-              <option value="receipt">Phiếu Thu (+)</option>
-              <option value="expense">Phiếu Chi (-)</option>
-            </select>
+              options={[
+                { value: 'all', label: 'Thu & Chi' },
+                { value: 'receipt', label: 'Phiếu Thu (+)' },
+                { value: 'expense', label: 'Phiếu Chi (-)' },
+              ]}
+            />
 
-            {/* Category Filter */}
-            <select
+            <FilterSelect
               value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
+              onChange={(val) => {
+                setCategoryFilter(val);
                 setPage(1);
               }}
-              className="h-8 px-2 text-xs bg-slate-50 border border-slate-300 rounded-md text-slate-700"
-            >
-              <option value="all">Tất cả danh mục</option>
-              <option value="sales">Thu tiền bán hàng</option>
-              <option value="deposit">Thu đặt cọc</option>
-              <option value="debt_collection">Thu nợ khách</option>
-              <option value="supplier_payment">Chi trả NCC</option>
-              <option value="labor">Chi lương</option>
-              <option value="advance">Tạm ứng lương</option>
-              <option value="other">Thu/Chi khác</option>
-            </select>
+              options={[
+                { value: 'all', label: 'Tất cả danh mục' },
+                { value: 'sales', label: 'Thu tiền bán hàng' },
+                { value: 'deposit', label: 'Thu đặt cọc' },
+                { value: 'debt_collection', label: 'Thu nợ khách' },
+                { value: 'supplier_payment', label: 'Chi trả NCC' },
+                { value: 'labor', label: 'Chi lương' },
+                { value: 'advance', label: 'Tạm ứng lương' },
+                { value: 'other', label: 'Thu/Chi khác' },
+              ]}
+            />
           </div>
         </div>
 
         {/* Filtered Metrics Strip */}
-        <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex flex-wrap items-center justify-between text-[11px] font-medium text-slate-600 gap-2">
+        <SummaryStrip className="flex-wrap gap-2">
           <span>
             Tìm thấy <strong className="text-slate-900 font-mono">{filteredEntries.length}</strong> bút toán
           </span>
@@ -401,7 +391,7 @@ export function CashbookView() {
               </strong>
             </span>
           </div>
-        </div>
+        </SummaryStrip>
 
         {/* Cashbook Table */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
@@ -419,11 +409,7 @@ export function CashbookView() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paginatedEntries.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    Không tìm thấy chứng từ thu chi nào phù hợp với bộ lọc.
-                  </td>
-                </tr>
+                <TableEmpty colSpan={7}>Không tìm thấy chứng từ thu chi nào phù hợp với bộ lọc.</TableEmpty>
               ) : (
                 paginatedEntries.map((e) => {
                   const isReceipt = e.type === 'receipt';
@@ -436,15 +422,9 @@ export function CashbookView() {
                         {new Date(e.created_at).toLocaleString('vi-VN')}
                       </td>
                       <td className="py-2.5 px-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            e.fund_type === 'cash'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-emerald-100 text-emerald-800'
-                          }`}
-                        >
+                        <StatusBadge tone={e.fund_type === 'cash' ? 'amber' : 'emerald'} pill={false}>
                           {e.fund_type === 'cash' ? 'Tiền mặt' : 'VietQR / Bank'}
-                        </span>
+                        </StatusBadge>
                       </td>
                       <td className="py-2.5 px-3 text-slate-700 font-medium">
                         {e.category === 'sales'

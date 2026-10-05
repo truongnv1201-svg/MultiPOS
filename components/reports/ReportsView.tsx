@@ -10,12 +10,15 @@ import {
   Boxes,
   Users,
   Percent,
-  Search,
   Wallet,
 } from 'lucide-react';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/common/DateFilter';
 import { TableTools } from '@/components/common/TableTools';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
+import { SearchInput } from '@/components/ui/FilterControls';
+import { SummaryStrip, TableEmpty } from '@/components/ui/ListStates';
 import { DataTableShell } from '@/components/common/DataTableShell';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { notify } from '@/components/common/Toast';
@@ -692,56 +695,47 @@ export function ReportsView() {
           ? `${sortedMargin.length} mặt hàng`
           : `${sortedDebtors.length + sortedSuppliers.length} bên nợ (KH + NCC)`;
 
-  const tabBtn = (key: ReportTab, label: string) => (
-    <button
-      key={key}
-      onClick={() => setActiveTab(key)}
-      className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-        activeTab === key ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div id="reports-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
-      {/* Top bar — style chung: tiêu đề + Tab Switcher + tools theo tab */}
-      <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap">
-            <BarChart3 className="w-5 h-5 text-blue-600" />
-            <span className="hidden md:inline">Báo cáo Quản trị & Phân tích Đa chiều</span>
-            <span className="md:hidden">Báo cáo</span>
-          </h2>
-          <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded whitespace-nowrap">
-            {tabBadge}
-          </span>
-          {isLiveStale && (
-            <span
-              className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 font-mono rounded whitespace-nowrap"
-              role="status"
-              aria-live="polite"
-            >
-              Đang cập nhật số liệu…
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-          {tabBtn('overview', 'Tổng quan')}
-          {tabBtn('vat', 'VAT đầu ra')}
-          {tabBtn('margin', 'Mặt hàng')}
-          {tabBtn('debt', 'Công nợ')}
-          </div>
-          {activeTab === 'overview' && <TableTools onExportExcel={handleExportOverview} onPrint={handlePrintOverview} />}
-          {activeTab === 'vat' && <TableTools onExportExcel={handleExportVat} onPrint={handlePrintVat} />}
-          {activeTab === 'margin' && <TableTools onExportExcel={handleExportMargin} onPrint={handlePrintMargin} />}
-          {activeTab === 'debt' && debtSide === 'customer' && <TableTools onExportExcel={handleExportDebtCustomer} onPrint={handlePrintDebtCustomer} />}
-          {activeTab === 'debt' && debtSide === 'supplier' && <TableTools onExportExcel={handleExportDebtSupplier} onPrint={handlePrintDebtSupplier} />}
-        </div>
-      </div>
+      <PageHeader
+        icon={<BarChart3 className="w-5 h-5 text-blue-600" />}
+        title="Báo cáo Quản trị & Phân tích Đa chiều"
+        shortTitle="Báo cáo"
+        shortBreakpoint="md"
+        count={
+          <>
+            <span>{tabBadge}</span>
+            {isLiveStale && (
+              <span
+                className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 font-mono rounded whitespace-nowrap"
+                role="status"
+                aria-live="polite"
+              >
+                Đang cập nhật số liệu…
+              </span>
+            )}
+          </>
+        }
+        actions={
+          <>
+            <TabSwitcher<ReportTab>
+              active={activeTab}
+              onChange={setActiveTab}
+              options={[
+                { key: 'overview', label: 'Tổng quan' },
+                { key: 'vat', label: 'VAT đầu ra' },
+                { key: 'margin', label: 'Mặt hàng' },
+                { key: 'debt', label: 'Công nợ' },
+              ]}
+            />
+            {activeTab === 'overview' && <TableTools onExportExcel={handleExportOverview} onPrint={handlePrintOverview} />}
+            {activeTab === 'vat' && <TableTools onExportExcel={handleExportVat} onPrint={handlePrintVat} />}
+            {activeTab === 'margin' && <TableTools onExportExcel={handleExportMargin} onPrint={handlePrintMargin} />}
+            {activeTab === 'debt' && debtSide === 'customer' && <TableTools onExportExcel={handleExportDebtCustomer} onPrint={handlePrintDebtCustomer} />}
+            {activeTab === 'debt' && debtSide === 'supplier' && <TableTools onExportExcel={handleExportDebtSupplier} onPrint={handlePrintDebtSupplier} />}
+          </>
+        }
+      />
 
       {/* Main content body — khung cố định, chân bảng sát lề dưới (chuẩn các trang khác) */}
       <div className="flex-1 p-4 overflow-hidden min-h-0">
@@ -916,7 +910,7 @@ export function ReportsView() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {vatMonthly.length === 0 ? (
-                    <tr><td colSpan={8} className="py-12 text-center text-slate-400">Chưa có đơn hiệu lực</td></tr>
+                    <TableEmpty colSpan={8}>Chưa có đơn hiệu lực</TableEmpty>
                   ) : (
                     vatMonthly.map((r) => {
                       const diff = r.revenue - r.booked;
@@ -955,23 +949,19 @@ export function ReportsView() {
         {activeTab === 'margin' && (
           <DataTableShell>
             <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={marginSearch}
-                  onChange={(e) => {
-                    setMarginSearch(e.target.value);
-                    setMarginPage(1);
-                  }}
-                  placeholder="Tìm mặt hàng theo tên..."
-                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
+              <SearchInput
+                value={marginSearch}
+                onChange={(val) => {
+                  setMarginSearch(val);
+                  setMarginPage(1);
+                }}
+                placeholder="Tìm mặt hàng theo tên..."
+                minWidthClass="min-w-[200px]"
+              />
             </div>
 
             {/* Dòng tổng hợp riêng, ngay trên tiêu đề cột */}
-            <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex flex-wrap items-center justify-between text-[11px] font-medium text-slate-600 gap-2">
+            <SummaryStrip className="flex-wrap gap-2">
               <span>
                 Tìm thấy <strong className="text-slate-900 font-mono">{sortedMargin.length}</strong> mặt hàng
               </span>
@@ -996,7 +986,7 @@ export function ReportsView() {
                   </strong>
                 </span>
               </div>
-            </div>
+            </SummaryStrip>
 
             <div className="flex-1 min-h-0 overflow-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -1011,7 +1001,7 @@ export function ReportsView() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {marginRows.length === 0 ? (
-                    <tr><td colSpan={5} className="py-12 text-center text-slate-400">Không tìm thấy mặt hàng nào phù hợp.</td></tr>
+                    <TableEmpty colSpan={5}>Không tìm thấy mặt hàng nào phù hợp.</TableEmpty>
                   ) : (
                     marginRows.map((p) => {
                       const margin = p.retail_price - p.avg_cost;
@@ -1059,47 +1049,33 @@ export function ReportsView() {
         {activeTab === 'debt' && (
           <DataTableShell>
             <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={debtSide === 'customer' ? debtSearch : supSearch}
-                  onChange={(e) => {
-                    if (debtSide === 'customer') {
-                      setDebtSearch(e.target.value);
-                      setDebtPage(1);
-                    } else {
-                      setSupSearch(e.target.value);
-                      setSupPage(1);
-                    }
-                  }}
-                  placeholder={debtSide === 'customer' ? 'Tìm khách nợ theo tên, SĐT...' : 'Tìm NCC theo tên, SĐT...'}
-                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
+              <SearchInput
+                value={debtSide === 'customer' ? debtSearch : supSearch}
+                onChange={(val) => {
+                  if (debtSide === 'customer') {
+                    setDebtSearch(val);
+                    setDebtPage(1);
+                  } else {
+                    setSupSearch(val);
+                    setSupPage(1);
+                  }
+                }}
+                placeholder={debtSide === 'customer' ? 'Tìm khách nợ theo tên, SĐT...' : 'Tìm NCC theo tên, SĐT...'}
+                minWidthClass="min-w-[200px]"
+              />
               {/* Chiều công nợ: phải thu (KH) / phải trả (NCC) */}
-              <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-lg">
-                <button
-                  onClick={() => setDebtSide('customer')}
-                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                    debtSide === 'customer' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Phải thu KH
-                </button>
-                <button
-                  onClick={() => setDebtSide('supplier')}
-                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                    debtSide === 'supplier' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Phải trả NCC
-                </button>
-              </div>
+              <TabSwitcher<'customer' | 'supplier'>
+                active={debtSide}
+                onChange={setDebtSide}
+                options={[
+                  { key: 'customer', label: 'Phải thu KH' },
+                  { key: 'supplier', label: 'Phải trả NCC' },
+                ]}
+              />
             </div>
 
             {/* Dòng tổng hợp riêng, ngay trên tiêu đề cột */}
-            <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex flex-wrap items-center justify-between text-[11px] font-medium text-slate-600 gap-2">
+            <SummaryStrip className="flex-wrap gap-2">
               <span>
                 Tìm thấy{' '}
                 <strong className="text-slate-900 font-mono">
@@ -1115,7 +1091,7 @@ export function ReportsView() {
                   </strong>
                 </span>
               </div>
-            </div>
+            </SummaryStrip>
 
             {debtSide === 'customer' ? (
               <>
@@ -1132,7 +1108,7 @@ export function ReportsView() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {debtorRows.length === 0 ? (
-                        <tr><td colSpan={5} className="py-12 text-center text-slate-400">Không tìm thấy khách hàng nào phù hợp.</td></tr>
+                        <TableEmpty colSpan={5}>Không tìm thấy khách hàng nào phù hợp.</TableEmpty>
                       ) : (
                         debtorRows.map((c) => {
                           const debtRate = c.debt_limit > 0 ? (c.current_debt / c.debt_limit) * 100 : 0;
@@ -1196,7 +1172,7 @@ export function ReportsView() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {supRows.length === 0 ? (
-                        <tr><td colSpan={5} className="py-12 text-center text-slate-400">Không tìm thấy nhà cung cấp nào phù hợp.</td></tr>
+                        <TableEmpty colSpan={5}>Không tìm thấy nhà cung cấp nào phù hợp.</TableEmpty>
                       ) : (
                         supRows.map((s) => {
                           const limit = s.credit_limit || 0;

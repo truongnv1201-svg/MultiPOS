@@ -29,6 +29,9 @@ import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 import { TableTools } from '@/components/common/TableTools';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { AppButton } from '@/components/ui/AppButton';
+import { SummaryStrip } from '@/components/ui/ListStates';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { sortRows } from '@/lib/sort';
 
@@ -477,58 +480,44 @@ export function ProjectsView() {
 
   return (
     <div id="projects-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
-      {/* Top bar */}
-      <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-blue-600" />
-            <span>Dự án & Thi công Công trình (Quy trình 3 Giai đoạn & P&L)</span>
-          </h2>
-          <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
-            {projects.length} dự án
-          </span>
-        </div>
-
-        {/* Nút phụ (Excel/In) trước, nút tác vụ dự án đang chọn ở giữa, nút chính
-            "Lập dự án" sát lề phải. Sửa/Xoá theo style nút chuẩn app (h-8, text-xs,
-            rounded-lg): Sửa = nút phụ trắng viền (như "Đồng bộ nợ"), Xoá = đỏ đặc
-            (như "Lập Phiếu Chi"). Cả hai disable khi chưa chọn dự án nào. */}
-        <div className="flex items-center gap-2">
-          <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
-          <button
-            type="button"
-            id="btn-edit-project-info"
-            onClick={openEditInfoModal}
-            disabled={!currentProject}
-            title={currentProject ? `Sửa tên / chủ đầu tư / địa chỉ công trình ${currentProject.code}` : 'Chọn một dự án để sửa thông tin'}
-            className="px-3 h-8 bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors text-slate-700"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            <span>Sửa</span>
-          </button>
-          {canDeleteProject && (
-            <button
+      <PageHeader
+        icon={<Building2 className="w-5 h-5 text-blue-600" />}
+        title="Dự án & Thi công Công trình (Quy trình 3 Giai đoạn & P&L)"
+        count={`${projects.length} dự án`}
+        actions={
+          <>
+            <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
+            <AppButton
+              variant="secondary"
               type="button"
-              id="btn-delete-project"
-              onClick={() => currentProject && handleDeleteProject(currentProject)}
+              id="btn-edit-project-info"
+              onClick={openEditInfoModal}
               disabled={!currentProject}
-              title={currentProject ? `Xoá dự án ${currentProject.code} (vật tư đã xuất sẽ hoàn về kho)` : 'Chọn một dự án để xoá'}
-              className="px-3 h-8 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+              title={currentProject ? `Sửa tên / chủ đầu tư / địa chỉ công trình ${currentProject.code}` : 'Chọn một dự án để sửa thông tin'}
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Xoá</span>
-            </button>
-          )}
-          <button
-            id="btn-add-project"
-            onClick={() => setIsNewProjectModalOpen(true)}
-            className="px-3.5 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Thêm dự án</span>
-          </button>
-        </div>
-      </div>
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Sửa</span>
+            </AppButton>
+            {canDeleteProject && (
+              <AppButton
+                tone="rose"
+                type="button"
+                id="btn-delete-project"
+                onClick={() => currentProject && handleDeleteProject(currentProject)}
+                disabled={!currentProject}
+                title={currentProject ? `Xoá dự án ${currentProject.code} (vật tư đã xuất sẽ hoàn về kho)` : 'Chọn một dự án để xoá'}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xoá</span>
+              </AppButton>
+            )}
+            <AppButton id="btn-add-project" onClick={() => setIsNewProjectModalOpen(true)}>
+              <Plus className="w-4 h-4" />
+              <span>Thêm dự án</span>
+            </AppButton>
+          </>
+        }
+      />
 
       {/* Main workspace — 3 cột: danh sách | hồ sơ + chi phí | P&L & tiền độ */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
@@ -695,24 +684,23 @@ export function ProjectsView() {
                       mỗi lần chỉ xuất được 1 mặt hàng, thao tác lẹt. Style nút chung
                       của app (h-8, text-xs) như nút "Điều chỉnh tồn" màn Kho. */}
                   {canExportMaterials && (
-                    <button
+                    <AppButton
                       type="button"
+                      tone="amber"
                       id="btn-project-goto-export"
                       onClick={() => goToProjectExport(currentProject)}
                       title={`Mở màn POS → Xuất CT cho công trình ${currentProject.code}`}
-                      className="px-3 h-8 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                     >
                       <HardHat className="w-4 h-4" />
                       <span>Xuất vật tư</span>
                       <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    </AppButton>
                   )}
                 </div>
               </div>
 
-              {/* Dòng tổng hợp riêng dưới tiêu đề — chuẩn strip các bảng chính
-                  (px-3 py-1.5 bg-slate-100/70 border-b, chữ 11px). */}
-              <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+              {/* Dòng tổng hợp riêng dưới tiêu đề — chuẩn strip các bảng chính. */}
+              <SummaryStrip>
                 <span>
                   {sortedMaterials.length} dòng vật tư
                 </span>
@@ -720,7 +708,7 @@ export function ProjectsView() {
                   Tổng chi phí vật tư:{' '}
                   <strong className="font-mono text-slate-900">{formatVND(currentProject.material_cost_total)}</strong>
                 </span>
-              </div>
+              </SummaryStrip>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
@@ -782,21 +770,20 @@ export function ProjectsView() {
                   </span>
                 </h4>
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
+                  <AppButton
                     type="button"
                     id="btn-add-worker"
                     onClick={() => setIsWorkerModalOpen(true)}
                     title="Thêm thợ vào chấm công công trình"
-                    className="px-3 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Thêm thợ</span>
-                  </button>
+                  </AppButton>
                 </div>
               </div>
 
               {/* Dòng tổng hợp riêng dưới tiêu đề — chuẩn strip các bảng chính. */}
-              <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+              <SummaryStrip>
                 <span>
                   {sortedWorkers.length} thợ
                 </span>
@@ -804,7 +791,7 @@ export function ProjectsView() {
                   Tổng tiền công:{' '}
                   <strong className="font-mono text-slate-900">{formatVND(currentProject.labor_cost_total)}</strong>
                 </span>
-              </div>
+              </SummaryStrip>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">

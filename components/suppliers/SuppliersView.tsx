@@ -7,7 +7,6 @@ import { formatVND } from '@/lib/format';
 import {
   Truck,
   Plus,
-  Search,
   Phone,
   Building2,
   MapPin,
@@ -18,6 +17,9 @@ import {
   Edit2,
   Trash2,
 } from 'lucide-react';
+import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
+import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
+import { AppButton } from '@/components/ui/AppButton';
 import { NumberInput } from '@/components/common/NumberInput';
 import { TableTools } from '@/components/common/TableTools';
 import { DataTableShell } from '@/components/common/DataTableShell';
@@ -339,14 +341,10 @@ export function SuppliersView() {
             onDownloadTemplate={handleDownloadTemplate}
             importing={importing}
           />
-          <button
-            id="btn-add-supplier"
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-3.5 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-          >
+          <AppButton id="btn-add-supplier" onClick={() => setIsAddModalOpen(true)}>
             <Plus className="w-4 h-4" />
             <span>Thêm NCC mới</span>
-          </button>
+          </AppButton>
         </div>
       </div>
 
@@ -356,36 +354,31 @@ export function SuppliersView() {
             <DataTableShell>
               {/* Filter Bar — cùng khối với bảng (chuẩn Đơn hàng / Khách hàng) */}
               <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
-                <div className="relative flex-1 min-w-[180px]">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setSupPage(1);
-                    }}
-                    placeholder="Tìm theo Tên NCC, Mã, Số điện thoại..."
-                    className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-                  />
-                </div>
-
-                <select
-                  value={debtFilter}
-                  onChange={(e) => {
-                    setDebtFilter(e.target.value as 'all' | 'debt' | 'clean');
+                <SearchInput
+                  value={search}
+                  onChange={(val) => {
+                    setSearch(val);
                     setSupPage(1);
                   }}
-                  className="h-8 px-2 text-xs bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
-                >
-                  <option value="all">Tất cả công nợ</option>
-                  <option value="debt">Đang còn nợ (&gt; 0)</option>
-                  <option value="clean">Hết nợ (= 0)</option>
-                </select>
+                  placeholder="Tìm theo Tên NCC, Mã, Số điện thoại..."
+                />
+
+                <FilterSelect
+                  value={debtFilter}
+                  onChange={(val) => {
+                    setDebtFilter(val as 'all' | 'debt' | 'clean');
+                    setSupPage(1);
+                  }}
+                  options={[
+                    { value: 'all', label: 'Tất cả công nợ' },
+                    { value: 'debt', label: 'Đang còn nợ (> 0)' },
+                    { value: 'clean', label: 'Hết nợ (= 0)' },
+                  ]}
+                />
               </div>
 
               {/* Metric strip */}
-              <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+              <SummaryStrip>
                 <span>
                   Tìm thấy <strong className="text-slate-900 font-mono">{filteredSuppliers.length}</strong> nhà cung cấp
                 </span>
@@ -393,12 +386,12 @@ export function SuppliersView() {
                   Tổng nợ nhóm này:{' '}
                   <strong className="font-mono text-rose-600 font-bold">{formatVND(totalFilteredDebt)}</strong>
                 </span>
-              </div>
+              </SummaryStrip>
 
               {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
               <div id="supplier-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
                 {paginatedSuppliers.length === 0 ? (
-                  <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy nhà cung cấp nào phù hợp với bộ lọc.</p>
+                  <ListEmpty>Không tìm thấy nhà cung cấp nào phù hợp với bộ lọc.</ListEmpty>
                 ) : (
                   paginatedSuppliers.map((sup) => (
                     <button
@@ -450,11 +443,7 @@ export function SuppliersView() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {paginatedSuppliers.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400">
-                          Không tìm thấy nhà cung cấp nào phù hợp với bộ lọc.
-                        </td>
-                      </tr>
+                      <TableEmpty colSpan={8}>Không tìm thấy nhà cung cấp nào phù hợp với bộ lọc.</TableEmpty>
                     ) : (
                       paginatedSuppliers.map((sup) => (
                         <tr

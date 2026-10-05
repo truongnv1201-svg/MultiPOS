@@ -4,7 +4,12 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { Customer } from '@/lib/types';
 import { formatVND } from '@/lib/format';
-import { Users, Plus, Search, DollarSign, History, AlertCircle, CheckCircle2, Phone, MapPin, Filter, RefreshCw, Edit2, Trash2, X, HandCoins, UserPlus } from 'lucide-react';
+import { Users, Plus, DollarSign, History, AlertCircle, CheckCircle2, Phone, MapPin, Filter, RefreshCw, Edit2, Trash2, X, HandCoins, UserPlus } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
+import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
+import { AppButton } from '@/components/ui/AppButton';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { NumberInput } from '@/components/common/NumberInput';
 import { TableTools } from '@/components/common/TableTools';
@@ -332,47 +337,31 @@ export function CustomersView() {
 
   return (
     <div id="customers-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
-      {/* Top Header: cuon ngang tren man hep de khong vo bo cuc */}
-      <div className="h-14 px-2 sm:px-4 bg-white border-b border-slate-200 flex items-center justify-between gap-2 shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex items-center gap-3 shrink-0">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap">
-            <Users className="w-5 h-5 text-blue-600" />
-            <span className="hidden sm:inline">Khách hàng &amp; Quản lý Công nợ</span>
-            <span className="sm:hidden">Khách hàng</span>
-          </h2>
-          <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
-            {customers.length} khách hàng
-          </span>
-        </div>
-
-        {/* Nút phụ (Excel/In/Mẫu/Nhập) trước, nút chính "Thêm khách hàng" sát lề phải.
-            "Đồng bộ nợ" là nút phụ nên nằm cạnh nút chính, không chen ra giữa cụm. */}
-        <div className="flex items-center gap-2 shrink-0">
-          <TableTools
-            onExportExcel={handleExportExcel}
-            onPrint={handlePrint}
-            onImportExcel={handleImportExcel}
-            onDownloadTemplate={handleDownloadTemplate}
-            importing={importing}
-          />
-          <button
-            onClick={handleSyncDebts}
-            disabled={syncingDebt}
-            title="Kéo nợ + hạn mức thật từ server (server là truth công nợ)"
-            className="px-3 h-8 bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors text-slate-700"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${syncingDebt ? 'animate-spin' : ''}`} />
-            <span>{syncingDebt ? 'Đang đồng bộ...' : 'Đồng bộ nợ'}</span>
-          </button>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-3.5 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Thêm khách hàng mới</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Users className="w-5 h-5 text-blue-600" />}
+        title="Khách hàng & Quản lý Công nợ"
+        shortTitle="Khách hàng"
+        count={`${customers.length} khách hàng`}
+        actions={
+          <>
+            <TableTools
+              onExportExcel={handleExportExcel}
+              onPrint={handlePrint}
+              onImportExcel={handleImportExcel}
+              onDownloadTemplate={handleDownloadTemplate}
+              importing={importing}
+            />
+            <AppButton variant="secondary" disabled={syncingDebt} onClick={handleSyncDebts} title="Kéo nợ + hạn mức thật từ server (server là truth công nợ)">
+              <RefreshCw className={`w-3.5 h-3.5 ${syncingDebt ? 'animate-spin' : ''}`} />
+              <span>{syncingDebt ? 'Đang đồng bộ...' : 'Đồng bộ nợ'}</span>
+            </AppButton>
+            <AppButton onClick={() => setIsAddModalOpen(true)}>
+              <Plus className="w-4 h-4" />
+              <span>Thêm khách hàng mới</span>
+            </AppButton>
+          </>
+        }
+      />
 
       {/* Main Container */}
       <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
@@ -381,53 +370,46 @@ export function CustomersView() {
           <DataTableShell>
           {/* Filters Bar */}
           <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[180px]">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="Tìm theo Tên, SĐT, Mã KH..."
-                className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-              />
-            </div>
+            <SearchInput
+              value={search}
+              onChange={(val) => {
+                setSearch(val);
+                setPage(1);
+              }}
+              placeholder="Tìm theo Tên, SĐT, Mã KH..."
+            />
 
-            {/* Group Filter */}
-            <select
+            <FilterSelect
               value={groupFilter}
-              onChange={(e) => {
-                setGroupFilter(e.target.value);
+              onChange={(val) => {
+                setGroupFilter(val);
                 setPage(1);
               }}
-              className="h-8 px-2 text-xs bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
-            >
-              <option value="all">Tất cả nhóm khách</option>
-              <option value="contractor">Thợ nhôm kính</option>
-              <option value="wholesale">Đại lý / Công trình</option>
-              <option value="retail">Khách lẻ</option>
-            </select>
+              options={[
+                { value: 'all', label: 'Tất cả nhóm khách' },
+                { value: 'contractor', label: 'Thợ nhôm kính' },
+                { value: 'wholesale', label: 'Đại lý / Công trình' },
+                { value: 'retail', label: 'Khách lẻ' },
+              ]}
+            />
 
-            {/* Debt status filter */}
-            <select
+            <FilterSelect
               value={debtFilter}
-              onChange={(e) => {
-                setDebtFilter(e.target.value);
+              onChange={(val) => {
+                setDebtFilter(val);
                 setPage(1);
               }}
-              className="h-8 px-2 text-xs bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
-            >
-              <option value="all">Tất cả công nợ</option>
-              <option value="has_debt">Đang có nợ (&gt; 0)</option>
-              <option value="over_limit">Vượt hạn mức nợ</option>
-              <option value="no_debt">Không có nợ (= 0)</option>
-            </select>
+              options={[
+                { value: 'all', label: 'Tất cả công nợ' },
+                { value: 'has_debt', label: 'Đang có nợ (> 0)' },
+                { value: 'over_limit', label: 'Vượt hạn mức nợ' },
+                { value: 'no_debt', label: 'Không có nợ (= 0)' },
+              ]}
+            />
           </div>
 
           {/* Metric strip */}
-          <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+          <SummaryStrip>
             <span>
               Tìm thấy <strong className="text-slate-900 font-mono">{filteredCustomers.length}</strong> khách hàng
             </span>
@@ -435,12 +417,12 @@ export function CustomersView() {
               Tổng công nợ nhóm này:{' '}
               <strong className="font-mono text-rose-600 font-bold">{formatVND(totalFilteredDebt)}</strong>
             </span>
-          </div>
+          </SummaryStrip>
 
           {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
           <div id="customer-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
             {paginatedCustomers.length === 0 ? (
-              <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy khách hàng nào phù hợp với bộ lọc.</p>
+              <ListEmpty>Không tìm thấy khách hàng nào phù hợp với bộ lọc.</ListEmpty>
             ) : (
               paginatedCustomers.map((c) => {
                 const isOverLimit = c.debt_limit > 0 && c.current_debt > c.debt_limit;
@@ -495,11 +477,7 @@ export function CustomersView() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginatedCustomers.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
-                      Không tìm thấy khách hàng nào phù hợp với bộ lọc.
-                    </td>
-                  </tr>
+                  <TableEmpty colSpan={7}>Không tìm thấy khách hàng nào phù hợp với bộ lọc.</TableEmpty>
                 ) : (
                   paginatedCustomers.map((c) => {
                     const isSelected = visibleCustomer?.id === c.id;
@@ -586,9 +564,9 @@ export function CustomersView() {
                   <span className="font-mono text-[10px] font-bold text-blue-700">
                     {visibleCustomer.code}
                   </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800">
+                  <StatusBadge tone="blue" pill={false}>
                     {visibleCustomer.group === 'contractor' ? 'Thợ kính / Thi công' : 'Khách lẻ'}
-                  </span>
+                  </StatusBadge>
                 </div>
 
                 <h3 className="font-bold text-sm text-slate-900">{visibleCustomer.name}</h3>

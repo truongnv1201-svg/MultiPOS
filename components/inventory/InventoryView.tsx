@@ -13,13 +13,17 @@ import {
   TrendingDown,
   History,
   AlertTriangle,
-  Search,
   CheckCircle2,
   FileSpreadsheet,
-  Filter,
   Scale,
   X,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
+import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
+import { AppButton } from '@/components/ui/AppButton';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/common/DateFilter';
 import { TableTools } from '@/components/common/TableTools';
@@ -354,81 +358,63 @@ export function InventoryView() {
 
   return (
     <div id="inventory-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
-      {/* Top bar — cuộn ngang trên màn hẹp để không vỡ bố cục */}
-      <div className="h-14 px-2 sm:px-4 bg-white border-b border-slate-200 flex items-center justify-between gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex items-center gap-3 shrink-0">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <Boxes className="w-5 h-5 text-blue-600" />
-            <span className="hidden md:inline">Kho Hàng &amp; Nhập Kho Vật Tư (Giá Vốn Bình Quân MAC)</span>
-            <span className="md:hidden">Kho Hàng</span>
-          </h2>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-          <button
-            onClick={() => setActiveTab('stocks')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-              activeTab === 'stocks' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Tồn kho thực tế
-          </button>
-          <button
-            onClick={() => setActiveTab('movements')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-              activeTab === 'movements' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Nhật ký Thẻ kho
-          </button>
-          <button
-            id="btn-inventory-tab-adjustments"
-            onClick={() => {
-              setActiveTab('adjustments');
-              void refreshServerStockAdjustments(true);
-            }}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-              activeTab === 'adjustments' ? 'bg-white text-blue-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-            title="Phiếu điều chỉnh tồn: hao hụt, đếm thừa, ai điều chỉnh lúc nào"
-          >
-            Điều chỉnh tồn
-          </button>
-        </div>
-        {/* Nút phụ (Excel/In) trước, 2 nút hành động sau — cụm dồn về mép phải.
-            Kho có 2 nút chính (Điều chỉnh tồn / Tạo phiếu nhập) nên giữ thứ tự này. */}
-        {activeTab === 'stocks' && <TableTools onExportExcel={handleExportStocks} onPrint={handlePrintStocks} />}
-        {activeTab === 'movements' && <TableTools onExportExcel={handleExportMovements} onPrint={handlePrintMovements} />}
-        {activeTab === 'adjustments' && <TableTools onExportExcel={handleExportAdjustments} onPrint={handlePrintAdjustments} />}
-        <button
-          id="btn-stock-adjust-open"
-          onClick={() => setAdjustOpen(true)}
-          disabled={!canAdjust}
-          title={
-            canAdjust
-              ? 'Điều chỉnh tồn kho khi hao hụt, hết hạn, thất lạc hoặc đếm sai (có ghi thẻ kho + lý do)'
-              : 'Chỉ Admin/Quản lý được điều chỉnh tồn kho'
-          }
-          className="px-3 h-8 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-600"
-        >
-          <Scale className="w-4 h-4" />
-          <span>Điều chỉnh tồn</span>
-        </button>
-        <button
-          onClick={() => {
-            setPosFlow('import');
-            setCurrentScreen('pos');
-          }}
-          className="px-3.5 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-          title="Sang màn bán hàng ở chế độ nhập kho"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tạo Phiếu Nhập Kho (PN)</span>
-        </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Boxes className="w-5 h-5 text-blue-600" />}
+        title="Kho Hàng & Nhập Kho Vật Tư (Giá Vốn Bình Quân MAC)"
+        shortTitle="Kho Hàng"
+        shortBreakpoint="md"
+        actions={
+          <>
+            {/* Tab Switcher */}
+            <TabSwitcher<'stocks' | 'movements' | 'adjustments'>
+              active={activeTab}
+              onChange={(key) => {
+                setActiveTab(key);
+                if (key === 'adjustments') void refreshServerStockAdjustments(true);
+              }}
+              options={[
+                { key: 'stocks', label: 'Tồn kho thực tế' },
+                { key: 'movements', label: 'Nhật ký Thẻ kho' },
+                {
+                  key: 'adjustments',
+                  label: 'Điều chỉnh tồn',
+                  id: 'btn-inventory-tab-adjustments',
+                  title: 'Phiếu điều chỉnh tồn: hao hụt, đếm thừa, ai điều chỉnh lúc nào',
+                },
+              ]}
+            />
+              {/* Nút phụ (Excel/In) trước, 2 nút hành động sau — cụm dồn về mép phải.
+                  Kho có 2 nút chính (Điều chỉnh tồn / Tạo phiếu nhập) nên giữ thứ tự này. */}
+              {activeTab === 'stocks' && <TableTools onExportExcel={handleExportStocks} onPrint={handlePrintStocks} />}
+              {activeTab === 'movements' && <TableTools onExportExcel={handleExportMovements} onPrint={handlePrintMovements} />}
+              {activeTab === 'adjustments' && <TableTools onExportExcel={handleExportAdjustments} onPrint={handlePrintAdjustments} />}
+              <AppButton
+                id="btn-stock-adjust-open"
+                tone="amber"
+                onClick={() => setAdjustOpen(true)}
+                disabled={!canAdjust}
+                title={
+                  canAdjust
+                    ? 'Điều chỉnh tồn kho khi hao hụt, hết hạn, thất lạc hoặc đếm sai (có ghi thẻ kho + lý do)'
+                    : 'Chỉ Admin/Quản lý được điều chỉnh tồn kho'
+                }
+              >
+                <Scale className="w-4 h-4" />
+                <span>Điều chỉnh tồn</span>
+              </AppButton>
+              <AppButton
+                onClick={() => {
+                  setPosFlow('import');
+                  setCurrentScreen('pos');
+                }}
+                title="Sang màn bán hàng ở chế độ nhập kho"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tạo Phiếu Nhập Kho (PN)</span>
+              </AppButton>
+          </>
+        }
+      />
 
       {/* Main content body — khung cố định, chân bảng sát lề dưới (chuẩn các trang khác) */}
       <div className="flex-1 p-4 overflow-hidden min-h-0">
@@ -436,38 +422,33 @@ export function InventoryView() {
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full">
             {/* Filter Bar */}
             <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={stockSearch}
-                  onChange={(e) => {
-                    setStockSearch(e.target.value);
-                    setStockPage(1);
-                  }}
-                  placeholder="Tìm kiếm vật tư theo tên, mã SKU..."
-                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-
-              {/* Stock status filter */}
-              <select
-                value={stockStatusFilter}
-                onChange={(e) => {
-                  setStockStatusFilter(e.target.value);
+              <SearchInput
+                value={stockSearch}
+                onChange={(val) => {
+                  setStockSearch(val);
                   setStockPage(1);
                 }}
-                className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
-              >
-                <option value="all">Tất cả trạng thái kho</option>
-                <option value="low">Cảnh báo tồn ít (≤ tồn tối thiểu)</option>
-                <option value="out">Đã hết hàng (= 0)</option>
-                <option value="in_stock">Còn nhiều hàng (trên tồn tối thiểu)</option>
-              </select>
+                placeholder="Tìm kiếm vật tư theo tên, mã SKU..."
+                minWidthClass="min-w-[200px]"
+              />
+
+              <FilterSelect
+                value={stockStatusFilter}
+                onChange={(val) => {
+                  setStockStatusFilter(val);
+                  setStockPage(1);
+                }}
+                options={[
+                  { value: 'all', label: 'Tất cả trạng thái kho' },
+                  { value: 'low', label: 'Cảnh báo tồn ít (≤ tồn tối thiểu)' },
+                  { value: 'out', label: 'Đã hết hàng (= 0)' },
+                  { value: 'in_stock', label: 'Còn nhiều hàng (trên tồn tối thiểu)' },
+                ]}
+              />
             </div>
 
             {/* Summary metrics strip */}
-            <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+            <SummaryStrip>
               <span>
                 Tìm thấy <strong className="text-slate-900 font-mono">{filteredProducts.length}</strong> mặt hàng
               </span>
@@ -475,12 +456,12 @@ export function InventoryView() {
                 Tổng giá trị tồn kho:{' '}
                 <strong className="font-mono text-blue-700 font-bold">{formatVND(totalInventoryValue)}</strong>
               </span>
-            </div>
+            </SummaryStrip>
 
             {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
             <div id="stock-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
               {paginatedProducts.length === 0 ? (
-                <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy vật tư nào phù hợp với bộ lọc.</p>
+                <ListEmpty>Không tìm thấy vật tư nào phù hợp với bộ lọc.</ListEmpty>
               ) : (
                 paginatedProducts.map((p) => {
                   const isLow = isLowStock(p);
@@ -494,11 +475,11 @@ export function InventoryView() {
                           <p className="text-[10px] text-slate-500 font-mono">{p.sku} · {p.unit}</p>
                         </div>
                         {isOut ? (
-                          <span className="shrink-0 px-2 py-0.5 bg-rose-100 text-rose-800 rounded-full text-[10px] font-bold">Hết hàng</span>
+                          <StatusBadge tone="rose" className="shrink-0">Hết hàng</StatusBadge>
                         ) : isLow ? (
-                          <span className="shrink-0 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold">Sắp hết</span>
+                          <StatusBadge tone="amber" className="shrink-0">Sắp hết</StatusBadge>
                         ) : (
-                          <span className="shrink-0 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-semibold">Đủ hàng</span>
+                          <StatusBadge tone="emerald" weight="semibold" className="shrink-0">Đủ hàng</StatusBadge>
                         )}
                       </div>
                       <div className="mt-1.5 flex items-end justify-between gap-2">
@@ -532,11 +513,7 @@ export function InventoryView() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginatedProducts.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
-                      Không tìm thấy vật tư nào phù hợp với bộ lọc.
-                    </td>
-                  </tr>
+                  <TableEmpty colSpan={8}>Không tìm thấy vật tư nào phù hợp với bộ lọc.</TableEmpty>
                 ) : (
                   paginatedProducts.map((p) => {
                     const isLow = isLowStock(p);
@@ -583,19 +560,17 @@ export function InventoryView() {
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           {isOut ? (
-                            <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" />
+                            <StatusBadge tone="rose" icon={<AlertTriangle className="w-3 h-3" />}>
                               Hết hàng
-                            </span>
+                            </StatusBadge>
                           ) : isLow ? (
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" />
+                            <StatusBadge tone="amber" icon={<AlertTriangle className="w-3 h-3" />}>
                               Sắp hết (≤{minStockOf(p)})
-                            </span>
+                            </StatusBadge>
                           ) : (
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-semibold">
+                            <StatusBadge tone="emerald" weight="semibold">
                               Đủ hàng
-                            </span>
+                            </StatusBadge>
                           )}
                         </td>
                       </tr>
@@ -625,19 +600,15 @@ export function InventoryView() {
             <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full">
               {/* Filter Bar */}
               <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={movementSearch}
-                  onChange={(e) => {
-                    setMovementSearch(e.target.value);
-                    setMovementPage(1);
-                  }}
-                  placeholder="Mã phiếu, sản phẩm, nội dung..."
-                  className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
+              <SearchInput
+                value={movementSearch}
+                onChange={(val) => {
+                  setMovementSearch(val);
+                  setMovementPage(1);
+                }}
+                placeholder="Mã phiếu, sản phẩm, nội dung..."
+                minWidthClass="min-w-[200px]"
+              />
 
               {/* Date Filter */}
               <DateFilter
@@ -648,40 +619,39 @@ export function InventoryView() {
                 }}
               />
 
-              {/* Movement Type Filter */}
-              <select
+              <FilterSelect
                 value={movementTypeFilter}
-                onChange={(e) => {
-                  setMovementTypeFilter(e.target.value);
+                onChange={(val) => {
+                  setMovementTypeFilter(val);
                   setMovementPage(1);
                 }}
-                className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
-              >
-                <option value="all">Tất cả nghiệp vụ</option>
-                <option value="import">Nhập kho (PN)</option>
-                <option value="export_sales">Xuất bán POS</option>
-                <option value="export_project">Vật tư công trình</option>
-                <option value="return">Nhập lại / Trả hàng</option>
-                  <option value="adjust_loss">Hao hụt / Điều chỉnh giảm</option>
-                  <option value="adjust_gain">Đếm thừa / Điều chỉnh tăng</option>
-                </select>
+                options={[
+                  { value: 'all', label: 'Tất cả nghiệp vụ' },
+                  { value: 'import', label: 'Nhập kho (PN)' },
+                  { value: 'export_sales', label: 'Xuất bán POS' },
+                  { value: 'export_project', label: 'Vật tư công trình' },
+                  { value: 'return', label: 'Nhập lại / Trả hàng' },
+                  { value: 'adjust_loss', label: 'Hao hụt / Điều chỉnh giảm' },
+                  { value: 'adjust_gain', label: 'Đếm thừa / Điều chỉnh tăng' },
+                ]}
+              />
               </div>
 
               {/* Dòng tổng hợp riêng — số bút toán chuyển từ nhãn tab xuống đây.
                   Giữ cả 2 số: đã lọc (theo ngày/loại) và tổng đã tải (như nhãn tab cũ). */}
-              <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+              <SummaryStrip>
                 <span>
                   Tìm thấy <strong className="text-slate-900 font-mono">{sortedMovements.length}</strong> bút toán thẻ kho
                 </span>
                 <span>
                   Tổng nhật ký: <strong className="text-slate-900 font-mono">{movements.length}</strong> bút toán
                 </span>
-              </div>
+              </SummaryStrip>
 
             {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
             <div id="movement-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
               {paginatedMovements.length === 0 ? (
-                <p className="py-10 text-center text-xs text-slate-400">Không tìm thấy bút toán thẻ kho nào phù hợp với bộ lọc.</p>
+                <ListEmpty>Không tìm thấy bút toán thẻ kho nào phù hợp với bộ lọc.</ListEmpty>
               ) : (
                 paginatedMovements.map((m) => {
                   const isPositive = m.quantity > 0;
@@ -724,11 +694,7 @@ export function InventoryView() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginatedMovements.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
-                      Không tìm thấy bút toán thẻ kho nào phù hợp với bộ lọc.
-                    </td>
-                  </tr>
+                  <TableEmpty colSpan={8}>Không tìm thấy bút toán thẻ kho nào phù hợp với bộ lọc.</TableEmpty>
                 ) : (
                   paginatedMovements.map((m) => {
                     const isPositive = m.quantity > 0;
@@ -742,16 +708,17 @@ export function InventoryView() {
                         </td>
                         <td className="py-2.5 px-3 font-medium text-slate-800">{m.product_name}</td>
                         <td className="py-2.5 px-3">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          <StatusBadge
+                            tone={
                               m.movement_type === 'import'
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'emerald'
                                 : m.movement_type === 'export_sales'
-                                ? 'bg-blue-100 text-blue-800'
+                                ? 'blue'
                                 : m.movement_type === 'export_project'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-purple-100 text-purple-800'
-                            }`}
+                                ? 'amber'
+                                : 'purple'
+                            }
+                            pill={false}
                           >
                             {m.movement_type === 'import'
                               ? 'Nhập kho'
@@ -760,7 +727,7 @@ export function InventoryView() {
                               : m.movement_type === 'export_project'
                               ? 'Vật tư công trình'
                               : 'Nhập lại / Trả hàng'}
-                          </span>
+                          </StatusBadge>
                         </td>
                         <td className="py-2.5 px-3 text-center font-mono font-bold">
                           <span className={isPositive ? 'text-emerald-700' : 'text-rose-700'}>

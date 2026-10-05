@@ -5,8 +5,6 @@ import { useStore } from '@/lib/store';
 import { Order } from '@/lib/types';
 import { formatVND, formatNumber } from '@/lib/format';
 import {
-  Search,
-  Filter,
   Eye,
   Printer,
   RotateCcw,
@@ -20,6 +18,11 @@ import {
   CreditCard,
   Receipt,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
+import { SummaryStrip, TableEmpty } from '@/components/ui/ListStates';
+import { AppButton } from '@/components/ui/AppButton';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
@@ -332,30 +335,20 @@ export function OrdersView() {
 
   return (
     <div id="orders-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
-      {/* Top Action Bar */}
-      <div className="h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600" />
-            <span>Quản lý Hóa đơn & Đơn hàng</span>
-          </h2>
-          <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 font-mono rounded">
-            {orders.length} đơn hàng
-          </span>
-        </div>
-
-        {/* Nút phụ (Excel/In) trước, nút chính sát lề phải */}
-        <div className="flex items-center gap-2">
-          <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
-          <button
-            onClick={() => setCurrentScreen('pos')}
-            className="px-3 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tạo đơn bán hàng (F2)</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={<FileText className="w-5 h-5 text-blue-600" />}
+        title="Quản lý Hóa đơn & Đơn hàng"
+        count={`${orders.length} đơn hàng`}
+        actions={
+          <>
+            <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
+            <AppButton onClick={() => setCurrentScreen('pos')}>
+              <Plus className="w-4 h-4" />
+              <span>Tạo đơn bán hàng (F2)</span>
+            </AppButton>
+          </>
+        }
+      />
 
       {/* Main Content: Table + Detail Preview */}
       <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
@@ -364,64 +357,53 @@ export function OrdersView() {
           <div className="flex-1 flex flex-col bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden min-h-0">
           {/* Filters Bar */}
           <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
-            <div className="relative flex-1 min-w-[180px]">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Mã đơn, tên khách, SĐT, thu ngân..."
-                className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-              />
-            </div>
+            <SearchInput
+              value={search}
+              onChange={handleSearchChange}
+              placeholder="Mã đơn, tên khách, SĐT, thu ngân..."
+            />
 
             {/* Date filter */}
             <DateFilter value={dateFilter} onChange={handleDateChange} />
 
-            {/* Status Filter */}
-            <select
+            <FilterSelect
               value={statusFilter}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="completed">Hoàn tất (Đã xuất hàng)</option>
-              <option value="deposit_order">Đặt hàng / Nhận cọc</option>
-              <option value="returned">Đã trả hàng</option>
-              <option value="partial_returned">Trả một phần (trả tiếp được)</option>
-              <option value="cancelled">Đã hủy</option>
-            </select>
+              onChange={handleStatusChange}
+              options={[
+                { value: 'all', label: 'Tất cả trạng thái' },
+                { value: 'completed', label: 'Hoàn tất (Đã xuất hàng)' },
+                { value: 'deposit_order', label: 'Đặt hàng / Nhận cọc' },
+                { value: 'returned', label: 'Đã trả hàng' },
+                { value: 'partial_returned', label: 'Trả một phần (trả tiếp được)' },
+                { value: 'cancelled', label: 'Đã hủy' },
+              ]}
+            />
 
-            {/* Payment Method Filter */}
-            <select
+            <FilterSelect
               value={paymentFilter}
-              onChange={(e) => handlePaymentChange(e.target.value)}
-              className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
-            >
-              <option value="all">Tất cả hình thức</option>
-              <option value="cash">Tiền mặt</option>
-              <option value="transfer">Chuyển khoản (VietQR)</option>
-              <option value="debt">Chưa thanh toán đủ (Ghi nợ)</option>
-            </select>
+              onChange={handlePaymentChange}
+              options={[
+                { value: 'all', label: 'Tất cả hình thức' },
+                { value: 'cash', label: 'Tiền mặt' },
+                { value: 'transfer', label: 'Chuyển khoản (VietQR)' },
+                { value: 'debt', label: 'Chưa thanh toán đủ (Ghi nợ)' },
+              ]}
+            />
 
-            {/* Cashier Filter */}
-            <select
+            <FilterSelect
               value={cashierFilter}
-              onChange={(e) => handleCashierChange(e.target.value)}
-              className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden max-w-[180px]"
+              onChange={handleCashierChange}
+              className="max-w-[180px]"
               title="Lọc theo thu ngân"
-            >
-              <option value="all">Tất cả thu ngân</option>
-              {cashierOptions.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name} ({c.count})
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: 'all', label: 'Tất cả thu ngân' },
+                ...cashierOptions.map((c) => ({ value: c.name, label: `${c.name} (${c.count})` })),
+              ]}
+            />
           </div>
 
           {/* Aggregate Summary Strip */}
-          <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-[11px] font-medium text-slate-600">
+          <SummaryStrip>
             <div className="flex items-center gap-4">
               <span>
                 Doanh số lọc:{' '}
@@ -436,7 +418,7 @@ export function OrdersView() {
                 <strong className="font-mono text-rose-700">{formatVND(stats.totalDebt)}</strong>
               </span>
             </div>
-          </div>
+          </SummaryStrip>
 
           {/* Orders Table */}
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -456,11 +438,7 @@ export function OrdersView() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginatedOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">
-                      Không tìm thấy đơn hàng nào phù hợp với bộ lọc.
-                    </td>
-                  </tr>
+                  <TableEmpty colSpan={8}>Không tìm thấy đơn hàng nào phù hợp với bộ lọc.</TableEmpty>
                 ) : (
                   paginatedOrders.map((ord) => {
                     const isSelected = selectedOrder?.id === ord.id;
@@ -498,29 +476,19 @@ export function OrdersView() {
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           {ord.status === 'completed' && (
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold">
-                              Hoàn tất
-                            </span>
+                            <StatusBadge tone="emerald">Hoàn tất</StatusBadge>
                           )}
                           {ord.status === 'deposit_order' && (
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold">
-                              Đã nhận cọc
-                            </span>
+                            <StatusBadge tone="amber">Đã nhận cọc</StatusBadge>
                           )}
                           {ord.status === 'returned' && (
-                            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-[10px] font-bold">
-                              Đã trả hàng
-                            </span>
+                            <StatusBadge tone="purple">Đã trả hàng</StatusBadge>
                           )}
                           {ord.status === 'partial_returned' && (
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold">
-                              Trả một phần
-                            </span>
+                            <StatusBadge tone="amber">Trả một phần</StatusBadge>
                           )}
                           {ord.status === 'cancelled' && (
-                            <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded-full text-[10px] font-bold">
-                              Đã hủy
-                            </span>
+                            <StatusBadge tone="rose">Đã hủy</StatusBadge>
                           )}
                         </td>
                       </tr>
