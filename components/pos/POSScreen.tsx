@@ -940,12 +940,13 @@ export function POSScreen() {
                 })}
               </div>
               <div className="hidden lg:block border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
-              <table className="w-full min-w-[620px] text-left text-xs border-collapse">
+              <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-amber-50 text-amber-900 font-semibold border-b border-amber-200">
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Vật tư</th>
                     <th className="py-2.5 px-2.5 w-28 text-right" title="Giá vốn bình quân (MAC) — đây là giá ghi vào chi phí vật tư của công trình">Giá vốn (đ)</th>
+                    <th className="py-2.5 px-2.5 w-16 text-center">ĐVT</th>
                     <th className="py-2.5 px-2.5 w-24 text-center">SL xuất</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
                     <th className="py-2.5 px-2.5 w-32 text-right" title="Tồn kho còn lại sau khi xuất dòng này (cộng dồn theo thứ tự)">Tồn còn lại</th>
@@ -984,9 +985,10 @@ export function POSScreen() {
                           </div>
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">{formatNumber(line.price)}</td>
+                        <td className="py-2.5 px-2.5 text-center text-slate-600 font-mono text-[11px]">{prod.unit || '-'}</td>
                         <td className="py-2.5 px-2.5">
                           {prod.product_type === 'area' ? (
-                            <span className="block text-center font-mono text-slate-700">{formatQty(line.qty)} {prod.unit}</span>
+                            <span className="block text-center font-mono text-slate-700">{formatQty(line.qty)}</span>
                           ) : (
                             <QtyDraftInput
                               quantity={line.qty}
@@ -1079,12 +1081,13 @@ export function POSScreen() {
                 })}
               </div>
               <div className="hidden lg:block border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
-              <table className="w-full min-w-[620px] text-left text-xs border-collapse">
+              <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Sản phẩm</th>
                     <th className="py-2.5 px-2.5 w-32 text-right">Đơn giá nhập (đ)</th>
+                    <th className="py-2.5 px-2.5 w-16 text-center">ĐVT</th>
                     <th className="py-2.5 px-2.5 w-24 text-center">SL nhập</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
                     <th className="py-2.5 px-2.5 w-36 text-right" title="Giá vốn bình quân (MAC) dự kiến sau khi nhập: (tồn cũ × vốn cũ + SL × đơn giá) / tồn mới">Giá vốn mới (đ)</th>
@@ -1131,9 +1134,10 @@ export function POSScreen() {
                             className={editCellClass('w-full', 'text-right')}
                           />
                         </td>
+                        <td className="py-2.5 px-2.5 text-center text-slate-600 font-mono text-[11px]">{prod.unit || '-'}</td>
                         <td className="py-2.5 px-2.5">
                           {prod.product_type === 'area' ? (
-                            <span className="block text-center font-mono text-slate-700">{formatQty(line.qty)} {prod.unit}</span>
+                            <span className="block text-center font-mono text-slate-700">{formatQty(line.qty)}</span>
                           ) : (
                             <QtyDraftInput
                               quantity={line.qty}

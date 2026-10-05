@@ -71,6 +71,16 @@ describe('POS bán hàng: mã và tồn kho hiển thị dưới tên sản ph�
   });
 });
 
+describe('POS kho: đơn vị tính có cột riêng', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+
+  it('tách ĐVT khỏi số lượng ở bảng nhập hàng và xuất công trình', () => {
+    assert.equal((pos.match(/<th className="py-2\.5 px-2\.5 w-16 text-center">ĐVT<\/th>/g) || []).length, 2);
+    assert.equal((pos.match(/<td className="py-2\.5 px-2\.5 text-center text-slate-600 font-mono text-\[11px\]">\{prod\.unit \|\| '-'\}<\/td>/g) || []).length, 2);
+    assert.equal((pos.match(/<span className="block text-center font-mono text-slate-700">\{formatQty\(line\.qty\)\}<\/span>/g) || []).length, 2);
+  });
+});
+
 describe('giỏ chặn SL bẩn (âm/0/NaN) trước khi trừ tồn', () => {
   const cart = read('lib/store/tx/cart.tsx');
 
