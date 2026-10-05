@@ -964,24 +964,24 @@ export function POSScreen() {
                         <td className="py-2.5 px-2.5 text-center text-slate-400 font-mono">{idx + 1}</td>
                         <td className="py-2.5 px-2.5">
                           <div className="font-bold text-slate-800 text-xs">{prod.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 font-mono">
                             ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit}
-                          </div>
-                          {prod.product_type === 'area' && (
-                            <div className="mt-1 flex items-center gap-2">
+                            {prod.product_type === 'area' && (
+                              <>
                               <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
                                 {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
                               </span>
                               <button
                                 onClick={() => openStockAreaModal(prod, line.qty, line)}
-                                className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-sans font-bold flex items-center gap-1 transition-colors"
                                 aria-label={`Sửa quy cách ${prod.name}`}
                               >
                                 <Edit3 className="w-3 h-3" />
                                 <span>Sửa quy cách (F3)</span>
                               </button>
-                            </div>
-                          )}
+                              </>
+                            )}
+                          </div>
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono text-slate-700">{formatNumber(line.price)}</td>
                         <td className="py-2.5 px-2.5">
@@ -1104,24 +1104,24 @@ export function POSScreen() {
                         <td className="py-2.5 px-2.5 text-center text-slate-400 font-mono">{idx + 1}</td>
                         <td className="py-2.5 px-2.5">
                           <div className="font-bold text-slate-800 text-xs">{prod.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 font-mono">
                             ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit} · Vốn cũ: {formatNumber(oldAvg)}
-                          </div>
-                          {prod.product_type === 'area' && (
-                            <div className="mt-1 flex items-center gap-2">
+                            {prod.product_type === 'area' && (
+                              <>
                               <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
                                 {line.dimensionDetails?.length ?? 1} tấm ({(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty).toFixed(3)} m²)
                               </span>
                               <button
                                 onClick={() => openStockAreaModal(prod, line.qty, line)}
-                                className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[10px] font-sans font-bold flex items-center gap-1 transition-colors"
                                 aria-label={`Sửa quy cách ${prod.name}`}
                               >
                                 <Edit3 className="w-3 h-3" />
                                 <span>Sửa quy cách (F3)</span>
                               </button>
-                            </div>
-                          )}
+                              </>
+                            )}
+                          </div>
                         </td>
                         <td className="py-2.5 px-2.5">
                           <NumberInput
