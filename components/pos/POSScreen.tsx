@@ -174,6 +174,8 @@ export function POSScreen() {
   const [impSupplier, setImpSupplier] = useState<string>('');
   const [impNote, setImpNote] = useState<string>('');
   const [impPaymentMethod, setImpPaymentMethod] = useState<'cash' | 'transfer' | 'debt'>('cash');
+  // Tiền trả NCC (y hệt Tiền khách đưa bên bán): thiếu bao nhiêu tự ghi nợ NCC.
+  const [impTendered, setImpTendered] = useState<number>(0);
 
   // ---- Luồng XUẤT VẬT TƯ CÔNG TRÌNH (thay modal cũ trong trang Dự án) ----
   // Dùng bảng dòng hàng giống luồng nhập kho nhưng TÁCH state riêng: giá là giá vốn
@@ -321,12 +323,13 @@ export function POSScreen() {
       return;
     }
 
-    let paid = impTotal;
-    if (impPaymentMethod === 'debt') {
-      paid = 0;
-    }
+    // Tiền trả NCC: ghi nợ thì 0; ô trống (= chưa nhập) coi như trả đủ cả phiếu
+    // để giữ đúng hành vi cũ (mobile không có ô nhập vẫn trả đủ như trước).
+    // Gõ số nhỏ hơn tổng -> phần còn lại tự ghi nợ (cần chọn NCC).
+    const effectiveTendered = impPaymentMethod === 'debt' ? 0 : impTendered || impTotal;
+    let paid = Math.max(0, Math.min(impTotal, effectiveTendered));
 
-    if (impPaymentMethod === 'debt' && !impSupplier.trim()) {
+    if (paid < impTotal && !impSupplier.trim()) {
       notify('Vui lòng chọn hoặc nhập tên Nhà cung cấp để ghi nợ!', 'error');
       return;
     }
@@ -347,12 +350,13 @@ export function POSScreen() {
         setImpLines([]);
         setImpSupplier('');
         setImpNote('');
+        setImpTendered(0);
         notify('Nhập kho thành công! Tồn kho, MAC, công nợ và sổ quỹ đã cập nhật.', 'success');
       }
     } finally {
       setIsProcessing(false);
     }
-  }, [impLines, impSupplier, impNote, impPaymentMethod, impTotal, matchedSupplier, importStockBatch]);
+  }, [impLines, impSupplier, impNote, impPaymentMethod, impTendered, impTotal, matchedSupplier, importStockBatch]);
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1427,27 +1431,25 @@ export function POSScreen() {
               <span className="font-bold text-base text-blue-700 font-mono">{formatVND(impTotal)}</span>
             </div>
             <div className="pt-2 flex items-center justify-between text-xs font-semibold">
-              {impPaymentMethod === 'cash' && (
-                <>
-                  <span className="text-emerald-700">Thanh toán đủ tiền mặt:</span>
-                  <span className="font-mono text-emerald-700 text-sm font-bold">
-                    {formatVND(impTotal)}
-                  </span>
-                </>
-              )}
-              {impPaymentMethod === 'transfer' && (
-                <>
-                  <span className="text-emerald-700">Thanh toán đủ chuyển khoản:</span>
-                  <span className="font-mono text-emerald-700 text-sm font-bold">
-                    {formatVND(impTotal)}
-                  </span>
-                </>
-              )}
-              {impPaymentMethod === 'debt' && (
+              {impPaymentMethod === 'debt' ? (
                 <>
                   <span className="text-rose-600">Ghi nợ NCC:</span>
                   <span className="font-mono text-rose-600 text-sm font-bold">
                     {formatVND(impTotal)}
+                  </span>
+                </>
+              ) : Math.max(0, Math.min(impTotal, impTendered || impTotal)) >= impTotal || impTotal <= 0 ? (
+                <>
+                  <span className="text-emerald-700">Đã trả đủ:</span>
+                  <span className="font-mono text-emerald-700 text-sm font-bold">
+                    {formatVND(impTotal)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-amber-700">Còn nợ lại:</span>
+                  <span className="font-mono text-amber-700 text-sm font-bold">
+                    {formatVND(Math.max(0, impTotal - Math.max(0, Math.min(impTotal, impTendered || 0))))}
                   </span>
                 </>
               )}
@@ -1496,6 +1498,36 @@ export function POSScreen() {
               </button>
             </div>
           </div>
+
+          {/* Tendered Amount — y hệt Tiền khách đưa bên bán: thiếu tự ghi nợ */}
+          {impPaymentMethod !== 'debt' && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <span>Tiền trả NCC:</span>
+              </div>
+              <input
+                id="imp-tendered-input"
+                type="text"
+                value={
+                  impTendered
+                    ? new Intl.NumberFormat('vi-VN').format(impTendered)
+                    : ''
+                }
+                onChange={(e) => {
+                  handleMoneyInputChange(e, (num) => setImpTendered(num));
+                }}
+                placeholder="0"
+                className="w-full h-9 px-3 text-right font-mono font-bold text-base text-blue-700 bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+              />
+              <button
+                type="button"
+                onClick={() => setImpTendered(impTotal)}
+                className="w-full px-1 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded text-xs font-semibold text-slate-700 whitespace-nowrap"
+              >
+                Đủ tiền
+              </button>
+            </div>
+          )}
 
           {/* Note Input */}
           <div>

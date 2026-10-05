@@ -12,6 +12,25 @@ import { join } from 'node:path';
 const ROOT = join(import.meta.dirname, '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
+describe('nhập kho: ô tiền trả NCC như bán lẻ (thiếu tự nợ, trống = trả đủ)', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+
+  it('có ô Tiền trả NCC + nút Đủ tiền (3 thức, không còn Trả 1 phần)', () => {
+    assert.match(pos, /id="imp-tendered-input"/);
+    assert.match(pos, /onClick=\{\(\) => setImpTendered\(impTotal\)\}/);
+    assert.doesNotMatch(pos, /setImpPaymentMethod\('partial'\)/);
+  });
+
+  it('ô trống = trả đủ cả phiếu (giữ hành vi cũ, mobile không ô nhập vẫn đúng)', () => {
+    assert.match(pos, /const effectiveTendered = impPaymentMethod === 'debt' \? 0 : impTendered \|\| impTotal;/);
+    assert.match(pos, /let paid = Math\.max\(0, Math\.min\(impTotal, effectiveTendered\)\);/);
+  });
+
+  it('thiếu tiền bắt chọn NCC (ghi nợ vô chủ không lọt)', () => {
+    assert.match(pos, /if \(paid < impTotal && !impSupplier\.trim\(\)\) \{/);
+  });
+});
+
 describe('giỏ chặn SL bẩn (âm/0/NaN) trước khi trừ tồn', () => {
   const cart = read('lib/store/tx/cart.tsx');
 
