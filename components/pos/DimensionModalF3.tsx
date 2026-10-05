@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store';
 import { DimensionDetail, OrderItem } from '@/lib/types';
 import { HOLE_PRICE, CORNER_PRICE } from '@/lib/mock-data';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
+import { formatQty } from '@/lib/quantity';
 import { calculateDimensionRow } from '@/lib/db';
 import { notify } from '@/components/common/Toast';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -410,7 +411,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
 
                     {/* Chu vi */}
                     <td className="py-2 px-2 text-right font-mono text-slate-600">
-                      {row.perimeter_md.toFixed(1)}
+                      {formatQty(row.perimeter_md)}
                     </td>
 
                     {/* Công mài = chu vi × đơn giá mài */}
@@ -425,7 +426,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
 
                     {/* Diện tích thực */}
                     <td className="py-2 px-2 text-right font-mono font-bold text-slate-800">
-                      {row.actual_m2.toFixed(3)}
+                      {formatQty(row.actual_m2)}
                     </td>
 
                     {/* Delete */}
@@ -470,17 +471,17 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
           <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
             <div className="text-slate-500 text-[11px]">TỔNG DIỆN TÍCH THỰC:</div>
             <div className="text-base font-bold text-blue-700 font-mono">
-              {totalActualM2.toFixed(3)} m²
+              {formatQty(totalActualM2)} m²
             </div>
             <div className="text-[10px] text-slate-400">
-              Xuất kho (+{wasteFactor}%): <span className="font-semibold text-slate-600">{totalWasteM2.toFixed(3)} m²</span>
+              Xuất kho (+{wasteFactor}%): <span className="font-semibold text-slate-600">{formatQty(totalWasteM2)} m²</span>
             </div>
           </div>
 
           <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
             <div className="text-slate-500 text-[11px]">TỔNG CHU VI:</div>
             <div className="text-base font-bold text-emerald-700 font-mono">
-              {totalPerimeterMd.toFixed(1)} md
+              {formatQty(totalPerimeterMd)} md
             </div>
             <div className="text-[10px] text-slate-400">Chu vi mài cạnh 4 mép</div>
           </div>

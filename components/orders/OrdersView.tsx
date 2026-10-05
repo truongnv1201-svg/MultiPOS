@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { Order } from '@/lib/types';
 import { formatVND, formatNumber } from '@/lib/format';
+import { formatQty } from '@/lib/quantity';
 import {
   Eye,
   Printer,
@@ -583,7 +584,7 @@ export function OrdersView() {
                           {it.dimension_details.map((d, dIdx) => (
                             <div key={dIdx} className="flex justify-between font-mono">
                               <span>
-                                • {d.quantity} tấm ({d.length}m x {d.width}m = {d.actual_m2} m²)
+                                • {d.quantity} tấm ({formatQty(d.length)}m x {formatQty(d.width)}m = {formatQty(d.actual_m2)} m²)
                               </span>
                               <span>Phí: {formatVND(d.processing_fee)}</span>
                             </div>
