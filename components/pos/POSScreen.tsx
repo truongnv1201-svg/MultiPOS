@@ -173,8 +173,7 @@ export function POSScreen() {
   const [impLines, setImpLines] = useState<ImportLine[]>([]);
   const [impSupplier, setImpSupplier] = useState<string>('');
   const [impNote, setImpNote] = useState<string>('');
-  const [impPaymentMethod, setImpPaymentMethod] = useState<'cash' | 'transfer' | 'debt' | 'partial'>('cash');
-  const [impPaidAmount, setImpPaidAmount] = useState<number>(0);
+  const [impPaymentMethod, setImpPaymentMethod] = useState<'cash' | 'transfer' | 'debt'>('cash');
 
   // ---- Luồng XUẤT VẬT TƯ CÔNG TRÌNH (thay modal cũ trong trang Dự án) ----
   // Dùng bảng dòng hàng giống luồng nhập kho nhưng TÁCH state riêng: giá là giá vốn
@@ -325,11 +324,9 @@ export function POSScreen() {
     let paid = impTotal;
     if (impPaymentMethod === 'debt') {
       paid = 0;
-    } else if (impPaymentMethod === 'partial') {
-      paid = Math.max(0, Math.min(impTotal, impPaidAmount || 0));
     }
 
-    if ((impPaymentMethod === 'debt' || impPaymentMethod === 'partial') && !impSupplier.trim()) {
+    if (impPaymentMethod === 'debt' && !impSupplier.trim()) {
       notify('Vui lòng chọn hoặc nhập tên Nhà cung cấp để ghi nợ!', 'error');
       return;
     }
@@ -350,13 +347,12 @@ export function POSScreen() {
         setImpLines([]);
         setImpSupplier('');
         setImpNote('');
-        setImpPaidAmount(0);
         notify('Nhập kho thành công! Tồn kho, MAC, công nợ và sổ quỹ đã cập nhật.', 'success');
       }
     } finally {
       setIsProcessing(false);
     }
-  }, [impLines, impSupplier, impNote, impPaymentMethod, impPaidAmount, impTotal, matchedSupplier, importStockBatch]);
+  }, [impLines, impSupplier, impNote, impPaymentMethod, impTotal, matchedSupplier, importStockBatch]);
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1455,21 +1451,13 @@ export function POSScreen() {
                   </span>
                 </>
               )}
-              {impPaymentMethod === 'partial' && (
-                <>
-                  <span className="text-amber-700">Còn nợ lại:</span>
-                  <span className="font-mono text-amber-700 text-sm font-bold">
-                    {formatVND(Math.max(0, impTotal - Math.max(0, Math.min(impTotal, impPaidAmount || 0))))}
-                  </span>
-                </>
-              )}
             </div>
           </div>
 
           {/* Phương thức thanh toán cho NCC — cùng UI với luồng bán để thao tác quen tay */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold text-slate-600">Phương thức thanh toán:</label>
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-3 gap-1">
               <button
                 type="button"
                 onClick={() => setImpPaymentMethod('cash')}
@@ -1504,38 +1492,9 @@ export function POSScreen() {
                 }`}
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Nợ 100%</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setImpPaymentMethod('partial');
-                  if (impPaidAmount === 0) setImpPaidAmount(Math.round(impTotal * 0.5));
-                }}
-                className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
-                  impPaymentMethod === 'partial'
-                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <Percent className="w-3.5 h-3.5" />
-                <span>Trả 1 phần</span>
+                <span>Ghi nợ</span>
               </button>
             </div>
-
-            {impPaymentMethod === 'partial' && (
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                  <span>Số tiền trả trước cho NCC:</span>
-                </div>
-                <NumberInput
-                  value={impPaidAmount}
-                  onChange={(v) => setImpPaidAmount(v)}
-                  placeholder="0"
-                  className="w-full h-9 px-3 text-right font-mono font-bold text-base text-blue-700 bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-                />
-              </div>
-            )}
           </div>
 
           {/* Note Input */}
