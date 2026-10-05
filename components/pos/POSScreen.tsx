@@ -18,6 +18,7 @@ import { isVietqrReady, buildVietqrUrl, vietqrAddInfo } from '@/lib/vietqr';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
 import { resolvePaidAmount } from '@/lib/pricing';
+import { previewImportAvg } from '@/lib/costing';
 import { allowsDecimalQty, formatQty, parseQtyInput, snapQty } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
 import {
@@ -303,19 +304,18 @@ export function POSScreen() {
 
   // Preview giá vốn MAC nối tiếp theo thứ tự dòng (giống hệt importStockBatch trong store).
   // Để user thấy trước vốn cũ -> vốn mới trước khi bấm Nhập kho.
+  // Công thức sống ở lib/costing.ts (previewImportAvg) — KHỚP SQL 0042/0048/0053.
   const impPreview = React.useMemo(() => {
     const running = new Map(products.map((p) => [p.id, { stock: p.stock_quantity, avg: p.avg_cost }]));
     return impLines.map((line) => {
       const cur = running.get(line.productId);
-      if (!cur) return { key: line.key, oldAvg: 0, newAvg: line.price || 0, oldStock: 0, newStock: line.qty || 0 };
-      const oldAvg = cur.avg || 0;
-      const oldStock = cur.stock || 0;
-      const qty = line.qty || 0;
-      const price = line.price || 0;
-      const newStock = oldStock + qty;
-      const newAvg = newStock > 0 ? Math.round((oldStock * oldAvg + qty * price) / newStock) : price;
-      running.set(line.productId, { stock: newStock, avg: newAvg });
-      return { key: line.key, oldAvg, newAvg, oldStock, newStock };
+      if (!cur) {
+        const solo = previewImportAvg(0, 0, line.qty, line.price);
+        return { key: line.key, ...solo };
+      }
+      const pv = previewImportAvg(cur.stock, cur.avg, line.qty, line.price);
+      running.set(line.productId, { stock: pv.newStock, avg: pv.newAvg });
+      return { key: line.key, ...pv };
     });
   }, [impLines, products]);
 

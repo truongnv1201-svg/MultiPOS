@@ -11,6 +11,7 @@ import type { CashbookEntry, Order, PurchaseOrder, Shift, StockMovement } from '
 import { db, generateImportCode, generateOrderCode } from '../../db';
 import { cacheKeys, mirrorUpsert } from './mirror';
 import { enqueueOp, EMPTY_SHIFT, resolveSupplierReference, roundMoney } from './constants';
+import { previewImportAvg } from '../../costing';
 import { stableNext } from '../stable';
 import { vietnamizeError } from '../../error-vi';
 import { notify } from '@/components/common/Toast';
@@ -489,10 +490,12 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       for (const l of clean) {
         const cur = running.get(l.productId);
         if (!cur) continue;
-        const prevStock = cur.stock_quantity;
-        const prevCost = cur.avg_cost;
-        const newStock = prevStock + l.quantity;
-        const newAvgCost = newStock > 0 ? Math.round((prevStock * prevCost + l.quantity * l.importPrice) / newStock) : l.importPrice;
+        // Công thức MAC dùng chung (lib/costing.ts) — KHỚP SQL 0042/0048/0053.
+        const pv = previewImportAvg(cur.stock_quantity, cur.avg_cost, l.quantity, l.importPrice);
+        const prevStock = pv.oldStock;
+        const prevCost = pv.oldAvg;
+        const newStock = pv.newStock;
+        const newAvgCost = pv.newAvg;
         cur.stock_quantity = newStock;
         cur.avg_cost = newAvgCost;
         cur.import_price = l.importPrice;

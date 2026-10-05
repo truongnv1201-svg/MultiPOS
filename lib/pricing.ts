@@ -2,6 +2,8 @@
 // store/POS chỉ gọi. Server SQL (0023) implement cùng công thức — scripts/verify-pricing*
 // khóa 2 phía khớp từng đồng. Module thuần (không import Dexie/browser) để Node import
 // trực tiếp chạy test (node --test) mà không cần transpile.
+// Toán VỐN & BIÊN LÃI sống ở ./costing.ts (MAC, margin) — xem LUẬT PARITY ở đó
+// trước khi đổi bất kỳ công thức nào (đổi 1 phía mà quên phía kia là lệch tiền).
 import type { DimensionDetail, OrderItem } from './types';
 
 // Tính 1 dòng đo đạc: chu vi md, diện tích m2 thực, phí gia công.

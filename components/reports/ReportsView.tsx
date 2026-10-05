@@ -16,6 +16,7 @@ import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/common/DateFilter';
 import { TableTools } from '@/components/common/TableTools';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { SearchInput } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty } from '@/components/ui/ListStates';
@@ -23,6 +24,7 @@ import { DataTableShell } from '@/components/common/DataTableShell';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { notify } from '@/components/common/Toast';
 import { exportToExcel, printTable } from '@/lib/excel';
+import { lineMargin } from '@/lib/costing';
 import { sortRows } from '@/lib/sort';
 import type { Product, Customer, Supplier } from '@/lib/types';
 
@@ -237,12 +239,13 @@ export function ReportsView() {
 
   const sortedMargin = useMemo(() => {
     if (!marginSortKey) return marginFiltered;
+    // Công thức biên dùng chung (lib/costing.ts) — 1 nơi đổi, mọi bảng/kpi/excel theo.
     const getters: Record<string, (p: Product) => unknown> = {
       name: (p) => p.name,
       retail_price: (p) => p.retail_price,
       avg_cost: (p) => p.avg_cost,
-      margin: (p) => p.retail_price - p.avg_cost,
-      margin_pct: (p) => (p.retail_price > 0 ? ((p.retail_price - p.avg_cost) / p.retail_price) * 100 : 0),
+      margin: (p) => lineMargin(p.retail_price, p.avg_cost).amount,
+      margin_pct: (p) => lineMargin(p.retail_price, p.avg_cost).pct,
     };
     const get = getters[marginSortKey];
     if (!get) return marginFiltered;
@@ -505,13 +508,16 @@ export function ReportsView() {
     { 'Chỉ tiêu': 'Lãi gộp ước tính', 'Giá trị': Math.round(grossProfit) },
   ];
   const marginExcelRows = (list: Product[]) =>
-    list.map((p) => ({
-      'Sản phẩm': p.name,
-      'Giá bán': p.retail_price,
-      'Giá vốn': Math.round(p.avg_cost),
-      'Biên lợi': Math.round(p.retail_price - p.avg_cost),
-      'Biên lợi (%)': p.retail_price > 0 ? Math.round(((p.retail_price - p.avg_cost) / p.retail_price) * 10000) / 100 : 0,
-    }));
+    list.map((p) => {
+      const m = lineMargin(p.retail_price, p.avg_cost);
+      return {
+        'Sản phẩm': p.name,
+        'Giá bán': p.retail_price,
+        'Giá vốn': Math.round(p.avg_cost),
+        'Biên lợi': Math.round(m.amount),
+        'Biên lợi (%)': Math.round(m.pct * 100) / 100,
+      };
+    });
   const debtExcelRows = (list: Customer[]) =>
     list.map((c) => ({
       'Khách hàng': c.name,
@@ -637,14 +643,13 @@ export function ReportsView() {
         { header: 'Tỷ suất lãi', align: 'right' },
       ],
       rows: sortedMargin.slice(0, 1000).map((p) => {
-        const margin = p.retail_price - p.avg_cost;
-        const pct = p.retail_price > 0 ? (margin / p.retail_price) * 100 : 0;
+        const m = lineMargin(p.retail_price, p.avg_cost);
         return [
           p.name,
           Math.round(p.retail_price).toLocaleString('vi-VN'),
           Math.round(p.avg_cost).toLocaleString('vi-VN'),
-          Math.round(margin).toLocaleString('vi-VN'),
-          `${pct.toFixed(1)}%`,
+          Math.round(m.amount).toLocaleString('vi-VN'),
+          `${m.pct.toFixed(1)}%`,
         ];
       }),
     });
@@ -969,7 +974,7 @@ export function ReportsView() {
                 <span>
                   Tổng chênh lệch:{' '}
                   <strong className="font-mono text-emerald-700 font-bold">
-                    +{formatVND(sortedMargin.reduce((s, p) => s + (p.retail_price - p.avg_cost), 0))}
+                    +{formatVND(sortedMargin.reduce((s, p) => s + lineMargin(p.retail_price, p.avg_cost).amount, 0))}
                   </strong>
                 </span>
                 <span>
@@ -977,7 +982,7 @@ export function ReportsView() {
                   <strong className="font-mono text-emerald-700 font-bold">
                     {sortedMargin.length > 0
                       ? (
-                          (sortedMargin.reduce((s, p) => s + (p.retail_price - p.avg_cost), 0) /
+                          (sortedMargin.reduce((s, p) => s + lineMargin(p.retail_price, p.avg_cost).amount, 0) /
                             sortedMargin.reduce((s, p) => s + (p.retail_price || 1), 0)) *
                           100
                         ).toFixed(1)
@@ -1004,8 +1009,7 @@ export function ReportsView() {
                     <TableEmpty colSpan={5}>Không tìm thấy mặt hàng nào phù hợp.</TableEmpty>
                   ) : (
                     marginRows.map((p) => {
-                      const margin = p.retail_price - p.avg_cost;
-                      const marginPct = p.retail_price > 0 ? (margin / p.retail_price) * 100 : 0;
+                      const m = lineMargin(p.retail_price, p.avg_cost);
                       return (
                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                           <td className="py-2.5 px-3 font-semibold text-slate-800 max-w-[280px] truncate" title={p.name}>
@@ -1016,12 +1020,12 @@ export function ReportsView() {
                             {formatVND(p.avg_cost)}
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                            +{formatVND(margin)}
+                            +{formatVND(m.amount)}
                           </td>
                           <td className="py-2.5 px-3 text-right">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 font-mono">
-                              {marginPct.toFixed(1)}%
-                            </span>
+                            <StatusBadge tone="emerald" pill={false} className="font-mono">
+                              {m.pct.toFixed(1)}%
+                            </StatusBadge>
                           </td>
                         </tr>
                       );
