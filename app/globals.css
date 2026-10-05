@@ -95,6 +95,36 @@ input[type='number'] {
 /* Hệ thống in — chỉ in #print-area, ẩn app còn lại.
    @page động (A4 / K80) được inject từ ReceiptModal theo đúng mẫu đang xem. */
 #print-area { background: white; margin-left: auto; margin-right: auto; }
+
+/* POS cột phải: ghim thanh ĐẶT HÀNG / THANH TOÁN ở đáy panel (panel cuộn nhưng
+   thanh luôn thấy — màn lùn không còn phải cuộn mới bấm được).
+   Panel p-3.5 (= 0.875rem, ăn theo font-size gốc) nên viền bù dùng rem để
+   thanh tràn full-bleed, phẳng đáy khung cuộn. */
+#pos-bottom-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin-left: -0.875rem;
+  margin-right: -0.875rem;
+  margin-bottom: -0.875rem;
+  padding-left: 0.875rem;
+  padding-right: 0.875rem;
+  padding-bottom: 0.875rem;
+  background-color: #f8fafc; /* slate-50 = nền panel */
+}
+
+/* POS desktop màn lùn (cao <= 830px, hay gặp ở 21.5"-25" + thanh trình duyệt):
+   gọn các khối trong cột phải để bớt cuộn. Chỉ thu visual, đủ id nên
+   không ảnh hưởng logic/e2e (id giữ nguyên). */
+@media (min-width: 1024px) and (max-height: 830px) {
+  #pos-totals-box { padding: 8px; row-gap: 4px; }
+  #pos-payment-methods > button { padding-top: 4px; padding-bottom: 4px; }
+  #f9-tendered-input { height: 32px; font-size: 14px; }
+  #pos-quick-cash > button { padding-top: 4px; padding-bottom: 4px; }
+  #pos-note-input { height: 32px; min-height: 32px; }
+  #btn-pos-deposit, #btn-pos-clear-cart { padding-top: 6px; padding-bottom: 6px; }
+  #btn-pos-checkout { padding-top: 8px; padding-bottom: 8px; }
+}
 .print-only { display: none; }
 @media print {
   .print-only { display: block; }

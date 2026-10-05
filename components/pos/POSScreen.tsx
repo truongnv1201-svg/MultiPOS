@@ -1727,7 +1727,7 @@ export function POSScreen() {
           </div>
 
           {/* Pricing & Calculations Breakdown */}
-          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-2 text-xs">
+          <div id="pos-totals-box" className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-2 text-xs">
             {/* Subtotal */}
             <div className="flex items-center justify-between text-slate-600">
               <span>Tổng tiền hàng ({activeCart.items.length} món):</span>
@@ -1866,7 +1866,7 @@ export function POSScreen() {
           {/* Payment Method Selector */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold text-slate-600">Phương thức thanh toán:</label>
-            <div className="grid grid-cols-4 gap-1">
+            <div id="pos-payment-methods" className="grid grid-cols-4 gap-1">
               <button
                 id="payment-method-cash"
                 type="button"
@@ -1993,7 +1993,7 @@ export function POSScreen() {
               />
 
               {/* Quick Cash Presets — 5 nút chia đều, fit luôn chiều rộng khối */}
-              <div className="grid grid-cols-5 gap-1 pt-1">
+              <div id="pos-quick-cash" className="grid grid-cols-5 gap-1 pt-1">
                 <button
                   type="button"
                   onClick={() => setQuickTender(calculatedTotals.payable)}
@@ -2061,6 +2061,7 @@ export function POSScreen() {
           {/* Note Input */}
           <div>
             <textarea
+              id="pos-note-input"
               value={activeCart.note}
               onChange={(e) => updateActiveTab({ note: e.target.value })}
               placeholder="Ghi chú đơn hàng (hẹn giao, quy cách phụ)..."
@@ -2070,8 +2071,9 @@ export function POSScreen() {
           </div>
         </div>
 
-        {/* BOTTOM ACTION BUTTONS: [Ctrl + F9: Đặt hàng / Nhận cọc] & [F10: THANH TOÁN] */}
-        <div className="pt-3 border-t border-slate-200 space-y-2">
+        {/* BOTTOM ACTION BUTTONS: ghim đáy panel (sticky) để màn lùn vẫn bấm được
+            ĐẶT HÀNG/THANH TOÁN mà không cần cuộn */}
+        <div id="pos-bottom-bar" className="pt-3 border-t border-slate-200 space-y-2">
           {(currentShift.status !== 'open' || needLogin) && (
             <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-900 leading-relaxed">
               {needLogin ? (
