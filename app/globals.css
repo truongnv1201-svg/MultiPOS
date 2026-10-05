@@ -126,27 +126,15 @@ input[type='number'] {
   background-color: #f8fafc; /* slate-50 = nền panel */
 }
 
-/* POS desktop màn lùn (cao <= 950px, hay gặp ở 21.5"-25" 1080p + thanh trình duyệt):
+/* POS desktop màn lùn (cao <= 830px, hay gặp ở 21.5"-25" + thanh trình duyệt):
    gọn các khối trong cột phải để bớt cuộn. Chỉ thu visual, đủ id nên
    không ảnh hưởng logic/e2e (id giữ nguyên). */
-@media (min-width: 1024px) and (max-height: 950px) {
-  #pos-payment-panel { padding: 10px; }
-  /* Khe giữa các khối trong cột phải: 12px -> 8px */
-  #pos-payment-panel > .space-y-3 > * + * { margin-top: 8px; }
-  #pos-totals-box { padding: 8px; }
-  #pos-totals-box > * + * { margin-top: 4px; }
-  /* Nút phương thức: icon + chữ xếp ngang thay vì xếp chồng */
-  #pos-payment-methods > button {
-    flex-direction: row;
-    justify-content: center;
-    padding-top: 4px;
-    padding-bottom: 4px;
-  }
-  #f4-customer-input { height: 28px; }
+@media (min-width: 1024px) and (max-height: 830px) {
+  #pos-totals-box { padding: 8px; row-gap: 4px; }
+  #pos-payment-methods > button { padding-top: 4px; padding-bottom: 4px; }
   #f9-tendered-input { height: 32px; font-size: 14px; }
   #pos-quick-cash > button { padding-top: 4px; padding-bottom: 4px; }
-  #pos-note-input { height: 30px; min-height: 30px; }
-  #pos-bottom-bar { padding-top: 8px; }
+  #pos-note-input { height: 32px; min-height: 32px; }
   #btn-pos-deposit, #btn-pos-clear-cart { padding-top: 6px; padding-bottom: 6px; }
   #btn-pos-checkout { padding-top: 8px; padding-bottom: 8px; }
 }
