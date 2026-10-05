@@ -548,7 +548,7 @@ export function ProductsView() {
                           <span className="text-purple-600 font-normal text-[10px]">Trừ kho con</span>
                         ) : (
                           <span className={isOutOfStock(p) || isLowStock(p) ? 'text-rose-600' : 'text-slate-800'}>
-                            {p.stock_quantity} {p.unit}
+                            {p.stock_quantity}
                           </span>
                         )}
                       </td>
