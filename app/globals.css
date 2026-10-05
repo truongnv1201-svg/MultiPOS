@@ -1,10 +1,19 @@
 @import "tailwindcss";
 
-/* Số 0 không gạch chéo: stack mono mặc định của Tailwind trên Windows Chrome
-   trỏ tới Cascadia Mono (số 0 có gạch) — ưu tiên Consolas (số 0 trơn, có sẵn
-   trên Windows). Mac/Linux giữ nguyên Menlo/DejaVu phía sau. */
+/* SỐ 0 SẠCH (không gạch chéo) CHO MỌI CON SỐ TRONG APP:
+   font mono hệ thống trên Windows (Cascadia Mono) vẽ số 0 có gạch chéo sẵn
+   và không tắt được bằng CSS, mỗi máy một font nên đổi stack vẫn rủi ro.
+   Chốt: mọi chỗ font-mono trong app render bằng font sans hệ thống
+   (Segoe UI / SF / Roboto — số 0 trơn trên mọi máy) + tabular-nums để các
+   cột tiền vẫn thẳng hàng như khi dùng mono. */
 @theme {
-  --font-mono: Consolas, "Lucida Console", Menlo, Monaco, "Liberation Mono", "Courier New", monospace;
+  --font-mono: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@layer base {
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 /* ---------- Tối ưu smartphone ---------- */

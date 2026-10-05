@@ -36,9 +36,10 @@ describe('panel trống cùng hình học panel có dữ liệu (lề đều 4 c
   });
 });
 
-describe('font mono: số 0 không gạch chéo (ưu tiên Consolas)', () => {
-  it('globals.css đè --font-mono, Consolas đứng đầu', () => {
+describe('font số: số 0 trơn + canh cột tabular (không phụ thuộc font máy)', () => {
+  it('globals.css ép font-mono về sans hệ thống + tabular-nums', () => {
     const css = read('app/globals.css');
-    assert.match(css, /--font-mono:\s*Consolas,/);
+    assert.match(css, /--font-mono:\s*ui-sans-serif/);
+    assert.match(css, /font-variant-numeric:\s*tabular-nums/);
   });
 });
