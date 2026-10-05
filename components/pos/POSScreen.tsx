@@ -964,7 +964,7 @@ export function POSScreen() {
                         <td className="py-2.5 px-2.5 text-center text-slate-400 font-mono">{idx + 1}</td>
                         <td className="py-2.5 px-2.5">
                           <div className="font-bold text-slate-800 text-xs">{prod.name}</div>
-                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 font-mono">
                             ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit}
                             {prod.product_type === 'area' && (
                               <>
@@ -1104,7 +1104,7 @@ export function POSScreen() {
                         <td className="py-2.5 px-2.5 text-center text-slate-400 font-mono">{idx + 1}</td>
                         <td className="py-2.5 px-2.5">
                           <div className="font-bold text-slate-800 text-xs">{prod.name}</div>
-                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 font-mono">
                             ({prod.sku}) · Tồn: {prod.stock_quantity} {prod.unit} · Vốn cũ: {formatNumber(oldAvg)}
                             {prod.product_type === 'area' && (
                               <>
