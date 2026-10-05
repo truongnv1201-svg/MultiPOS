@@ -1412,15 +1412,57 @@ export function POSScreen() {
                 </div>
               )}
             </div>
-            <div>
-              <label className="text-[11px] font-semibold text-slate-600">Ghi chú phiếu nhập</label>
-              <input
-                type="text"
-                value={impNote}
-                onChange={(e) => setImpNote(e.target.value)}
-                placeholder="Số hóa đơn đỏ, xe giao..."
-                className="mt-1 w-full h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-              />
+          </div>
+
+          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-1.5 text-xs">
+            <div className="flex items-center justify-between text-slate-600">
+              <span>Số dòng hàng:</span>
+              <span className="font-mono font-bold text-slate-800">{impLines.length}</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-600">
+              <span>Tổng số lượng:</span>
+              <span className="font-mono font-bold text-slate-800">
+                {formatQty(impLines.reduce((s, l) => s + (l.qty || 0), 0))}
+              </span>
+            </div>
+            {/* Divider */}
+            <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
+              <span className="font-bold text-sm text-slate-900">TỔNG TIỀN NHẬP:</span>
+              <span className="font-bold text-base text-blue-700 font-mono">{formatVND(impTotal)}</span>
+            </div>
+            <div className="pt-2 flex items-center justify-between text-xs font-semibold">
+              {impPaymentMethod === 'cash' && (
+                <>
+                  <span className="text-emerald-700">Thanh toán đủ tiền mặt:</span>
+                  <span className="font-mono text-emerald-700 text-sm font-bold">
+                    {formatVND(impTotal)}
+                  </span>
+                </>
+              )}
+              {impPaymentMethod === 'transfer' && (
+                <>
+                  <span className="text-emerald-700">Thanh toán đủ chuyển khoản:</span>
+                  <span className="font-mono text-emerald-700 text-sm font-bold">
+                    {formatVND(impTotal)}
+                  </span>
+                </>
+              )}
+              {impPaymentMethod === 'debt' && (
+                <>
+                  <span className="text-rose-600">Ghi nợ NCC:</span>
+                  <span className="font-mono text-rose-600 text-sm font-bold">
+                    {formatVND(impTotal)}
+                  </span>
+                </>
+              )}
+              {impPaymentMethod === 'partial' && (
+                <>
+                  <span className="text-amber-700">Còn nợ lại:</span>
+                  <span className="font-mono text-amber-700 text-sm font-bold">
+                    {formatVND(Math.max(0, impTotal - Math.max(0, Math.min(impTotal, impPaidAmount || 0))))}
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
@@ -1496,56 +1538,15 @@ export function POSScreen() {
             )}
           </div>
 
-          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-1.5 text-xs">
-            <div className="flex items-center justify-between text-slate-600">
-              <span>Số dòng hàng:</span>
-              <span className="font-mono font-bold text-slate-800">{impLines.length}</span>
-            </div>
-            <div className="flex items-center justify-between text-slate-600">
-              <span>Tổng số lượng:</span>
-              <span className="font-mono font-bold text-slate-800">
-                {formatQty(impLines.reduce((s, l) => s + (l.qty || 0), 0))}
-              </span>
-            </div>
-            {/* Divider */}
-            <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
-              <span className="font-bold text-sm text-slate-900">TỔNG TIỀN NHẬP:</span>
-              <span className="font-bold text-base text-blue-700 font-mono">{formatVND(impTotal)}</span>
-            </div>
-            <div className="pt-2 flex items-center justify-between text-xs font-semibold">
-              {impPaymentMethod === 'cash' && (
-                <>
-                  <span className="text-emerald-700">Thanh toán đủ tiền mặt:</span>
-                  <span className="font-mono text-emerald-700 text-sm font-bold">
-                    {formatVND(impTotal)}
-                  </span>
-                </>
-              )}
-              {impPaymentMethod === 'transfer' && (
-                <>
-                  <span className="text-emerald-700">Thanh toán đủ chuyển khoản:</span>
-                  <span className="font-mono text-emerald-700 text-sm font-bold">
-                    {formatVND(impTotal)}
-                  </span>
-                </>
-              )}
-              {impPaymentMethod === 'debt' && (
-                <>
-                  <span className="text-rose-600">Ghi nợ NCC:</span>
-                  <span className="font-mono text-rose-600 text-sm font-bold">
-                    {formatVND(impTotal)}
-                  </span>
-                </>
-              )}
-              {impPaymentMethod === 'partial' && (
-                <>
-                  <span className="text-amber-700">Còn nợ lại:</span>
-                  <span className="font-mono text-amber-700 text-sm font-bold">
-                    {formatVND(Math.max(0, impTotal - Math.max(0, Math.min(impTotal, impPaidAmount || 0))))}
-                  </span>
-                </>
-              )}
-            </div>
+          {/* Note Input */}
+          <div>
+            <textarea
+              value={impNote}
+              onChange={(e) => setImpNote(e.target.value)}
+              placeholder="Số hóa đơn đỏ, xe giao..."
+              rows={2}
+              className="w-full p-2 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+            />
           </div>
           {(currentShift.status !== 'open' || needLogin) && (
             <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-900 leading-relaxed">
