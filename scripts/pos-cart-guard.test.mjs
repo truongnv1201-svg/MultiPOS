@@ -22,10 +22,10 @@ describe('POS: đã bỏ đặt cọc + nút xóa giỏ to (chỉ còn icon xóa
     assert.doesNotMatch(pos, /Xóa giỏ \(Esc\)/);
   });
 
-  it('icon xóa giỏ cạnh THANH TOÁN phải hỏi xác nhận (chống bấm nhầm)', () => {
-    assert.match(pos, /id="btn-pos-clear-cart-inline"/);
-    assert.match(pos, /confirmDialog\(\s*`Xóa \$\{activeCart\.items\.length\} món trong giỏ\?/);
-    assert.match(pos, /if \(ok\) clearActiveCart\(\);/);
+  it('không còn nút xóa hết giỏ/dòng nào ở cả 3 luồng (chỉ xóa từng dòng)', () => {
+    assert.doesNotMatch(pos, /btn-pos-clear-cart-inline/);
+    assert.doesNotMatch(pos, /Xóa hết dòng nhập/);
+    assert.doesNotMatch(pos, /Xoá hết dòng/);
   });
 
   it('không còn cờ is_deposit_mode chết', () => {
