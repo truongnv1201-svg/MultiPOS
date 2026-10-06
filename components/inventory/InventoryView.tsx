@@ -81,19 +81,12 @@ export function InventoryView() {
     adjust_gain: 'Đếm thừa / Tăng tồn',
   };
 
-  // Badge phân loại dùng chung bảng dòng + bảng gộp phiếu (1 map duy nhất).
+  // Badge phân loại dùng chung cho bảng thẻ kho (1 map duy nhất).
   const movementBadge = (type: string): { tone: 'emerald' | 'blue' | 'amber' | 'purple'; label: string } => {
     if (type === 'import') return { tone: 'emerald', label: 'Nhập kho' };
     if (type === 'export_sales') return { tone: 'blue', label: 'Xuất bán POS' };
     if (type === 'export_project') return { tone: 'amber', label: 'Vật tư công trình' };
     return { tone: 'purple', label: 'Nhập lại / Trả hàng' };
-  };
-
-  // Gộp bút toán theo mã phiếu để theo dõi theo phiếu (mặc định) thay vì từng dòng.
-  // NCC lấy từ dòng diễn giải phiếu nhập; nhóm xếp theo phát sinh mới nhất.
-  const parseVoucherSupplier = (note: string): string => {
-    const m = /^Nhập kho \(([^)]*)\)/.exec(note || '');
-    return m ? m[1] : '';
   };
 
   const handleExportStocks = () => {
@@ -366,56 +359,6 @@ export function InventoryView() {
   const paginatedMovements = (() => {
     const start = (movementPage - 1) * movementPageSize;
     return sortedMovements.slice(start, start + movementPageSize);
-  })();
-
-  // Chế độ xem thẻ kho: gộp theo phiếu (mặc định, dễ theo dõi) hoặc từng dòng.
-  const [movementView, setMovementView] = useState<'voucher' | 'lines'>('voucher');
-  const [expandedVouchers, setExpandedVouchers] = useState<Record<string, boolean>>({});
-  const toggleVoucher = (code: string) =>
-    setExpandedVouchers((prev) => ({ ...prev, [code]: !prev[code] }));
-
-  interface VoucherGroup {
-    code: string;
-    latestAt: string;
-    type: string;
-    supplier: string;
-    count: number;
-    totalQty: number;
-    lines: typeof filteredMovements;
-  }
-
-  const voucherGroups = React.useMemo<VoucherGroup[]>(() => {
-    const map = new Map<string, VoucherGroup>();
-    for (const m of filteredMovements) {
-      const g = map.get(m.reference_code);
-      if (!g) {
-        map.set(m.reference_code, {
-          code: m.reference_code,
-          latestAt: m.created_at,
-          type: m.movement_type,
-          supplier: parseVoucherSupplier(m.note || ''),
-          count: 1,
-          totalQty: m.quantity,
-          lines: [m],
-        });
-      } else {
-        g.lines.push(m);
-        g.count += 1;
-        g.totalQty += m.quantity;
-        if (m.created_at > g.latestAt) {
-          g.latestAt = m.created_at;
-          g.type = m.movement_type;
-          const s = parseVoucherSupplier(m.note || '');
-          if (s) g.supplier = s;
-        }
-      }
-    }
-    return [...map.values()].sort((a, b) => b.latestAt.localeCompare(a.latestAt));
-  }, [filteredMovements]);
-
-  const paginatedVouchers = (() => {
-    const start = (movementPage - 1) * movementPageSize;
-    return voucherGroups.slice(start, start + movementPageSize);
   })();
 
   // Aggregate inventory values
@@ -700,34 +643,13 @@ export function InventoryView() {
                   { value: 'adjust_gain', label: 'Đếm thừa / Điều chỉnh tăng' },
                 ]}
               />
-
-              <TabSwitcher<'voucher' | 'lines'>
-                active={movementView}
-                onChange={(v) => {
-                  setMovementView(v);
-                  setMovementPage(1);
-                }}
-                options={[
-                  { key: 'voucher', label: 'Theo phiếu' },
-                  { key: 'lines', label: 'Theo dòng' },
-                ]}
-              />
               </div>
 
               {/* Dòng tổng hợp riêng — số bút toán chuyển từ nhãn tab xuống đây.
                   Giữ cả 2 số: đã lọc (theo ngày/loại) và tổng đã tải (như nhãn tab cũ). */}
               <SummaryStrip>
                 <span>
-                  {movementView === 'voucher' ? (
-                    <>
-                      Tìm thấy <strong className="text-slate-900 font-mono">{voucherGroups.length}</strong> phiếu
-                      (<strong className="text-slate-900 font-mono">{sortedMovements.length}</strong> bút toán thẻ kho)
-                    </>
-                  ) : (
-                    <>
-                      Tìm thấy <strong className="text-slate-900 font-mono">{sortedMovements.length}</strong> bút toán thẻ kho
-                    </>
-                  )}
+                  Tìm thấy <strong className="text-slate-900 font-mono">{sortedMovements.length}</strong> bút toán thẻ kho
                 </span>
                 <span>
                   Tổng nhật ký: <strong className="text-slate-900 font-mono">{movements.length}</strong> bút toán
@@ -736,52 +658,7 @@ export function InventoryView() {
 
             {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
             <div id="movement-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
-              {movementView === 'voucher' ? (
-                paginatedVouchers.length === 0 ? (
-                  <ListEmpty>Không tìm thấy phiếu kho nào phù hợp với bộ lọc.</ListEmpty>
-                ) : (
-                  paginatedVouchers.map((g) => {
-                    const badge = movementBadge(g.type);
-                    const open = !!expandedVouchers[g.code];
-                    return (
-                      <div key={g.code} className="px-3 py-2.5">
-                        <button
-                          type="button"
-                          onClick={() => toggleVoucher(g.code)}
-                          className="w-full flex items-start justify-between gap-2 text-left"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold font-mono text-blue-700 leading-snug truncate">{g.code}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">
-                              {new Date(g.latestAt).toLocaleString('vi-VN')}
-                              {g.supplier ? ` · ${g.supplier}` : ''}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
-                            <p className="mt-1 text-[11px] font-mono font-bold text-slate-700">
-                              {g.count} dòng · {g.totalQty > 0 ? `+${g.totalQty}` : g.totalQty}
-                            </p>
-                          </div>
-                        </button>
-                        {open && (
-                          <div className="mt-2 ml-1 pl-2 border-l-2 border-slate-200 space-y-1.5">
-                            {g.lines.map((m) => (
-                              <div key={m.id} className="flex items-center justify-between gap-2 text-[11px]">
-                                <span className="min-w-0 truncate text-slate-700 font-medium">{m.product_name}</span>
-                                <span className={`shrink-0 font-mono font-bold ${m.quantity > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                  {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )
-              ) : (
-              paginatedMovements.length === 0 ? (
+              {paginatedMovements.length === 0 ? (
                 <ListEmpty>Không tìm thấy bút toán thẻ kho nào phù hợp với bộ lọc.</ListEmpty>
               ) : (
                 paginatedMovements.map((m) => {
@@ -806,83 +683,10 @@ export function InventoryView() {
                     </div>
                   );
                 })
-              ))}
+              )}
             </div>
 
             <div className="hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
-            {movementView === 'voucher' ? (
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                  <th className="py-2.5 px-3">Mã phiếu</th>
-                  <th className="py-2.5 px-3">Thời gian</th>
-                  <th className="py-2.5 px-3">Nhà cung cấp</th>
-                  <th className="py-2.5 px-3">Phân loại</th>
-                  <th className="py-2.5 px-3 text-center">Số dòng</th>
-                  <th className="py-2.5 px-3 text-right">Tổng SL</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paginatedVouchers.length === 0 ? (
-                  <TableEmpty colSpan={6}>Không tìm thấy phiếu kho nào phù hợp với bộ lọc.</TableEmpty>
-                ) : (
-                  paginatedVouchers.map((g) => {
-                    const badge = movementBadge(g.type);
-                    const open = !!expandedVouchers[g.code];
-                    const positive = g.totalQty > 0;
-                    return (
-                      <React.Fragment key={g.code}>
-                        <tr
-                          onClick={() => toggleVoucher(g.code)}
-                          className="cursor-pointer hover:bg-slate-50 transition-colors"
-                        >
-                          <td className="py-2.5 px-3 font-mono font-bold text-blue-700">
-                            {open ? '▾' : '▸'} {g.code}
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
-                            {new Date(g.latestAt).toLocaleString('vi-VN')}
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-700">
-                            {g.supplier || <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <StatusBadge tone={badge.tone} pill={false}>
-                              {badge.label}
-                            </StatusBadge>
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-mono text-slate-700">{g.count}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold">
-                            <span className={positive ? 'text-emerald-700' : 'text-rose-700'}>
-                              {positive ? `+${g.totalQty}` : g.totalQty}
-                            </span>
-                          </td>
-                        </tr>
-                        {open && (
-                          <tr className="bg-slate-50/70">
-                            <td colSpan={6} className="py-1.5 pl-8 pr-3">
-                              <div className="space-y-1">
-                                {g.lines.map((m) => (
-                                  <div key={m.id} className="flex items-center justify-between gap-3 text-[11px] py-1 border-b border-slate-100 last:border-0">
-                                    <span className="min-w-0 truncate text-slate-700 font-medium">
-                                      {m.product_name}
-                                      <span className="text-slate-400 font-mono"> · {m.previous_stock} → {m.new_stock}</span>
-                                    </span>
-                                    <span className={`shrink-0 font-mono font-bold ${m.quantity > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                      {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-            ) : (
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
@@ -939,17 +743,16 @@ export function InventoryView() {
                 )}
               </tbody>
             </table>
-            )}
             </div>
 
             {/* Pagination */}
             <PaginationBar
               currentPage={movementPage}
-              totalItems={movementView === 'voucher' ? voucherGroups.length : filteredMovements.length}
+              totalItems={filteredMovements.length}
               pageSize={movementPageSize}
               onPageChange={setMovementPage}
               onPageSizeChange={setMovementPageSize}
-              itemName={movementView === 'voucher' ? 'phiếu kho' : 'bút toán thẻ kho'}
+              itemName="bút toán thẻ kho"
             />
           </div>
         )}

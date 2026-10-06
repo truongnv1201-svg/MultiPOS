@@ -161,12 +161,10 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     assert.ok(!/px-3 py-1 text-xs font-semibold rounded-md transition-all/.test(inv + rep), 'còn tab hardcode');
   });
 
-  it('thẻ kho gộp theo phiếu (mặc định), bấm mở rộng xem dòng', () => {
+  it('thẻ kho chỉ hiện từng dòng (đã bỏ gộp theo phiếu)', () => {
     const inv = read('components/inventory/InventoryView.tsx');
-    assert.match(inv, /useState<'voucher' \| 'lines'>\('voucher'\)/);
-    assert.match(inv, /paginatedVouchers/);
-    assert.match(inv, /toggleVoucher/);
-    assert.match(inv, /Theo phiếu/);
-    assert.match(inv, /Theo dòng/);
+    assert.ok(!/useState<'voucher' \| 'lines'>/.test(inv), 'còn state gộp phiếu');
+    assert.ok(!/paginatedVouchers|toggleVoucher|Theo phiếu|Theo dòng/.test(inv), 'còn UI gộp phiếu');
+    assert.match(inv, /paginatedMovements/);
   });
 });
