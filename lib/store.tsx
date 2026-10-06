@@ -194,7 +194,7 @@ interface StoreContextType {
     change_amount: number;
     debt_amount: number;
   };
-  checkoutActiveOrder: (isDeposit?: boolean) => Promise<Order | null>;
+  checkoutActiveOrder: () => Promise<Order | null>;
   cancelOrder: (orderId: string) => Promise<boolean>;
   returnOrder: (orderId: string, refundItems: { itemId: string; quantity: number; amount: number }[]) => Promise<ReturnResult>;
   collectDebt: (customerId: string, amount: number, paymentMethod: 'cash' | 'transfer', note: string) => Promise<boolean>;

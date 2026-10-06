@@ -33,10 +33,13 @@ describe('POS: đã bỏ đặt cọc + xóa giỏ thủ công (chỉ còn THANH
     assert.doesNotMatch(txCart, /is_deposit_mode/);
   });
 
-  it('đơn cọc CŨ vẫn hiển thị/xử lý được (giữ status + badge + trả/hủy)', () => {
+  it('đơn cọc đã bỏ sạch: không status, badge, lọc, trả/hủy riêng cho cọc', () => {
     const orders = read('components/orders/OrdersView.tsx');
-    assert.match(orders, /deposit_order: 'Đặt hàng \/ Nhận cọc'/);
-    assert.match(orders, /ord\.status === 'deposit_order'/);
+    assert.doesNotMatch(orders, /deposit_order/);
+    assert.doesNotMatch(orders, /Đặt hàng \/ Nhận cọc/);
+    assert.doesNotMatch(orders, /Đã nhận cọc/);
+    const types = read('lib/types.ts');
+    assert.doesNotMatch(types, /deposit_order/);
   });
 });
 
@@ -155,15 +158,17 @@ describe('khóa idempotency ổn định theo tab (chống trùng đơn khi retr
   });
 });
 
-describe('thống kê ca đúng kênh tiền', () => {
+describe('thống kê ca đúng kênh tiền (không còn cọc)', () => {
   const checkout = read('lib/store/tx/checkout.tsx');
 
-  it('cọc chuyển khoản KHÔNG vào doanh thu transfer_sales', () => {
-    assert.match(checkout, /transfer_sales: \!isCash && \!isDeposit \? prev\.transfer_sales \+ paidAmount/);
+  it('doanh thu chia đúng kênh cash/transfer, không nhánh cọc', () => {
+    assert.match(checkout, /cash_sales: isCash \? prev\.cash_sales \+ paidAmount : prev\.cash_sales/);
+    assert.match(checkout, /transfer_sales: !isCash \? prev\.transfer_sales \+ paidAmount : prev\.transfer_sales/);
+    assert.doesNotMatch(checkout, /isDeposit/);
   });
 
-  it('cọc mọi kênh đều vào deposit_collected', () => {
-    assert.match(checkout, /deposit_collected: isDeposit \? prev\.deposit_collected \+ paidAmount/);
+  it('cashbook bán luôn category sales', () => {
+    assert.match(checkout, /category: 'sales',/);
   });
 });
 

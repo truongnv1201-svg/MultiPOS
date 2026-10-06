@@ -241,10 +241,6 @@ export function ShiftModalF12() {
                   <span className="font-semibold text-emerald-700">+{formatVND(currentShift.cash_sales)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
-                  <span>Tiền cọc nhận bằng tiền mặt:</span>
-                  <span className="font-semibold text-amber-700">+{formatVND(currentShift.deposit_collected)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
                   <span>Tiền chi từ két trong ca:</span>
                   <span className="font-semibold text-rose-700">-{formatVND(currentShift.cash_payouts)}</span>
                 </div>

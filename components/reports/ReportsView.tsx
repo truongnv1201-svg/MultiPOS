@@ -328,7 +328,7 @@ export function ReportsView() {
   const rangedOrders = useMemo(() => {
     return orders.filter(
       (o) =>
-        (o.status === 'completed' || o.status === 'deposit_order' || o.status === 'partial_returned') &&
+        (o.status === 'completed' || o.status === 'partial_returned') &&
         matchesDateFilter(o.created_at, dateFilter),
     );
   }, [orders, dateFilter]);
@@ -366,7 +366,7 @@ export function ReportsView() {
   const grossMarginPct = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
   // ---- VAT đầu ra theo tháng + đối chiếu sổ quỹ (P1) ----
-  // Chỉ đơn hiệu lực (completed/deposit_order/partial_returned); đơn hủy/trả hết
+  // Chỉ đơn hiệu lực (completed/partial_returned); đơn hủy/trả hết
   // không tính VAT. Đơn cũ (trước bản VAT) không có vat_amount -> tính 0.
   interface VatMonthRow {
     month: string; // YYYY-MM
@@ -380,7 +380,7 @@ export function ReportsView() {
   const vatMonthly: VatMonthRow[] = useMemo(() => {
     const map = new Map<string, VatMonthRow>();
     for (const o of orders) {
-      if (o.status !== 'completed' && o.status !== 'deposit_order' && o.status !== 'partial_returned') continue;
+      if (o.status !== 'completed' && o.status !== 'partial_returned') continue;
       const m = monthOf(o.created_at);
       if (!/^\d{4}-\d{2}$/.test(m)) continue;
       let row = map.get(m);
@@ -438,7 +438,7 @@ export function ReportsView() {
       let revenue = 0;
       let collected = 0;
       for (const o of orders) {
-        if (o.status !== 'completed' && o.status !== 'deposit_order' && o.status !== 'partial_returned') continue;
+        if (o.status !== 'completed' && o.status !== 'partial_returned') continue;
         const t = new Date(o.created_at).getTime();
         if (Number.isNaN(t) || t < d.getTime() || t >= next.getTime()) continue;
         revenue += o.total_amount || 0;

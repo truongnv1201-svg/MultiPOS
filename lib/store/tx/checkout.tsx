@@ -31,7 +31,7 @@ export interface TxCheckoutDeps {
 }
 
 export interface TxCheckout {
-  checkoutActiveOrder: (isDeposit?: boolean) => Promise<Order | null>;
+  checkoutActiveOrder: () => Promise<Order | null>;
 }
 
 export function useTxCheckout({
@@ -61,8 +61,9 @@ export function useTxCheckout({
   // Checkout Transaction Logic (SRS §2.2 & Invariants 1-5)
   // P3: online + Supabase -> commit nguyên tử qua RPC pos_checkout (server tính lại
   // tiền/kho/nợ/sổ quỹ). Offline hoặc chưa cấu hình -> logic local + hàng đợi pending.
+  // Đơn cọc bán hàng đã bỏ (chỉ bán thẳng hoàn tất) — p_is_deposit luôn false.
   const checkoutActiveOrder = useCallback(
-    async (isDeposit = false): Promise<Order | null> => {
+    async (): Promise<Order | null> => {
       if (activeCart.items.length === 0) return null;
       // Fix thu ngân: bắt buộc đăng nhập (khi có Supabase) + ca đang mở mới được bán.
       if (supa && !user) {
@@ -150,7 +151,7 @@ export function useTxCheckout({
             p_payments: rpcPayments,
             p_note: activeCart.note || null,
             p_shipping_fee: totals.shipping_fee || 0,
-            p_is_deposit: isDeposit,
+            p_is_deposit: false, // đơn cọc đã bỏ — giữ param cho RPC cũ
             p_customer_id: serverCustId,
           };
           let data: any = null;
@@ -239,7 +240,7 @@ export function useTxCheckout({
         debt_amount: actualDebt,
         change_amount: effChange,
         payments: orderPayments,
-        status: isDeposit ? 'deposit_order' : 'completed',
+        status: 'completed',
         note: activeCart.note,
         created_at: new Date().toISOString(),
         cashier_name: cashierName,
@@ -320,8 +321,7 @@ export function useTxCheckout({
         );
       }
 
-      // 3. Cashbook Invariant: Single real recording
-      // Category: isDeposit ? 'deposit' : 'sales' (FIN-ERR-01)
+      // 3. Cashbook Invariant: Single real recording (bán thẳng -> 'sales')
       if (paidAmount > 0) {
         const cashbookCode = generateOrderCode('PT');
         const newEntry: CashbookEntry = {
@@ -329,13 +329,11 @@ export function useTxCheckout({
           code: cashbookCode,
           type: 'receipt',
           fund_type: activeCart.payment_method === 'cash' ? 'cash' : 'bank',
-          category: isDeposit ? 'deposit' : 'sales',
+          category: 'sales',
           amount: paidAmount,
           reference_order_code: orderCode,
           partner_name: activeCart.customer_name,
-          note: isDeposit
-            ? `Thu cọc đơn hàng ${orderCode}`
-            : `Thanh toán hóa đơn ${orderCode} (${activeCart.payment_method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản VietQR'})`,
+          note: `Thanh toán hóa đơn ${orderCode} (${activeCart.payment_method === 'cash' ? 'Tiền mặt' : 'Chuyển khoản'})`,
           created_at: new Date().toISOString(),
           synced: serverCommitted || undefined,
         };
@@ -343,17 +341,14 @@ export function useTxCheckout({
         setCashbook((prev) => [newEntry, ...prev]);
         db.cashbook.add(newEntry).catch(console.warn);
 
-        // Update current shift stats
-        // Cọc (mọi kênh) chỉ vào deposit_collected, KHÔNG vào doanh thu bán —
-        // trước đây cọc chuyển khoản bị cộng vào transfer_sales (doanh thu ảo)
-        // mà deposit_collected chỉ đếm cọc tiền mặt (thiếu cọc CK).
+        // Update current shift stats (doanh thu bán theo kênh tiền)
         setCurrentShift((prev) => {
           const isCash = activeCart.payment_method === 'cash';
           const updatedShift: Shift = {
             ...prev,
-            cash_sales: isCash && !isDeposit ? prev.cash_sales + paidAmount : prev.cash_sales,
-            transfer_sales: !isCash && !isDeposit ? prev.transfer_sales + paidAmount : prev.transfer_sales,
-            deposit_collected: isDeposit ? prev.deposit_collected + paidAmount : prev.deposit_collected,
+            cash_sales: isCash ? prev.cash_sales + paidAmount : prev.cash_sales,
+            transfer_sales: !isCash ? prev.transfer_sales + paidAmount : prev.transfer_sales,
+            deposit_collected: prev.deposit_collected,
             expected_cash: isCash ? prev.expected_cash + paidAmount : prev.expected_cash,
             order_count: prev.order_count + 1,
           };
@@ -393,13 +388,11 @@ export function useTxCheckout({
       }
 
       notify(
-        isDeposit
-          ? `Thu cọc thành công ${orderCode}\nĐã nhận: ${vnd(paidAmount)}`
-          : actualDebt > 0
-            ? `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)} • Còn nợ: ${vnd(actualDebt)}`
-            : effChange > 0
-              ? `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)} • Thối lại: ${vnd(effChange)}`
-              : `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)}`,
+        actualDebt > 0
+          ? `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)} • Còn nợ: ${vnd(actualDebt)}`
+          : effChange > 0
+            ? `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)} • Thối lại: ${vnd(effChange)}`
+            : `Thanh toán thành công ${orderCode}\nĐã thu: ${vnd(paidAmount)}`,
         'success',
       );
 

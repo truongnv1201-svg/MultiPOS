@@ -73,7 +73,8 @@ export interface PaymentItem {
   reference?: string;
 }
 
-export type OrderStatus = 'pending' | 'deposit_order' | 'completed' | 'cancelled' | 'returned' | 'partial_returned';
+export type OrderStatus = 'pending' | 'completed' | 'cancelled' | 'returned' | 'partial_returned';
+// Đơn cọc bán hàng đã bỏ hẳn (dữ liệu test xóa sạch, không còn đơn cọc).
 
 export interface Order {
   id: string;

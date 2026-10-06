@@ -488,7 +488,7 @@ export function POSScreen() {
     }
     setIsProcessing(true);
     try {
-      await checkoutActiveOrder(false);
+      await checkoutActiveOrder();
     } catch (err: any) {
       notify(`Lỗi thanh toán: ${vietnamizeError(err)}`, 'error');
     } finally {

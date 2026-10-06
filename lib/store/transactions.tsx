@@ -73,7 +73,7 @@ export interface TransactionsSlice {
     change_amount: number;
     debt_amount: number;
   };
-  checkoutActiveOrder: (isDeposit?: boolean) => Promise<Order | null>;
+  checkoutActiveOrder: () => Promise<Order | null>;
   refreshServerOrders: (force?: boolean) => Promise<boolean>;
   syncPendingOrders: () => Promise<void>;
   resolveServerOrderId: (order: Order) => Promise<string | null>;

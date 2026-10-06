@@ -29,7 +29,7 @@ export interface TxOrders {
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   pendingQueue: Order[];
   setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;
-  checkoutActiveOrder: (isDeposit?: boolean) => Promise<Order | null>;
+  checkoutActiveOrder: () => Promise<Order | null>;
   refreshServerOrders: () => Promise<boolean>;
   syncPendingOrders: () => Promise<void>;
   resolveServerOrderId: (order: Order) => Promise<string | null>;

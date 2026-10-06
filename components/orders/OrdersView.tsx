@@ -206,7 +206,6 @@ export function OrdersView() {
   // ---- Xuất Excel / In bảng ----
   const ORDER_STATUS_LABEL: Record<string, string> = {
     pending: 'Chờ xử lý',
-    deposit_order: 'Đặt hàng / Nhận cọc',
     completed: 'Hoàn tất',
     cancelled: 'Đã hủy',
     returned: 'Đã trả hàng',
@@ -267,10 +266,10 @@ export function OrdersView() {
     });
   };
 
-  // P2-1: mở modal trả hàng (cho cả đơn hoàn tất lẫn đơn cọc — server 0032 tách nhánh cọc)
+  // P2-1: mở modal trả hàng (chỉ đơn hoàn tất)
   const handleReturnOrder = (order: Order) => {
-    if (order.status !== 'completed' && order.status !== 'deposit_order') {
-      notify('Chỉ đơn hàng đã hoàn tất / đơn cọc mới có thể thực hiện trả hàng!', 'error');
+    if (order.status !== 'completed') {
+      notify('Chỉ đơn hàng đã hoàn tất mới có thể thực hiện trả hàng!', 'error');
       return;
     }
     const init: Record<string, { checked: boolean; qty: number }> = {};
@@ -373,7 +372,6 @@ export function OrdersView() {
               options={[
                 { value: 'all', label: 'Tất cả trạng thái' },
                 { value: 'completed', label: 'Hoàn tất (Đã xuất hàng)' },
-                { value: 'deposit_order', label: 'Đặt hàng / Nhận cọc' },
                 { value: 'returned', label: 'Đã trả hàng' },
                 { value: 'partial_returned', label: 'Trả một phần (trả tiếp được)' },
                 { value: 'cancelled', label: 'Đã hủy' },
@@ -478,9 +476,6 @@ export function OrdersView() {
                         <td className="py-2.5 px-3 text-center">
                           {ord.status === 'completed' && (
                             <StatusBadge tone="emerald">Hoàn tất</StatusBadge>
-                          )}
-                          {ord.status === 'deposit_order' && (
-                            <StatusBadge tone="amber">Đã nhận cọc</StatusBadge>
                           )}
                           {ord.status === 'returned' && (
                             <StatusBadge tone="purple">Đã trả hàng</StatusBadge>
@@ -639,7 +634,7 @@ export function OrdersView() {
 
             {/* Action buttons */}
             <div className="mt-auto pt-3 border-t border-slate-200 space-y-2">
-              {(selectedOrder.status === 'completed' || selectedOrder.status === 'deposit_order') && (
+              {selectedOrder.status === 'completed' && (
                 <button
                   onClick={() => handleReturnOrder(selectedOrder)}
                   className="w-full py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
@@ -681,9 +676,7 @@ export function OrdersView() {
               <div>
                 <h3 className="font-bold text-sm text-slate-900">Trả hàng đơn {returnTarget.order_code}</h3>
                 <p className="text-[11px] text-slate-500">
-                  {returnTarget.status === 'deposit_order'
-                    ? 'Đơn cọc — hoàn theo tiền đã thu, phần nợ còn lại được xóa.'
-                    : 'Tích chọn dòng cần trả, sửa SL nếu trả thiếu. Hàng cắt/dịch vụ không nhập lại kho.'}
+                  Tích chọn dòng cần trả, sửa SL nếu trả thiếu. Hàng cắt/dịch vụ không nhập lại kho.
                 </p>
               </div>
               <button onClick={() => setReturnTarget(null)} className="px-2 py-0.5 text-xl leading-none text-slate-400 hover:text-slate-700" title="Đóng">

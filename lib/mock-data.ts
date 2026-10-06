@@ -381,8 +381,8 @@ export const INITIAL_ORDERS: Order[] = [
     debt_amount: 1500000,
     change_amount: 0,
     payments: [{ method: 'cash', amount: 1000000 }],
-    status: 'deposit_order',
-    note: 'Nhận cọc đợt 1, hẹn giao thứ 6',
+    status: 'completed',
+    note: 'Khách trả trước 1 đợt, còn nợ 1.500.000đ',
     created_at: '2026-09-14T11:15:00Z',
     cashier_name: 'Nguyễn Văn A',
   }

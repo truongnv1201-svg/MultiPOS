@@ -32,10 +32,9 @@ export function ReceiptModal() {
 
   if (!receiptModalOrder) return null;
   const order = receiptModalOrder;
-  const isDeposit = order.status === 'deposit_order';
   const paidByTransfer = order.payments?.some((p) => p.method === 'transfer');
   const showVietqrBlock = !!shop.showVietqr && isVietqrReady(vietqr) && (paidByTransfer || order.debt_amount > 0);
-  // QR thu đúng số còn phải thu: đơn nợ/cọc thu phần còn lại, đơn trả đủ thu tổng đơn.
+  // QR thu đúng số còn phải thu: đơn nợ thu phần còn lại, đơn trả đủ thu tổng đơn.
   // (Khổ K80 từng encode tổng đơn khiến khách quét thừa tiền.)
   const qrAmount = order.debt_amount > 0 ? order.debt_amount : order.total_amount;
 
@@ -105,7 +104,7 @@ export function ReceiptModal() {
       {!compact && shop.taxCode && <p className="text-[10px] text-slate-600">MST: {shop.taxCode}</p>}
       <div className="pt-1">
         <span className="font-bold text-xs uppercase px-2 py-0.5 bg-slate-100 rounded">
-          {isDeposit ? 'PHIẾU ĐẶT HÀNG & NHẬN CỌC' : 'HÓA ĐƠN BÁN HÀNG'}
+          {'HÓA ĐƠN BÁN HÀNG'}
         </span>
       </div>
     </div>
@@ -138,12 +137,12 @@ export function ReceiptModal() {
       <div className="flex justify-between font-bold text-xs text-slate-950 pt-1 border-t border-slate-200">
         <span>TỔNG THANH TOÁN:</span><span className="font-mono">{formatVND(order.total_amount)}</span>
       </div>
-      <div className="flex justify-between"><span>{isDeposit ? 'Cọc đã nhận:' : 'Khách đã trả:'}</span><span className="font-mono font-bold text-blue-700">{formatVND(order.paid_amount)}</span></div>
+      <div className="flex justify-between"><span>Khách đã trả:</span><span className="font-mono font-bold text-blue-700">{formatVND(order.paid_amount)}</span></div>
       {order.change_amount > 0 && (
         <div className="flex justify-between font-semibold text-emerald-700"><span>Tiền thừa:</span><span className="font-mono">{formatVND(order.change_amount)}</span></div>
       )}
       {shop.showDebt && order.debt_amount > 0 && (
-        <div className="flex justify-between font-semibold text-rose-600"><span>{isDeposit ? 'Còn lại khi nhận hàng:' : 'Còn nợ lại:'}</span><span className="font-mono">{formatVND(order.debt_amount)}</span></div>
+        <div className="flex justify-between font-semibold text-rose-600"><span>Còn nợ lại:</span><span className="font-mono">{formatVND(order.debt_amount)}</span></div>
       )}
     </div>
   );
@@ -221,7 +220,7 @@ export function ReceiptModal() {
             {(shop.taxCode || shop.email) && <p>MST: {shop.taxCode || '—'} • Email: {shop.email || '—'}</p>}
           </div>
           <div className="text-right">
-            <p className={`font-extrabold uppercase ${compact ? 'text-sm' : 'text-base'}`}>{isDeposit ? 'Phiếu thu cọc' : 'Hóa đơn bán hàng'}</p>
+            <p className={`font-extrabold uppercase ${compact ? 'text-sm' : 'text-base'}`}>Hóa đơn bán hàng</p>
             <p>Số: <strong>{order.order_code}</strong></p>
             <p>Ngày: {new Date(order.created_at).toLocaleString('vi-VN')}</p>
           </div>
@@ -329,7 +328,7 @@ export function ReceiptModal() {
         <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Printer className="w-4 h-4 text-emerald-400" />
-            <h3 className="font-bold text-xs">{isDeposit ? 'PHIẾU ĐẶT HÀNG & NHẬN CỌC' : template === 'a5-invoice' ? 'HÓA ĐƠN BÁN HÀNG (A5)' : template.startsWith('a4') ? 'HÓA ĐƠN BÁN HÀNG (A4)' : `HÓA ĐƠN ${paperLabel}`} — {order.order_code}</h3>
+            <h3 className="font-bold text-xs">{template === 'a5-invoice' ? 'HÓA ĐƠN BÁN HÀNG (A5)' : template.startsWith('a4') ? 'HÓA ĐƠN BÁN HÀNG (A4)' : `HÓA ĐƠN ${paperLabel}`} — {order.order_code}</h3>
           </div>
           <button onClick={() => setReceiptModalOrder(null)} className="p-1 text-slate-400 hover:text-white rounded"><X className="w-4 h-4" /></button>
         </div>

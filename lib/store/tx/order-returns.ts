@@ -182,7 +182,7 @@ export function useTxOrderReturns({
       if (!order) return fail;
       // 0026: chỉ đơn hiệu lực mới trả được (chặn trả lặp cả khi gọi trực tiếp hàm).
       // partial_returned trả tiếp được (server cap theo đã bán - đã trả, 0069).
-      if (order.status !== 'completed' && order.status !== 'deposit_order' && order.status !== 'partial_returned') {
+      if (order.status !== 'completed' && order.status !== 'partial_returned') {
         notify('Đơn này đã hủy/trả rồi — không xử lý lặp.', 'error');
         return fail;
       }

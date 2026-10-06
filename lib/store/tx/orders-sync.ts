@@ -222,7 +222,7 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
                 : [{ method: payMethod, amount: replayTendered }],
             p_note: o.note || null,
             p_shipping_fee: (o.shipping_fee || 0) + (oVatPct > 0 ? 0 : vatResidual),
-            p_is_deposit: o.status === 'deposit_order',
+            p_is_deposit: false, // đơn cọc đã bỏ — giữ param cho RPC cũ
             p_customer_id: o.customer_id ? customerMap[o.customer_id] ?? null : null,
             // P0-idempotency: key ổn định = id đơn local -> retry không sinh trùng đơn
             p_client_ref: o.id,
