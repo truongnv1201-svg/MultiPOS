@@ -555,6 +555,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         paid_amount: paidAmount,
         debt_amount: debtAmount,
         status: poStatus,
+        note: note.trim() || undefined,
         created_at: now,
       };
       let expenseEntry: CashbookEntry | null = null;

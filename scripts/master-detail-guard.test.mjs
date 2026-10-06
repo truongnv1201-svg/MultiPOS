@@ -36,6 +36,20 @@ describe('hoa don: chi tiet chi hien don trong bo loc', () => {
   it('còn placeholder khi không có đơn nào được chọn', () => {
     assert.match(orders, /Chọn đơn hàng để xem chi tiết/);
   });
+
+  it('panel chi tiết hiện ghi chú đơn (không lưu mà không hiện)', () => {
+    assert.match(orders, /selectedOrder\.note &&/);
+    assert.match(orders, /Ghi chú: <\/span>/);
+  });
+});
+
+describe('nhập kho: ghi chú phiếu được lưu local (khỏi rơi mất)', () => {
+  it('PurchaseOrder có trường note + poRecord ghi note đã trim', () => {
+    const types = read('lib/types.ts');
+    assert.match(types, /note\?: string;\n  created_at: string;\n\}/);
+    const shift = read('lib/store/tx/shift-stock.tsx');
+    assert.match(shift, /note: note\.trim\(\) \|\| undefined,/);
+  });
 });
 
 describe('khach hang: chi tiet chi hien khach trong bo loc', () => {

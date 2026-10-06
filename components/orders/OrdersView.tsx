@@ -552,6 +552,13 @@ export function OrdersView() {
                   </div>
               </div>
 
+              {selectedOrder.note && (
+                <div className="bg-amber-50/60 p-2.5 rounded-lg border border-amber-200 text-xs">
+                  <span className="font-semibold text-amber-800">Ghi chú: </span>
+                  <span className="text-slate-700">{selectedOrder.note}</span>
+                </div>
+              )}
+
               {/* Line items list */}
               <div className="space-y-1.5">
                 <div className="font-semibold text-slate-700">Chi tiết mặt hàng ({selectedOrder.items.length}):</div>

@@ -147,6 +147,8 @@ export interface PurchaseOrder {
   paid_amount: number;
   debt_amount: number;
   status: 'completed' | 'cancelled' | 'debt' | 'partial';
+  /** Ghi chú phiếu nhập (số hóa đơn đỏ, xe giao...) — chỉ lưu local (server chưa có cột). */
+  note?: string;
   created_at: string;
 }
 
