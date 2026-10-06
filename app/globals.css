@@ -103,19 +103,9 @@ input[type='number'] {
    @page động (A4 / K80) được inject từ ReceiptModal theo đúng mẫu đang xem. */
 #print-area { background: white; margin-left: auto; margin-right: auto; }
 
-/* POS cột phải: ghim thanh ĐẶT HÀNG / THANH TOÁN ở đáy panel (panel cuộn nhưng
-   thanh luôn thấy — màn lùn không còn phải cuộn mới bấm được). Panel p-3.5
-   cung cấp khoảng thở dưới giống các luồng nhập kho và xuất công trình. */
-#pos-bottom-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  margin-left: -0.875rem;
-  margin-right: -0.875rem;
-  padding-left: 0.875rem;
-  padding-right: 0.875rem;
-  background-color: #f8fafc; /* slate-50 = nền panel */
-}
+/* POS cột phải: thanh ĐẶT HÀNG / THANH TOÁN nằm trong luồng, thở bằng padding
+   panel như nút NHẬP KHO (không ghim full-bleed). Màn lùn xử lý bằng chế độ
+   gọn bên dưới. */
 
 /* POS desktop màn lùn (cao <= 830px, hay gặp ở 21.5"-25" + thanh trình duyệt):
    gọn các khối trong cột phải để bớt cuộn. Chỉ thu visual, đủ id nên

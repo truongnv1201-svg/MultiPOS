@@ -85,11 +85,9 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(pos, /md:hidden fixed inset-x-0 bottom-0 z-40/);
   });
 
-  it('thanh nút bán hàng chừa khoảng đáy bằng padding chung của panel', () => {
+  it('thanh nút bán hàng nằm trong luồng như nút nhập kho (không ghim sticky)', () => {
     const css = read('app/globals.css');
-    const bottomBar = css.match(/#pos-bottom-bar\s*\{([^}]+)\}/)?.[1] || '';
-    assert.match(bottomBar, /position: sticky;/);
-    assert.doesNotMatch(bottomBar, /margin-bottom|padding-bottom/);
+    assert.doesNotMatch(css, /#pos-bottom-bar\s*\{/);
   });
 
   it('cụm luồng Bán/Nhập/Xuất CT chia đều full-width trên điện thoại', () => {
