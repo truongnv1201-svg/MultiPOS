@@ -1424,14 +1424,6 @@ export function POSScreen() {
                 Có dòng vượt tồn kho — hãy giảm số lượng trước khi xuất.
               </p>
             )}
-            {projLines.length > 0 && (
-              <button
-                onClick={() => setProjLines([])}
-                className="w-full py-1.5 bg-white hover:bg-slate-100 text-slate-600 rounded text-[11px] font-semibold border border-slate-200"
-              >
-                Xoá hết dòng
-              </button>
-            )}
           </div>
         </div>
         <div className="shrink-0 pt-3 border-t border-slate-200 space-y-2">
@@ -1450,24 +1442,36 @@ export function POSScreen() {
               )}
             </div>
           )}
-          <button
-            type="button"
-            id="btn-project-export-commit"
-            disabled={
-              isProcessing ||
-              projLines.length === 0 ||
-              !selectedProject ||
-              projHasStockError ||
-              currentShift.status !== 'open' ||
-              needLogin
-            }
-            onClick={handleProjectExportCommit}
-            className="w-full py-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-lg shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
-          >
-            <HardHat className="w-5 h-5" />
-            <span>XUẤT VẬT TƯ (F10)</span>
-            <span className="text-xs font-mono font-normal opacity-90">— {formatVND(projTotal)}</span>
-          </button>
+          <div className="flex gap-2">
+            {projLines.length > 0 && (
+              <button
+                onClick={() => setProjLines([])}
+                title="Xoá hết dòng xuất"
+                className="px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xoá hết dòng</span>
+              </button>
+            )}
+            <button
+              type="button"
+              id="btn-project-export-commit"
+              disabled={
+                isProcessing ||
+                projLines.length === 0 ||
+                !selectedProject ||
+                projHasStockError ||
+                currentShift.status !== 'open' ||
+                needLogin
+              }
+              onClick={handleProjectExportCommit}
+              className="flex-1 py-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-lg shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <HardHat className="w-5 h-5" />
+              <span>XUẤT VẬT TƯ (F10)</span>
+              <span className="text-xs font-mono font-normal opacity-90">— {formatVND(projTotal)}</span>
+            </button>
+          </div>
         </div>
         </div>
       ) : isImportFlow ? (
@@ -1649,16 +1653,6 @@ export function POSScreen() {
               className="w-full p-2 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
             />
           </div>
-          {impLines.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setImpLines([])}
-              className="w-full py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Xóa hết dòng nhập</span>
-            </button>
-          )}
         </div>
         <div className="shrink-0 pt-3 border-t border-slate-200 space-y-2">
           {(currentShift.status !== 'open' || needLogin) && (
@@ -1676,16 +1670,29 @@ export function POSScreen() {
               )}
             </div>
           )}
-          <button
-            type="button"
-            disabled={isProcessing || impLines.length === 0 || currentShift.status !== 'open' || needLogin}
-            onClick={handleImportCommit}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-lg shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
-          >
-            <Truck className="w-5 h-5" />
-            <span>NHẬP KHO (F10)</span>
-            <span className="text-xs font-mono font-normal opacity-90">— {formatVND(impTotal)}</span>
-          </button>
+          <div className="flex gap-2">
+            {impLines.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setImpLines([])}
+                title="Xóa hết dòng nhập"
+                className="px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xóa hết dòng nhập</span>
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={isProcessing || impLines.length === 0 || currentShift.status !== 'open' || needLogin}
+              onClick={handleImportCommit}
+              className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-lg shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <Truck className="w-5 h-5" />
+              <span>NHẬP KHO (F10)</span>
+              <span className="text-xs font-mono font-normal opacity-90">— {formatVND(impTotal)}</span>
+            </button>
+          </div>
         </div>
         </div>
       ) : (
