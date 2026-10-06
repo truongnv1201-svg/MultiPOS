@@ -62,6 +62,7 @@ export function POSScreen() {
     addItemToCart,
     updateCartItem,
     removeCartItem,
+    clearActiveCart,
     setDimensionModalItem,
     dimensionModalItem,
     receiptModalOrder,
@@ -2193,20 +2194,39 @@ export function POSScreen() {
               )}
             </div>
           )}
-          {/* F10: Main Checkout Button */}
-          <button
-            id="btn-pos-checkout"
-            type="button"
-            disabled={isProcessing || activeCart.items.length === 0 || currentShift.status !== 'open' || needLogin}
-            onClick={handleCheckout}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-lg shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            <span>THANH TOÁN (F10)</span>
-            <span className="text-xs font-mono font-normal opacity-90">
-              — {formatVND(calculatedTotals.payable)}
-            </span>
-          </button>
+          {/* F10: Main Checkout Button + icon xóa giỏ (hỏi xác nhận, chống bấm nhầm) */}
+          <div className="flex gap-2">
+            {activeCart.items.length > 0 && (
+              <button
+                type="button"
+                id="btn-pos-clear-cart-inline"
+                onClick={async () => {
+                  const ok = await confirmDialog(
+                    `Xóa ${activeCart.items.length} món trong giỏ? Thao tác không thể hoàn tác.`,
+                    { title: 'Xóa giỏ hàng', confirmLabel: 'Xóa hết', danger: true }
+                  );
+                  if (ok) clearActiveCart();
+                }}
+                title="Xóa hết giỏ hàng"
+                className="px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              id="btn-pos-checkout"
+              type="button"
+              disabled={isProcessing || activeCart.items.length === 0 || currentShift.status !== 'open' || needLogin}
+              onClick={handleCheckout}
+              className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-lg shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <CheckCircle2 className="w-5 h-5" />
+              <span>THANH TOÁN (F10)</span>
+              <span className="text-xs font-mono font-normal opacity-90">
+                — {formatVND(calculatedTotals.payable)}
+              </span>
+            </button>
+          </div>
         </div>
       </>
       )}
