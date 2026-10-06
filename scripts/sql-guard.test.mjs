@@ -112,20 +112,23 @@ describe('0053: supplier debt guard', () => {
     assert.match(store, /storedSuppliers/);
   });
 
-  it('mã phiếu NH/PQ nối tiếp từ max local + server (khỏi hậu tố random)', () => {
+  it('mã tạm NH/PQ sinh từ max local (server đánh số chính thức khi sync — 0073)', () => {
     const shiftStock = read('lib/store/tx/shift-stock.tsx');
-    assert.match(shiftStock, /nextDailyCode\(\[\.\.\.localCodes, \.\.\.serverCodes\], 'NH', stamp\)/);
-    assert.match(shiftStock, /from\('purchase_orders'\)/);
+    assert.match(shiftStock, /nextDailyCode\(localCodes, 'NH', stamp\)/);
+    assert.ok(!/serverCodes/.test(shiftStock), 'producer không được quét mã server nữa');
     const projects = read('lib/store/tx/projects.tsx');
-    assert.match(projects, /nextDailyCode\(\s*\[\.\.\.stockAdjustments\.map\(\(a\) => a\.code\), \.\.\.serverCodes\],\s*'PQ',\s*stamp\s*\)/);
+    assert.match(projects, /nextDailyCode\(\s*stockAdjustments\.map\(\(a\) => a\.code\),\s*'PQ',/);
+    assert.match(projects, /p_code: null,/);
     assert.doesNotMatch(shiftStock, /const refCode = generateImportCode\(\)/);
   });
 
-  it('trùng mã NH thì đánh số lại + gửi lại (giữ client_ref), tối đa 3 lần', () => {
+  it('replay NH gửi p_code null, vá mã server vào local (khỏi bump + gửi lại)', () => {
     const debts = read('lib/store/tx/debts.tsx');
-    assert.match(debts, /Mã phiếu nhập đã tồn tại/);
-    assert.match(debts, /nextDailyCode\(\[code, \.\.\.localCodes, \.\.\.serverCodes\], 'NH', stamp\)/);
-    assert.match(debts, /pendingOps\.update\(op\.id, \{ payload: \{ \.\.\.p, code: bumped \} \}\)/);
+    assert.match(debts, /p_code: null,/);
+    assert.match(debts, /codeRemap/);
+    assert.match(debts, /purchaseOrders\.where\('code'\)\.equals\(p\.code\)\.modify\(\{ code: finalCode \}\)/);
+    assert.ok(!/Mã phiếu nhập đã tồn tại/.test(debts), 'worker không còn vòng retry trùng mã');
+    assert.ok(!/nextDailyCode/.test(debts), 'worker không còn tự đánh số lại');
   });
 });
 
@@ -533,5 +536,46 @@ describe('0072: thẻ kho tự gắn loại đúng (khỏi đoán regex)', () =>
 
   it('backfill cùng luật cho dòng cũ NULL, không đụng dòng đã có loại', () => {
     assert.match(sql, /where movement_type is null/);
+  });
+});
+
+describe('0073: server đánh số phiếu NH/PQ như HD', () => {
+  const sql = read('supabase/migrations/0073_server_voucher_codes.sql');
+
+  it('tồn tại migration 0073', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0073_server_voucher_codes.sql')));
+  });
+
+  it('giữ nguyên signature 2 RPC (client cũ + PostgREST cache không gãy)', () => {
+    assert.match(sql, /create or replace function public\.sync_stock_import\(\s*p_client_ref text,\s*p_code text,/);
+    assert.match(sql, /CREATE OR REPLACE FUNCTION public\.adjust_stock\(\s*p_code TEXT,\s*p_items JSONB/);
+    assert.ok(!/p_code text default null/.test(sql), 'không thêm default làm đổi arity hiển thị');
+  });
+
+  it('sync_stock_import sinh mã NH khi p_code null/rỗng, quét va chạm mã client-era', () => {
+    assert.match(sql, /v_auto := \(p_code is null or btrim\(p_code\) = ''\)/);
+    assert.match(sql, /v_code := public\.generate_order_code\('NH'\)/);
+    assert.match(sql, /exit when not exists \(select 1 from public\.purchase_orders where code = v_code\)/);
+  });
+
+  it('mã auto đua nhau thì thử số mới, mã explicit trùng vẫn báo như cũ', () => {
+    assert.match(sql, /for attempt in 1\.\.3 loop/);
+    assert.match(sql, /if not v_auto or attempt = 3 then/);
+    assert.match(sql, /raise exception 'Mã phiếu nhập đã tồn tại: %', v_code/);
+  });
+
+  it('adjust_stock sinh mã PQ khi p_code null/rỗng, không cần vòng chống trùng (code không unique)', () => {
+    assert.match(sql, /v_code := public\.generate_order_code\('PQ'\)/);
+    assert.match(sql, /VALUES \(\s*v_code, v_pid, v_delta, v_stock, v_new,/);
+  });
+
+  it('cả 2 RPC trả mã chốt trong jsonb để client vá local', () => {
+    assert.match(sql, /'code', v_code,/);
+  });
+
+  it('client adjustStock dùng mã server, fallback mã tạm khi server cũ', () => {
+    const projects = read('lib/store/tx/projects.tsx');
+    assert.match(projects, /const fallbackCode = nextDailyCode\(/);
+    assert.match(projects, /const code = typeof serverCode === 'string' && serverCode \? serverCode : fallbackCode;/);
   });
 });

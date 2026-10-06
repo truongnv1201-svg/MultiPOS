@@ -477,25 +477,12 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         notify('Phiếu nhập chưa có dòng hàng hợp lệ (chọn hàng, SL và đơn giá > 0)!', 'error');
         return false;
       }
-      // Mã phiếu NH-YYMMDD-NNNN nối tiếp (lib/codes.ts): max local Dexie + max server
-      // (phiếu máy khác) để 2 máy không trùng số đầu ngày. Offline: chỉ local.
+      // Mã TẠM hiển thị offline-first (chỉ max local): server đánh số chính thức khi
+      // sync (0073) rồi worker vá lại local. Bỏ quét mã server ở đây — vừa tốn 1
+      // round-trip mỗi lần lập phiếu, vừa không hết trùng khi 2 máy cùng giây.
       const stamp = dailyCodeStamp();
       const localCodes = (await db.purchaseOrders.toArray().catch(() => [])).map((r) => r.code);
-      let serverCodes: string[] = [];
-      if (supa && user && isOnline) {
-        try {
-          const { data } = await supa
-            .from('purchase_orders')
-            .select('code')
-            .like('code', `NH-${stamp}-%`)
-            .order('code', { ascending: false })
-            .limit(5);
-          serverCodes = ((data as any[]) || []).map((r) => String(r.code || ''));
-        } catch {
-          /* offline-first: rớt mạng thì dùng local, server giữ trùng bằng unique */
-        }
-      }
-      const refCode = nextDailyCode([...localCodes, ...serverCodes], 'NH', stamp);
+      const refCode = nextDailyCode(localCodes, 'NH', stamp);
       const now = new Date().toISOString();
 
       const paymentMethod = paymentOptions?.paymentMethod || 'transfer';
@@ -670,7 +657,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       return true;
     },
     // enqueueOp là hàm module-scope (constants) nên không đưa vào deps (tránh warning exhaustive-deps).
-    [products, suppliers, supa, user, isOnline, profile, currentShift, setProducts, setSuppliers, setStockMovements, setCashbook, syncPendingOpsRef]
+    [products, suppliers, supa, profile, currentShift, setProducts, setSuppliers, setStockMovements, setCashbook, syncPendingOpsRef]
   );
 
   return {

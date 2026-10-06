@@ -9,7 +9,6 @@ import type { CashbookEntry, Shift } from '../../types';
 import { db, generateOrderCode } from '../../db';
 import type { PendingOp } from '../../db';
 import { asUuidOrNull, enqueueOp, normalizeSupplierName, resolveSupplierReference, roundMoney } from './constants';
-import { dailyCodeStamp, nextDailyCode } from '../../codes';
 import type { SupplierReference } from './constants';
 import { vietnamizeError } from '../../error-vi';
 import { notify } from '@/components/common/Toast';
@@ -234,7 +233,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       note: string;
       entryId: string;
     };
-    type RpcResult = { ok?: boolean; imported?: boolean; duplicate?: boolean; debt?: number; paid?: number } | null;
+    type RpcResult = { ok?: boolean; imported?: boolean; duplicate?: boolean; debt?: number; paid?: number; code?: string } | null;
 
     let allOps = await db.pendingOps.toArray().catch(() => [] as PendingOp[]);
     if (retryFailed) {
@@ -277,6 +276,9 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
     };
 
     const completedImportCodes = new Set<string>();
+    // 0073: server đánh số NH chính thức (khác mã tạm local) -> remap để op voucher
+    // trong cùng đợt sync gửi reference đúng mã server (server chỉ lưu dạng nhãn).
+    const codeRemap = new Map<string, string>();
     const holdOp = async (op: PendingOp, reason: string) => {
       if (op.last_error === reason) return;
       await db.pendingOps.update(op.id, { last_error: reason }).catch(() => {});
@@ -301,62 +303,64 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
             await holdOp(op, `Phiếu nhập ${p.code} đang chờ đồng bộ nhà cung cấp "${p.supplierName}".`);
             continue;
           }
-          const callImport = (code: string) =>
-            supa.rpc('sync_stock_import', {
-              p_client_ref: p.clientRef,
-              p_code: code,
-              p_supplier_id: serverSupplierId,
-              p_supplier_name: supplier?.name || p.supplierName,
-              p_lines: p.lines.map((l) => ({
-                sku: l.sku,
-                product_id: asUuidOrNull(l.productId),
-                quantity: l.quantity,
-                import_price: l.importPrice,
-              })),
-              p_total: roundMoney(total),
-              p_paid: roundMoney(paid),
-              p_debt: roundMoney(debt),
-              p_note: p.note || null,
-            });
-          let code = p.code;
-          let result = await callImport(code);
-          // Mã NH nối tiếp đẹp nhưng 2 máy có thể trùng số đầu ngày -> server từ chối
-          // 'Mã phiếu nhập đã tồn tại': đánh số lại rồi gửi lại (GIỮ NGUYÊN client_ref
-          // vì lần trước đã rollback; nếu lần trước thực ra đã ghi thì server trả
-          // duplicate và coi như xong). Tối đa 3 lần để khỏi lặp vô hạn.
-          for (let attempt = 0; attempt < 3; attempt++) {
-            if (!/Mã phiếu nhập đã tồn tại/.test(result.error?.message || '')) break;
-            const stamp = dailyCodeStamp();
-            let serverCodes: string[] = [];
-            try {
-              const { data } = await supa
-                .from('purchase_orders')
-                .select('code')
-                .like('code', `NH-${stamp}-%`)
-                .order('code', { ascending: false })
-                .limit(5);
-              serverCodes = ((data as any[]) || []).map((r) => String(r.code || ''));
-            } catch {
-              break;
-            }
-            const localCodes = (await db.purchaseOrders.toArray().catch(() => [])).map((r) => r.code);
-            const bumped = nextDailyCode([code, ...localCodes, ...serverCodes], 'NH', stamp);
-            if (bumped === code) break;
-            await db.purchaseOrders.where('code').equals(code).modify({ code: bumped }).catch(() => {});
-            await db.pendingOps.update(op.id, { payload: { ...p, code: bumped } }).catch(() => {});
-            code = bumped;
-            result = await callImport(code);
-          }
+          // 0073: server đánh số phiếu NH như HD — gửi p_code null, server sinh số
+          // nối tiếp (advisory lock) + trả về 'code' để vá local. Mã tạm local (p.code)
+          // chỉ để hiển thị offline-first. Không còn vòng bump + gửi lại khi trùng.
+          const result = await supa.rpc('sync_stock_import', {
+            p_client_ref: p.clientRef,
+            p_code: null,
+            p_supplier_id: serverSupplierId,
+            p_supplier_name: supplier?.name || p.supplierName,
+            p_lines: p.lines.map((l) => ({
+              sku: l.sku,
+              product_id: asUuidOrNull(l.productId),
+              quantity: l.quantity,
+              import_price: l.importPrice,
+            })),
+            p_total: roundMoney(total),
+            p_paid: roundMoney(paid),
+            p_debt: roundMoney(debt),
+            p_note: p.note || null,
+          });
           if (result.error) throw new Error(result.error.message);
           const response = result.data as RpcResult;
           if (response?.ok === false || (response?.imported === false && response?.duplicate !== true)) {
             throw new Error('Server không nhận phiếu nhập.');
           }
-          completedImportCodes.add(code);
+          // Vá mã server vào local (phiếu + sổ quỹ + state) để khớp truth.
+          // Duplicate (retry sau timeout mập mờ, server đã commit lần trước mà client
+          // chưa thấy mã) -> hỏi lại mã thật theo client_ref, khỏi kẹt mã tạm vĩnh viễn.
+          let finalCode = p.code;
+          if (response?.duplicate === true) {
+            try {
+              const { data: dupRow } = await supa
+                .from('purchase_orders')
+                .select('code')
+                .eq('client_ref', p.clientRef)
+                .maybeSingle();
+              const dupCode = (dupRow as { code?: unknown } | null)?.code;
+              if (typeof dupCode === 'string' && dupCode) finalCode = dupCode;
+            } catch {
+              /* giữ mã tạm, op vẫn xóa (server đã có phiếu) */
+            }
+          } else if (typeof response?.code === 'string' && response.code) {
+            finalCode = response.code;
+          }
+          if (finalCode !== p.code) {
+            codeRemap.set(p.code, finalCode);
+            await db.purchaseOrders.where('code').equals(p.code).modify({ code: finalCode }).catch(() => {});
+            // cashbook không index reference_order_code -> dùng filter thay cho where.
+            await db.cashbook.filter((e) => e.reference_order_code === p.code).modify({ reference_order_code: finalCode }).catch(() => {});
+            setCashbook((prev) => prev.map((e) => (e.reference_order_code === p.code ? { ...e, reference_order_code: finalCode } : e)));
+          }
+          completedImportCodes.add(p.code);
           if (serverSupplierId) await mirrorSupplierDebt(supplier, serverSupplierId);
           else void refreshCatalog();
         } else if (op.kind === 'voucher') {
           const p = op.payload as VoucherPayload;
+          // 0073: phiếu nhập cùng đợt có thể đã đổi sang mã server -> voucher gửi
+          // reference theo mã mới để thẻ kho/so sách khớp nhau (server lưu dạng nhãn).
+          const voucherRef = codeRemap.get(p.reference) ?? p.reference;
           const importIsPending = activeOps.some((candidate) => {
             if (candidate.kind !== 'import') return false;
             const importPayload = candidate.payload as ImportPayload;
@@ -370,7 +374,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
             p_category: p.category,
             p_amount: p.amount,
             p_partner_name: p.partner || null,
-            p_reference: p.reference || null,
+            p_reference: voucherRef || null,
             p_note: p.note || null,
           });
           if (result.error) throw new Error(result.error.message);

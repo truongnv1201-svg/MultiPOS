@@ -31,9 +31,11 @@ export function dailyCodeStamp(at: Date = new Date()): string {
 }
 
 // Mã phiếu tiếp theo PREFIX-YYMMDD-NNNN (VD NH-261006-0012).
-// Quét cả mã cũ có hậu tố random (thời kỳ trước) để không lùi số; mã sai
-// định dạng hoặc khác ngày thì bỏ qua. Caller phải gộp mã local + mã server
-// (phiếu máy khác) rồi mới gọi — max local đơn thuần vẫn trùng liên máy.
+// Vai trò từ 0073: sinh MÃ TẠM hiển thị offline-first (chỉ max local). Server đánh số
+// chính thức khi sync (sync_stock_import / adjust_stock tự sinh + trả 'code'), worker
+// vá lại local — nên caller KHÔNG cần gộp mã server hay retry trùng ở client nữa.
+// Quét cả mã cũ có hậu tố random (thời kỳ trước) để không lùi số; mã sai định dạng
+// hoặc khác ngày thì bỏ qua.
 export function nextDailyCode(
   codes: Array<string | undefined | null>,
   prefix: string,

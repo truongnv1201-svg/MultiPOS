@@ -693,25 +693,13 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       }
 
       const project = options?.projectId ? projects.find((p) => p.id === options.projectId) : null;
-      // Mã phiếu PQ-YYMMDD-NNNN nối tiếp (lib/codes.ts): max local (đã kéo) + max server
-      // để 2 máy không trùng số đầu ngày. Mã cọc không unique phía server nên khỏi retry.
-      const stamp = dailyCodeStamp();
-      let serverCodes: string[] = [];
-      try {
-        const { data } = await supa
-          .from('stock_adjustments')
-          .select('code')
-          .like('code', `PQ-${stamp}-%`)
-          .order('code', { ascending: false })
-          .limit(5);
-        serverCodes = ((data as any[]) || []).map((r) => String(r.code || ''));
-      } catch {
-        /* offline-first: rớt mạng thì dùng local (hàm này vốn đã cần mạng) */
-      }
-      const code = nextDailyCode(
-        [...stockAdjustments.map((a) => a.code), ...serverCodes],
+      // 0073: server đánh số phiếu PQ như HD — gửi p_code null, dùng mã server trả về
+      // cho mọi dòng local. Fallback mã tạm local nếu server cũ chưa có migration
+      // (response thiếu 'code'). Bỏ quét mã server ở client (tốn round-trip, vẫn trùng).
+      const fallbackCode = nextDailyCode(
+        stockAdjustments.map((a) => a.code),
         'PQ',
-        stamp
+        dailyCodeStamp()
       );
       const rpcProjectId = project ? project.server_id || project.id : null;
 
@@ -721,7 +709,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       // phiếu hiện 2 dòng giống nhau trong sổ điều chỉnh).
       const clientRefs = new Map<string, string>();
       const { data, error } = await supa.rpc('adjust_stock', {
-        p_code: code,
+        p_code: null,
         p_items: items.map((i) => {
           const ref = `adj-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
           clientRefs.set(i.product.id, ref);
@@ -747,6 +735,9 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         void db.products.toArray().then((rows) => setProducts(rows));
         return null;
       }
+      // Mã server là chân lý (0073 trả về 'code'); thiếu thì dùng mã tạm local.
+      const serverCode = (data as { code?: unknown } | null)?.code;
+      const code = typeof serverCode === 'string' && serverCode ? serverCode : fallbackCode;
 
       // ---- Server đã ghi thật. Cập nhật local để UI phản hồi tức thì. ----
       const now = new Date().toISOString();
