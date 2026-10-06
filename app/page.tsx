@@ -11,6 +11,7 @@ import { DimensionModalF3 } from '@/components/pos/DimensionModalF3';
 import { ReceiptModal } from '@/components/pos/ReceiptModal';
 import { ShiftModalF12 } from '@/components/pos/ShiftModalF12';
 import { OrdersView } from '@/components/orders/OrdersView';
+import { ImportsView } from '@/components/imports/ImportsView';
 import { ProductsView } from '@/components/products/ProductsView';
 import { InventoryView } from '@/components/inventory/InventoryView';
 import { CustomersView } from '@/components/customers/CustomersView';
@@ -118,6 +119,7 @@ function AppContent() {
       <main className={`flex-1 flex flex-col min-h-0 overflow-hidden ${effectiveScreen === 'pos' ? '' : 'mobile-main-bottom-space'}`}>
         {effectiveScreen === 'pos' && <POSScreen />}
         {effectiveScreen === 'orders' && <OrdersView />}
+        {effectiveScreen === 'imports' && <ImportsView />}
         {effectiveScreen === 'products' && <ProductsView />}
         {effectiveScreen === 'inventory' && <InventoryView />}
         {effectiveScreen === 'customers' && <CustomersView />}

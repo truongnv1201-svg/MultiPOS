@@ -43,6 +43,24 @@ describe('hoa don: chi tiet chi hien don trong bo loc', () => {
   });
 });
 
+describe('don nhap: chi tiet chi hien phieu trong bo loc', () => {
+  const view = read('components/imports/ImportsView.tsx');
+
+  it('selectedPo suy từ filteredPos, không từ purchaseOrders thô', () => {
+    assert.ok(!/purchaseOrders\.find\(\(p\) => p\.id === selectedPoId/.test(view), 'cấm tìm trong purchaseOrders thô');
+    assert.match(view, /filteredPos\.find\(\(p\) => p\.id === selectedPoId\)/);
+    assert.match(view, /filteredPos\.find\(\(p\) => p\.code === selectedPoCode\)/);
+  });
+
+  it('null stays null (giữ hành vi xóa chọn khi đổi lọc)', () => {
+    assert.match(view, /if \(!selectedPoId && !selectedPoCode\) return null;/);
+  });
+
+  it('còn placeholder khi không có phiếu nào được chọn', () => {
+    assert.match(view, /Chọn phiếu nhập để xem chi tiết/);
+  });
+});
+
 describe('nhập kho: ghi chú phiếu được lưu local (khỏi rơi mất)', () => {
   it('PurchaseOrder có trường note + poRecord ghi note đã trim', () => {
     const types = read('lib/types.ts');

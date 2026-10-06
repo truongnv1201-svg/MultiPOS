@@ -22,6 +22,7 @@ import type {
   StockAdjustment,
   StockAdjustReason,
   PosFlow,
+  PurchaseOrder,
 } from '../types';
 import type { CartTab, ReturnResult } from './types';
 
@@ -36,6 +37,8 @@ export interface TransactionsSlice {
   setCurrentShift: React.Dispatch<React.SetStateAction<Shift>>;
   stockMovements: StockMovement[];
   setStockMovements: React.Dispatch<React.SetStateAction<StockMovement[]>>;
+  purchaseOrders: PurchaseOrder[];
+  refreshPurchaseOrders: () => Promise<boolean>;
   refreshServerStockMovements: (force?: boolean) => Promise<boolean>;
   refreshServerCashbook: () => Promise<boolean>;
   pendingQueue: Order[];
@@ -195,6 +198,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     setCurrentShift: shiftStock.setCurrentShift,
     stockMovements: shiftStock.stockMovements,
     setStockMovements: shiftStock.setStockMovements,
+    purchaseOrders: shiftStock.purchaseOrders,
+    refreshPurchaseOrders: shiftStock.refreshPurchaseOrders,
     pendingQueue: orders.pendingQueue,
     setPendingQueue: orders.setPendingQueue,
     cashierName,

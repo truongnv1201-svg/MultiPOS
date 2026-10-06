@@ -18,6 +18,7 @@ import {
   StockAdjustment,
   StockAdjustReason,
   MarkDayInput,
+  PurchaseOrder,
 } from './types';
 import {
   Employee,
@@ -109,6 +110,8 @@ interface StoreContextType {
   cashbook: CashbookEntry[];
   currentShift: Shift;
   stockMovements: StockMovement[];
+  purchaseOrders: PurchaseOrder[];
+  refreshPurchaseOrders: () => Promise<boolean>;
   employees: Employee[];
   attendanceDays: AttendanceDay[];
   cashierName: string;
@@ -416,6 +419,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     setCurrentShift,
     stockMovements,
     setStockMovements,
+    purchaseOrders,
+    refreshPurchaseOrders,
     pendingQueue,
     setPendingQueue,
     cashierName,
@@ -610,6 +615,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         if (storedProjects.length > 0) setProjects(storedProjects);
         const storedCashbook = await db.cashbook.toArray();
         if (storedCashbook.length > 0) setCashbook(storedCashbook);
+        refreshPurchaseOrders();
         const storedPending = await db.pendingOrders.toArray();
         setPendingQueue(storedPending);
         try {
@@ -635,7 +641,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         console.warn('DB initialize error:', err);
       })
       .finally(() => setLocalDataReady(true));
-  }, [setCustomers, setProducts, setSuppliers, setCashbook, setOrders, setPendingQueue, setProjects, setAttendanceDays, setEmployees]);
+  }, [setCustomers, setProducts, setSuppliers, setCashbook, setOrders, setPendingQueue, setProjects, setAttendanceDays, setEmployees, refreshPurchaseOrders]);
 
 
   // P3: có mạng -> kéo catalog từ server (re-sync tồn/giá khi vừa online lại)
@@ -787,6 +793,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     cashbook,
     currentShift,
     stockMovements,
+    purchaseOrders,
+    refreshPurchaseOrders,
     employees,
     attendanceDays,
     hrmLoading,

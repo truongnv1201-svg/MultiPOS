@@ -126,6 +126,17 @@ export function GlobalHeader() {
         return;
       }
 
+      // Alt + D: Imports (quản lý đơn nhập) — thu ngân/worker bị chặn
+      if (e.altKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (restricted) {
+          blockRestricted();
+          return;
+        }
+        go('imports');
+        return;
+      }
+
       // Alt + C: Customers
       if (e.altKey && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();

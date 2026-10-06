@@ -328,6 +328,7 @@ export interface MarkDayInput {
 export type ActiveScreen =
   | 'pos'
   | 'orders'
+  | 'imports'
   | 'products'
   | 'inventory'
   | 'customers'

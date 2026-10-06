@@ -29,6 +29,8 @@ export interface TxShiftStock {
   setCurrentShift: React.Dispatch<React.SetStateAction<Shift>>;
   stockMovements: StockMovement[];
   setStockMovements: React.Dispatch<React.SetStateAction<StockMovement[]>>;
+  purchaseOrders: PurchaseOrder[];
+  refreshPurchaseOrders: () => Promise<boolean>;
   refreshServerStockMovements: (force?: boolean) => Promise<boolean>;
   refreshServerCashbook: () => Promise<boolean>;
   closeShift: (countedCash: number) => Promise<boolean>;
@@ -54,6 +56,18 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
   const [cashbook, setCashbook] = useState<CashbookEntry[]>([]);
   const [currentShift, setCurrentShift] = useState<Shift>(EMPTY_SHIFT);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  // Đơn nhập (trang Quản lý Đơn nhập đọc từ đây — Dexie local là truth đầy đủ
+  // dòng hàng; server chỉ lưu header). Nạp ở boot, thêm ngay khi lập phiếu.
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const refreshPurchaseOrders = useCallback(async (): Promise<boolean> => {
+    try {
+      const rows = await db.purchaseOrders.orderBy('created_at').reverse().toArray();
+      setPurchaseOrders(rows);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   // Thu ngân hiện tại gắn với tài khoản đăng nhập (fix kết ca ẩn danh)
   const cashierName = profile?.full_name || user?.email || 'Chưa đăng nhập';
@@ -646,6 +660,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
 
       setProducts(updatedList);
       setStockMovements((prev) => [...movements].reverse().concat(prev));
+      setPurchaseOrders((prev) => [poRecord, ...prev]);
       if (expenseEntry) setCashbook((prev) => [expenseEntry, ...prev]);
       if (debtAmount > 0 && supplierRef?.local) {
         const localSupplier = supplierRef.local;
@@ -667,6 +682,8 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
     setCurrentShift,
     stockMovements,
     setStockMovements,
+    purchaseOrders,
+    refreshPurchaseOrders,
     refreshServerStockMovements,
     refreshServerCashbook,
     closeShift,

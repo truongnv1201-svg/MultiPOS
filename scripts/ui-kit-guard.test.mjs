@@ -15,6 +15,7 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 const VIEWS = [
   'components/orders/OrdersView.tsx',
+  'components/imports/ImportsView.tsx',
   'components/customers/CustomersView.tsx',
   'components/suppliers/SuppliersView.tsx',
   'components/products/ProductsView.tsx',
@@ -94,6 +95,7 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
   it('nút chính/phụ chuẩn AppButton, cấm class nút lẻ', () => {
     const btnUsers = [
       'components/orders/OrdersView.tsx',
+      'components/imports/ImportsView.tsx',
       'components/customers/CustomersView.tsx',
       'components/suppliers/SuppliersView.tsx',
       'components/products/ProductsView.tsx',
@@ -117,6 +119,7 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
   it('lọc chuẩn SearchInput/FilterSelect, cấm ô/select lẻ', () => {
     const filterUsers = [
       'components/orders/OrdersView.tsx',
+      'components/imports/ImportsView.tsx',
       'components/customers/CustomersView.tsx',
       'components/suppliers/SuppliersView.tsx',
       'components/products/ProductsView.tsx',
@@ -134,6 +137,7 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
   it('trạng thái rỗng chuẩn TableEmpty/ListEmpty', () => {
     const emptyUsers = [
       'components/orders/OrdersView.tsx',
+      'components/imports/ImportsView.tsx',
       'components/customers/CustomersView.tsx',
       'components/suppliers/SuppliersView.tsx',
       'components/products/ProductsView.tsx',

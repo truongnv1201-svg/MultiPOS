@@ -56,6 +56,7 @@ export function FlyoutMenu() {
     ...(!isRestricted
       ? [
           { screen: 'inventory' as const, label: 'Nhập hàng & Kiểm kho', icon: PackagePlus, shortcut: 'Alt + N' },
+          { screen: 'imports' as const, label: 'Quản lý Đơn nhập', icon: ScrollText, shortcut: 'Alt + D' },
         ]
       : []),
     { screen: 'customers', label: 'Khách hàng & Quản lý Công nợ', icon: Users, shortcut: 'Alt + C' },
