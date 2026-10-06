@@ -156,4 +156,13 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     assert.match(rep, /<TabSwitcher<ReportTab>/);
     assert.ok(!/px-3 py-1 text-xs font-semibold rounded-md transition-all/.test(inv + rep), 'còn tab hardcode');
   });
+
+  it('thẻ kho gộp theo phiếu (mặc định), bấm mở rộng xem dòng', () => {
+    const inv = read('components/inventory/InventoryView.tsx');
+    assert.match(inv, /useState<'voucher' \| 'lines'>\('voucher'\)/);
+    assert.match(inv, /paginatedVouchers/);
+    assert.match(inv, /toggleVoucher/);
+    assert.match(inv, /Theo phiếu/);
+    assert.match(inv, /Theo dòng/);
+  });
 });
