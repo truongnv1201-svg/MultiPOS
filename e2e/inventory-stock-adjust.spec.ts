@@ -151,7 +151,7 @@ test.describe('Kho: điều chỉnh tồn / hao hụt', () => {
         }
     });
 
-    test('cả 3 tab đều có nút Xuất Excel và In ấn', async ({ page }) => {
+    test('cả 2 tab đều có nút Xuất Excel và In ấn', async ({ page }) => {
         // Sổ điều chỉnh tồn là bằng chứng đối chiếu tồn thực — phải mang đi được (in/xuất).
         test.slow();
         await page.setViewportSize({ width: 1600, height: 950 });
@@ -159,14 +159,10 @@ test.describe('Kho: điều chỉnh tồn / hao hụt', () => {
         await openInventory(page);
 
         const tools = page.locator('#inventory-view button[title*="Excel" i], #inventory-view button[title*="In" i], #inventory-view button[title*="in ấn" i]');
-        // Tab Tồn kho thực tế
+        // Tab Nhật ký thẻ kho (mặc định)
         await expect(tools.first()).toBeVisible();
-        const stockCount = await tools.count();
-        expect(stockCount).toBeGreaterThanOrEqual(2);
-
-        // Tab Nhật ký thẻ kho
-        await page.click('button:has-text("Nhật ký Thẻ kho")');
-        await expect(tools.first()).toBeVisible();
+        const movementCount = await tools.count();
+        expect(movementCount).toBeGreaterThanOrEqual(2);
 
         // Tab Điều chỉnh tồn
         await page.click('#btn-inventory-tab-adjustments');

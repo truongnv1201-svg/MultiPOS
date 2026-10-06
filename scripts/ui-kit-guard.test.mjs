@@ -152,9 +152,9 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     }
   });
 
-  it('tab Kho/Báo cáo chuẩn TabSwitcher', () => {
+  it('tab Kho chuẩn TabSwitcher (thẻ kho + điều chỉnh tồn)', () => {
     const inv = read('components/inventory/InventoryView.tsx');
-    assert.match(inv, /<TabSwitcher<'stocks' \| 'movements' \| 'adjustments'>/);
+    assert.match(inv, /<TabSwitcher<'movements' \| 'adjustments'>/);
     assert.match(inv, /id: 'btn-inventory-tab-adjustments'/, 'giữ id cho e2e');
     const rep = read('components/reports/ReportsView.tsx');
     assert.match(rep, /<TabSwitcher<ReportTab>/);

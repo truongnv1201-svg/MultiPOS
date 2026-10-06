@@ -283,8 +283,8 @@ describe('Kho + NCC: mobile record list', () => {
   const inv = read('components/inventory/InventoryView.tsx');
   const sup = read('components/suppliers/SuppliersView.tsx');
 
-  it('kho có record list tồn và thẻ kho, bảng ẩn trên mobile', () => {
-    assert.match(inv, /id="stock-record-list" className="lg:hidden/);
+  it('kho chỉ còn record list thẻ kho, bảng ẩn trên mobile', () => {
+    assert.ok(!/id="stock-record-list"/.test(inv), 'còn record list tồn đã bỏ');
     assert.match(inv, /id="movement-record-list" className="lg:hidden/);
     assert.match(inv, /hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto/);
   });

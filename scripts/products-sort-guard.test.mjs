@@ -45,9 +45,9 @@ describe('mọi bảng chính đều có sort mặc định mới-trên-cũ-dư�
     });
   }
 
-  it('InventoryView: cả 2 tab đều có sort mặc định', () => {
+  it('InventoryView: chỉ còn tab thẻ kho có sort mặc định (đã bỏ tab tồn)', () => {
     const inv = read('components/inventory/InventoryView.tsx');
-    assert.match(inv, /toggleStockSort \} = useSortState\('sku', 'desc'\)/);
+    assert.ok(!/toggleStockSort/.test(inv), 'còn sort bảng tồn đã bỏ');
     assert.match(inv, /toggleMovSort \} = useSortState\('created_at', 'desc'\)/);
   });
 });

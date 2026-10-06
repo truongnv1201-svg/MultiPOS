@@ -37,7 +37,7 @@ import { STOCK_ADJUST_REASON_LABEL, type StockMovement } from '@/lib/types';
 
 export function InventoryView() {
   const { products, stockMovements, stockAdjustments, setCurrentScreen, setPosFlow, assignAdjustProject, refreshServerStockAdjustments, profile } = useStore();
-  const [activeTab, setActiveTab] = useState<'stocks' | 'movements' | 'adjustments'>('stocks');
+  const [activeTab, setActiveTab] = useState<'movements' | 'adjustments'>('movements');
   const [adjustOpen, setAdjustOpen] = useState(false);
   const canAdjust = !profile || profile.role === 'admin' || profile.role === 'manager';
 
@@ -45,26 +45,15 @@ export function InventoryView() {
   // của công trình (gán sau được, không trừ tồn thêm).
   const unassignedLosses = stockAdjustments.filter((a) => a.delta < 0 && !a.project_id);
 
-  // Stocks filter & pagination state
-  const [stockSearch, setStockSearch] = useState('');
-  const [stockStatusFilter, setStockStatusFilter] = useState<string>('all');
-  const [stockPage, setStockPage] = useState<number>(1);
-  const [stockPageSize, setStockPageSize] = useState<number>(25);
-
   // Movements filter & pagination state
   const [movementSearch, setMovementSearch] = useState('');
   const [movementTypeFilter, setMovementTypeFilter] = useState<string>('all');
   const [movementDateFilter, setMovementDateFilter] = useState<DateFilterState>({ preset: 'today' });
   const [movementPage, setMovementPage] = useState<number>(1);
   const [movementPageSize, setMovementPageSize] = useState<number>(25);
-  // Sắp xếp 2 bảng: bấm header để đảo chiều; đổi sort -> về trang 1.
+  // Sắp xếp bảng thẻ kho: bấm header để đảo chiều; đổi sort -> về trang 1.
   // Mặc định mới nhất lên trên (khớp thứ tự server) để không nháy khi dữ liệu về.
-  const { sortKey: stockSortKey, sortDir: stockSortDir, toggleSort: toggleStockSort } = useSortState('sku', 'desc');
   const { sortKey: movSortKey, sortDir: movSortDir, toggleSort: toggleMovSort } = useSortState('created_at', 'desc');
-  const handleStockSort = (key: string) => {
-    toggleStockSort(key);
-    setStockPage(1);
-  };
   const handleMovSort = (key: string) => {
     toggleMovSort(key);
     setMovementPage(1);
@@ -87,58 +76,6 @@ export function InventoryView() {
     if (type === 'export_sales') return { tone: 'blue', label: 'Xuất bán POS' };
     if (type === 'export_project') return { tone: 'amber', label: 'Vật tư công trình' };
     return { tone: 'purple', label: 'Nhập lại / Trả hàng' };
-  };
-
-  const handleExportStocks = () => {
-    if (sortedProducts.length === 0) {
-      notify('Không có dữ liệu để xuất!', 'error');
-      return;
-    }
-    exportToExcel('ton-kho', [
-      {
-        name: 'TonKho',
-        rows: sortedProducts.map((p) => ({
-          'Mã SKU': p.sku,
-          'Tên hàng': p.name,
-          'ĐVT': p.unit,
-          'Tồn kho': p.stock_quantity,
-          'Giá vốn BQ': Math.round(p.avg_cost),
-          'Nhập gần nhất': Math.round(p.import_price),
-          'Giá trị tồn': Math.round(p.stock_quantity * p.avg_cost),
-          'Tồn tối thiểu': p.min_stock ?? '',
-        })),
-      },
-    ]);
-  };
-
-  const handlePrintStocks = () => {
-    if (sortedProducts.length === 0) {
-      notify('Không có dữ liệu để in!', 'error');
-      return;
-    }
-    printTable({
-      title: 'Báo cáo tồn kho',
-      meta: [`${sortedProducts.length} mặt hàng`, `Tổng giá trị tồn: ${formatVND(totalInventoryValue)}`],
-      columns: [
-        { header: 'Mã SKU' },
-        { header: 'Tên hàng' },
-        { header: 'ĐVT', align: 'center' },
-        { header: 'Tồn kho', align: 'right' },
-        { header: 'Giá vốn BQ', align: 'right' },
-        { header: 'Nhập gần nhất', align: 'right' },
-        { header: 'Giá trị tồn', align: 'right' },
-      ],
-      rows: sortedProducts.slice(0, 1000).map((p) => [
-        p.sku,
-        p.name,
-        p.unit,
-        String(p.stock_quantity),
-        Math.round(p.avg_cost).toLocaleString('vi-VN'),
-        Math.round(p.import_price).toLocaleString('vi-VN'),
-        Math.round(p.stock_quantity * p.avg_cost).toLocaleString('vi-VN'),
-      ]),
-      footer: ['Tổng', '', '', '', '', '', Math.round(totalInventoryValue).toLocaleString('vi-VN')],
-    });
   };
 
   const handleExportMovements = () => {
@@ -275,45 +212,6 @@ export function InventoryView() {
     });
   };
 
-  // Filtered products
-  const filteredProducts = products.filter((p) => {
-    if (p.product_type === 'service') return false;
-    const matchesSearch =
-      p.name.toLowerCase().includes(stockSearch.toLowerCase()) ||
-      p.sku.toLowerCase().includes(stockSearch.toLowerCase());
-    let matchesStatus = true;
-    if (stockStatusFilter === 'low') matchesStatus = isLowStock(p);
-    else if (stockStatusFilter === 'out') matchesStatus = isOutOfStock(p);
-    else if (stockStatusFilter === 'in_stock') matchesStatus = stockStatus(p) === 'ok';
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Sorted products
-  const sortedProducts = (() => {
-    if (!stockSortKey) return filteredProducts;
-    const statusRank = (p: Product) => (isOutOfStock(p) ? 0 : isLowStock(p) ? 1 : 2);
-    const getters: Record<string, (p: Product) => unknown> = {
-      sku: (p) => p.sku,
-      name: (p) => p.name,
-      unit: (p) => p.unit,
-      stock_quantity: (p) => p.stock_quantity,
-      avg_cost: (p) => p.avg_cost,
-      import_price: (p) => p.import_price,
-      stock_value: (p) => p.stock_quantity * p.avg_cost,
-      status: (p) => statusRank(p),
-    };
-    const get = getters[stockSortKey];
-    if (!get) return filteredProducts;
-    return sortRows(filteredProducts, get, stockSortDir);
-  })();
-
-  // Paginated products
-  const paginatedProducts = (() => {
-    const start = (stockPage - 1) * stockPageSize;
-    return sortedProducts.slice(start, start + stockPageSize);
-  })();
-
   // Biến động kho từ server chỉ có product_id (bỏ JOIN products(name) để giảm payload),
   // nên tên sản phẩm tra ở đây từ catalog đang có trong bộ nhớ. Ưu tiên tên catalog để
   // luôn khớp với danh mục hiện tại; mục đã xoá mới rơi về nhãn dự phòng.
@@ -361,9 +259,6 @@ export function InventoryView() {
     return sortedMovements.slice(start, start + movementPageSize);
   })();
 
-  // Aggregate inventory values
-  const totalInventoryValue = products.reduce((sum, p) => sum + (p.stock_quantity > 0 ? p.stock_quantity * p.avg_cost : 0), 0);
-
   return (
     <div id="inventory-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
       <PageHeader
@@ -374,14 +269,13 @@ export function InventoryView() {
         actions={
           <>
             {/* Tab Switcher */}
-            <TabSwitcher<'stocks' | 'movements' | 'adjustments'>
+            <TabSwitcher<'movements' | 'adjustments'>
               active={activeTab}
               onChange={(key) => {
                 setActiveTab(key);
                 if (key === 'adjustments') void refreshServerStockAdjustments(true);
               }}
               options={[
-                { key: 'stocks', label: 'Tồn kho thực tế' },
                 { key: 'movements', label: 'Nhật ký Thẻ kho' },
                 {
                   key: 'adjustments',
@@ -393,7 +287,6 @@ export function InventoryView() {
             />
               {/* Nút phụ (Excel/In) trước, 2 nút hành động sau — cụm dồn về mép phải.
                   Kho có 2 nút chính (Điều chỉnh tồn / Tạo phiếu nhập) nên giữ thứ tự này. */}
-              {activeTab === 'stocks' && <TableTools onExportExcel={handleExportStocks} onPrint={handlePrintStocks} />}
               {activeTab === 'movements' && <TableTools onExportExcel={handleExportMovements} onPrint={handlePrintMovements} />}
               {activeTab === 'adjustments' && <TableTools onExportExcel={handleExportAdjustments} onPrint={handlePrintAdjustments} />}
               <AppButton
@@ -426,183 +319,7 @@ export function InventoryView() {
 
       {/* Main content body — khung cố định, chân bảng sát lề dưới (chuẩn các trang khác) */}
       <div className="flex-1 p-4 overflow-hidden min-h-0">
-        {activeTab === 'stocks' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full">
-            {/* Filter Bar */}
-            <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
-              <SearchInput
-                value={stockSearch}
-                onChange={(val) => {
-                  setStockSearch(val);
-                  setStockPage(1);
-                }}
-                placeholder="Tìm kiếm vật tư theo tên, mã SKU..."
-                minWidthClass="min-w-[200px]"
-              />
-
-              <FilterSelect
-                value={stockStatusFilter}
-                onChange={(val) => {
-                  setStockStatusFilter(val);
-                  setStockPage(1);
-                }}
-                options={[
-                  { value: 'all', label: 'Tất cả trạng thái kho' },
-                  { value: 'low', label: 'Cảnh báo tồn ít (≤ tồn tối thiểu)' },
-                  { value: 'out', label: 'Đã hết hàng (= 0)' },
-                  { value: 'in_stock', label: 'Còn nhiều hàng (trên tồn tối thiểu)' },
-                ]}
-              />
-            </div>
-
-            {/* Summary metrics strip */}
-            <SummaryStrip>
-              <span>
-                Tìm thấy <strong className="text-slate-900 font-mono">{filteredProducts.length}</strong> mặt hàng
-              </span>
-              <span>
-                Tổng giá trị tồn kho:{' '}
-                <strong className="font-mono text-blue-700 font-bold">{formatVND(totalInventoryValue)}</strong>
-              </span>
-            </SummaryStrip>
-
-            {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
-            <div id="stock-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
-              {paginatedProducts.length === 0 ? (
-                <ListEmpty>Không tìm thấy vật tư nào phù hợp với bộ lọc.</ListEmpty>
-              ) : (
-                paginatedProducts.map((p) => {
-                  const isLow = isLowStock(p);
-                  const isOut = isOutOfStock(p);
-                  const stockValue = p.stock_quantity * p.avg_cost;
-                  return (
-                    <div key={p.id} className="px-3 py-2.5 active:bg-slate-50">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-800 leading-snug">{p.name}</p>
-                          <p className="text-[10px] text-slate-500 font-mono">{p.sku} · {p.unit}</p>
-                        </div>
-                        {isOut ? (
-                          <StatusBadge tone="rose" className="shrink-0">Hết hàng</StatusBadge>
-                        ) : isLow ? (
-                          <StatusBadge tone="amber" className="shrink-0">Sắp hết</StatusBadge>
-                        ) : (
-                          <StatusBadge tone="emerald" weight="semibold" className="shrink-0">Đủ hàng</StatusBadge>
-                        )}
-                      </div>
-                      <div className="mt-1.5 flex items-end justify-between gap-2">
-                        <div className="text-[11px] text-slate-500 font-mono">
-                          <span className={isOut ? 'text-rose-600' : isLow ? 'text-amber-600' : 'text-slate-900'}>
-                            Tồn {formatQty(p.stock_quantity, p.product_type === 'area' || p.allow_decimal === true)}
-                          </span>
-                          {' · '}vốn BQ {formatVND(p.avg_cost)}
-                        </div>
-                        <span className="text-xs font-mono font-bold text-slate-900">{formatVND(stockValue)}</span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                  <SortableTh className="py-2.5 px-3" label="Mã SKU" sortKey="sku" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
-                  <SortableTh className="py-2.5 px-3" label="Tên hàng / Quy cách" sortKey="name" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
-                  <SortableTh className="py-2.5 px-3 text-center" label="ĐVT" sortKey="unit" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
-                  <SortableTh className="py-2.5 px-3 text-right" label="Số lượng tồn" sortKey="stock_quantity" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
-                  <SortableTh className="py-2.5 px-3 text-right" label="Giá vốn MAC" sortKey="avg_cost" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
-                  <SortableTh className="py-2.5 px-3 text-right" label="Nhập gần nhất" sortKey="import_price" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
-                  <SortableTh className="py-2.5 px-3 text-right" label="Giá trị tồn kho" sortKey="stock_value" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
-                  <SortableTh className="py-2.5 px-3 text-center" label="Tình trạng" sortKey="status" activeKey={stockSortKey} dir={stockSortDir} onSort={handleStockSort} />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paginatedProducts.length === 0 ? (
-                  <TableEmpty colSpan={8}>Không tìm thấy vật tư nào phù hợp với bộ lọc.</TableEmpty>
-                ) : (
-                  paginatedProducts.map((p) => {
-                    const isLow = isLowStock(p);
-                    const isOut = isOutOfStock(p);
-                    const stockValue = p.stock_quantity * p.avg_cost;
-                    return (
-                      <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{p.sku}</td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-800">{p.name}</td>
-                        <td className="py-2.5 px-3 text-center font-mono">{p.unit}</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-sm">
-                          <span
-                            className={
-                              isOut
-                                ? 'text-rose-600 font-extrabold'
-                                : isLow
-                                ? 'text-amber-600 font-bold'
-                                : 'text-slate-900'
-                            }
-                          >
-                            {p.stock_quantity}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-700">
-                          {formatVND(p.avg_cost)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono" title="Giá nhập kho lần gần nhất — so với vốn bình quân">
-                          {p.import_price > 0 ? (
-                            <>
-                              <div className="font-bold text-slate-800">{formatVND(p.import_price)}</div>
-                              {p.avg_cost > 0 && p.import_price !== p.avg_cost && (
-                                <div className={`text-[10px] font-bold ${p.import_price > p.avg_cost ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                  {p.import_price > p.avg_cost ? '▲' : '▼'}{' '}
-                                  {Math.abs(Math.round(((p.import_price - p.avg_cost) / p.avg_cost) * 100))}% vs vốn BQ
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-slate-300">—</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                          {formatVND(stockValue)}
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          {isOut ? (
-                            <StatusBadge tone="rose" icon={<AlertTriangle className="w-3 h-3" />}>
-                              Hết hàng
-                            </StatusBadge>
-                          ) : isLow ? (
-                            <StatusBadge tone="amber" icon={<AlertTriangle className="w-3 h-3" />}>
-                              Sắp hết (≤{minStockOf(p)})
-                            </StatusBadge>
-                          ) : (
-                            <StatusBadge tone="emerald" weight="semibold">
-                              Đủ hàng
-                            </StatusBadge>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-            </div>
-
-            {/* Pagination */}
-            <PaginationBar
-              currentPage={stockPage}
-              totalItems={filteredProducts.length}
-              pageSize={stockPageSize}
-              onPageChange={setStockPage}
-              onPageSizeChange={setStockPageSize}
-              itemName="vật tư"
-            />
-          </div>
-        )}
-
-          {/* Tab 2: Create Purchase Import Order */}
-          {/* Tab 3: Movements Audit Log (Thẻ kho) */}
+          {/* Điều chỉnh tồn + Nhật ký thẻ kho */}
           {activeTab === 'adjustments' && <StockAdjustTable />}
           {activeTab === 'movements' && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full">

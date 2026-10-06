@@ -224,10 +224,10 @@ describe('0064: điều chỉnh tồn / hao hụt', () => {
     assert.match(refresh[0], /select\('id, client_ref, code/);
   });
 
-  it('có nút in ấn + xuất Excel cho cả 3 tab của màn Kho', () => {
+  it('có nút in ấn + xuất Excel cho cả 2 tab còn lại của màn Kho', () => {
     const inv = read('components/inventory/InventoryView.tsx');
-    // 3 tab đều có TableTools (export + print)
-    for (const tab of ['stocks', 'movements', 'adjustments']) {
+    // 2 tab đều có TableTools (export + print)
+    for (const tab of ['movements', 'adjustments']) {
       assert.match(
         inv,
         new RegExp(`activeTab === '${tab}' && <TableTools`),

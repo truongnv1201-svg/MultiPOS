@@ -76,12 +76,11 @@ describe('min_stock: wiring UI', () => {
     }
   });
 
-  it('2 màn đều dùng helper dùng chung', () => {
-    for (const [name, src] of [['ProductsView', products], ['InventoryView', inventory]]) {
-      assert.match(src, /from '@\/lib\/stock'/);
-      assert.ok(/isLowStock\(p\)/.test(src), `${name} phải dùng isLowStock`);
-      assert.ok(/isOutOfStock\(p\)/.test(src), `${name} phải dùng isOutOfStock`);
-    }
+  it('Danh mục dùng helper dùng chung (tab tồn Kho đã bỏ)', () => {
+    assert.match(products, /from '@\/lib\/stock'/);
+    assert.ok(/isLowStock\(p\)/.test(products), 'ProductsView phải dùng isLowStock');
+    assert.ok(/isOutOfStock\(p\)/.test(products), 'ProductsView phải dùng isOutOfStock');
+    assert.ok(!/stock_quantity\s*<=\s*15/.test(inventory), 'InventoryView cấm so sánh cứng <= 15');
   });
 
   it('form thêm và form sửa đều có ô tồn tối thiểu', () => {

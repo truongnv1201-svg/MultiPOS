@@ -109,8 +109,7 @@ test.describe('POS mobile (live backend)', () => {
     // Kho: Alt+N là phân hệ bị chặn với cashier, admin đi qua menu phân hệ
     await page.keyboard.press('Alt+n');
     await expect(page.locator('#inventory-view')).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator('#stock-record-list')).toBeVisible();
-    await expect(page.locator('#stock-record-list table')).toHaveCount(0);
+    await expect(page.locator('#movement-record-list')).toBeVisible();
 
     // NCC: Alt+K
     await page.keyboard.press('Alt+k');
