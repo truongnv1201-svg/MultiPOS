@@ -498,3 +498,24 @@ describe('0071: ghi chú phiếu nhập đồng bộ 2 máy', () => {
     assert.match(shift, /note: note\.trim\(\) \|\| undefined,/);
   });
 });
+
+describe('0072: thẻ kho tự gắn loại đúng (khỏi đoán regex)', () => {
+  const sql = read('supabase/migrations/0072_movement_auto_classify.sql');
+
+  it('tồn tại migration 0072', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0072_movement_auto_classify.sql')));
+  });
+
+  it('trigger gắn loại theo mã phiếu + dấu số lượng, tôn trọng loại đã có', () => {
+    assert.match(sql, /if NEW\.movement_type is not null then/);
+    assert.match(sql, /when NEW\.reference_code like 'NH-%' then 'import'/);
+    assert.match(sql, /when NEW\.reference_code like 'CT-%' then 'export_project'/);
+    assert.match(sql, /when NEW\.reference_code like 'HD-%'/);
+    assert.match(sql, /create trigger trg_stock_movements_classify/);
+    assert.match(sql, /before insert on public\.stock_movements/);
+  });
+
+  it('backfill cùng luật cho dòng cũ NULL, không đụng dòng đã có loại', () => {
+    assert.match(sql, /where movement_type is null/);
+  });
+});
