@@ -581,6 +581,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         total: roundMoney(totalAmount),
         paid: paidAmount,
         debt: debtAmount,
+        note: note.trim() || undefined,
         lines: clean.map((l) => {
           const p = products.find((x) => x.id === l.productId);
           return { productId: l.productId, sku: p?.sku || '', quantity: l.quantity, importPrice: l.importPrice };

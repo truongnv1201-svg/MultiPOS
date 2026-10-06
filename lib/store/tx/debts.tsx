@@ -212,6 +212,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       total: number;
       paid?: number;
       debt?: number;
+      note?: string;
       lines: { productId: string; sku: string; quantity: number; importPrice: number }[];
     };
     type VoucherPayload = {
@@ -313,6 +314,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
             p_total: roundMoney(total),
             p_paid: roundMoney(paid),
             p_debt: roundMoney(debt),
+            p_note: p.note || null,
           });
           if (result.error) throw new Error(result.error.message);
           const response = result.data as RpcResult;

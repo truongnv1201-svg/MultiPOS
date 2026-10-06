@@ -465,3 +465,36 @@ describe('0066: xoá dự án tạo nhầm (delete_project)', () => {
     assert.match(view, /\{canDeleteProject && \(/);
   });
 });
+
+describe('0071: ghi chú phiếu nhập đồng bộ 2 máy', () => {
+  const sql = read('supabase/migrations/0071_import_note.sql');
+
+  it('tồn tại migration 0071', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0071_import_note.sql')));
+  });
+
+  it('thêm cột note cho phiếu nhập + param p_note (default null, client cũ vẫn chạy)', () => {
+    assert.match(sql, /alter table public\.purchase_orders add column if not exists note text/);
+    assert.match(sql, /p_note text default null/);
+    assert.match(sql, /drop function if exists public\.sync_stock_import\(text, text, uuid, text, jsonb, numeric, numeric, numeric\)/);
+  });
+
+  it('lưu note vào phiếu + thẻ kho (mọi máy đều thấy ở Thẻ kho)', () => {
+    assert.match(sql, /insert into public\.purchase_orders \(code, supplier_id, subtotal, discount_amount, total_amount, paid_amount, debt_amount, status, client_ref, note\)/);
+    assert.match(sql, /- Ghi chú: ' \|\| v_note/);
+    assert.match(sql, /grant execute on function public\.sync_stock_import\(text, text, uuid, text, jsonb, numeric, numeric, numeric, text\) to authenticated/);
+  });
+
+  it('dòng thẻ kho do hàm này sinh gắn loại import thật (khỏi đoán bằng note)', () => {
+    assert.match(sql, /insert into public\.stock_movements \(reference_code, product_id, quantity, previous_stock, new_stock, note, movement_type\)/);
+    assert.match(sql, /'import'\)/);
+  });
+
+  it('client gửi note theo hàng đợi replay + lưu local', () => {
+    const debts = read('lib/store/tx/debts.tsx');
+    assert.match(debts, /note\?: string;/);
+    assert.match(debts, /p_note: p\.note \|\| null,/);
+    const shift = read('lib/store/tx/shift-stock.tsx');
+    assert.match(shift, /note: note\.trim\(\) \|\| undefined,/);
+  });
+});
