@@ -498,7 +498,7 @@ describe('0071: ghi chú phiếu nhập đồng bộ 2 máy', () => {
     assert.match(sql, /drop function if exists public\.sync_stock_import\(text, text, uuid, text, jsonb, numeric, numeric, numeric\)/);
   });
 
-  it('lưu note vào phiếu + thẻ kho (mọi máy đều thấy ở Thẻ kho)', () => {
+  it('lưu note vào phiếu (file 0071 lịch sử; từ 0074 thẻ kho không còn note)', () => {
     assert.match(sql, /insert into public\.purchase_orders \(code, supplier_id, subtotal, discount_amount, total_amount, paid_amount, debt_amount, status, client_ref, note\)/);
     assert.match(sql, /- Ghi chú: ' \|\| v_note/);
     assert.match(sql, /grant execute on function public\.sync_stock_import\(text, text, uuid, text, jsonb, numeric, numeric, numeric, text\) to authenticated/);
@@ -577,5 +577,35 @@ describe('0073: server đánh số phiếu NH/PQ như HD', () => {
     const projects = read('lib/store/tx/projects.tsx');
     assert.match(projects, /const fallbackCode = nextDailyCode\(/);
     assert.match(projects, /const code = typeof serverCode === 'string' && serverCode \? serverCode : fallbackCode;/);
+  });
+});
+
+describe('0074: ghi chú phiếu nhập khỏi dòng thẻ kho', () => {
+  const sql = read('supabase/migrations/0074_import_note_off_movements.sql');
+
+  it('tồn tại migration 0074', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0074_import_note_off_movements.sql')));
+  });
+
+  it('giữ nguyên signature RPC (client cũ không gãy), note vẫn lưu ở phiếu', () => {
+    assert.match(sql, /create or replace function public\.sync_stock_import\(\s*p_client_ref text,\s*p_code text,/);
+    assert.match(sql, /p_note text default null/);
+    assert.match(sql, /insert into public\.purchase_orders \(code, supplier_id, subtotal, discount_amount, total_amount, paid_amount, debt_amount, status, client_ref, note\)/);
+    assert.match(sql, /grant execute on function public\.sync_stock_import\(text, text, uuid, text, jsonb, numeric, numeric, numeric, text\) to authenticated/);
+  });
+
+  it('dòng thẻ kho không còn ghi chú phiếu, vẫn giữ NCC + MAC + loại import', () => {
+    assert.ok(!/- Ghi chú: ' \|\| v_note/.test(sql), 'còn chép ghi chú vào thẻ kho');
+    assert.match(sql, /'Nhập kho \(' \|\| v_sup_name \|\| '\)' \|\|/);
+    assert.match(sql, /' - MAC: ' \|\| v_avg::text \|\| ' -> ' \|\| v_new_avg::text/);
+    assert.match(sql, /'import'\)/);
+  });
+
+  it('client + trang đơn nhập: note ở phiếu, khỏi thẻ kho', () => {
+    const shift = read('lib/store/tx/shift-stock.tsx');
+    assert.match(shift, /note: `Nhập kho \(\$\{resolvedSupplierName\}\) - MAC:/);
+    assert.match(shift, /note: note\.trim\(\) \|\| undefined,/);
+    const view = read('components/imports/ImportsView.tsx');
+    assert.match(view, /selectedPo\.note &&/);
   });
 });

@@ -529,7 +529,9 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           quantity: l.quantity,
           previous_stock: prevStock,
           new_stock: newStock,
-          note: `${note} (${resolvedSupplierName}) - MAC: ${prevCost.toLocaleString('vi-VN')}đ -> ${newAvgCost.toLocaleString('vi-VN')}đ`,
+          // Ghi chú phiếu KHÔNG đưa vào thẻ kho (xem trang Quản lý Đơn nhập) —
+          // chỉ giữ NCC + MAC để truy vết giá vốn.
+          note: `Nhập kho (${resolvedSupplierName}) - MAC: ${prevCost.toLocaleString('vi-VN')}đ -> ${newAvgCost.toLocaleString('vi-VN')}đ`,
           created_at: now,
         });
       }
