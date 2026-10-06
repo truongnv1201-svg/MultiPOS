@@ -245,7 +245,6 @@ export function useTxCart(): TxCart {
       tendered_amount: 0,
       payment_method: shop.defaultPayment ?? 'cash',
       note: '',
-      is_deposit_mode: false,
       client_ref: undefined,
     });
   }, [updateActiveTab, shop.defaultVat, shop.defaultPayment]);

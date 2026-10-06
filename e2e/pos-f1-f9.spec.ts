@@ -67,9 +67,5 @@ test.describe('POS: phím tắt F1 / F9', () => {
     const tendered = await page.locator('#f9-tendered-input').inputValue();
     expect(digits(tendered)).toBe(digits(payableText));
     expect(digits(tendered).length).toBeGreaterThan(0);
-
-    // 6) Dọn giỏ (local) để trả màn hình sạch
-    await page.click('#btn-pos-clear-cart');
-    await expect(page.locator('#cart-table-container tbody tr')).toHaveCount(0);
   });
 });

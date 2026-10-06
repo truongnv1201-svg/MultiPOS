@@ -62,7 +62,6 @@ export function POSScreen() {
     addItemToCart,
     updateCartItem,
     removeCartItem,
-    clearActiveCart,
     setDimensionModalItem,
     dimensionModalItem,
     receiptModalOrder,
@@ -497,35 +496,7 @@ export function POSScreen() {
     }
   }, [activeCart.items.length, activeCart.customer_id, activeCart.payment_method, activeCart.tendered_amount, calculatedTotals.payable, checkoutActiveOrder]);
 
-  const handleDepositOrder = useCallback(async () => {
-    if (activeCart.items.length === 0) {
-      notify('Giỏ hàng chưa có sản phẩm nào để nhận cọc!', 'error');
-      return;
-    }
-    const depositAmount = activeCart.tendered_amount;
-    if (!depositAmount || depositAmount <= 0) {
-      notify('Vui lòng nhập Số tiền cọc khách đưa (F9) trước khi tạo đơn Đặt hàng / Nhận cọc!', 'error');
-      tenderedInputRef.current?.focus();
-      return;
-    }
-    // Đơn cọc luôn còn phần phải thu -> cũng bắt buộc có hồ sơ KH
-    if (!activeCart.customer_id) {
-      notify('Đơn đặt hàng / nhận cọc bắt buộc phải có hồ sơ khách hàng! Vui lòng chọn hoặc thêm khách hàng (F4).', 'error');
-      customerInputRef.current?.focus();
-      customerInputRef.current?.select();
-      return;
-    }
-    setIsProcessing(true);
-    try {
-      await checkoutActiveOrder(true);
-    } catch (err: any) {
-      notify(`Lỗi tạo đơn cọc: ${vietnamizeError(err)}`, 'error');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [activeCart.items.length, activeCart.tendered_amount, activeCart.customer_id, checkoutActiveOrder]);
-
-  // Keyboard shortcut listener for POS (ma trận SRS §4.4: F3–F10, Ctrl+F9)
+  // Keyboard shortcut listener for POS (ma trận SRS §4.4: F3–F10)
   // F2 là phím toàn cục về màn Bán hàng (xử lý ở GlobalHeader, chung với nút BÁN HÀNG),
   // nên POS không giữ handler F2 riêng (trước đây F2 đổi chế độ Thẻ/Nhanh đã bỏ).
   useEffect(() => {
@@ -638,13 +609,6 @@ export function POSScreen() {
         return;
       }
 
-      // Ctrl + F9: Deposit Order Mode
-      if (e.ctrlKey && e.key === 'F9') {
-        e.preventDefault();
-        handleDepositOrder();
-        return;
-      }
-
       // F10: Checkout
       if (e.key === 'F10') {
         e.preventDefault();
@@ -657,7 +621,7 @@ export function POSScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
     // Gỡ dimensionModalItem/receiptModalOrder/shiftModalOpen khỏi deps: guard giờ đọc DOM
     // lúc phím bấm nên không cần đăng ký lại listener khi các modal đó mở/đóng.
-  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, handleDepositOrder, posFlow, impPaymentMethod, impTotal, handleImportCommit, handleProjectExportCommit, calculatedTotals.payable, updateActiveTab, impLines, projLines, products, openStockAreaModal]);
+  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, posFlow, impPaymentMethod, impTotal, handleImportCommit, handleProjectExportCommit, calculatedTotals.payable, updateActiveTab, impLines, projLines, products, openStockAreaModal]);
 
   // Khách lẻ tại quầy: một mục CHỌN ĐƯỢC trong danh sách gợi ý (id sentinel riêng,
   // không phải bản ghi DB — tránh trùng lặp giữa các máy, nhiễu báo cáo "Phải thu KH"
@@ -2222,33 +2186,6 @@ export function POSScreen() {
               )}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            {/* Ctrl + F9: Deposit / Pre-order */}
-            <button
-              id="btn-pos-deposit"
-              type="button"
-              disabled={isProcessing || activeCart.items.length === 0 || currentShift.status !== 'open' || needLogin}
-              onClick={handleDepositOrder}
-              className="w-full py-2.5 px-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-lg shadow-sm flex flex-col items-center justify-center transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-1 text-[11px]">
-                <span>ĐẶT HÀNG / CỌC</span>
-              </div>
-              <span className="text-[10px] font-mono text-slate-900 font-semibold">[Ctrl + F9]</span>
-            </button>
-
-            {/* Clear Cart */}
-            <button
-              id="btn-pos-clear-cart"
-              type="button"
-              onClick={clearActiveCart}
-              className="w-full py-2.5 px-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Xóa giỏ (Esc)</span>
-            </button>
-          </div>
-
           {/* F10: Main Checkout Button */}
           <button
             id="btn-pos-checkout"

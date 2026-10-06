@@ -12,6 +12,34 @@ import { join } from 'node:path';
 const ROOT = join(import.meta.dirname, '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
+describe('POS: đã bỏ đặt cọc + xóa giỏ thủ công (chỉ còn THANH TOÁN)', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+
+  it('không còn nút Đặt hàng/Cọc, nút Xóa giỏ, phím Ctrl+F9', () => {
+    assert.doesNotMatch(pos, /btn-pos-deposit/);
+    assert.doesNotMatch(pos, /btn-pos-clear-cart/);
+    assert.doesNotMatch(pos, /handleDepositOrder/);
+    assert.doesNotMatch(pos, /ĐẶT HÀNG \/ CỌC/);
+    assert.doesNotMatch(pos, /Xóa giỏ \(Esc\)/);
+  });
+
+  it('không còn cờ is_deposit_mode chết', () => {
+    assert.doesNotMatch(pos, /is_deposit_mode/);
+    const types = read('lib/store/types.ts');
+    assert.doesNotMatch(types, /is_deposit_mode/);
+    const cart = read('lib/store/cart.ts');
+    assert.doesNotMatch(cart, /is_deposit_mode/);
+    const txCart = read('lib/store/tx/cart.tsx');
+    assert.doesNotMatch(txCart, /is_deposit_mode/);
+  });
+
+  it('đơn cọc CŨ vẫn hiển thị/xử lý được (giữ status + badge + trả/hủy)', () => {
+    const orders = read('components/orders/OrdersView.tsx');
+    assert.match(orders, /deposit_order: 'Đặt hàng \/ Nhận cọc'/);
+    assert.match(orders, /ord\.status === 'deposit_order'/);
+  });
+});
+
 describe('nhập kho: ô tiền trả NCC như bán lẻ (thiếu tự nợ, trống = trả đủ)', () => {
   const pos = read('components/pos/POSScreen.tsx');
 

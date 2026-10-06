@@ -16,5 +16,4 @@ export const DEFAULT_TAB: CartTab = {
   tendered_amount: 0,
   payment_method: 'cash',
   note: '',
-  is_deposit_mode: false,
 };
