@@ -108,8 +108,24 @@ describe('0053: supplier debt guard', () => {
     assert.match(debts, /if \(debt > 0 && !serverSupplierId\) \{/);
     assert.match(shiftStock, /const importQueued = await enqueueOp\('import'/);
     assert.match(shiftStock, /roundMoney/);
-    assert.match(database, /generateImportCode/);
+    assert.doesNotMatch(database, /generateImportCode|generateAdjustCode/);
     assert.match(store, /storedSuppliers/);
+  });
+
+  it('mã phiếu NH/PQ nối tiếp từ max local + server (khỏi hậu tố random)', () => {
+    const shiftStock = read('lib/store/tx/shift-stock.tsx');
+    assert.match(shiftStock, /nextDailyCode\(\[\.\.\.localCodes, \.\.\.serverCodes\], 'NH', stamp\)/);
+    assert.match(shiftStock, /from\('purchase_orders'\)/);
+    const projects = read('lib/store/tx/projects.tsx');
+    assert.match(projects, /nextDailyCode\(\s*\[\.\.\.stockAdjustments\.map\(\(a\) => a\.code\), \.\.\.serverCodes\],\s*'PQ',\s*stamp\s*\)/);
+    assert.doesNotMatch(shiftStock, /const refCode = generateImportCode\(\)/);
+  });
+
+  it('trùng mã NH thì đánh số lại + gửi lại (giữ client_ref), tối đa 3 lần', () => {
+    const debts = read('lib/store/tx/debts.tsx');
+    assert.match(debts, /Mã phiếu nhập đã tồn tại/);
+    assert.match(debts, /nextDailyCode\(\[code, \.\.\.localCodes, \.\.\.serverCodes\], 'NH', stamp\)/);
+    assert.match(debts, /pendingOps\.update\(op\.id, \{ payload: \{ \.\.\.p, code: bumped \} \}\)/);
   });
 });
 

@@ -165,16 +165,9 @@ export function generateOrderCode(prefix: 'HD' | 'TH' | 'NH' | 'CT' | 'PQ' | 'PT
   return `${prefix}-${yy}${mm}${dd}-${String(orderSeq).padStart(4, '0')}`;
 }
 
-export function generateImportCode(): string {
-  return `${generateOrderCode('NH')}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-// 0064: mã phiếu điều chỉnh tồn (hao hụt / đếm thừa). Prefix "PQ" đã có sẵn trong
-// union nên không phải mở rộng bảng mã; phân biệt với NH- (nhập) và CT- (công trình)
-// nhờ hậu tố ngẫu nhiên + cột movement_type trên thẻ kho.
-export function generateAdjustCode(): string {
-  return `${generateOrderCode('PQ')}-${Math.random().toString(36).slice(2, 6)}`;
-}
+// Hàm sinh mã NH/PQ cũ (hậu tố random) ĐÃ XÓA: mã xấu lại vẫn trùng khi 2 máy
+// cùng số — giờ dùng nextDailyCode (lib/codes.ts) với max local + max server.
+// Xem importStockBatch (shift-stock) và adjustStock (projects).
 
 export function generateMasterCode(prefix: string = 'SP', length: number = 6): string {
   masterSeq += 1;

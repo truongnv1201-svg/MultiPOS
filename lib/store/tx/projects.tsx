@@ -16,7 +16,8 @@ import type {
   StockMovement,
 } from '../../types';
 import { STOCK_ADJUST_REASON_LABEL } from '../../types';
-import { db, generateOrderCode, generateAdjustCode } from '../../db';
+import { db, generateOrderCode } from '../../db';
+import { dailyCodeStamp, nextDailyCode } from '../../codes';
 import { cacheKeys, mirrorUpsert } from './mirror';
 import { asUuidOrNull } from './constants';
 import { stableNext } from '../stable';
@@ -692,7 +693,26 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       }
 
       const project = options?.projectId ? projects.find((p) => p.id === options.projectId) : null;
-      const code = generateAdjustCode();
+      // Mã phiếu PQ-YYMMDD-NNNN nối tiếp (lib/codes.ts): max local (đã kéo) + max server
+      // để 2 máy không trùng số đầu ngày. Mã cọc không unique phía server nên khỏi retry.
+      const stamp = dailyCodeStamp();
+      let serverCodes: string[] = [];
+      try {
+        const { data } = await supa
+          .from('stock_adjustments')
+          .select('code')
+          .like('code', `PQ-${stamp}-%`)
+          .order('code', { ascending: false })
+          .limit(5);
+        serverCodes = ((data as any[]) || []).map((r) => String(r.code || ''));
+      } catch {
+        /* offline-first: rớt mạng thì dùng local (hàm này vốn đã cần mạng) */
+      }
+      const code = nextDailyCode(
+        [...stockAdjustments.map((a) => a.code), ...serverCodes],
+        'PQ',
+        stamp
+      );
       const rpcProjectId = project ? project.server_id || project.id : null;
 
       // clientRef khớp 1-1 với dòng audit server -> server bỏ qua dòng đã ghi (bấm Ghi 2
@@ -835,7 +855,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         lossAmount: adjustments.reduce((s, a) => s + a.loss_amount, 0),
       };
     },
-    [supa, user, profile, isOnline, products, projects, setProducts, setStockMovements, setLoginOpen]
+    [supa, user, profile, isOnline, products, projects, stockAdjustments, setProducts, setStockMovements, setLoginOpen]
   );
 
   // Gán bổ sung công trình cho một khoản hao hụt đã ghi "chưa gán" — KHÔNG đụng tồn kho.

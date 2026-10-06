@@ -8,7 +8,8 @@ import { useAuth } from '../auth';
 import { useCatalog } from '../catalog';
 import { useNetwork } from '../network';
 import type { CashbookEntry, Order, PurchaseOrder, Shift, StockMovement } from '../../types';
-import { db, generateImportCode, generateOrderCode } from '../../db';
+import { db, generateOrderCode } from '../../db';
+import { dailyCodeStamp, nextDailyCode } from '../../codes';
 import { cacheKeys, mirrorUpsert } from './mirror';
 import { enqueueOp, EMPTY_SHIFT, resolveSupplierReference, roundMoney } from './constants';
 import { previewImportAvg } from '../../costing';
@@ -476,7 +477,25 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         notify('Phiếu nhập chưa có dòng hàng hợp lệ (chọn hàng, SL và đơn giá > 0)!', 'error');
         return false;
       }
-      const refCode = generateImportCode();
+      // Mã phiếu NH-YYMMDD-NNNN nối tiếp (lib/codes.ts): max local Dexie + max server
+      // (phiếu máy khác) để 2 máy không trùng số đầu ngày. Offline: chỉ local.
+      const stamp = dailyCodeStamp();
+      const localCodes = (await db.purchaseOrders.toArray().catch(() => [])).map((r) => r.code);
+      let serverCodes: string[] = [];
+      if (supa && user && isOnline) {
+        try {
+          const { data } = await supa
+            .from('purchase_orders')
+            .select('code')
+            .like('code', `NH-${stamp}-%`)
+            .order('code', { ascending: false })
+            .limit(5);
+          serverCodes = ((data as any[]) || []).map((r) => String(r.code || ''));
+        } catch {
+          /* offline-first: rớt mạng thì dùng local, server giữ trùng bằng unique */
+        }
+      }
+      const refCode = nextDailyCode([...localCodes, ...serverCodes], 'NH', stamp);
       const now = new Date().toISOString();
 
       const paymentMethod = paymentOptions?.paymentMethod || 'transfer';
@@ -651,7 +670,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       return true;
     },
     // enqueueOp là hàm module-scope (constants) nên không đưa vào deps (tránh warning exhaustive-deps).
-    [products, suppliers, supa, profile, currentShift, setProducts, setSuppliers, setStockMovements, setCashbook, syncPendingOpsRef]
+    [products, suppliers, supa, user, isOnline, profile, currentShift, setProducts, setSuppliers, setStockMovements, setCashbook, syncPendingOpsRef]
   );
 
   return {

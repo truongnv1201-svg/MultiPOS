@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { maxSpNumber, maxCodeNumber } from '../lib/codes.ts';
+import { maxSpNumber, maxCodeNumber, nextDailyCode, dailyCodeStamp } from '../lib/codes.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
@@ -29,6 +29,31 @@ describe('maxCodeNumber (dùng chung SP/KH/NCC)', () => {
     assert.equal(maxCodeNumber(['KH0001', 'KH0003', 'KH0004'], 'KH'), 4);
     assert.equal(maxCodeNumber(['NCC0002'], 'NCC'), 2);
     assert.equal(maxCodeNumber([], 'KH'), 0);
+  });
+});
+
+describe('nextDailyCode (mã phiếu NH/PQ nối tiếp theo ngày)', () => {
+  it('ngày mới bắt đầu 0001', () => {
+    assert.equal(nextDailyCode([], 'NH', '261006'), 'NH-261006-0001');
+  });
+
+  it('nối tiếp số lớn nhất cùng ngày, khác ngày bỏ qua', () => {
+    assert.equal(
+      nextDailyCode(['NH-261006-0001', 'NH-261006-0005', 'NH-261005-0009'], 'NH', '261006'),
+      'NH-261006-0006'
+    );
+  });
+
+  it('đọc được mã cũ có hậu tố random (không lùi số)', () => {
+    assert.equal(nextDailyCode(['NH-261006-0011-20yvhe'], 'NH', '261006'), 'NH-261006-0012');
+  });
+
+  it('khác prefix không lẫn nhau, sai định dạng bỏ qua', () => {
+    assert.equal(nextDailyCode(['PQ-261006-0003', 'nh-261006-xx', ''], 'NH', '261006'), 'NH-261006-0001');
+  });
+
+  it('dailyCodeStamp ra YYMMDD giờ local', () => {
+    assert.match(dailyCodeStamp(new Date(2026, 9, 6)), /^261006$/);
   });
 });
 

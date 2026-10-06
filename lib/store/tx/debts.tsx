@@ -9,6 +9,7 @@ import type { CashbookEntry, Shift } from '../../types';
 import { db, generateOrderCode } from '../../db';
 import type { PendingOp } from '../../db';
 import { asUuidOrNull, enqueueOp, normalizeSupplierName, resolveSupplierReference, roundMoney } from './constants';
+import { dailyCodeStamp, nextDailyCode } from '../../codes';
 import type { SupplierReference } from './constants';
 import { vietnamizeError } from '../../error-vi';
 import { notify } from '@/components/common/Toast';
@@ -300,28 +301,58 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
             await holdOp(op, `Phiếu nhập ${p.code} đang chờ đồng bộ nhà cung cấp "${p.supplierName}".`);
             continue;
           }
-          const result = await supa.rpc('sync_stock_import', {
-            p_client_ref: p.clientRef,
-            p_code: p.code,
-            p_supplier_id: serverSupplierId,
-            p_supplier_name: supplier?.name || p.supplierName,
-            p_lines: p.lines.map((l) => ({
-              sku: l.sku,
-              product_id: asUuidOrNull(l.productId),
-              quantity: l.quantity,
-              import_price: l.importPrice,
-            })),
-            p_total: roundMoney(total),
-            p_paid: roundMoney(paid),
-            p_debt: roundMoney(debt),
-            p_note: p.note || null,
-          });
+          const callImport = (code: string) =>
+            supa.rpc('sync_stock_import', {
+              p_client_ref: p.clientRef,
+              p_code: code,
+              p_supplier_id: serverSupplierId,
+              p_supplier_name: supplier?.name || p.supplierName,
+              p_lines: p.lines.map((l) => ({
+                sku: l.sku,
+                product_id: asUuidOrNull(l.productId),
+                quantity: l.quantity,
+                import_price: l.importPrice,
+              })),
+              p_total: roundMoney(total),
+              p_paid: roundMoney(paid),
+              p_debt: roundMoney(debt),
+              p_note: p.note || null,
+            });
+          let code = p.code;
+          let result = await callImport(code);
+          // Mã NH nối tiếp đẹp nhưng 2 máy có thể trùng số đầu ngày -> server từ chối
+          // 'Mã phiếu nhập đã tồn tại': đánh số lại rồi gửi lại (GIỮ NGUYÊN client_ref
+          // vì lần trước đã rollback; nếu lần trước thực ra đã ghi thì server trả
+          // duplicate và coi như xong). Tối đa 3 lần để khỏi lặp vô hạn.
+          for (let attempt = 0; attempt < 3; attempt++) {
+            if (!/Mã phiếu nhập đã tồn tại/.test(result.error?.message || '')) break;
+            const stamp = dailyCodeStamp();
+            let serverCodes: string[] = [];
+            try {
+              const { data } = await supa
+                .from('purchase_orders')
+                .select('code')
+                .like('code', `NH-${stamp}-%`)
+                .order('code', { ascending: false })
+                .limit(5);
+              serverCodes = ((data as any[]) || []).map((r) => String(r.code || ''));
+            } catch {
+              break;
+            }
+            const localCodes = (await db.purchaseOrders.toArray().catch(() => [])).map((r) => r.code);
+            const bumped = nextDailyCode([code, ...localCodes, ...serverCodes], 'NH', stamp);
+            if (bumped === code) break;
+            await db.purchaseOrders.where('code').equals(code).modify({ code: bumped }).catch(() => {});
+            await db.pendingOps.update(op.id, { payload: { ...p, code: bumped } }).catch(() => {});
+            code = bumped;
+            result = await callImport(code);
+          }
           if (result.error) throw new Error(result.error.message);
           const response = result.data as RpcResult;
           if (response?.ok === false || (response?.imported === false && response?.duplicate !== true)) {
             throw new Error('Server không nhận phiếu nhập.');
           }
-          completedImportCodes.add(p.code);
+          completedImportCodes.add(code);
           if (serverSupplierId) await mirrorSupplierDebt(supplier, serverSupplierId);
           else void refreshCatalog();
         } else if (op.kind === 'voucher') {
