@@ -56,15 +56,6 @@ body {
   }
 }
 
-/* Màn hình desktop/POS để bàn (21–25"): tăng 1 nấc cỡ chữ toàn app.
-   Tailwind dùng rem nên tăng font-size gốc là mọi chữ + khoảng cách
-   to đều theo (16px -> 18px ≈ đúng 1 size). Mobile/tablet giữ nguyên. */
-@media (min-width: 1024px) {
-  html {
-    font-size: 18px;
-  }
-}
-
 /* HRM: scrollbar mảnh cho ma trận chấm công */
 .hrm-matrix::-webkit-scrollbar {
   height: 10px;

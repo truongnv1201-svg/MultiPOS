@@ -1661,7 +1661,15 @@ export function POSScreen() {
                 onChange={(e) => {
                   handleMoneyInputChange(e, (num) => setImpTendered(num));
                 }}
+                onKeyDown={(e) => {
+                  // Nhấn "=" tự điền đủ tiền cả phiếu (thay nút Đủ tiền)
+                  if (e.key === '=') {
+                    e.preventDefault();
+                    setImpTendered(impTotal);
+                  }
+                }}
                 placeholder="0"
+                title="Nhập số tiền trả NCC — nhấn = để điền đủ cả phiếu"
                 className="w-full h-9 px-3 text-right font-mono font-bold text-base text-blue-700 bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
               />
             </div>

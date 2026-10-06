@@ -15,13 +15,17 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 describe('nhập kho: ô tiền trả NCC như bán lẻ (thiếu tự nợ, trống = trả đủ)', () => {
   const pos = read('components/pos/POSScreen.tsx');
 
-  it('có ô Tiền trả NCC, bỏ nút Đủ tiền và hỗ trợ F9 hai nhịp', () => {
+  it('có ô Tiền trả NCC, bỏ nút Đủ tiền và hỗ trợ F9 hai nhịp + phím "="', () => {
     assert.match(pos, /id="imp-tendered-input"/);
     assert.match(pos, /ref=\{impTenderedInputRef\}/);
     assert.match(pos, /if \(e\.key === 'F9' && !e\.ctrlKey && impPaymentMethod !== 'debt'\)[\s\S]*?document\.activeElement === input[\s\S]*?setImpTendered\(impTotal\)[\s\S]*?input\?\.focus\(\)[\s\S]*?input\?\.select\(\)/);
     assert.match(pos, /<kbd className="px-1 rounded bg-slate-100 text-\[9px\] font-mono text-slate-500">F9<\/kbd>/);
+    assert.match(pos, /if \(e\.key === '='\) \{[\s\S]{0,120}setImpTendered\(impTotal\)/);
     assert.doesNotMatch(pos, /onClick=\{\(\) => setImpTendered\(impTotal\)\}/);
     assert.doesNotMatch(pos, /setImpPaymentMethod\('partial'\)/);
+    // Khối tiền nhập không chứa nút bấm nào (bên bán vẫn giữ nút Đủ tiền riêng)
+    const block = pos.slice(pos.indexOf('imp-tendered-input'), pos.indexOf('Note Input'));
+    assert.ok(!/<button/.test(block), 'khối nhập tiền trả NCC còn sót nút bấm');
   });
 
   it('ô trống = trả đủ cả phiếu (giữ hành vi cũ, mobile không ô nhập vẫn đúng)', () => {
