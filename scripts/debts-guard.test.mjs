@@ -52,4 +52,13 @@ describe('cong no: man hinh dang ky du', () => {
     const sup = read('components/suppliers/SuppliersView.tsx');
     assert.match(sup, /const isAddModalOpen = addOpen \?\? internalAddOpen;/);
   });
+
+  it('khong con nut Dong bo no tay (realtime + poll + boot da keo current_debt/debt_limit)', () => {
+    const cus = read('components/customers/CustomersView.tsx');
+    assert.ok(!/Đồng bộ nợ/.test(cus), 'đã bỏ nút bấm tay');
+    assert.ok(!/syncDebtsFromServer/.test(cus), 'view không gọi sync tay nữa');
+    const catalog = read('lib/store/catalog.tsx');
+    assert.match(catalog, /current_debt: Number\(row\.current_debt\) \|\| 0/);
+    assert.match(catalog, /debt_limit: Number\(row\.debt_limit\) \|\| 0/);
+  });
 });

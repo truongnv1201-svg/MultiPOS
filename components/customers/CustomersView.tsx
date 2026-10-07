@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { Customer } from '@/lib/types';
 import { formatVND } from '@/lib/format';
-import { Users, Plus, DollarSign, History, AlertCircle, CheckCircle2, Phone, MapPin, Filter, RefreshCw, Edit2, Trash2, X, HandCoins, UserPlus } from 'lucide-react';
+import { Users, Plus, DollarSign, History, AlertCircle, CheckCircle2, Phone, MapPin, Filter, Edit2, Trash2, X, HandCoins, UserPlus } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
@@ -22,21 +22,7 @@ import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 
 export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
-  const { customers, orders, addCustomer, updateCustomer, deleteCustomer, collectDebt, syncDebtsFromServer } = useStore();
-  const [syncingDebt, setSyncingDebt] = useState(false);
-
-  const handleSyncDebts = async () => {
-    if (syncingDebt) return;
-    setSyncingDebt(true);
-    try {
-      const { updated, skipped } = await syncDebtsFromServer();
-      if (updated > 0 || skipped > 0) {
-        notify(`Đồng bộ công nợ xong: ${updated} KH cập nhật theo server${skipped > 0 ? `, ${skipped} KH chưa liên kết nên bỏ qua` : ''}.`, 'success');
-      }
-    } finally {
-      setSyncingDebt(false);
-    }
-  };
+  const { customers, orders, addCustomer, updateCustomer, deleteCustomer, collectDebt } = useStore();
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState<string>('all');
   const [debtFilter, setDebtFilter] = useState<string>('all');
@@ -357,10 +343,6 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
               onDownloadTemplate={handleDownloadTemplate}
               importing={importing}
             />
-            <AppButton variant="secondary" disabled={syncingDebt} onClick={handleSyncDebts} title="Kéo nợ + hạn mức thật từ server (server là truth công nợ)">
-              <RefreshCw className={`w-3.5 h-3.5 ${syncingDebt ? 'animate-spin' : ''}`} />
-              <span>{syncingDebt ? 'Đang đồng bộ...' : 'Đồng bộ nợ'}</span>
-            </AppButton>
             <AppButton onClick={() => setIsAddModalOpen(true)}>
               <Plus className="w-4 h-4" />
               <span>Thêm khách hàng mới</span>
@@ -414,7 +396,6 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
               ]}
             />
             {bare && (
-              <>
                 <TableTools
                   onExportExcel={handleExportExcel}
                   onPrint={handlePrint}
@@ -422,11 +403,6 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
                   onDownloadTemplate={handleDownloadTemplate}
                   importing={importing}
                 />
-                <AppButton variant="secondary" disabled={syncingDebt} onClick={handleSyncDebts} title="Kéo nợ + hạn mức thật từ server (server là truth công nợ)">
-                  <RefreshCw className={`w-3.5 h-3.5 ${syncingDebt ? 'animate-spin' : ''}`} />
-                  <span>{syncingDebt ? 'Đang đồng bộ...' : 'Đồng bộ nợ'}</span>
-                </AppButton>
-              </>
             )}
           </div>
 
