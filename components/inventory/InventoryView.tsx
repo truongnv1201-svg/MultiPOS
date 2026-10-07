@@ -46,7 +46,7 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
   // Movements filter & pagination state
   const [movementSearch, setMovementSearch] = useState('');
   const [movementTypeFilter, setMovementTypeFilter] = useState<string>('all');
-  const [movementDateFilter, setMovementDateFilter] = useState<DateFilterState>({ preset: '7days' });
+  const [movementDateFilter, setMovementDateFilter] = useState<DateFilterState>({ preset: 'this_week' });
   const [movementPage, setMovementPage] = useState<number>(1);
   const [movementPageSize, setMovementPageSize] = useState<number>(25);
   // Sắp xếp bảng thẻ kho: bấm header để đảo chiều; đổi sort -> về trang 1.

@@ -29,7 +29,7 @@ interface ExportGroup {
 export function ExportsTab() {
   const { stockMovements, projects } = useStore();
   const [search, setSearch] = useState('');
-  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: '7days' });
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'this_week' });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});

@@ -37,7 +37,7 @@ export function CashbookView() {
   const [fundFilter, setFundFilter] = useState<'all' | 'cash' | 'bank'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'receipt' | 'expense'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: '7days' });
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'this_week' });
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
   // Sắp xếp: bấm header để đảo chiều; đổi sort -> về trang 1

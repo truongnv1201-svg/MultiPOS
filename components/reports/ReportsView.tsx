@@ -37,8 +37,8 @@ function rangeLabel(f: DateFilterState): string {
       return 'hôm nay';
     case 'yesterday':
       return 'hôm qua';
-    case '7days':
-      return '7 ngày qua';
+    case 'this_week':
+      return 'tuần này';
     case 'this_month':
       return 'tháng này';
     case 'custom':
@@ -200,7 +200,7 @@ export function ReportsView() {
     cashbook !== _s.cashbook;
   const [activeTab, setActiveTab] = useState<ReportTab>('overview');
   // Kỳ báo cáo tab Tổng quan: dùng DateFilter chung (có Tùy chọn ngày)
-  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: '7days' });
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'this_week' });
   // Sắp xếp 2 bảng: bấm header để đảo chiều; đổi sort/tìm kiếm -> về trang 1
   const { sortKey: marginSortKey, sortDir: marginSortDir, toggleSort: toggleMarginSortRaw } = useSortState();
   const { sortKey: debtSortKey, sortDir: debtSortDir, toggleSort: toggleDebtSortRaw } = useSortState('current_debt', 'desc');

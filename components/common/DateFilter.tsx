@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Calendar, X } from 'lucide-react';
 
-export type DatePreset = 'all' | 'today' | 'yesterday' | '7days' | 'this_month' | 'custom';
+export type DatePreset = 'all' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'custom';
 
 export interface DateFilterState {
   preset: DatePreset;
@@ -40,11 +40,12 @@ export function matchesDateFilter(
     );
   }
 
-  if (filter.preset === '7days') {
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-    return itemDate >= sevenDaysAgo;
+  if (filter.preset === 'this_week') {
+    // Tuần này: từ 00:00 Thứ 2 đến hiện tại (Thứ 2 = 0, ..., Chủ nhật = 6).
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    startOfWeek.setHours(0, 0, 0, 0);
+    return itemDate >= startOfWeek;
   }
 
   if (filter.preset === 'this_month') {
@@ -109,7 +110,7 @@ export function DateFilter({ value, onChange, className = '' }: DateFilterProps)
           <option value="all">Toàn thời gian</option>
           <option value="today">Hôm nay</option>
           <option value="yesterday">Hôm qua</option>
-          <option value="7days">7 ngày qua</option>
+          <option value="this_week">Tuần này</option>
           <option value="this_month">Tháng này</option>
           <option value="custom">Tùy chọn ngày...</option>
         </select>
