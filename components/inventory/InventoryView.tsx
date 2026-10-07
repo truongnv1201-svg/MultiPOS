@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusBadge, type BadgeTone } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
 import { AppButton } from '@/components/ui/AppButton';
@@ -68,11 +68,14 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
     adjust_gain: 'Đếm thừa / Tăng tồn',
   };
 
-  // Badge phân loại dùng chung cho bảng thẻ kho (1 map duy nhất).
-  const movementBadge = (type: string): { tone: 'emerald' | 'blue' | 'amber' | 'purple'; label: string } => {
+  // Badge phân loại dùng chung cho bảng thẻ kho (1 map duy nhất, nhãn khớp MOVEMENT_LABEL).
+  // Đủ 6 loại server ghi (0064/0076) — thiếu loại nào là rơi về nhãn sai.
+  const movementBadge = (type: string): { tone: BadgeTone; label: string } => {
     if (type === 'import') return { tone: 'emerald', label: 'Nhập kho' };
     if (type === 'export_sales') return { tone: 'blue', label: 'Xuất bán POS' };
     if (type === 'export_project') return { tone: 'amber', label: 'Vật tư công trình' };
+    if (type === 'adjust_loss') return { tone: 'rose', label: 'Hao hụt' };
+    if (type === 'adjust_gain') return { tone: 'slate', label: 'Đếm thừa' };
     return { tone: 'purple', label: 'Nhập lại / Trả hàng' };
   };
 

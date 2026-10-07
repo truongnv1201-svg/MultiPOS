@@ -539,6 +539,31 @@ describe('0072: thẻ kho tự gắn loại đúng (khỏi đoán regex)', () =>
   });
 });
 
+describe('0076: thẻ kho phân loại đúng thật (sửa 0072 không hiệu lực)', () => {
+  const sql = read('supabase/migrations/0076_movement_type_fix.sql');
+
+  it('bỏ DEFAULT import (DEFAULT điền trước BEFORE trigger nên trigger bị bỏ qua)', () => {
+    assert.match(sql, /alter column movement_type drop default/);
+  });
+
+  it('tạo lại function + trigger phân loại idempotent', () => {
+    assert.match(sql, /create or replace function public\.stock_movements_classify\(\)/);
+    assert.match(sql, /drop trigger if exists trg_stock_movements_classify/);
+    assert.match(sql, /before insert on public\.stock_movements/);
+  });
+
+  it('backfill dòng import sai, không đụng NH (nhập kho thật)', () => {
+    assert.match(sql, /where movement_type = 'import'\s*\n\s*and reference_code not like 'NH-%'/);
+    assert.match(sql, /when reference_code like 'HD-%'/);
+  });
+
+  it('giao diện có nhãn riêng cho 2 loại điều chỉnh (không rơi về Trả hàng)', () => {
+    const inv = read('components/inventory/InventoryView.tsx');
+    assert.match(inv, /if \(type === 'adjust_loss'\) return \{ tone: 'rose', label: 'Hao hụt' \}/);
+    assert.match(inv, /if \(type === 'adjust_gain'\) return \{ tone: 'slate', label: 'Đếm thừa' \}/);
+  });
+});
+
 describe('0073: server đánh số phiếu NH/PQ như HD', () => {
   const sql = read('supabase/migrations/0073_server_voucher_codes.sql');
 
