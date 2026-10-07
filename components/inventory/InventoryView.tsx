@@ -32,9 +32,15 @@ import { sortRows } from '@/lib/sort';
 import { StockAdjustModal } from '@/components/inventory/StockAdjustModal';
 import { type StockMovement } from '@/lib/types';
 
-export function InventoryView() {
+export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, onAdjustOpenChange }: { bare?: boolean; adjustOpen?: boolean; onAdjustOpenChange?: (open: boolean) => void } = {}) {
   const { products, stockMovements, setCurrentScreen, setPosFlow, profile } = useStore();
-  const [adjustOpen, setAdjustOpen] = useState(false);
+  // Modal điều chỉnh mở từ shell trang Hàng hóa khi bare (không thì nội bộ như cũ).
+  const [internalAdjustOpen, setInternalAdjustOpen] = useState(false);
+  const adjustOpen = controlledAdjustOpen ?? internalAdjustOpen;
+  const setAdjustOpen = (next: boolean) => {
+    onAdjustOpenChange?.(next);
+    setInternalAdjustOpen(next);
+  };
   const canAdjust = !profile || profile.role === 'admin' || profile.role === 'manager';
 
   // Movements filter & pagination state
@@ -170,6 +176,7 @@ export function InventoryView() {
 
   return (
     <div id="inventory-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
+      {!bare && (
       <PageHeader
         icon={<Boxes className="w-5 h-5 text-blue-600" />}
         title="Thẻ kho"
@@ -207,6 +214,7 @@ export function InventoryView() {
           </>
         }
       />
+      )}
 
       {/* Main content body — khung cố định, chân bảng sát lề dưới (chuẩn các trang khác) */}
       <div className="flex-1 p-4 overflow-hidden min-h-0">
@@ -249,6 +257,7 @@ export function InventoryView() {
                   { value: 'adjust_gain', label: 'Đếm thừa / Điều chỉnh tăng' },
                 ]}
               />
+              {bare && <TableTools onExportExcel={handleExportMovements} onPrint={handlePrintMovements} />}
               </div>
 
               {/* Dòng tổng hợp riêng — số bút toán chuyển từ nhãn tab xuống đây.

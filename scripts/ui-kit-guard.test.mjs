@@ -170,6 +170,23 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     assert.ok(!/px-3 py-1 text-xs font-semibold rounded-md transition-all/.test(vouchers + goods + rep), 'còn tab hardcode');
   });
 
+  it('trang tab chỉ có 1 header (shell giữ PageHeader, inner ẩn khi bare)', () => {
+    const goods = read('components/goods/GoodsView.tsx');
+    assert.equal((goods.match(/<PageHeader/g) || []).length, 1, 'GoodsView đúng 1 PageHeader');
+    const vouchers = read('components/vouchers/VouchersView.tsx');
+    assert.equal((vouchers.match(/<PageHeader/g) || []).length, 1, 'VouchersView đúng 1 PageHeader');
+    for (const f of [
+      'components/products/ProductsView.tsx',
+      'components/inventory/InventoryView.tsx',
+      'components/orders/OrdersView.tsx',
+      'components/imports/ImportsView.tsx',
+    ]) {
+      const src = read(f);
+      assert.match(src, /\{!bare && \(\s*<PageHeader/, `${f} ẩn header khi bare`);
+      assert.match(src, /\{bare && \(?\s*<TableTools/, `${f} đưa TableTools xuống filter khi bare`);
+    }
+  });
+
   it('thẻ kho chỉ hiện từng dòng (đã bỏ gộp theo phiếu)', () => {
     const inv = read('components/inventory/InventoryView.tsx');
     assert.ok(!/useState<'voucher' \| 'lines'>/.test(inv), 'còn state gộp phiếu');

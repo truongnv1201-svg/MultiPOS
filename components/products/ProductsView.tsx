@@ -36,7 +36,7 @@ import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
 
-export function ProductsView() {
+export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
   const { products, orders, addProduct, updateProduct, deleteProduct } = useStore();
 
   const [search, setSearch] = useState('');
@@ -44,7 +44,13 @@ export function ProductsView() {
   const [stockStatusFilter, setStockStatusFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Modal thêm mở từ shell trang Hàng hóa khi bare (không thì nội bộ như cũ).
+  const [internalAddOpen, setInternalAddOpen] = useState(false);
+  const isAddModalOpen = addOpen ?? internalAddOpen;
+  const setIsAddModalOpen = (next: boolean) => {
+    onAddOpenChange?.(next);
+    setInternalAddOpen(next);
+  };
   const [importing, setImporting] = useState(false);
   // Sửa hàng hóa: prefill từ bản ghi, không cho đụng tồn kho/vốn BQ (đi luồng nhập kho)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -310,6 +316,7 @@ export function ProductsView() {
 
   return (
     <div id="products-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
+      {!bare && (
       <PageHeader
         icon={<Boxes className="w-5 h-5 text-blue-600" />}
         title="Danh mục Hàng hóa & Bảng giá"
@@ -331,6 +338,7 @@ export function ProductsView() {
           </>
         }
       />
+      )}
 
       {/* Data table workspace */}
       <div className="flex-1 min-h-0 overflow-hidden p-4">
@@ -375,6 +383,15 @@ export function ProductsView() {
             { value: 'in_stock', label: 'Còn nhiều (trên tồn tối thiểu)' },
           ]}
         />
+        {bare && (
+          <TableTools
+            onExportExcel={handleExportExcel}
+            onPrint={handlePrint}
+            onImportExcel={handleImportExcel}
+            onDownloadTemplate={handleDownloadTemplate}
+            importing={importing}
+          />
+        )}
       </div>
 
       {/* Summary Metrics Strip */}
