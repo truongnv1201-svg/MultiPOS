@@ -40,6 +40,13 @@ describe('chung tu: man hinh dang ky du', () => {
     assert.match(shell, /refreshServerStockAdjustments/);
     assert.match(shell, /if \(activeTab === 'adjust'\) void refreshServerStockAdjustments\(true\)/);
   });
+
+  it('tab Xuat CT co nut Tao phieu xuat sang POS luồng project (khong phai Mo cong trinh)', () => {
+    const shell = read('components/vouchers/VouchersView.tsx');
+    assert.match(shell, /<span>Tạo phiếu xuất<\/span>/);
+    assert.match(shell, /setPosFlow\('project'\)/);
+    assert.ok(!/Mở công trình/.test(shell), 'không còn nút mở trang công trình');
+  });
 });
 
 describe('don nhap: store expose purchaseOrders', () => {

@@ -10,7 +10,7 @@ import { StockAdjustModal } from '@/components/inventory/StockAdjustModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { AppButton } from '@/components/ui/AppButton';
-import { ReceiptText, Plus, Building2, ClipboardCheck } from 'lucide-react';
+import { ReceiptText, Plus, ClipboardCheck } from 'lucide-react';
 
 export type VoucherTab = 'sales' | 'imports' | 'exports' | 'adjust';
 
@@ -73,9 +73,15 @@ export function VouchersView({ initialTab = 'sales' }: { initialTab?: VoucherTab
               </AppButton>
             )}
             {activeTab === 'exports' && (
-              <AppButton onClick={() => setCurrentScreen('projects')}>
-                <Building2 className="w-4 h-4" />
-                <span>Mở công trình</span>
+              <AppButton
+                onClick={() => {
+                  setPosFlow('project');
+                  setCurrentScreen('pos');
+                }}
+                title="Sang màn bán hàng ở chế độ xuất vật tư công trình (chọn công trình trong POS)"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tạo phiếu xuất</span>
               </AppButton>
             )}
             {activeTab === 'adjust' && canAdjust && (
