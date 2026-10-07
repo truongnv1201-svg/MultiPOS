@@ -82,7 +82,7 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
         }
       />
 
-      <div className="flex-1 min-h-0 flex flex-col p-4 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {activeTab === 'catalog' && <ProductsView bare addOpen={addOpen} onAddOpenChange={setAddOpen} />}
         {activeTab === 'movements' && (
           <InventoryView bare adjustOpen={adjustOpen} onAdjustOpenChange={setAdjustOpen} />

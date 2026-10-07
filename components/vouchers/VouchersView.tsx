@@ -83,11 +83,19 @@ export function VouchersView({ initialTab = 'sales' }: { initialTab?: VoucherTab
         }
       />
 
-      <div className="flex-1 min-h-0 flex flex-col p-4 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {activeTab === 'sales' && <OrdersView bare />}
         {activeTab === 'imports' && <ImportsView bare />}
-        {activeTab === 'exports' && <ExportsTab />}
-        {activeTab === 'adjust' && <StockAdjustTable />}
+        {activeTab === 'exports' && (
+          <div className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col">
+            <ExportsTab />
+          </div>
+        )}
+        {activeTab === 'adjust' && (
+          <div className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col">
+            <StockAdjustTable />
+          </div>
+        )}
       </div>
 
       <StockAdjustModal open={adjustOpen} onClose={() => setAdjustOpen(false)} />

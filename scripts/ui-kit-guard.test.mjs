@@ -187,6 +187,20 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     }
   });
 
+  it('vỏ tab không lồng padding với view con (lề đơn p-4 chuẩn bảng chung)', () => {
+    // View con đã tự có p-4 (Orders/Imports/Products/Inventory) hoặc là thẻ card
+    // cần bọc p-4 (ExportsTab/StockAdjustTable) — vỏ chỉ bọc, không thêm lề chung.
+    for (const f of ['components/vouchers/VouchersView.tsx', 'components/goods/GoodsView.tsx']) {
+      const src = read(f);
+      assert.match(src, /<div className="flex-1 min-h-0 flex flex-col overflow-hidden">/, `${f} content không p-4`);
+    }
+    assert.match(
+      read('components/vouchers/VouchersView.tsx'),
+      /<div className="flex-1 min-h-0 overflow-hidden p-4 flex flex-col">\s*<ExportsTab/,
+      'tab thẻ card được bọc p-4 một lớp'
+    );
+  });
+
   it('thẻ kho chỉ hiện từng dòng (đã bỏ gộp theo phiếu)', () => {
     const inv = read('components/inventory/InventoryView.tsx');
     assert.ok(!/useState<'voucher' \| 'lines'>/.test(inv), 'còn state gộp phiếu');
