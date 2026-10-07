@@ -152,13 +152,22 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     }
   });
 
-  it('tab Kho chuẩn TabSwitcher (thẻ kho + điều chỉnh tồn)', () => {
+  it('tab Chứng từ + Hàng hóa chuẩn TabSwitcher (Kho thuần thẻ kho, không tab lồng)', () => {
+    const vouchers = read('components/vouchers/VouchersView.tsx');
+    assert.match(vouchers, /<TabSwitcher<VoucherTab>/);
+    assert.match(vouchers, /id: 'vouchers-tab-sales'/);
+    assert.match(vouchers, /id: 'vouchers-tab-imports'/);
+    assert.match(vouchers, /id: 'vouchers-tab-exports'/);
+    assert.match(vouchers, /id: 'vouchers-tab-adjust'/);
+    const goods = read('components/goods/GoodsView.tsx');
+    assert.match(goods, /<TabSwitcher<GoodsTab>/);
+    assert.match(goods, /id: 'goods-tab-catalog'/);
+    assert.match(goods, /id: 'goods-tab-movements'/);
     const inv = read('components/inventory/InventoryView.tsx');
-    assert.match(inv, /<TabSwitcher<'movements' \| 'adjustments'>/);
-    assert.match(inv, /id: 'btn-inventory-tab-adjustments'/, 'giữ id cho e2e');
+    assert.ok(!/<TabSwitcher/.test(inv), 'Kho không còn tab lồng (điều chỉnh đã sang Chứng từ)');
     const rep = read('components/reports/ReportsView.tsx');
     assert.match(rep, /<TabSwitcher<ReportTab>/);
-    assert.ok(!/px-3 py-1 text-xs font-semibold rounded-md transition-all/.test(inv + rep), 'còn tab hardcode');
+    assert.ok(!/px-3 py-1 text-xs font-semibold rounded-md transition-all/.test(vouchers + goods + rep), 'còn tab hardcode');
   });
 
   it('thẻ kho chỉ hiện từng dòng (đã bỏ gộp theo phiếu)', () => {

@@ -39,6 +39,7 @@ export interface TransactionsSlice {
   setStockMovements: React.Dispatch<React.SetStateAction<StockMovement[]>>;
   purchaseOrders: PurchaseOrder[];
   refreshPurchaseOrders: () => Promise<boolean>;
+  refreshServerPurchaseOrders: () => Promise<boolean>;
   refreshServerStockMovements: (force?: boolean) => Promise<boolean>;
   refreshServerCashbook: () => Promise<boolean>;
   pendingQueue: Order[];
@@ -200,6 +201,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     setStockMovements: shiftStock.setStockMovements,
     purchaseOrders: shiftStock.purchaseOrders,
     refreshPurchaseOrders: shiftStock.refreshPurchaseOrders,
+    refreshServerPurchaseOrders: shiftStock.refreshServerPurchaseOrders,
     pendingQueue: orders.pendingQueue,
     setPendingQueue: orders.setPendingQueue,
     cashierName,

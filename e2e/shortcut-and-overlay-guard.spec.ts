@@ -119,7 +119,7 @@ test.describe('in phiếu: khôi phục tiêu đề tab', () => {
     // Dọn: hủy đơn vừa tạo
     await page.keyboard.press('Alt+m');
     await expect(page.locator('#flyout-overlay')).toBeVisible({ timeout: 10_000 });
-    await page.locator('#menu-item-orders').click();
+    await page.locator('#menu-item-vouchers').click();
     await expect(page.locator('#orders-view')).toBeVisible({ timeout: 15_000 });
     await page.locator('#orders-view input[placeholder="Mã đơn, tên khách, SĐT..."]').fill(code!);
     const row = page.locator('#orders-view tbody tr', { hasText: code! }).first();

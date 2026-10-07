@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
-import { formatVND, formatNumber } from '@/lib/format';
 import { formatQty } from '@/lib/quantity';
 import { isLowStock, isOutOfStock, minStockOf, stockStatus } from '@/lib/stock';
 import {
@@ -19,7 +18,6 @@ import {
   X,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
@@ -32,18 +30,12 @@ import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { notify } from '@/components/common/Toast';
 import { sortRows } from '@/lib/sort';
 import { StockAdjustModal } from '@/components/inventory/StockAdjustModal';
-import { StockAdjustTable } from '@/components/inventory/StockAdjustTable';
-import { STOCK_ADJUST_REASON_LABEL, type StockMovement } from '@/lib/types';
+import { type StockMovement } from '@/lib/types';
 
 export function InventoryView() {
-  const { products, stockMovements, stockAdjustments, setCurrentScreen, setPosFlow, assignAdjustProject, refreshServerStockAdjustments, profile } = useStore();
-  const [activeTab, setActiveTab] = useState<'movements' | 'adjustments'>('movements');
+  const { products, stockMovements, setCurrentScreen, setPosFlow, profile } = useStore();
   const [adjustOpen, setAdjustOpen] = useState(false);
   const canAdjust = !profile || profile.role === 'admin' || profile.role === 'manager';
-
-  // 0064: khoản hao hụt ghi "chưa gán công trình" — nhắc để không bỏ sót phần chi phí
-  // của công trình (gán sau được, không trừ tồn thêm).
-  const unassignedLosses = stockAdjustments.filter((a) => a.delta < 0 && !a.project_id);
 
   // Movements filter & pagination state
   const [movementSearch, setMovementSearch] = useState('');
@@ -129,89 +121,6 @@ export function InventoryView() {
     });
   };
 
-  // ---- In ấn / Xuất Excel: sổ điều chỉnh tồn (0064) ----
-  // Sổ này là bằng chứng đối chiếu tồn thực với hệ thống và cơ sở tính giá trị hao hụt,
-  // nên anh cần mang đi đối chiếu / lưu hồ sơ chứ không chỉ xem trên màn hình.
-  const totalLossValue = stockAdjustments.reduce((s, a) => s + (a.loss_amount || 0), 0);
-
-  const handleExportAdjustments = () => {
-    if (stockAdjustments.length === 0) {
-      notify('Không có dữ liệu để xuất!', 'error');
-      return;
-    }
-    exportToExcel('so-dieu-chinh-ton', [
-      {
-        name: 'DieuChinhTon',
-        rows: stockAdjustments.map((a) => ({
-          'Mã phiếu': a.code,
-          'Thời gian': new Date(a.created_at).toLocaleString('vi-VN'),
-          'Mã SKU': a.sku,
-          'Mặt hàng': a.product_name,
-          'Tồn trước': a.previous_stock,
-          'Tồn thực tế': a.counted_stock ?? '',
-          'Chênh lệch': a.delta,
-          'Tồn sau': a.previous_stock + a.delta,
-          'Lý do': STOCK_ADJUST_REASON_LABEL[a.reason] || a.reason,
-          'Ghi chú': a.note,
-          'Gắn công trình': a.project_code ? `${a.project_code} ${a.project_name}` : 'Chưa gán CT',
-          'Giá trị hao hụt': a.loss_amount,
-          'Người điều chỉnh': a.adjusted_by_name,
-        })),
-      },
-    ]);
-  };
-
-  const handlePrintAdjustments = () => {
-    if (stockAdjustments.length === 0) {
-      notify('Không có dữ liệu để in!', 'error');
-      return;
-    }
-    printTable({
-      title: 'Sổ điều chỉnh tồn kho (hao hụt / đếm thừa)',
-      meta: [
-        `${stockAdjustments.length} phiếu dòng`,
-        `Tổng giá trị hao hụt: ${formatVND(totalLossValue)}`,
-        `Còn chưa gán công trình: ${unassignedLosses.length} mục`,
-      ],
-      columns: [
-        { header: 'Mã phiếu' },
-        { header: 'Thời gian' },
-        { header: 'Mặt hàng' },
-        { header: 'Tồn trước', align: 'right' },
-        { header: 'Chênh lệch', align: 'right' },
-        { header: 'Tồn sau', align: 'right' },
-        { header: 'Lý do' },
-        { header: 'Công trình' },
-        { header: 'Giá trị hao hụt', align: 'right' },
-        { header: 'Người làm' },
-      ],
-      rows: stockAdjustments.slice(0, 1000).map((a) => [
-        a.code,
-        new Date(a.created_at).toLocaleString('vi-VN'),
-        `${a.product_name} (${a.sku})`,
-        String(a.previous_stock),
-        String(a.delta),
-        String(a.previous_stock + a.delta),
-        STOCK_ADJUST_REASON_LABEL[a.reason] || a.reason,
-        a.project_code || 'Chưa gán CT',
-        a.loss_amount > 0 ? Math.round(a.loss_amount).toLocaleString('vi-VN') : '—',
-        a.adjusted_by_name || '—',
-      ]),
-      footer: [
-        'Tổng giá trị hao hụt',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        Math.round(totalLossValue).toLocaleString('vi-VN'),
-        '',
-      ],
-    });
-  };
-
   // Biến động kho từ server chỉ có product_id (bỏ JOIN products(name) để giảm payload),
   // nên tên sản phẩm tra ở đây từ catalog đang có trong bộ nhớ. Ưu tiên tên catalog để
   // luôn khớp với danh mục hiện tại; mục đã xoá mới rơi về nhãn dự phòng.
@@ -263,32 +172,14 @@ export function InventoryView() {
     <div id="inventory-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
       <PageHeader
         icon={<Boxes className="w-5 h-5 text-blue-600" />}
-        title="Kho Hàng & Nhập Kho Vật Tư (Giá Vốn Bình Quân MAC)"
-        shortTitle="Kho Hàng"
+        title="Thẻ kho"
+        shortTitle="Thẻ kho"
         shortBreakpoint="md"
         actions={
           <>
-            {/* Tab Switcher */}
-            <TabSwitcher<'movements' | 'adjustments'>
-              active={activeTab}
-              onChange={(key) => {
-                setActiveTab(key);
-                if (key === 'adjustments') void refreshServerStockAdjustments(true);
-              }}
-              options={[
-                { key: 'movements', label: 'Nhật ký Thẻ kho' },
-                {
-                  key: 'adjustments',
-                  label: 'Điều chỉnh tồn',
-                  id: 'btn-inventory-tab-adjustments',
-                  title: 'Phiếu điều chỉnh tồn: hao hụt, đếm thừa, ai điều chỉnh lúc nào',
-                },
-              ]}
-            />
               {/* Nút phụ (Excel/In) trước, 2 nút hành động sau — cụm dồn về mép phải.
                   Kho có 2 nút chính (Điều chỉnh tồn / Tạo phiếu nhập) nên giữ thứ tự này. */}
-              {activeTab === 'movements' && <TableTools onExportExcel={handleExportMovements} onPrint={handlePrintMovements} />}
-              {activeTab === 'adjustments' && <TableTools onExportExcel={handleExportAdjustments} onPrint={handlePrintAdjustments} />}
+              <TableTools onExportExcel={handleExportMovements} onPrint={handlePrintMovements} />
               <AppButton
                 id="btn-stock-adjust-open"
                 tone="amber"
@@ -319,9 +210,7 @@ export function InventoryView() {
 
       {/* Main content body — khung cố định, chân bảng sát lề dưới (chuẩn các trang khác) */}
       <div className="flex-1 p-4 overflow-hidden min-h-0">
-          {/* Điều chỉnh tồn + Nhật ký thẻ kho */}
-          {activeTab === 'adjustments' && <StockAdjustTable />}
-          {activeTab === 'movements' && (
+          {/* Nhật ký thẻ kho */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col h-full">
               {/* Filter Bar */}
               <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
@@ -472,7 +361,6 @@ export function InventoryView() {
               itemName="bút toán thẻ kho"
             />
           </div>
-        )}
       </div>
       <StockAdjustModal open={adjustOpen} onClose={() => setAdjustOpen(false)} />
     </div>

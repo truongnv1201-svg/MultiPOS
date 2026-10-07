@@ -25,6 +25,15 @@ async function openInventory(page: Page) {
     await page.waitForTimeout(1200);
 }
 
+async function openAdjustTab(page: Page) {
+    // Sổ điều chỉnh sống ở tab Điều chỉnh của trang Quản lý Chứng từ.
+    await page.keyboard.press('Alt+m');
+    await page.locator('#menu-item-vouchers').click();
+    await page.locator('#vouchers-tab-adjust').click();
+    await expect(page.locator('#vouchers-view')).toBeVisible({ timeout: 20_000 });
+    await page.waitForTimeout(1200);
+}
+
 test.describe('Kho: điều chỉnh tồn / hao hụt', () => {
     test('mở modal, chấn lệch tồn thực và xem tóm tắt phiếu trước khi ghi', async ({ page }) => {
         test.slow();
@@ -125,17 +134,15 @@ test.describe('Kho: điều chỉnh tồn / hao hụt', () => {
         await loginAdmin(page);
         await openInventory(page);
 
-        // Tab thẻ kho có thêm bộ lọc 2 loại điều chỉnh (0064)
-        await page.click('button:has-text("Nhật ký Thẻ kho")');
+        // Thẻ kho có thêm bộ lọc 2 loại điều chỉnh (0064)
         const filter = page.locator('select').filter({ has: page.locator('option[value="adjust_loss"]') });
         await expect(filter).toBeVisible();
         await expect(filter.locator('option[value="adjust_loss"]')).toHaveCount(1);
         await expect(filter.locator('option[value="adjust_gain"]')).toHaveCount(1);
 
-        // Tab sổ điều chỉnh tồn tồn tại, nhãn tab không mang chip đếm
-        await page.click('#btn-inventory-tab-adjustments');
-        await page.waitForTimeout(1500);
-        await expect(page.locator('#btn-inventory-tab-adjustments')).not.toContainText('chưa gán');
+        // Tab sổ điều chỉnh tồn ở trang Chứng từ, nhãn tab không mang chip đếm
+        await openAdjustTab(page);
+        await expect(page.locator('#vouchers-tab-adjust')).not.toContainText('chưa gán');
         // Rỗng thì hiện lời mời ghi phiếu (không crash khi RPC chưa có bảng)
         const hasEmpty = await page.locator('text=Chưa có phiếu điều chỉnh tồn nào').count();
         if (hasEmpty === 0) {
@@ -164,10 +171,10 @@ test.describe('Kho: điều chỉnh tồn / hao hụt', () => {
         const movementCount = await tools.count();
         expect(movementCount).toBeGreaterThanOrEqual(2);
 
-        // Tab Điều chỉnh tồn
-        await page.click('#btn-inventory-tab-adjustments');
-        await page.waitForTimeout(1200);
-        await expect(tools.first()).toBeVisible();
+        // Tab Điều chỉnh tồn (trang Chứng từ)
+        await openAdjustTab(page);
+        const adjustTools = page.locator('#vouchers-view button[title*="Excel" i], #vouchers-view button[title*="In" i], #vouchers-view button[title*="in ấn" i]');
+        await expect(adjustTools.first()).toBeVisible();
     });
 
     test('1 lần lập phiếu không được sinh 2 dòng giống nhau trong sổ điều chỉnh', async ({ page }) => {
@@ -178,11 +185,10 @@ test.describe('Kho: điều chỉnh tồn / hao hụt', () => {
         test.slow();
         await page.setViewportSize({ width: 1600, height: 950 });
         await loginAdmin(page);
-        await openInventory(page);
-        await page.click('#btn-inventory-tab-adjustments');
+        await openAdjustTab(page);
         await page.waitForTimeout(2500);
 
-        const rows = page.locator('#inventory-view tbody tr');
+        const rows = page.locator('#vouchers-view tbody tr');
         const n = await rows.count();
         if (n === 0) return; // DB chưa có phiếu nào -> không có gì để kiểm
         // Không được có 2 dòng liên tiếp cùng mã phiếu + cùng SKU + cùng thời điểm

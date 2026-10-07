@@ -157,7 +157,7 @@ test.describe('báo cáo hội tụ sau bán', () => {
     expect(cv).toBeGreaterThanOrEqual(target);
 
     // Dọn: hủy đơn vừa bán.
-    await gotoScreen(page, '#menu-item-orders', '#orders-view');
+    await gotoScreen(page, '#menu-item-vouchers', '#orders-view');
     await page.locator('#orders-view input[placeholder="Mã đơn, tên khách, SĐT..."]').fill(code!);
     const row = page.locator('#orders-view tbody tr', { hasText: code! }).first();
     await expect(row).toBeVisible({ timeout: 15_000 });

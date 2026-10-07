@@ -1,7 +1,7 @@
 'use client';
 
 import type { ElementType } from 'react';
-import { MoreHorizontal, PackagePlus, ReceiptText, ShoppingCart, Users } from 'lucide-react';
+import { MoreHorizontal, Boxes, ReceiptText, ShoppingCart, Users } from 'lucide-react';
 import type { ActiveScreen } from '@/lib/types';
 import { useStore } from '@/lib/store';
 
@@ -16,8 +16,8 @@ export function MobileBottomNav() {
   const restricted = profile?.role === 'cashier' || profile?.role === 'worker';
   const items: NavItem[] = [
     { screen: 'pos', label: 'Bán', icon: ShoppingCart },
-    ...(!restricted ? [{ screen: 'inventory' as const, label: 'Kho', icon: PackagePlus }] : []),
-    { screen: 'orders', label: 'Đơn', icon: ReceiptText },
+    ...(!restricted ? [{ screen: 'goods' as const, label: 'Hàng', icon: Boxes }] : []),
+    { screen: 'vouchers', label: 'C.từ', icon: ReceiptText },
     { screen: 'customers', label: 'Khách', icon: Users },
   ];
 

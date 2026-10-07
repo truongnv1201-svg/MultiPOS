@@ -159,15 +159,14 @@ describe('0064: điều chỉnh tồn / hao hụt', () => {
     assert.match(modal, /delta/);
     // Công trình TÙY CHỌN: có lựa chọn "chưa gán công trình" trong danh sách.
     assert.match(modal, /Kho \(chưa gán công trình\)/);
-    // Bảng sổ điều chỉnh cho phép gán bổ sung và nêu số mục chưa gán ở dòng tổng hợp.
+    // Bảng sổ điều chỉnh (tab Điều chỉnh của Chứng từ) cho phép gán bổ sung và
+    // nêu số mục chưa gán ở dòng tổng hợp.
     assert.match(adjustTable, /chưa gán công trình/);
     assert.match(adjustTable, /Gán công trình/);
     // Số chưa gán nằm ở dòng tổng hợp chuẩn, không nằm trên nhãn tab.
     assert.match(adjustTable, /adjust-search-input/);
     assert.match(adjustTable, /px-3 py-1\.5 bg-slate-100\/70/);
-    const inv = read('components/inventory/InventoryView.tsx');
-    assert.match(inv, /unassignedLosses/);
-    assert.ok(!/chưa gán CT/.test(inv), 'nhãn tab Điều chỉnh tồn không được mang chip đếm');
+    assert.match(adjustTable, /unassigned/);
   });
 
   it('client ghi server TRƯỚC rồi mới cập nhật local (không lặp lại lỗi mất dữ liệu của xuất vật tư)', () => {
@@ -224,19 +223,12 @@ describe('0064: điều chỉnh tồn / hao hụt', () => {
     assert.match(refresh[0], /select\('id, client_ref, code/);
   });
 
-  it('có nút in ấn + xuất Excel cho cả 2 tab còn lại của màn Kho', () => {
+  it('thẻ kho và sổ điều chỉnh đều có nút in ấn + xuất Excel (mỗi bảng 1 TableTools)', () => {
     const inv = read('components/inventory/InventoryView.tsx');
-    // 2 tab đều có TableTools (export + print)
-    for (const tab of ['movements', 'adjustments']) {
-      assert.match(
-        inv,
-        new RegExp(`activeTab === '${tab}' && <TableTools`),
-        `tab ${tab} phải có nút In/Xuất Excel`
-      );
-    }
-    assert.match(inv, /const handleExportAdjustments = \(\) =>/);
-    assert.match(inv, /const handlePrintAdjustments = \(\) =>/);
-    assert.match(inv, /exportToExcel\('so-dieu-chinh-ton'/);
-    assert.match(inv, /title: 'Sổ điều chỉnh tồn kho/);
+    assert.match(inv, /<TableTools onExportExcel=\{handleExportMovements} onPrint=\{handlePrintMovements} \/>/);
+    // Sổ điều chỉnh sống ở tab Điều chỉnh của Chứng từ, tự mang TableTools theo.
+    assert.match(adjustTable, /<TableTools onExportExcel=\{handleExportExcel} onPrint=\{handlePrint} \/>/);
+    assert.match(adjustTable, /exportToExcel\('so-dieu-chinh-ton'/);
+    assert.match(adjustTable, /title: 'Sổ điều chỉnh tồn kho/);
   });
 });

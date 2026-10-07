@@ -8,12 +8,9 @@ import {
   ShoppingCart,
   ReceiptText,
   Boxes,
-  PackagePlus,
   Users,
   Truck,
   Building2,
-  ClipboardCheck,
-  ScrollText,
   Banknote,
   Wallet,
   BarChart3,
@@ -50,15 +47,10 @@ export function FlyoutMenu() {
   const canAccessSettings = profile?.role === 'admin' || profile?.role === 'manager';
   const menuItems: MenuItem[] = [
     { screen: 'pos', label: 'Màn hình Bán hàng (POS)', icon: ShoppingCart, shortcut: 'F2' },
-    { screen: 'orders', label: 'Quản lý Hóa đơn & Đơn hàng', icon: ReceiptText, shortcut: 'Alt + H' },
-    { screen: 'products', label: 'Danh mục Hàng hóa & Bảng giá', icon: Boxes, shortcut: 'Alt + P' },
-    // P2: thu ngân/worker bị ẩn kho + báo cáo + cài đặt; manager bị ẩn cài đặt hệ thống
-    ...(!isRestricted
-      ? [
-          { screen: 'inventory' as const, label: 'Nhập hàng & Kiểm kho', icon: PackagePlus, shortcut: 'Alt + N' },
-          { screen: 'imports' as const, label: 'Quản lý Đơn nhập', icon: ScrollText, shortcut: 'Alt + D' },
-        ]
-      : []),
+    { screen: 'vouchers', label: 'Quản lý Chứng từ', icon: ReceiptText, shortcut: 'Alt + H' },
+    { screen: 'goods' as const, label: 'Quản lý Hàng hóa', icon: Boxes, shortcut: 'Alt + P' },
+    // P2: thu ngân/worker bị ẩn báo cáo + cài đặt; tab Thẻ kho (lộ giá vốn MAC) và
+    // tab Đơn nhập/Xuất CT/Điều chỉnh trong trang ẩn theo vai trò ở từng shell.
     { screen: 'customers', label: 'Khách hàng & Quản lý Công nợ', icon: Users, shortcut: 'Alt + C' },
     { screen: 'suppliers', label: 'Nhà cung cấp & Đơn mua', icon: Truck, shortcut: 'Alt + K' },
     { screen: 'projects', label: 'Dự án & Thi công Công trình', icon: Building2, shortcut: 'Alt + J' },

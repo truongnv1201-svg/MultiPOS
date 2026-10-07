@@ -111,7 +111,7 @@ test('mặt hàng tạo trong lúc server đang trả về không bị xoá kh�
 
     // Trong lúc chờ: tạo mặt hàng mới qua UI
     await page.keyboard.press('Alt+m');
-    await page.locator('#menu-item-products').click();
+    await page.locator('#menu-item-goods').click();
     await expect(page.locator('#products-view')).toBeVisible({ timeout: 20_000 });
 
     const posted = page.waitForResponse(

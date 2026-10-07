@@ -1,4 +1,5 @@
-// 0064 — Tab "Điều chỉnh tồn" trong màn Kho: sổ phiếu điều chỉnh (hao hụt / đếm thừa).
+// 0064 — Sổ phiếu điều chỉnh tồn (hao hụt / đếm thừa), hiển thị ở tab Điều chỉnh
+// của trang Quản lý Chứng từ.
 //
 // Vai trò: đây là "sổ sổ cái" của tồn kho — ai điều chỉnh, lúc nào, vì lý do gì, tồn
 // trước/sau, giá trị hao hụt. Không có tab này thì điều chỉnh tồn là thao tác "vô hình".
@@ -22,6 +23,8 @@ import { formatVND } from '@/lib/format';
 import { formatQty } from '@/lib/quantity';
 import { HardHat, Package, Search } from 'lucide-react';
 import { STOCK_ADJUST_REASON_LABEL } from '@/lib/types';
+import { TableTools } from '@/components/common/TableTools';
+import { exportToExcel, printTable } from '@/lib/excel';
 
 export function StockAdjustTable() {
   const { stockAdjustments, projects, assignAdjustProject, profile } = useStore();
@@ -83,6 +86,73 @@ export function StockAdjustTable() {
       setPickProject('');
       notify('Đã gán công trình cho khoản hao hụt (tồn kho không đổi).', 'success');
     }
+  };
+
+  const handleExportExcel = () => {
+    if (rows.length === 0) {
+      notify('Không có dữ liệu để xuất!', 'error');
+      return;
+    }
+    exportToExcel('so-dieu-chinh-ton', [
+      {
+        name: 'DieuChinhTon',
+        rows: rows.map((a) => ({
+          'Mã phiếu': a.code,
+          'Thời gian': new Date(a.created_at).toLocaleString('vi-VN'),
+          'Mã SKU': a.sku,
+          'Mặt hàng': a.product_name,
+          'Tồn trước': a.previous_stock,
+          'Tồn thực tế': a.counted_stock ?? '',
+          'Chênh lệch': a.delta,
+          'Tồn sau': a.previous_stock + a.delta,
+          'Lý do': STOCK_ADJUST_REASON_LABEL[a.reason] || a.reason,
+          'Ghi chú': a.note,
+          'Gắn công trình': a.project_code ? `${a.project_code} ${a.project_name}` : 'Chưa gán CT',
+          'Giá trị hao hụt': a.loss_amount,
+          'Người điều chỉnh': a.adjusted_by_name,
+        })),
+      },
+    ]);
+  };
+
+  const handlePrint = () => {
+    if (rows.length === 0) {
+      notify('Không có dữ liệu để in!', 'error');
+      return;
+    }
+    printTable({
+      title: 'Sổ điều chỉnh tồn kho (hao hụt / đếm thừa)',
+      meta: [
+        `${rows.length} phiếu dòng`,
+        `Tổng giá trị hao hụt: ${formatVND(totalLoss)}`,
+        `Còn chưa gán công trình: ${unassigned.length} mục`,
+      ],
+      columns: [
+        { header: 'Mã phiếu' },
+        { header: 'Thời gian' },
+        { header: 'Mặt hàng' },
+        { header: 'Tồn trước', align: 'right' },
+        { header: 'Chênh lệch', align: 'right' },
+        { header: 'Tồn sau', align: 'right' },
+        { header: 'Lý do' },
+        { header: 'Công trình' },
+        { header: 'Giá trị hao hụt', align: 'right' },
+        { header: 'Người làm' },
+      ],
+      rows: rows.slice(0, 1000).map((a) => [
+        a.code,
+        new Date(a.created_at).toLocaleString('vi-VN'),
+        `${a.product_name} (${a.sku})`,
+        String(a.previous_stock),
+        String(a.delta),
+        String(a.previous_stock + a.delta),
+        STOCK_ADJUST_REASON_LABEL[a.reason] || a.reason,
+        a.project_code || 'Chưa gán CT',
+        a.loss_amount > 0 ? Math.round(a.loss_amount).toLocaleString('vi-VN') : '—',
+        a.adjusted_by_name || '—',
+      ]),
+      footer: ['Tổng giá trị hao hụt', '', '', '', '', '', '', '', Math.round(totalLoss).toLocaleString('vi-VN'), ''],
+    });
   };
 
   if (rows.length === 0) {
@@ -188,6 +258,7 @@ export function StockAdjustTable() {
           <option value="gain">Đếm thừa / Tăng tồn</option>
           <option value="unassigned">Chưa gán công trình</option>
         </select>
+        <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
       </div>
 
       {/* Dòng tổng hợp riêng — số mục chưa gán công trình nằm ở đây, không nằm trên nhãn tab */}

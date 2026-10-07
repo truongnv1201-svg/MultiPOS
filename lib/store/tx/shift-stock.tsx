@@ -31,6 +31,7 @@ export interface TxShiftStock {
   setStockMovements: React.Dispatch<React.SetStateAction<StockMovement[]>>;
   purchaseOrders: PurchaseOrder[];
   refreshPurchaseOrders: () => Promise<boolean>;
+  refreshServerPurchaseOrders: () => Promise<boolean>;
   refreshServerStockMovements: (force?: boolean) => Promise<boolean>;
   refreshServerCashbook: () => Promise<boolean>;
   closeShift: (countedCash: number) => Promise<boolean>;
@@ -68,6 +69,103 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       return false;
     }
   }, []);
+
+  // Kéo header + dòng phiếu nhập từ server (0075 lưu lines) để trang Đơn nhập thấy
+  // đủ phiếu liên máy. Merge theo (code, total, supplier): local giữ dòng hàng của
+  // mình khi server chưa có lines (phiếu thời trước-0075); header tiền lấy server.
+  // Hàng local chưa sync (mã tạm) không có đối ứng server -> giữ nguyên.
+  const refreshServerPurchaseOrders = useCallback(async (): Promise<boolean> => {
+    if (!supa || !user || !isOnline) return false;
+    try {
+      const { data, error } = await supa
+        .from('purchase_orders')
+        .select('id, code, client_ref, supplier_id, subtotal, discount_amount, total_amount, paid_amount, debt_amount, status, note, lines, created_at')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      const serverRows = ((data as any[]) || []).map((row) => {
+        const lines = Array.isArray(row.lines) ? row.lines : [];
+        const supplierName =
+          suppliers.find((s) => s.id === row.supplier_id)?.name || '';
+        const items = lines.map((l: any) => {
+          const qty = Number(l.quantity) || 0;
+          const price = Number(l.import_price) || 0;
+          const prod =
+            products.find((p) => p.sku === l.sku) ||
+            products.find((p) => p.id === l.product_id);
+          return {
+            product_id: String(l.product_id || prod?.id || ''),
+            sku: String(l.sku || prod?.sku || ''),
+            name: prod?.name || String(l.sku || ''),
+            quantity: qty,
+            unit_price: price,
+            subtotal: Math.round(qty * price * 100) / 100,
+          };
+        });
+        return {
+          serverId: String(row.id || ''),
+          code: String(row.code || ''),
+          supplier_id: row.supplier_id ? String(row.supplier_id) : '',
+          supplier_name: supplierName,
+          items,
+          subtotal: Number(row.subtotal) || 0,
+          discount_amount: Number(row.discount_amount) || 0,
+          total_amount: Number(row.total_amount) || 0,
+          paid_amount: Number(row.paid_amount) || 0,
+          debt_amount: Number(row.debt_amount) || 0,
+          status: (['completed', 'debt', 'partial'].includes(row.status) ? row.status : 'completed') as PurchaseOrder['status'],
+          note: typeof row.note === 'string' ? row.note : undefined,
+          created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+        };
+      });
+      const localRows = await db.purchaseOrders.toArray().catch(() => [] as PurchaseOrder[]);
+      const keyOf = (code: string, total: number, sup: string) => `${code}||${total}||${sup}`;
+      const localByKey = new Map(localRows.map((r) => [keyOf(r.code, r.total_amount, r.supplier_id), r]));
+      const merged: PurchaseOrder[] = serverRows.map((s) => {
+        const local = localByKey.get(keyOf(s.code, s.total_amount, s.supplier_id));
+        if (local) {
+          localByKey.delete(keyOf(s.code, s.total_amount, s.supplier_id));
+          return {
+            ...local,
+            supplier_name: local.supplier_name || s.supplier_name,
+            items: local.items.length > 0 ? local.items : s.items,
+            subtotal: s.subtotal,
+            discount_amount: s.discount_amount,
+            total_amount: s.total_amount,
+            paid_amount: s.paid_amount,
+            debt_amount: s.debt_amount,
+            status: s.status,
+            note: s.note ?? local.note,
+            created_at: s.created_at || local.created_at,
+          };
+        }
+        return {
+          id: `srv-${s.serverId}`,
+          code: s.code,
+          supplier_id: s.supplier_id,
+          supplier_name: s.supplier_name,
+          items: s.items,
+          subtotal: s.subtotal,
+          discount_amount: s.discount_amount,
+          total_amount: s.total_amount,
+          paid_amount: s.paid_amount,
+          debt_amount: s.debt_amount,
+          status: s.status,
+          note: s.note,
+          created_at: s.created_at,
+        };
+      });
+      // Hàng local chưa có đối ứng server (mã tạm chờ sync) giữ nguyên.
+      for (const rest of localByKey.values()) merged.push(rest);
+      merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+      await db.purchaseOrders.bulkPut(merged).catch(() => {});
+      setPurchaseOrders(merged);
+      return true;
+    } catch (err) {
+      console.warn('Purchase orders pull failed (giữ local):', err);
+      return false;
+    }
+  }, [supa, user, isOnline, suppliers, products]);
 
   // Thu ngân hiện tại gắn với tài khoản đăng nhập (fix kết ca ẩn danh)
   const cashierName = profile?.full_name || user?.email || 'Chưa đăng nhập';
@@ -690,6 +788,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
     setStockMovements,
     purchaseOrders,
     refreshPurchaseOrders,
+    refreshServerPurchaseOrders,
     refreshServerStockMovements,
     refreshServerCashbook,
     closeShift,

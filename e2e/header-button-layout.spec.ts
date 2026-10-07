@@ -37,7 +37,7 @@ const MENU_LABEL: Record<string, RegExp> = {
     'NCC': /Cung Cấp/i,
     'Khách hàng': /Khách Hàng/i,
     'Hàng hóa': /Hàng Hóa|Danh Mục/i,
-    'Đơn hàng': /Đơn Hàng/i,
+    'Đơn hàng': /Chứng Từ/i,
     'Công trình': /Công Trình|Dự Án/i,
     'Kho': /Kho Hàng|Kho Vận/i,
     'Sổ quỹ': /Sổ Quỹ/i,

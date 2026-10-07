@@ -112,6 +112,7 @@ interface StoreContextType {
   stockMovements: StockMovement[];
   purchaseOrders: PurchaseOrder[];
   refreshPurchaseOrders: () => Promise<boolean>;
+  refreshServerPurchaseOrders: () => Promise<boolean>;
   employees: Employee[];
   attendanceDays: AttendanceDay[];
   cashierName: string;
@@ -451,6 +452,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     refreshServerOrders,
     refreshServerStockMovements,
     refreshServerCashbook,
+    refreshServerPurchaseOrders,
     syncPendingOrders,
     resolveServerOrderId,
     cancelOrder,
@@ -504,6 +506,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         refreshServerOrders(true),
         refreshServerStockMovements(true),
         refreshServerCashbook(),
+        refreshServerPurchaseOrders(),
         refreshCatalog(),
       ]);
       const ok = results.every(Boolean);
@@ -520,7 +523,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     } finally {
       setIsSyncing(false);
     }
-  }, [isOnline, supabaseReady, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshCatalog, syncMasterData, syncPendingOps]);
+  }, [isOnline, supabaseReady, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshServerPurchaseOrders, refreshCatalog, syncMasterData, syncPendingOps]);
 
   // Realtime đa máy (0049): 1 channel 'multipos-live' nghe 10 bảng publication,
   // event nào cũng chỉ xếp hàng rồi debounce gọi lại đúng hàm refresh tương ứng
@@ -543,7 +546,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       suppliers: [refreshCatalog],
       combo_items: [refreshCatalog],
       stock_movements: [refreshServerStockMovements],
-      purchase_orders: [refreshCatalog, refreshServerCashbook],
+      purchase_orders: [refreshCatalog, refreshServerCashbook, refreshServerPurchaseOrders],
       shifts: [refreshShiftFromServer],
     };
     const queued = new Set<() => Promise<boolean>>();
@@ -578,7 +581,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       setRealtimeLive(false);
       supa.removeChannel(channel).catch(() => {});
     };
-  }, [isOnline, supabaseReady, supa, user, refreshServerOrders, refreshServerCashbook, refreshServerStockMovements, refreshCatalog, refreshShiftFromServer]);
+  }, [isOnline, supabaseReady, supa, user, refreshServerOrders, refreshServerCashbook, refreshServerStockMovements, refreshServerPurchaseOrders, refreshCatalog, refreshShiftFromServer]);
 
 
 
@@ -661,6 +664,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
             refreshServerOrders(true),
             refreshServerStockMovements(true),
             refreshServerCashbook(),
+            refreshServerPurchaseOrders(),
             syncCustomers(),
             syncProjects(),
             refreshGrinding(),
@@ -668,7 +672,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         })
         .catch(() => {});
     }
-  }, [isOnline, localDataReady, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, syncCustomers, syncProjects, syncPendingOps, refreshGrinding]);
+  }, [isOnline, localDataReady, user, pendingQueue.length, syncPendingOrders, syncMasterData, refreshCatalog, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshServerPurchaseOrders, syncCustomers, syncProjects, syncPendingOps, refreshGrinding]);
 
   useEffect(() => {
     if (!isOnline || !supabaseReady) return;
@@ -683,6 +687,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
         refreshServerOrders(),
         refreshServerStockMovements(),
         refreshServerCashbook(),
+        refreshServerPurchaseOrders(),
         refreshCatalog(),
       ]).then((rs) => {
         if (rs.every((r) => r.status === 'fulfilled' && r.value === true)) {
@@ -713,7 +718,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [isOnline, supabaseReady, isSyncing, realtimeLive, pendingQueue.length, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshCatalog]);
+  }, [isOnline, supabaseReady, isSyncing, realtimeLive, pendingQueue.length, refreshServerOrders, refreshServerStockMovements, refreshServerCashbook, refreshServerPurchaseOrders, refreshCatalog]);
 
   // Active Cart Tab
 
@@ -795,6 +800,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     stockMovements,
     purchaseOrders,
     refreshPurchaseOrders,
+    refreshServerPurchaseOrders,
     employees,
     attendanceDays,
     hrmLoading,

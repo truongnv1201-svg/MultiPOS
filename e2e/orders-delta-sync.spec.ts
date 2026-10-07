@@ -57,7 +57,7 @@ async function sellOne(page: Page): Promise<string> {
 
 async function cancelOrder(page: Page, code: string) {
   await page.keyboard.press('Alt+m');
-  await page.locator('#menu-item-orders').click();
+  await page.locator('#menu-item-vouchers').click();
   await expect(page.locator('#orders-view')).toBeVisible({ timeout: 15_000 });
   await page.locator('#orders-view input[placeholder="Mã đơn, tên khách, SĐT..."]').fill(code);
   const row = page.locator('#orders-view tbody tr', { hasText: code }).first();
@@ -114,7 +114,7 @@ test('delta đơn hàng: đổi trạng thái đơn cũ về nhanh + 1 lần bá
   // Máy A phải thấy đơn đó (nếu là đơn do B vừa bán thì đây cũng là bằng chứng delta
   // có đưa đơn MỚI sang máy khác).
   await page.keyboard.press('Alt+m');
-  await page.locator('#menu-item-orders').click();
+  await page.locator('#menu-item-vouchers').click();
   await expect(page.locator('#orders-view')).toBeVisible({ timeout: 15_000 });
   await page.locator('#orders-view select:has(option[value="today"])').first().selectOption('all');
   await page.locator('#orders-view input[placeholder="Mã đơn, tên khách, SĐT..."]').fill(code);

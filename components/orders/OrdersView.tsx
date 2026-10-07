@@ -33,7 +33,7 @@ import { exportToExcel, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
 
-export function OrdersView() {
+export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
   const {
     orders,
     setReceiptModalOrder,
@@ -334,7 +334,8 @@ export function OrdersView() {
   };
 
   return (
-    <div id="orders-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
+    <div id="orders-view" className={`flex-1 flex flex-col min-h-0 bg-slate-100 overflow-hidden ${bare ? 'h-full' : 'h-[calc(100dvh-56px)]'}`}>
+      {!bare && (
       <PageHeader
         icon={<FileText className="w-5 h-5 text-blue-600" />}
         title="Quản lý Hóa đơn & Đơn hàng"
@@ -349,6 +350,7 @@ export function OrdersView() {
           </>
         }
       />
+      )}
 
       {/* Main Content: Table + Detail Preview */}
       <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
@@ -399,6 +401,7 @@ export function OrdersView() {
                 ...cashierOptions.map((c) => ({ value: c.name, label: `${c.name} (${c.count})` })),
               ]}
             />
+              {bare && <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />}
           </div>
 
           {/* Aggregate Summary Strip */}

@@ -83,7 +83,7 @@ test('một lần bán chỉ kéo delta biến động kho, nhật ký vẫn đ�
 
   // Dọn: hủy đơn vừa bán
   await page.keyboard.press('Alt+m');
-  await page.locator('#menu-item-orders').click();
+  await page.locator('#menu-item-vouchers').click();
   await expect(page.locator('#orders-view')).toBeVisible({ timeout: 15_000 });
   await page.locator('#orders-view input[placeholder="Mã đơn, tên khách, SĐT..."]').fill(code!);
   const row = page.locator('#orders-view tbody tr', { hasText: code! }).first();
@@ -102,7 +102,6 @@ test('một lần bán chỉ kéo delta biến động kho, nhật ký vẫn đ�
   await login(adminPage, ADMIN_ID, ADMIN_PW);
   await adminPage.keyboard.press('Alt+n');
   await expect(adminPage.locator('#inventory-view')).toBeVisible({ timeout: 30_000 });
-  await adminPage.getByRole('button', { name: /Nhật ký Thẻ kho/ }).click();
   await expect(adminPage.locator('#inventory-view table').first()).toBeVisible({ timeout: 20_000 });
   await adminPage.waitForTimeout(2000);
 

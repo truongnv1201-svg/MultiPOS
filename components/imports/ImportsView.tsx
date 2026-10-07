@@ -26,21 +26,23 @@ const IMPORT_STATUS_LABEL: Record<string, string> = {
   cancelled: 'Đã hủy',
 };
 
-export function ImportsView() {
+export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
   const {
     purchaseOrders,
     refreshPurchaseOrders,
+    refreshServerPurchaseOrders,
     setCurrentScreen,
     setPosFlow,
   } = useStore();
 
-  // Dexie local là truth đầy đủ dòng hàng — nạp lại mỗi lần mở trang để bắt
-  // kịp mã server vừa vá sau sync (defer microtask theo idiom chung của repo).
+  // Dexie local là truth dòng hàng của máy mình; mở trang thì nạp local + kéo server
+  // để thấy đủ phiếu liên máy (defer microtask theo idiom chung của repo).
   useEffect(() => {
     Promise.resolve().then(() => {
       refreshPurchaseOrders();
+      void refreshServerPurchaseOrders();
     });
-  }, [refreshPurchaseOrders]);
+  }, [refreshPurchaseOrders, refreshServerPurchaseOrders]);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -209,7 +211,8 @@ export function ImportsView() {
   };
 
   return (
-    <div id="imports-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
+    <div id="imports-view" className={`flex-1 flex flex-col min-h-0 bg-slate-100 overflow-hidden ${bare ? 'h-full' : 'h-[calc(100dvh-56px)]'}`}>
+      {!bare && (
       <PageHeader
         icon={<ScrollText className="w-5 h-5 text-blue-600" />}
         title="Quản lý Đơn nhập"
@@ -229,6 +232,7 @@ export function ImportsView() {
           </>
         }
       />
+      )}
 
       {/* Main Content: Table + Detail Preview */}
       <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
@@ -268,6 +272,7 @@ export function ImportsView() {
                   ...supplierOptions.map((s) => ({ value: s.name, label: `${s.name} (${s.count})` })),
                 ]}
               />
+              {bare && <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />}
             </div>
 
             {/* Aggregate Summary Strip */}

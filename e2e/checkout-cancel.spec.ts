@@ -103,7 +103,7 @@ test.describe('checkout -> hủy (live, tự dọn)', () => {
     // Sang Đơn hàng, tìm đúng đơn vừa bán rồi hủy.
     await page.keyboard.press('Alt+m');
     await expect(page.locator('#flyout-overlay')).toBeVisible({ timeout: 10_000 });
-    await page.locator('#menu-item-orders').click();
+    await page.locator('#menu-item-vouchers').click();
     await expect(page.locator('#orders-view')).toBeVisible({ timeout: 15_000 });
     await page.locator('#orders-view input[placeholder="Mã đơn, tên khách, SĐT..."]').fill(code!);
     // Chờ filter hội tụ đúng 1 dòng (realtime re-render có thể reset giữa chừng) rồi

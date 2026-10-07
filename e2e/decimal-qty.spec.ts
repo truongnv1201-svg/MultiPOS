@@ -105,7 +105,7 @@ test.describe('số lượng thập phân', () => {
     await expect(page.locator('#pos-screen')).toBeVisible({ timeout: 30_000 });
 
     await page.locator('#flyout-menu-trigger').click();
-    await page.locator('#menu-item-products').click();
+    await page.locator('#menu-item-goods').click();
     await expect(page.locator('#products-view')).toBeVisible({ timeout: 30_000 });
     await page.locator('#btn-open-add-product-modal').click();
 
