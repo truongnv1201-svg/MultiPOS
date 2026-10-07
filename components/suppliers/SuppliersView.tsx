@@ -31,7 +31,7 @@ import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
 
-export function SuppliersView() {
+export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
   const { suppliers, addSupplier, updateSupplier, deleteSupplier, paySupplierDebt } = useStore();
 
   const [search, setSearch] = useState('');
@@ -47,7 +47,13 @@ export function SuppliersView() {
   const liveSelectedSupplier = suppliers.find((s) => s.id === selectedSupplier?.id) || selectedSupplier || suppliers[0] || null;
 
   // Modals
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Add modal (mở từ shell trang Công nợ khi bare, không thì nội bộ như cũ)
+  const [internalAddOpen, setInternalAddOpen] = useState(false);
+  const isAddModalOpen = addOpen ?? internalAddOpen;
+  const setIsAddModalOpen = (next: boolean) => {
+    onAddOpenChange?.(next);
+    setInternalAddOpen(next);
+  };
   const [payingSupplier, setPayingSupplier] = useState<Supplier | null>(null);
   const [payAmount, setPayAmount] = useState<number>(0);
   const [payMethod, setPayMethod] = useState<'cash' | 'transfer'>('transfer');
@@ -313,6 +319,7 @@ export function SuppliersView() {
   return (
     <div id="suppliers-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
       {/* Top Bar — cuộn ngang trên màn hẹp để không vỡ bố cục */}
+      {!bare && (
       <div className="h-14 px-2 sm:px-4 bg-white border-b border-slate-200 flex items-center justify-between gap-2 shrink-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex items-center gap-3 shrink-0">
           <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -347,6 +354,7 @@ export function SuppliersView() {
           </AppButton>
         </div>
       </div>
+      )}
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
           {/* Left: Table Section */}
@@ -375,6 +383,15 @@ export function SuppliersView() {
                     { value: 'clean', label: 'Hết nợ (= 0)' },
                   ]}
                 />
+                {bare && (
+                  <TableTools
+                    onExportExcel={handleExportExcel}
+                    onPrint={handlePrint}
+                    onImportExcel={handleImportExcel}
+                    onDownloadTemplate={handleDownloadTemplate}
+                    importing={importing}
+                  />
+                )}
               </div>
 
               {/* Metric strip */}

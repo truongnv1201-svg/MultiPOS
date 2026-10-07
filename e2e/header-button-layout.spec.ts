@@ -35,7 +35,7 @@ async function openScreen(page: Page, label: RegExp) {
 
 const MENU_LABEL: Record<string, RegExp> = {
     'NCC': /Cung Cấp/i,
-    'Khách hàng': /Khách Hàng/i,
+    'Khách hàng': /Công Nợ/i,
     'Hàng hóa': /Hàng Hóa|Danh Mục/i,
     'Đơn hàng': /Chứng Từ/i,
     'Công trình': /Công Trình|Dự Án/i,

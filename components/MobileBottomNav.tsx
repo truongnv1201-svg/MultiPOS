@@ -18,7 +18,7 @@ export function MobileBottomNav() {
     { screen: 'pos', label: 'Bán', icon: ShoppingCart },
     ...(!restricted ? [{ screen: 'goods' as const, label: 'Hàng', icon: Boxes }] : []),
     { screen: 'vouchers', label: 'C.từ', icon: ReceiptText },
-    { screen: 'customers', label: 'Khách', icon: Users },
+    { screen: 'debts', label: 'C.nợ', icon: Users },
   ];
 
   // Điện thoại (< 768px) khóa POS nên không cần nav — chỉ hiện trên tablet (md -> lg).

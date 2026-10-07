@@ -84,7 +84,7 @@ test.describe('poll thích ứng theo realtime', () => {
 
     // Dọn: xoá khách test trên máy B (bảng desktop; #customer-record-list chỉ hiện ở mobile)
     await pageB.keyboard.press('Alt+m');
-    await pageB.locator('#menu-item-customers').click();
+    await pageB.locator('#menu-item-debts').click();
     await expect(pageB.locator('#customers-view')).toBeVisible({ timeout: 15_000 });
     await pageB.locator('#customers-view input[placeholder="Tìm theo Tên, SĐT, Mã KH..."]').fill(name);
     const row = pageB.locator('#customers-view tbody tr', { hasText: name }).first();

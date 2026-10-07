@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
 import { OrdersView } from '@/components/orders/OrdersView';
 import { ImportsView } from '@/components/imports/ImportsView';
@@ -18,7 +18,7 @@ export type VoucherTab = 'sales' | 'imports' | 'exports' | 'adjust';
 // Thẻ kho vốn xem theo mặt hàng. Mỗi tab là 1 view độc lập (lazy-mount để khỏi
 // double-subscribe store); inner view chạy bare (h-full) dưới shell.
 export function VouchersView({ initialTab = 'sales' }: { initialTab?: VoucherTab }) {
-  const { setCurrentScreen, setPosFlow, profile } = useStore();
+  const { setCurrentScreen, setPosFlow, profile, refreshServerStockAdjustments } = useStore();
   const [tab, setTab] = useState<VoucherTab>(initialTab);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const canAdjust = !profile || profile.role === 'admin' || profile.role === 'manager';
@@ -26,6 +26,11 @@ export function VouchersView({ initialTab = 'sales' }: { initialTab?: VoucherTab
   // theo menu + shortcut) — giữ nguyên quyền trong trang gộp.
   const isRestricted = profile?.role === 'cashier' || profile?.role === 'worker';
   const activeTab: VoucherTab = isRestricted ? 'sales' : tab;
+  // Sổ điều chỉnh trước đây refresh khi bấm tab trong Kho — giữ hành vi ở tab mới
+  // (StockAdjustTable tự đọc store, không tự kéo).
+  useEffect(() => {
+    if (activeTab === 'adjust') void refreshServerStockAdjustments(true);
+  }, [activeTab, refreshServerStockAdjustments]);
 
   return (
     <div id="vouchers-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">

@@ -49,7 +49,7 @@ test('ô khách hàng: gõ tên lạ + Enter mở form tạo nhanh, tên đượ
   } finally {
     // Dọn khách test: màn Khách hàng có nút xóa + hộp xác nhận
     await page.keyboard.press('Alt+m');
-    await page.locator('#menu-item-customers').click();
+    await page.locator('#menu-item-debts').click();
     await expect(page.locator('#customers-view')).toBeVisible({ timeout: 20_000 });
     await page.locator('#customers-view input[placeholder*="Tìm theo"]').first().fill(name);
     const row = page.locator('#customers-view tbody tr', { hasText: name }).first();

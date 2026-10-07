@@ -12,8 +12,7 @@ import { ReceiptModal } from '@/components/pos/ReceiptModal';
 import { ShiftModalF12 } from '@/components/pos/ShiftModalF12';
 import { VouchersView } from '@/components/vouchers/VouchersView';
 import { GoodsView } from '@/components/goods/GoodsView';
-import { CustomersView } from '@/components/customers/CustomersView';
-import { SuppliersView } from '@/components/suppliers/SuppliersView';
+import { DebtsView } from '@/components/debts/DebtsView';
 import { ProjectsView } from '@/components/projects/ProjectsView';
 import { HRMView } from '@/components/hrm/HRMView';
 import { CashbookView } from '@/components/cashbook/CashbookView';
@@ -124,8 +123,10 @@ function AppContent() {
         {/* Key cũ (Alt+P/N): mở Hàng hóa đúng tab */}
         {effectiveScreen === 'products' && <GoodsView initialTab="catalog" />}
         {effectiveScreen === 'inventory' && <GoodsView initialTab="movements" />}
-        {effectiveScreen === 'customers' && <CustomersView />}
-        {effectiveScreen === 'suppliers' && <SuppliersView />}
+        {effectiveScreen === 'debts' && <DebtsView />}
+        {/* Key cũ (menu lưu localStorage, Alt+C/K): mở Công nợ đúng tab */}
+        {effectiveScreen === 'customers' && <DebtsView initialTab="customers" />}
+        {effectiveScreen === 'suppliers' && <DebtsView initialTab="suppliers" />}
         {effectiveScreen === 'projects' && <ProjectsView />}
         {(effectiveScreen === 'hr' || effectiveScreen === 'attendance' || effectiveScreen === 'leave' || effectiveScreen === 'payroll') && <HRMView />}
         {effectiveScreen === 'cashbook' && <CashbookView />}

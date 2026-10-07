@@ -329,6 +329,7 @@ export type ActiveScreen =
   | 'pos'
   | 'vouchers'
   | 'goods'
+  | 'debts'
   | 'orders'
   | 'imports'
   | 'products'

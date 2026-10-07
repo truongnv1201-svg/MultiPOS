@@ -34,6 +34,12 @@ describe('chung tu: man hinh dang ky du', () => {
     assert.match(header, /go\('imports'\)/);
     assert.match(header, /go\('orders'\)/);
   });
+
+  it('tab Dieu chinh tu refresh server khi mo (nhu tab Kho cu)', () => {
+    const shell = read('components/vouchers/VouchersView.tsx');
+    assert.match(shell, /refreshServerStockAdjustments/);
+    assert.match(shell, /if \(activeTab === 'adjust'\) void refreshServerStockAdjustments\(true\)/);
+  });
 });
 
 describe('don nhap: store expose purchaseOrders', () => {

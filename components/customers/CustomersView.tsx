@@ -21,7 +21,7 @@ import { sortRows } from '@/lib/sort';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 
-export function CustomersView() {
+export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
   const { customers, orders, addCustomer, updateCustomer, deleteCustomer, collectDebt, syncDebtsFromServer } = useStore();
   const [syncingDebt, setSyncingDebt] = useState(false);
 
@@ -59,8 +59,13 @@ export function CustomersView() {
   const [collectMethod, setCollectMethod] = useState<'cash' | 'transfer'>('cash');
   const [collectNote, setCollectNote] = useState('');
 
-  // Add customer modal
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Add customer modal (mở từ shell trang Công nợ khi bare, không thì nội bộ như cũ)
+  const [internalAddOpen, setInternalAddOpen] = useState(false);
+  const isAddModalOpen = addOpen ?? internalAddOpen;
+  const setIsAddModalOpen = (next: boolean) => {
+    onAddOpenChange?.(next);
+    setInternalAddOpen(next);
+  };
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -337,6 +342,7 @@ export function CustomersView() {
 
   return (
     <div id="customers-view" className="flex-1 flex flex-col h-full min-h-0 bg-slate-100 overflow-hidden">
+      {!bare && (
       <PageHeader
         icon={<Users className="w-5 h-5 text-blue-600" />}
         title="Khách hàng & Quản lý Công nợ"
@@ -362,6 +368,7 @@ export function CustomersView() {
           </>
         }
       />
+      )}
 
       {/* Main Container */}
       <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
@@ -406,6 +413,21 @@ export function CustomersView() {
                 { value: 'no_debt', label: 'Không có nợ (= 0)' },
               ]}
             />
+            {bare && (
+              <>
+                <TableTools
+                  onExportExcel={handleExportExcel}
+                  onPrint={handlePrint}
+                  onImportExcel={handleImportExcel}
+                  onDownloadTemplate={handleDownloadTemplate}
+                  importing={importing}
+                />
+                <AppButton variant="secondary" disabled={syncingDebt} onClick={handleSyncDebts} title="Kéo nợ + hạn mức thật từ server (server là truth công nợ)">
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncingDebt ? 'animate-spin' : ''}`} />
+                  <span>{syncingDebt ? 'Đang đồng bộ...' : 'Đồng bộ nợ'}</span>
+                </AppButton>
+              </>
+            )}
           </div>
 
           {/* Metric strip */}

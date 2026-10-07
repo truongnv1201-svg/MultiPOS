@@ -9,7 +9,6 @@ import {
   ReceiptText,
   Boxes,
   Users,
-  Truck,
   Building2,
   Banknote,
   Wallet,
@@ -51,8 +50,7 @@ export function FlyoutMenu() {
     { screen: 'goods' as const, label: 'Quản lý Hàng hóa', icon: Boxes, shortcut: 'Alt + P' },
     // P2: thu ngân/worker bị ẩn báo cáo + cài đặt; tab Thẻ kho (lộ giá vốn MAC) và
     // tab Đơn nhập/Xuất CT/Điều chỉnh trong trang ẩn theo vai trò ở từng shell.
-    { screen: 'customers', label: 'Khách hàng & Quản lý Công nợ', icon: Users, shortcut: 'Alt + C' },
-    { screen: 'suppliers', label: 'Nhà cung cấp & Đơn mua', icon: Truck, shortcut: 'Alt + K' },
+    { screen: 'debts' as const, label: 'Quản lý Công nợ', icon: Users, shortcut: 'Alt + C' },
     { screen: 'projects', label: 'Dự án & Thi công Công trình', icon: Building2, shortcut: 'Alt + J' },
     { screen: 'hr', label: 'Quản lý nhân sự', icon: UserCheck, shortcut: 'Alt + T' },
     { screen: 'cashbook', label: 'Sổ quỹ Thu - Chi', icon: Wallet, shortcut: 'Alt + Q' },
