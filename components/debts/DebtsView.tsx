@@ -36,13 +36,13 @@ export function DebtsView({ initialTab = 'customers' }: { initialTab?: DebtsTab 
               ]}
             />
             {tab === 'customers' && (
-              <AppButton onClick={() => setCustAddOpen(true)}>
+              <AppButton className="min-w-44 justify-center" onClick={() => setCustAddOpen(true)}>
                 <Plus className="w-4 h-4" />
                 <span>Thêm khách hàng mới</span>
               </AppButton>
             )}
             {tab === 'suppliers' && (
-              <AppButton id="btn-add-supplier" onClick={() => setSupAddOpen(true)}>
+              <AppButton id="btn-add-supplier" className="min-w-44 justify-center" onClick={() => setSupAddOpen(true)}>
                 <Plus className="w-4 h-4" />
                 <span>Thêm NCC mới</span>
               </AppButton>

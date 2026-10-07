@@ -45,7 +45,7 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
               }
             />
             {activeTab === 'catalog' && (
-              <AppButton id="btn-open-add-product-modal" onClick={() => setAddOpen(true)}>
+              <AppButton id="btn-open-add-product-modal" className="min-w-56 justify-center" onClick={() => setAddOpen(true)}>
                 <Plus className="w-4 h-4" />
                 <span>Thêm hàng hóa mới</span>
               </AppButton>
@@ -54,6 +54,7 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
               <>
                 <AppButton
                   id="btn-stock-adjust-open"
+                  className="min-w-56 justify-center"
                   tone="amber"
                   onClick={() => setAdjustOpen(true)}
                   disabled={!canAdjust}
@@ -67,6 +68,7 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
                   <span>Điều chỉnh tồn</span>
                 </AppButton>
                 <AppButton
+                  className="min-w-56 justify-center"
                   onClick={() => {
                     setPosFlow('import');
                     setCurrentScreen('pos');

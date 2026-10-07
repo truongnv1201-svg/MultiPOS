@@ -201,6 +201,21 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     );
   });
 
+  it('nút tạo trên header shell cùng min-width theo trang (đổi tab không nhảy nút)', () => {
+    // Mỗi shell 1 min-w ôm nút dài nhất của nó + căn giữa chữ.
+    for (const f of [
+      'components/vouchers/VouchersView.tsx',
+      'components/goods/GoodsView.tsx',
+      'components/debts/DebtsView.tsx',
+    ]) {
+      const src = read(f);
+      const buttons = src.match(/<AppButton[^>]*className="min-w-\d+ justify-center"/g) || [];
+      assert.ok(buttons.length > 0, `${f} nút tạo phải có min-w + justify-center`);
+      const widths = new Set((src.match(/min-w-\d+/g) || []));
+      assert.equal(widths.size, 1, `${f} chung 1 min-width cho mọi nút tạo, không mỗi nút một cỡ`);
+    }
+  });
+
   it('thẻ kho chỉ hiện từng dòng (đã bỏ gộp theo phiếu)', () => {
     const inv = read('components/inventory/InventoryView.tsx');
     assert.ok(!/useState<'voucher' \| 'lines'>/.test(inv), 'còn state gộp phiếu');

@@ -56,13 +56,14 @@ export function VouchersView({ initialTab = 'sales' }: { initialTab?: VoucherTab
               }
             />
             {activeTab === 'sales' && (
-              <AppButton onClick={() => setCurrentScreen('pos')}>
+              <AppButton className="min-w-44 justify-center" onClick={() => setCurrentScreen('pos')}>
                 <Plus className="w-4 h-4" />
                 <span>Tạo đơn bán hàng (F2)</span>
               </AppButton>
             )}
             {activeTab === 'imports' && (
               <AppButton
+                className="min-w-44 justify-center"
                 onClick={() => {
                   setPosFlow('import');
                   setCurrentScreen('pos');
@@ -74,6 +75,7 @@ export function VouchersView({ initialTab = 'sales' }: { initialTab?: VoucherTab
             )}
             {activeTab === 'exports' && (
               <AppButton
+                className="min-w-44 justify-center"
                 onClick={() => {
                   setPosFlow('project');
                   setCurrentScreen('pos');
@@ -85,7 +87,7 @@ export function VouchersView({ initialTab = 'sales' }: { initialTab?: VoucherTab
               </AppButton>
             )}
             {activeTab === 'adjust' && canAdjust && (
-              <AppButton onClick={() => setAdjustOpen(true)}>
+              <AppButton className="min-w-44 justify-center" onClick={() => setAdjustOpen(true)}>
                 <ClipboardCheck className="w-4 h-4" />
                 <span>Điều chỉnh tồn</span>
               </AppButton>
