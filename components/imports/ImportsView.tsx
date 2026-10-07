@@ -47,7 +47,7 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [supplierFilter, setSupplierFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: '7days' });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
   // Mặc định mới nhất lên trên (khớp thứ tự server) để không nháy khi dữ liệu về.
