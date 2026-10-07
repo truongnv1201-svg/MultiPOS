@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store';
 import { Boxes, Plus, Scale } from 'lucide-react';
 import { ProductsView } from '@/components/products/ProductsView';
 import { InventoryView } from '@/components/inventory/InventoryView';
+import { StockAdjustModal } from '@/components/inventory/StockAdjustModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { AppButton } from '@/components/ui/AppButton';
@@ -45,10 +46,26 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
               }
             />
             {activeTab === 'catalog' && (
-              <AppButton id="btn-open-add-product-modal" className="min-w-56 justify-center" onClick={() => setAddOpen(true)}>
-                <Plus className="w-4 h-4" />
-                <span>Thêm hàng hóa mới</span>
-              </AppButton>
+              <>
+                <AppButton
+                  tone="amber"
+                  className="min-w-56 justify-center"
+                  onClick={() => setAdjustOpen(true)}
+                  disabled={!canAdjust}
+                  title={
+                    canAdjust
+                      ? 'Điều chỉnh tồn kho khi hao hụt, hết hạn, thất lạc hoặc đếm sai (có ghi thẻ kho + lý do)'
+                      : 'Chỉ Admin/Quản lý được điều chỉnh tồn kho'
+                  }
+                >
+                  <Scale className="w-4 h-4" />
+                  <span>Điều chỉnh tồn</span>
+                </AppButton>
+                <AppButton id="btn-open-add-product-modal" className="min-w-56 justify-center" onClick={() => setAddOpen(true)}>
+                  <Plus className="w-4 h-4" />
+                  <span>Thêm hàng hóa mới</span>
+                </AppButton>
+              </>
             )}
             {activeTab === 'movements' && (
               <>
@@ -90,6 +107,9 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
           <InventoryView bare adjustOpen={adjustOpen} onAdjustOpenChange={setAdjustOpen} />
         )}
       </div>
+
+      {/* 1 instance chung cho cả 2 tab (trong InventoryView chỉ tự mount khi đứng độc lập) */}
+      <StockAdjustModal open={adjustOpen} onClose={() => setAdjustOpen(false)} />
     </div>
   );
 }

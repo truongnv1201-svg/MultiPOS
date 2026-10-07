@@ -187,6 +187,17 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     }
   });
 
+  it('tab Danh muc co nut Dieu chinh ton mo modal chung cua shell', () => {
+    const goods = read('components/goods/GoodsView.tsx');
+    assert.match(goods, /<span>Điều chỉnh tồn<\/span>/);
+    assert.match(goods, /<StockAdjustModal open=\{adjustOpen} onClose=\{\(\) => setAdjustOpen\(false\)\} \/>/);
+    // Modal trong InventoryView chỉ tự mount khi đứng độc lập (tránh 2 instance chồng nhau)
+    assert.match(
+      read('components/inventory/InventoryView.tsx'),
+      /\{onAdjustOpenChange === undefined && \(\s*<StockAdjustModal/
+    );
+  });
+
   it('vỏ tab không lồng padding với view con (lề đơn p-4 chuẩn bảng chung)', () => {
     // View con đã tự có p-4 (Orders/Imports/Products/Inventory) hoặc là thẻ card
     // cần bọc p-4 (ExportsTab/StockAdjustTable) — vỏ chỉ bọc, không thêm lề chung.

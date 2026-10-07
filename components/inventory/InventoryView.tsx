@@ -371,7 +371,10 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
             />
           </div>
       </div>
-      <StockAdjustModal open={adjustOpen} onClose={() => setAdjustOpen(false)} />
+      {/* Shell trang Hàng hóa mount sẵn 1 instance chung; chỉ tự mount khi đứng độc lập */}
+      {onAdjustOpenChange === undefined && (
+        <StockAdjustModal open={adjustOpen} onClose={() => setAdjustOpen(false)} />
+      )}
     </div>
   );
 }
