@@ -166,6 +166,23 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
         return stableNext(previous, merged);
       });
       await db.orders.bulkPut(mapped);
+      // Dọn hàng local thừa: cùng order_code đã có bản server (id khác) mà không còn
+      // là đơn offline chờ đẩy -> xóa khỏi Dexie. Không dọn thì lần boot sau Dexie
+      // lại hiện số cũ cao rồi mới tụt theo pull (nháy doanh số lặp lại mỗi lần tải).
+      // Giữ đơn offline chưa có server_id (chưa lên server, xóa là mất).
+      if (mapped.length > 0) {
+        const serverCodes = new Set(mapped.map((m) => m.order_code));
+        const serverIds = new Set(mapped.map((m) => m.id));
+        const candidates = await db.orders
+          .where('order_code')
+          .anyOf([...serverCodes])
+          .toArray()
+          .catch(() => [] as Order[]);
+        const dropIds = candidates
+          .filter((r) => !serverIds.has(r.id) && !(r.is_offline && !r.server_id))
+          .map((r) => r.id);
+        if (dropIds.length > 0) await db.orders.bulkDelete(dropIds).catch(() => {});
+      }
       if (incremental) {
         if (newestUpdated && !hitLimit) ordersWatermarkRef.current = newestUpdated;
         else if (hitLimit) ordersWatermarkRef.current = null;
@@ -255,18 +272,53 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
             /* best-effort */
           }
           syncedIds.push(o.id);
+          // Vá số server vào hàng local (server là chân lý tiền: chốt lại giá/VAT/
+          // nợ — giữ số local cũ thì Dexie mãi cao hơn truth, boot sau lại nháy).
+          const rd = (replayData || {}) as {
+            order_id?: unknown;
+            subtotal?: unknown;
+            discount_amount?: unknown;
+            vat_amount?: unknown;
+            total_amount?: unknown;
+            paid_amount?: unknown;
+            debt_amount?: unknown;
+            change_amount?: unknown;
+          };
+          const num = (v: unknown, fallback: number) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : fallback;
+          };
+          const serverPatch = {
+            subtotal: num(rd.subtotal, o.subtotal),
+            discount_amount: num(rd.discount_amount, o.discount_amount),
+            vat_amount: num(rd.vat_amount, o.vat_amount ?? 0),
+            total_amount: num(rd.total_amount, o.total_amount),
+            paid_amount: num(rd.paid_amount, o.paid_amount),
+            debt_amount: num(rd.debt_amount, o.debt_amount),
+            change_amount: num(rd.change_amount, o.change_amount ?? 0),
+          };
+          const replayPayments =
+            serverPatch.paid_amount > 0
+              ? [
+                  {
+                    method: payMethod === 'debt' ? 'cash' : payMethod,
+                    amount: serverPatch.paid_amount,
+                    reference: o.payments[0]?.reference,
+                  },
+                ]
+              : [];
           // Lưu server_id để Hủy/Trả gọi đúng đơn (khỏi lookup theo mã offline cũ)
           const replayOrderId = (replayData as { order_id?: unknown } | null)?.order_id;
           if (typeof replayOrderId === 'string' && replayOrderId) {
             setOrders((prev) =>
               prev.map((ord) =>
                 ord.id === o.id
-                  ? { ...ord, server_id: replayOrderId, is_offline: false, sync_attempts: 0, sync_last_error: undefined }
+                  ? { ...ord, ...serverPatch, payments: replayPayments, server_id: replayOrderId, is_offline: false, sync_attempts: 0, sync_last_error: undefined }
                   : ord
               )
             );
             await db.orders
-              .update(o.id, { server_id: replayOrderId, is_offline: false, sync_attempts: 0, sync_last_error: undefined })
+              .update(o.id, { ...serverPatch, payments: replayPayments, server_id: replayOrderId, is_offline: false, sync_attempts: 0, sync_last_error: undefined })
               .catch(() => {});
           }
           // P1 sổ quỹ: replay đã ghi receipt server -> mirror local theo mã đơn offline

@@ -70,3 +70,22 @@ describe('kéo delta đơn hàng: đúng dữ liệu, nhẹ lưu lượng', () =
     assert.match(idx, /CREATE INDEX IF NOT EXISTS idx_orders_updated ON public\.orders \(updated_at DESC\);/);
   });
 });
+
+describe('chong nhay doanh so: local phai hoi tu ve truth server', () => {
+  it('replay offline va so server vao hang local (memory + Dexie), ke ca payments', () => {
+    assert.match(sync, /const serverPatch = \{/);
+    assert.match(sync, /total_amount: num\(rd\.total_amount, o\.total_amount\)/);
+    assert.match(sync, /paid_amount: num\(rd\.paid_amount, o\.paid_amount\)/);
+    assert.match(sync, /debt_amount: num\(rd\.debt_amount, o\.debt_amount\)/);
+    assert.match(sync, /const replayPayments =/);
+    assert.match(sync, /\.\.\.serverPatch, payments: replayPayments, server_id: replayOrderId/);
+    assert.match(sync, /await db\.orders\s*\n?\s*\.update\(o\.id, \{ \.\.\.serverPatch/);
+  });
+
+  it('pull don don hang local thua theo order_code (giu don offline chua day)', () => {
+    assert.match(sync, /\.where\('order_code'\)/);
+    assert.match(sync, /anyOf\(\[\.\.\.serverCodes\]\)/);
+    assert.match(sync, /!serverIds\.has\(r\.id\) && !\(r\.is_offline && !r\.server_id\)/);
+    assert.match(sync, /await db\.orders\.bulkDelete\(dropIds\)/);
+  });
+});
