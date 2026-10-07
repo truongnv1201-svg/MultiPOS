@@ -670,11 +670,15 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           prev.map((s) => (s.id === localSupplier.id ? { ...s, current_debt: roundMoney(s.current_debt + debtAmount) } : s))
         );
       }
-      void syncPendingOpsRef.current();
+      // Worker có thể đổi mã tạm -> mã server (0073): đọc lại Dexie để trang Đơn nhập
+      // hiện mã chốt ngay, khỏi chờ tải lại trang. Fire-and-forget như sync.
+      void syncPendingOpsRef.current().then(() => {
+        void refreshPurchaseOrders();
+      });
       return true;
     },
     // enqueueOp là hàm module-scope (constants) nên không đưa vào deps (tránh warning exhaustive-deps).
-    [products, suppliers, supa, profile, currentShift, setProducts, setSuppliers, setStockMovements, setCashbook, syncPendingOpsRef]
+    [products, suppliers, supa, profile, currentShift, setProducts, setSuppliers, setStockMovements, setCashbook, syncPendingOpsRef, refreshPurchaseOrders]
   );
 
   return {
