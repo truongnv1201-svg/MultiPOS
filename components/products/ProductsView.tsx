@@ -333,7 +333,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
             />
             <AppButton id="btn-open-add-product-modal" onClick={() => setIsAddModalOpen(true)}>
               <Plus className="w-4 h-4" />
-              <span>Thêm hàng hóa mới</span>
+              <span>Thêm hàng hóa</span>
             </AppButton>
           </>
         }

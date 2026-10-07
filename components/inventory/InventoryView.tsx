@@ -209,7 +209,7 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
                 title="Sang màn bán hàng ở chế độ nhập kho"
               >
                 <Plus className="w-4 h-4" />
-                <span>Tạo Phiếu Nhập Kho (PN)</span>
+                <span>Tạo phiếu nhập</span>
               </AppButton>
           </>
         }

@@ -49,7 +49,7 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
               <>
                 <AppButton
                   tone="amber"
-                  className="min-w-56 justify-center"
+                  className="min-w-40 justify-center"
                   onClick={() => setAdjustOpen(true)}
                   disabled={!canAdjust}
                   title={
@@ -61,9 +61,9 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
                   <Scale className="w-4 h-4" />
                   <span>Điều chỉnh tồn</span>
                 </AppButton>
-                <AppButton id="btn-open-add-product-modal" className="min-w-56 justify-center" onClick={() => setAddOpen(true)}>
+                <AppButton id="btn-open-add-product-modal" className="min-w-40 justify-center" onClick={() => setAddOpen(true)}>
                   <Plus className="w-4 h-4" />
-                  <span>Thêm hàng hóa mới</span>
+                  <span>Thêm hàng hóa</span>
                 </AppButton>
               </>
             )}
@@ -71,7 +71,7 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
               <>
                 <AppButton
                   id="btn-stock-adjust-open"
-                  className="min-w-56 justify-center"
+                  className="min-w-40 justify-center"
                   tone="amber"
                   onClick={() => setAdjustOpen(true)}
                   disabled={!canAdjust}
@@ -85,7 +85,7 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
                   <span>Điều chỉnh tồn</span>
                 </AppButton>
                 <AppButton
-                  className="min-w-56 justify-center"
+                  className="min-w-40 justify-center"
                   onClick={() => {
                     setPosFlow('import');
                     setCurrentScreen('pos');
@@ -93,7 +93,7 @@ export function GoodsView({ initialTab = 'catalog' }: { initialTab?: GoodsTab })
                   title="Sang màn bán hàng ở chế độ nhập kho"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Tạo Phiếu Nhập Kho (PN)</span>
+                  <span>Tạo phiếu nhập</span>
                 </AppButton>
               </>
             )}
