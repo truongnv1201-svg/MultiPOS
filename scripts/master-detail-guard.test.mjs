@@ -106,3 +106,27 @@ describe('ncc: chi tiet chi hien ncc trong bo loc', () => {
     assert.match(suppliers, /\{isMobileDetailOpen && liveSelectedSupplier && \(/);
   });
 });
+
+describe('xuat CT: cung khung master-detail nhu don ban/nhap (bang + panel phai)', () => {
+  const view = read('components/vouchers/ExportsTab.tsx');
+
+  it('selectedGroup suy tu danh sach da loc, null stays null', () => {
+    assert.match(view, /sortedGroups\.find\(\(g\) => g\.key === selectedGroupKey\)/);
+    assert.match(view, /if \(!selectedGroupKey\) return null;/);
+    assert.match(view, /Chọn lượt xuất để xem chi tiết/);
+  });
+
+  it('doi filter/trang/sort thi xa chon (khong dinh lua chon cu)', () => {
+    assert.match(view, /const clearSelection = \(\) => setSelectedGroupKey\(null\);/);
+    assert.match(view, /onPageChange=\{\(p\) => \{\s*setCurrentPage\(p\);\s*clearSelection\(\);/);
+  });
+
+  it('co loc cong trinh + sap xep + phan trang nhu 2 tab kia', () => {
+    assert.match(view, /<FilterSelect/);
+    assert.match(view, /projectFilter/);
+    assert.match(view, /<SortableTh/);
+    assert.match(view, /<PaginationBar/);
+    assert.match(view, /<TableEmpty colSpan=\{4\}>/);
+    assert.match(view, /w-full md:w-96/);
+  });
+});
