@@ -634,3 +634,16 @@ describe('0074: ghi chú phiếu nhập khỏi dòng thẻ kho', () => {
     assert.match(view, /selectedPo\.note &&/);
   });
 });
+
+describe('0077: khoa pos_checkout khoi PUBLIC (chan goi an danh)', () => {
+  const sql = read('supabase/migrations/0077_lock_pos_checkout_public.sql');
+
+  it('revoke dung signature 10-arg dang live', () => {
+    assert.match(sql, /revoke execute on function public\.pos_checkout\(text, jsonb, numeric, jsonb, text, numeric, boolean, uuid, numeric, text\) from public;/);
+  });
+
+  it('khong revoke authenticated/service_role (user login + script van hanh khong anh huong)', () => {
+    assert.ok(!/from authenticated/.test(sql), 'không được revoke authenticated');
+    assert.ok(!/from service_role/.test(sql), 'không được revoke service_role');
+  });
+});
