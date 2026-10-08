@@ -122,11 +122,18 @@ describe('xuat CT: cung khung master-detail nhu don ban/nhap (bang + panel phai)
   });
 
   it('co loc cong trinh + sap xep + phan trang nhu 2 tab kia', () => {
+    const view = read('components/vouchers/ExportsTab.tsx');
     assert.match(view, /<FilterSelect/);
     assert.match(view, /projectFilter/);
     assert.match(view, /<SortableTh/);
     assert.match(view, /<PaginationBar/);
     assert.match(view, /<TableEmpty colSpan=\{4\}>/);
     assert.match(view, /w-full md:w-96/);
+  });
+
+  it('ten hang tra tu catalog (server chi luu product_id, nhu The kho)', () => {
+    const view = read('components/vouchers/ExportsTab.tsx');
+    assert.match(view, /productNameOf\(m\.product_id, m\.product_name\)/);
+    assert.match(view, /Sản phẩm đã xóa/);
   });
 });

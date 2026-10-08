@@ -27,7 +27,7 @@ interface ExportGroup {
 // xuất CT hiện không có mã phiếu riêng nên đây là gom nhóm hiển thị, muốn chuẩn
 // phiếu thì sinh mã batch PX (phase 2).
 export function ExportsTab() {
-  const { stockMovements, projects } = useStore();
+  const { stockMovements, projects, products } = useStore();
   const [search, setSearch] = useState('');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'this_week' });
@@ -41,16 +41,24 @@ export function ExportsTab() {
     return p ? p.name : '';
   };
 
+  // Server chỉ lưu product_id trên thẻ kho (bỏ JOIN để nhẹ payload) — tra tên
+  // từ catalog local như Thẻ kho, mục đã xóa mới rơi về nhãn dự phòng.
+  const productNameOf = (product_id: string, fallback: string): string => {
+    const hit = (products || []).find((p) => p.id === product_id);
+    return hit?.name || fallback || 'Sản phẩm đã xóa';
+  };
+
   const groups = useMemo<ExportGroup[]>(() => {
     const map = new Map<string, ExportGroup>();
     for (const m of stockMovements) {
       if (m.movement_type !== 'export_project') continue;
       if (!matchesDateFilter(m.created_at, dateFilter)) continue;
+      const itemName = productNameOf(m.product_id, m.product_name);
       const q = search.toLowerCase();
       if (
         q &&
         !m.reference_code.toLowerCase().includes(q) &&
-        !m.product_name.toLowerCase().includes(q) &&
+        !itemName.toLowerCase().includes(q) &&
         !projectNameOf(m.reference_code).toLowerCase().includes(q)
       ) {
         continue;
@@ -71,12 +79,12 @@ export function ExportsTab() {
         };
         map.set(key, g);
       }
-      g.lines.push({ id: m.id, product_name: m.product_name, quantity: Math.abs(m.quantity), note: m.note || '' });
+      g.lines.push({ id: m.id, product_name: itemName, quantity: Math.abs(m.quantity), note: m.note || '' });
       g.totalQty += Math.abs(m.quantity);
       if (m.created_at > g.created_at) g.created_at = m.created_at;
     }
     return [...map.values()];
-  }, [stockMovements, projects, search, projectFilter, dateFilter]);
+  }, [stockMovements, projects, products, search, projectFilter, dateFilter]);
 
   const projectOptions = useMemo(() => {
     const set = new Map<string, number>();
@@ -295,9 +303,6 @@ export function ExportsTab() {
                         <span className="font-bold text-slate-800">{l.product_name}</span>
                         <span className="font-mono text-slate-900">x{formatQty(l.quantity)}</span>
                       </div>
-                      {l.note && (
-                        <div className="text-[11px] text-slate-500">{l.note}</div>
-                      )}
                     </div>
                   ))}
                 </div>
