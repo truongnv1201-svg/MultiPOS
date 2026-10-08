@@ -1,7 +1,8 @@
 // Guard bố cục 2 cột (bảng + panel chi tiết): panel TRỐNG phải cùng hình học với
-// panel CÓ dữ liệu — lề đều 4 cạnh nhờ container, không margin riêng.
-// Bug từng gặp: panel trống mang `m-4` trong container đã `p-4` (lề gấp đôi),
-// hoặc `p-4 pl-0` thiếu ở trang NCC (lệch phía khe giữa).
+// panel CÓ dữ liệu — lề đều nhờ container (gap-4 p-4), panel con không padding/margin
+// riêng. Lịch sử: từng có `m-4` lồng trong container `p-4` (lề gấp đôi), và NCC từng
+// dùng `p-4 pl-0` riêng trong khi KH dùng gap container (lệch khe giữa khi đổi tab).
+// Nay KH + NCC chung 1 khung: main gap-4 p-4, panel w-96 không p-4.
 // Chạy: npm test (node --test ...). Không cần mạng/DB.
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,9 +31,15 @@ describe('panel trống cùng hình học panel có dữ liệu (lề đều 4 c
     });
   }
 
-  it('trang NCC: panel trống giữ p-4 pl-0 như panel có dữ liệu (khe giữa đều)', () => {
-    const src = read(PAGES['nhà cung cấp']);
-    assert.match(src, /hidden md:flex w-full md:w-96 bg-slate-100 flex-col min-h-0 p-4 pl-0">\s*$/m);
+  it('KH + NCC chung khung 2 cot: main gap-4 p-4, panel khong padding rieng', () => {
+    for (const f of [PAGES['khách hàng'], PAGES['nhà cung cấp']]) {
+      const src = read(f);
+      assert.match(src, /flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden/);
+      assert.ok(
+        !/md:w-96 bg-slate-100 flex-col min-h-0 p-4/.test(src),
+        `${f} panel không được mang p-4 riêng (lề do container gap-4 p-4 lo)`
+      );
+    }
   });
 });
 

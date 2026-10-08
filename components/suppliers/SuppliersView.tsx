@@ -356,9 +356,9 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
       </div>
       )}
 
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
           {/* Left: Table Section */}
-          <div className="flex-1 flex flex-col min-h-0 p-4 overflow-hidden">
+          <div className="flex-1 flex flex-col bg-slate-100 min-w-0 min-h-0">
             <DataTableShell>
               {/* Filter Bar — cùng khối với bảng (chuẩn Đơn hàng / Khách hàng) */}
               <div className="p-2.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2">
@@ -537,7 +537,7 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
 
           {/* Right: Selected Supplier Card (desktop/tablet — mobile dùng sheet bên dưới) */}
           {visibleSupplier ? (
-            <div className="hidden md:flex w-full md:w-96 bg-slate-100 flex-col min-h-0 p-4 pl-0">
+            <div className="hidden md:flex w-full md:w-96 bg-slate-100 flex flex-col min-h-0">
               <div className="flex-1 min-h-0 bg-white border border-slate-200 rounded-xl shadow-2xs p-3 flex flex-col overflow-y-auto">
                 <div className="space-y-4 text-xs">
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
@@ -600,7 +600,7 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
               </div>
             </div>
           ) : (
-            <div className="hidden md:flex w-full md:w-96 bg-slate-100 flex-col min-h-0 p-4 pl-0">
+            <div className="hidden md:flex w-full md:w-96 bg-slate-100 flex flex-col min-h-0">
               <div className="flex-1 min-h-0 bg-white border border-slate-200 rounded-xl shadow-2xs flex items-center justify-center text-slate-400 text-xs p-3">
                 Chọn nhà cung cấp để xem chi tiết
               </div>

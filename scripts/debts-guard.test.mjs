@@ -61,4 +61,17 @@ describe('cong no: man hinh dang ky du', () => {
     assert.match(catalog, /current_debt: Number\(row\.current_debt\) \|\| 0/);
     assert.match(catalog, /debt_limit: Number\(row\.debt_limit\) \|\| 0/);
   });
+
+  it('2 tab cung khung bo cuc (main gap-4 p-4, cot trai, panel phai w-96)', () => {
+    // Đổi tab KH/NCC không được lệch lề, hở khối — 3 class khung phải giống hệt.
+    for (const f of [
+      'components/customers/CustomersView.tsx',
+      'components/suppliers/SuppliersView.tsx',
+    ]) {
+      const src = read(f);
+      assert.match(src, /flex-1 min-h-0 flex flex-col md:flex-row gap-4 p-4 overflow-hidden/, `${f} main giong nhau`);
+      assert.match(src, /flex-1 flex flex-col bg-slate-100 min-w-0 min-h-0/, `${f} cot trai giong nhau`);
+      assert.match(src, /hidden md:flex w-full md:w-96 bg-slate-100 flex flex-col min-h-0/, `${f} panel phai giong nhau`);
+    }
+  });
 });
