@@ -148,6 +148,11 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     assert.ok(!/^\s*<select[\s>]/m.test(read('components/common/DateFilter.tsx')), 'DateFilter không còn thẻ select gốc');
     assert.match(read('components/common/PaginationBar.tsx'), /<FilterSelect/);
     assert.ok(!/^\s*<select[\s>]/m.test(read('components/common/PaginationBar.tsx')), 'PaginationBar không còn thẻ select gốc');
+    // 2 điểm lọc sót (nhân sự, sổ điều chỉnh) cũng đã về FilterSelect chung
+    assert.match(read('components/hrm/tabs/StaffTab.tsx'), /<FilterSelect/);
+    assert.ok(!/^\s*<select[\s>]/m.test(read('components/hrm/tabs/StaffTab.tsx')), 'StaffTab không còn thẻ select gốc');
+    assert.match(read('components/inventory/StockAdjustTable.tsx'), /<FilterSelect/);
+    assert.ok(!/^\s*<select[\s>]/m.test(read('components/inventory/StockAdjustTable.tsx')), 'StockAdjustTable không còn thẻ select gốc');
   });
 
   it('trạng thái rỗng chuẩn TableEmpty/ListEmpty', () => {

@@ -46,6 +46,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { TableTools } from '@/components/common/TableTools';
+import { FilterSelect } from '@/components/ui/FilterControls';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 // P3: atoms/tokens/helpers thuần dùng chung các tab (tách ra ui.tsx).
@@ -265,17 +266,17 @@ export function StaffTab({
             />
           </div>
 
-          {/* Lọc hình thức lương — select h-8 như các trang khác */}
-          <select
+          {/* Lọc hình thức lương — dropdown chung toàn app */}
+          <FilterSelect
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as 'all' | 'daily' | 'monthly')}
-            aria-label="Lọc hình thức lương"
-            className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
-          >
-            <option value="all">Tất cả hình thức lương</option>
-            <option value="daily">Lương ngày</option>
-            <option value="monthly">Lương tháng</option>
-          </select>
+            onChange={(v) => setTypeFilter(v as 'all' | 'daily' | 'monthly')}
+            title="Lọc hình thức lương"
+            options={[
+              { value: 'all', label: 'Tất cả hình thức lương' },
+              { value: 'daily', label: 'Lương ngày' },
+              { value: 'monthly', label: 'Lương tháng' },
+            ]}
+          />
 
           {/* Lọc trạng thái — pill toggle cùng nhịp h-8 của bộ lọc chung */}
           <button

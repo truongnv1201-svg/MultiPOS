@@ -24,6 +24,7 @@ import { formatQty } from '@/lib/quantity';
 import { HardHat, Package, Search } from 'lucide-react';
 import { STOCK_ADJUST_REASON_LABEL } from '@/lib/types';
 import { TableTools } from '@/components/common/TableTools';
+import { FilterSelect } from '@/components/ui/FilterControls';
 import { exportToExcel, printTable } from '@/lib/excel';
 
 export function StockAdjustTable() {
@@ -245,19 +246,20 @@ export function StockAdjustTable() {
             className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
           />
         </div>
-        <select
+        <FilterSelect
           value={kindFilter}
-          onChange={(e) => {
-            setKindFilter(e.target.value as typeof kindFilter);
+          onChange={(v) => {
+            setKindFilter(v as typeof kindFilter);
             setPage(1);
           }}
-          className="h-8 px-2 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 focus:border-blue-500 focus:outline-hidden"
-        >
-          <option value="all">Tất cả phiếu</option>
-          <option value="loss">Hao hụt / Giảm tồn</option>
-          <option value="gain">Đếm thừa / Tăng tồn</option>
-          <option value="unassigned">Chưa gán công trình</option>
-        </select>
+          title="Lọc loại phiếu"
+          options={[
+            { value: 'all', label: 'Tất cả phiếu' },
+            { value: 'loss', label: 'Hao hụt / Giảm tồn' },
+            { value: 'gain', label: 'Đếm thừa / Tăng tồn' },
+            { value: 'unassigned', label: 'Chưa gán công trình' },
+          ]}
+        />
         <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
       </div>
 
