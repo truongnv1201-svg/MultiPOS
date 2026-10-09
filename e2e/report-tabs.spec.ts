@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 
 // Nhãn tab báo cáo KHÔNG mang số đếm — số nằm ở dòng tổng hợp dưới tiêu đề bảng
-// (chuẩn các bảng chính). Khóa cả 4 tab + nút gạt Phải thu/Phải trả.
+// (chuẩn các bảng chính). Khóa cả 3 tab còn lại (Tổng quan/VAT/Mặt hàng);
+// tab Công nợ đã bỏ (trang Quản lý Công nợ làm tốt hơn).
 async function loginAdmin(page: Page) {
     await page.goto('/');
     await expect(page.locator('#login-modal-overlay')).toBeVisible();
@@ -13,7 +14,7 @@ async function loginAdmin(page: Page) {
 }
 
 test.describe('Báo cáo: nhãn tab không mang số đếm', () => {
-    test('4 tab + nút gạt công nợ đều gọn, số nằm ở dòng tổng hợp', async ({ page }) => {
+    test('3 tab gọn, số nằm ở dòng tổng hợp', async ({ page }) => {
         test.slow();
         await page.setViewportSize({ width: 1600, height: 950 });
         await loginAdmin(page);
@@ -24,7 +25,7 @@ test.describe('Báo cáo: nhãn tab không mang số đếm', () => {
         await page.waitForTimeout(2500);
 
         // Nhãn tab gọn, không ngoặc số
-        for (const label of ['Tổng quan', 'VAT đầu ra', 'Mặt hàng', 'Công nợ']) {
+        for (const label of ['Tổng quan', 'VAT đầu ra', 'Mặt hàng']) {
             const tab = page.locator('#reports-view button', { hasText: new RegExp(`^${label}$`) });
             await expect(tab, `tab "${label}" phải gọn không số`).toHaveCount(1);
         }
@@ -32,23 +33,16 @@ test.describe('Báo cáo: nhãn tab không mang số đếm', () => {
         const tabBar = await page.locator('#reports-view').innerText();
         expect(tabBar).not.toMatch(/VAT đầu ra \(\d+\)/);
         expect(tabBar).not.toMatch(/Mặt hàng \(\d+\)/);
-        expect(tabBar).not.toMatch(/Công nợ \(\d+\)/);
 
         // Tab VAT: số tháng nằm ở dòng tổng hợp
         await page.locator('#reports-view button', { hasText: /^VAT đầu ra$/ }).click();
         await page.waitForTimeout(800);
         await expect(page.locator('#reports-view')).toContainText(/Tìm thấy\s+\d+\s+tháng/);
 
-        // Tab Mặt hàng: số mặt hàng nằm ở dòng tổng hợp
+        // Tab Mặt hàng: lãi kỳ theo mặt hàng bán ra trong kỳ lọc
         await page.locator('#reports-view button', { hasText: /^Mặt hàng$/ }).click();
         await page.waitForTimeout(800);
         await expect(page.locator('#reports-view')).toContainText(/Tìm thấy\s+\d+\s+mặt hàng/);
-
-        // Tab Công nợ: nút gạt gọn + số nằm ở dòng tổng hợp
-        await page.locator('#reports-view button', { hasText: /^Công nợ$/ }).click();
-        await page.waitForTimeout(800);
-        await expect(page.locator('#reports-view button', { hasText: /^Phải thu KH$/ })).toHaveCount(1);
-        await expect(page.locator('#reports-view button', { hasText: /^Phải trả NCC$/ })).toHaveCount(1);
-        await expect(page.locator('#reports-view')).toContainText(/Tìm thấy\s+\d+\s+(khách đang nợ|NCC đang nợ)/);
+        await expect(page.locator('#reports-view')).toContainText(/Tổng lãi kỳ/);
     });
 });

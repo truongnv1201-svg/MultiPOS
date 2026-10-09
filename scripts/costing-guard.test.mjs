@@ -79,10 +79,13 @@ describe('costing: không còn công thức lẻ trong view/store', () => {
     assert.ok(!/prevStock \* prevCost \+ l\.quantity \* l\.importPrice/.test(shift), 'shift-stock còn công thức MAC inline');
   });
 
-  it('Báo cáo dùng lineMargin cho sắp xếp/in/excel/dòng/tổng', () => {
+  it('Báo cáo tính lãi kỳ từ dòng đơn (không biên tĩnh, không công thức inline)', () => {
     const rep = read('components/reports/ReportsView.tsx');
-    const uses = rep.match(/lineMargin\(/g) || [];
-    assert.ok(uses.length >= 6, `chỉ thấy ${uses.length} chỗ dùng lineMargin, cần >= 6 (sort x2, excel, in, dòng, tổng)`);
+    assert.ok(!/lineMargin\(/.test(rep), 'ReportsView còn dùng biên tĩnh giá bán - vốn MAC');
     assert.ok(!/p\.retail_price - p\.avg_cost/.test(rep), 'ReportsView còn công thức biên inline');
+    // Gom dòng đơn trong kỳ theo product_id + phân bổ CK bill
+    assert.match(rep, /for \(const o of rangedOrders\)/);
+    assert.match(rep, /discountShare/);
+    assert.match(rep, /qty \* unitCost/);
   });
 });

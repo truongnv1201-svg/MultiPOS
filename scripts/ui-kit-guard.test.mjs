@@ -191,6 +191,28 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     assert.ok(!/px-3 py-1 text-xs font-semibold rounded-md transition-all/.test(vouchers + goods + rep), 'còn tab hardcode');
   });
 
+  it('báo cáo chỉ còn 3 tab (bỏ Công nợ — trang Công nợ làm tốt hơn)', () => {
+    const rep = read('components/reports/ReportsView.tsx');
+    assert.match(rep, /type ReportTab = 'overview' \| 'vat' \| 'margin';/);
+    assert.match(rep, /{ key: 'margin', label: 'Mặt hàng' }/);
+    assert.ok(!/key: 'debt'/.test(rep), 'còn tab Công nợ');
+    assert.ok(!/debtSide|sortedDebtors|sortedSuppliers|debtExcelRows|handlePrintDebt|handleExportDebt/.test(rep), 'còn mã tab Công nợ');
+  });
+
+  it('tab Mặt hàng tính lãi TRONG KỲ từ đơn đã giao (không phải biên tĩnh)', () => {
+    const rep = read('components/reports/ReportsView.tsx');
+    // Gom dòng đơn trong kỳ theo product_id, CK bill phân bổ theo tỉ trọng
+    assert.match(rep, /for \(const o of rangedOrders\)/);
+    assert.match(rep, /discountShare/);
+    assert.match(rep, /const prod = products\.find\(\(p\) => p\.id === it\.product_id\);/);
+    // Không còn biên tĩnh giá bán - vốn MAC
+    assert.ok(!/lineMargin\(p\.retail_price, p\.avg_cost\)/.test(rep), 'còn công thức biên tĩnh');
+    assert.ok(!/Giá bán/.test(rep.match(/activeTab === 'margin'[\s\S]*$/)[0]), 'còn cột Giá bán/Vốn MAC');
+    // Tổng lãi + biên BQ theo kỳ
+    assert.match(rep, /Tổng lãi kỳ:/);
+    assert.match(rep, /marginTotals\.profit/);
+  });
+
   it('trang tab chỉ có 1 header (shell giữ PageHeader, inner ẩn khi bare)', () => {
     const goods = read('components/goods/GoodsView.tsx');
     assert.equal((goods.match(/<PageHeader/g) || []).length, 1, 'GoodsView đúng 1 PageHeader');

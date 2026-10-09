@@ -24,11 +24,9 @@ import { DataTableShell } from '@/components/common/DataTableShell';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { notify } from '@/components/common/Toast';
 import { exportToExcel, printTable } from '@/lib/excel';
-import { lineMargin } from '@/lib/costing';
 import { sortRows } from '@/lib/sort';
-import type { Product, Customer, Supplier } from '@/lib/types';
 
-type ReportTab = 'overview' | 'vat' | 'margin' | 'debt';
+type ReportTab = 'overview' | 'vat' | 'margin';
 
 // Nhãn kỳ báo cáo dùng chung (badge, Excel, In)
 function rangeLabel(f: DateFilterState): string {
@@ -203,125 +201,18 @@ export function ReportsView() {
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'this_week' });
   // Sắp xếp 2 bảng: bấm header để đảo chiều; đổi sort/tìm kiếm -> về trang 1
   const { sortKey: marginSortKey, sortDir: marginSortDir, toggleSort: toggleMarginSortRaw } = useSortState();
-  const { sortKey: debtSortKey, sortDir: debtSortDir, toggleSort: toggleDebtSortRaw } = useSortState('current_debt', 'desc');
   const [marginSearch, setMarginSearch] = useState('');
   const [marginPage, setMarginPage] = useState(1);
   const [marginPageSize, setMarginPageSize] = useState(15);
-  const [debtSearch, setDebtSearch] = useState('');
-  const [debtPage, setDebtPage] = useState(1);
-  const [debtPageSize, setDebtPageSize] = useState(15);
-  // Công nợ 2 chiều: phải thu (KH) / phải trả (NCC) — mỗi chiều sort/search/page riêng
-  const [debtSide, setDebtSide] = useState<'customer' | 'supplier'>('customer');
-  const { sortKey: supSortKey, sortDir: supSortDir, toggleSort: toggleSupSortRaw } = useSortState('current_debt', 'desc');
-  const [supSearch, setSupSearch] = useState('');
-  const [supPage, setSupPage] = useState(1);
-  const [supPageSize, setSupPageSize] = useState(15);
-
-  const handleSupSort = (key: string) => {
-    toggleSupSortRaw(key);
-    setSupPage(1);
-  };
 
   const handleMarginSort = (key: string) => {
     toggleMarginSortRaw(key);
     setMarginPage(1);
   };
-  const handleDebtSort = (key: string) => {
-    toggleDebtSortRaw(key);
-    setDebtPage(1);
-  };
 
-  const marginFiltered = useMemo(() => {
-    const q = marginSearch.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) => p.name.toLowerCase().includes(q));
-  }, [products, marginSearch]);
+  // (tab Mặt hàng bên dưới gom theo sản phẩm từ cùng tập này).
 
-  const sortedMargin = useMemo(() => {
-    if (!marginSortKey) return marginFiltered;
-    // Công thức biên dùng chung (lib/costing.ts) — 1 nơi đổi, mọi bảng/kpi/excel theo.
-    const getters: Record<string, (p: Product) => unknown> = {
-      name: (p) => p.name,
-      retail_price: (p) => p.retail_price,
-      avg_cost: (p) => p.avg_cost,
-      margin: (p) => lineMargin(p.retail_price, p.avg_cost).amount,
-      margin_pct: (p) => lineMargin(p.retail_price, p.avg_cost).pct,
-    };
-    const get = getters[marginSortKey];
-    if (!get) return marginFiltered;
-    return sortRows(marginFiltered, get, marginSortDir);
-  }, [marginFiltered, marginSortKey, marginSortDir]);
-
-  // Kẹp trang khi dữ liệu co lại (lọc/tìm kiếm) để không ra trang trắng
-  const marginTotalPages = Math.max(1, Math.ceil(sortedMargin.length / marginPageSize));
-  const safeMarginPage = Math.min(Math.max(1, marginPage), marginTotalPages);
-  const marginRows = useMemo(() => {
-    const start = (safeMarginPage - 1) * marginPageSize;
-    return sortedMargin.slice(start, start + marginPageSize);
-  }, [sortedMargin, safeMarginPage, marginPageSize]);
-
-  const debtFiltered = useMemo(() => {
-    const base = customers.filter((c) => c.current_debt > 0);
-    const q = debtSearch.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
-      (c) => c.name.toLowerCase().includes(q) || (c.phone || '').includes(q),
-    );
-  }, [customers, debtSearch]);
-
-  const sortedDebtors = useMemo(() => {
-    if (!debtSortKey) return debtFiltered;
-    const getters: Record<string, (c: Customer) => unknown> = {
-      name: (c) => c.name,
-      phone: (c) => c.phone,
-      current_debt: (c) => c.current_debt,
-      debt_limit: (c) => c.debt_limit,
-      debt_rate: (c) => (c.debt_limit > 0 ? (c.current_debt / c.debt_limit) * 100 : 0),
-    };
-    const get = getters[debtSortKey];
-    if (!get) return debtFiltered;
-    return sortRows(debtFiltered, get, debtSortDir);
-  }, [debtFiltered, debtSortKey, debtSortDir]);
-
-  const debtTotalPages = Math.max(1, Math.ceil(sortedDebtors.length / debtPageSize));
-  const safeDebtPage = Math.min(Math.max(1, debtPage), debtTotalPages);
-  const debtorRows = useMemo(() => {
-    const start = (safeDebtPage - 1) * debtPageSize;
-    return sortedDebtors.slice(start, start + debtPageSize);
-  }, [sortedDebtors, safeDebtPage, debtPageSize]);
-
-  const supFiltered = useMemo(() => {
-    const base = suppliers.filter((s) => s.current_debt > 0);
-    const q = supSearch.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
-      (s) => s.name.toLowerCase().includes(q) || (s.phone || '').includes(q),
-    );
-  }, [suppliers, supSearch]);
-
-  const sortedSuppliers = useMemo(() => {
-    if (!supSortKey) return supFiltered;
-    const getters: Record<string, (s: Supplier) => unknown> = {
-      name: (s) => s.name,
-      phone: (s) => s.phone,
-      current_debt: (s) => s.current_debt,
-      credit_limit: (s) => s.credit_limit || 0,
-      debt_rate: (s) => ((s.credit_limit || 0) > 0 ? (s.current_debt / (s.credit_limit || 1)) * 100 : 0),
-    };
-    const get = getters[supSortKey];
-    if (!get) return supFiltered;
-    return sortRows(supFiltered, get, supSortDir);
-  }, [supFiltered, supSortKey, supSortDir]);
-
-  const supTotalPages = Math.max(1, Math.ceil(sortedSuppliers.length / supPageSize));
-  const safeSupPage = Math.min(Math.max(1, supPage), supTotalPages);
-  const supRows = useMemo(() => {
-    const start = (safeSupPage - 1) * supPageSize;
-    return sortedSuppliers.slice(start, start + supPageSize);
-  }, [sortedSuppliers, safeSupPage, supPageSize]);
-
-  const totalSupplierDebt = suppliers.reduce((sum, s) => sum + (s.current_debt || 0), 0);
-  const supplierDebtorCount = suppliers.filter((s) => s.current_debt > 0).length;
+const totalSupplierDebt = suppliers.reduce((sum, s) => sum + (s.current_debt || 0), 0);
 
   // ---- KPI theo kỳ (DateFilter chung, có Tùy chọn ngày) ----
   // Đơn hiệu lực: hoàn tất + đặt cọc + trả một phần (trả hết/hủy loại).
@@ -365,6 +256,102 @@ export function ReportsView() {
 
   const grossMarginPct = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
+  // ---- Lãi gộp theo mặt hàng TRONG KỲ (tab Mặt hàng): gom dòng hàng của đúng
+  // tập đơn Tổng quan (completed + partial_returned, trong kỳ), CK bill phân bổ
+  // theo tỉ trọng subtotal dòng, vốn = MAC hiện tại (fallback 0.7 giá — cùng công
+  // thức Tổng quan để 2 nơi đối chiếu được). Mặt hàng không bán trong kỳ không lên
+  // bảng (đây là báo cáo lãi kỳ, không phải bảng giá).
+  interface MarginRow {
+    product_id: string;
+    sku: string;
+    name: string;
+    quantity: number;
+    revenue: number;
+    cogs: number;
+    profit: number;
+    margin_pct: number;
+  }
+  const marginByProduct = useMemo<MarginRow[]>(() => {
+    const map = new Map<string, MarginRow>();
+    for (const o of rangedOrders) {
+      if (o.status !== 'completed' && o.status !== 'partial_returned') continue;
+      const orderSubtotal = o.items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
+      for (const it of o.items) {
+        const qty = Number(it.quantity) || 0;
+        if (!(qty > 0)) continue;
+        const lineSub = Number(it.subtotal) || 0;
+        const discountShare =
+          orderSubtotal > 0 ? ((Number(o.discount_amount) || 0) * lineSub) / orderSubtotal : 0;
+        const revenue = lineSub - discountShare;
+        const prod = products.find((p) => p.id === it.product_id);
+        const unitCost = prod ? Number(prod.avg_cost) || 0 : Number(it.unit_price) * 0.7;
+        const key = it.product_id || it.sku;
+        const row =
+          map.get(key) ??
+          {
+            product_id: it.product_id,
+            sku: it.sku,
+            name: it.name,
+            quantity: 0,
+            revenue: 0,
+            cogs: 0,
+            profit: 0,
+            margin_pct: 0,
+          };
+        row.quantity += qty;
+        row.revenue += revenue;
+        row.cogs += qty * unitCost;
+        map.set(key, row);
+      }
+    }
+    const rows = [...map.values()];
+    for (const r of rows) {
+      r.revenue = Math.round(r.revenue);
+      r.cogs = Math.round(r.cogs);
+      r.profit = r.revenue - r.cogs;
+      r.margin_pct = r.revenue > 0 ? (r.profit / r.revenue) * 100 : 0;
+    }
+    return rows;
+  }, [rangedOrders, products]);
+
+  const marginFiltered = useMemo(() => {
+    const q = marginSearch.trim().toLowerCase();
+    if (!q) return marginByProduct;
+    return marginByProduct.filter(
+      (r) => r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q),
+    );
+  }, [marginByProduct, marginSearch]);
+
+  const sortedMargin = useMemo(() => {
+    if (!marginSortKey) return marginFiltered;
+    const getters: Record<string, (r: MarginRow) => unknown> = {
+      name: (r) => r.name,
+      quantity: (r) => r.quantity,
+      revenue: (r) => r.revenue,
+      cogs: (r) => r.cogs,
+      profit: (r) => r.profit,
+      margin_pct: (r) => r.margin_pct,
+    };
+    const get = getters[marginSortKey];
+    if (!get) return marginFiltered;
+    return sortRows(marginFiltered, get, marginSortDir);
+  }, [marginFiltered, marginSortKey, marginSortDir]);
+
+  // Kẹp trang khi dữ liệu co lại (lọc/tìm kiếm) để không ra trang trắng
+  const marginTotalPages = Math.max(1, Math.ceil(sortedMargin.length / marginPageSize));
+  const safeMarginPage = Math.min(Math.max(1, marginPage), marginTotalPages);
+  const marginRows = useMemo(() => {
+    const start = (safeMarginPage - 1) * marginPageSize;
+    return sortedMargin.slice(start, start + marginPageSize);
+  }, [sortedMargin, safeMarginPage, marginPageSize]);
+  const marginTotals = useMemo(() => {
+    const revenue = sortedMargin.reduce((s, r) => s + r.revenue, 0);
+    const cogs = sortedMargin.reduce((s, r) => s + r.cogs, 0);
+    const profit = sortedMargin.reduce((s, r) => s + r.profit, 0);
+    return { revenue, cogs, profit, pct: revenue > 0 ? (profit / revenue) * 100 : 0 };
+  }, [sortedMargin]);
+
+  
   // ---- VAT đầu ra theo tháng + đối chiếu sổ quỹ (P1) ----
   // Chỉ đơn hiệu lực (completed/partial_returned); đơn hủy/trả hết
   // không tính VAT. Đơn cũ (trước bản VAT) không có vat_amount -> tính 0.
@@ -507,23 +494,15 @@ export function ReportsView() {
     { 'Chỉ tiêu': `Hao hụt tồn kho (${rangeLabel(dateFilter)}) - không tính vào dòng tiền`, 'Giá trị': Math.round(lossSummary.lossValue) },
     { 'Chỉ tiêu': 'Lãi gộp ước tính', 'Giá trị': Math.round(grossProfit) },
   ];
-  const marginExcelRows = (list: Product[]) =>
-    list.map((p) => {
-      const m = lineMargin(p.retail_price, p.avg_cost);
-      return {
-        'Sản phẩm': p.name,
-        'Giá bán': p.retail_price,
-        'Giá vốn': Math.round(p.avg_cost),
-        'Biên lợi': Math.round(m.amount),
-        'Biên lợi (%)': Math.round(m.pct * 100) / 100,
-      };
-    });
-  const debtExcelRows = (list: Customer[]) =>
-    list.map((c) => ({
-      'Khách hàng': c.name,
-      'SĐT': c.phone,
-      'Đang nợ': c.current_debt,
-      'Hạn mức': c.debt_limit,
+  const marginExcelRows = (list: MarginRow[]) =>
+    list.map((r) => ({
+      'Sản phẩm': r.name,
+      'SKU': r.sku,
+      'SL bán': r.quantity,
+      'Doanh thu': Math.round(r.revenue),
+      'Vốn': Math.round(r.cogs),
+      'Lãi gộp': Math.round(r.profit),
+      'Tỷ suất (%)': Math.round(r.margin_pct * 100) / 100,
     }));
   const vatExcelRows = vatMonthly.map((r) => ({
     'Tháng': vatLabel(r.month),
@@ -540,16 +519,6 @@ export function ReportsView() {
     exportToExcel('bao-cao-quan-tri', [
       { name: 'TongHop', rows: summaryRows },
       { name: 'BienLoi', rows: marginExcelRows(sortedMargin) },
-      { name: 'CongNo', rows: debtExcelRows(sortedDebtors) },
-      {
-        name: 'CongNoNCC',
-        rows: sortedSuppliers.map((s) => ({
-          'Nhà cung cấp': s.name,
-          'SĐT': s.phone,
-          'Đang nợ': s.current_debt,
-          'Hạn mức': s.credit_limit || 0,
-        })),
-      },
       { name: 'VAT', rows: vatExcelRows },
     ]);
   };
@@ -567,31 +536,6 @@ export function ReportsView() {
     }
     exportToExcel('bao-cao-bien-loi', [{ name: 'BienLoi', rows: marginExcelRows(sortedMargin) }]);
   };
-  const handleExportDebtCustomer = () => {
-    if (sortedDebtors.length === 0) {
-      notify('Không có dữ liệu để xuất!', 'error');
-      return;
-    }
-    exportToExcel('bao-cao-cong-no-phai-thu', [{ name: 'CongNoKH', rows: debtExcelRows(sortedDebtors) }]);
-  };
-  const handleExportDebtSupplier = () => {
-    if (sortedSuppliers.length === 0) {
-      notify('Không có dữ liệu để xuất!', 'error');
-      return;
-    }
-    exportToExcel('bao-cao-cong-no-phai-tra', [
-      {
-        name: 'CongNoNCC',
-        rows: sortedSuppliers.map((s) => ({
-          'Nhà cung cấp': s.name,
-          'SĐT': s.phone,
-          'Đang nợ': s.current_debt,
-          'Hạn mức': s.credit_limit || 0,
-        })),
-      },
-    ]);
-  };
-
   const handlePrintOverview = () => {
     printTable({
       title: `Báo cáo quản trị (${rangeLabel(dateFilter)})`,
@@ -633,61 +577,25 @@ export function ReportsView() {
       return;
     }
     printTable({
-      title: 'Hiệu quả kinh doanh từng mặt hàng (giá bán vs vốn MAC)',
-      meta: [`${sortedMargin.length} mặt hàng`],
+      title: `Lãi gộp theo mặt hàng (${rangeLabel(dateFilter)})`,
+      meta: [`${sortedMargin.length} mặt hàng có bán`, `Tổng lãi: ${formatVND(marginTotals.profit)}`],
       columns: [
         { header: 'Sản phẩm' },
-        { header: 'Giá bán', align: 'right' },
-        { header: 'Vốn MAC', align: 'right' },
-        { header: 'Chênh lệch', align: 'right' },
-        { header: 'Tỷ suất lãi', align: 'right' },
+        { header: 'SL bán', align: 'right' },
+        { header: 'Doanh thu', align: 'right' },
+        { header: 'Vốn', align: 'right' },
+        { header: 'Lãi gộp', align: 'right' },
+        { header: 'Tỷ suất', align: 'right' },
       ],
-      rows: sortedMargin.slice(0, 1000).map((p) => {
-        const m = lineMargin(p.retail_price, p.avg_cost);
-        return [
-          p.name,
-          Math.round(p.retail_price).toLocaleString('vi-VN'),
-          Math.round(p.avg_cost).toLocaleString('vi-VN'),
-          Math.round(m.amount).toLocaleString('vi-VN'),
-          `${m.pct.toFixed(1)}%`,
-        ];
-      }),
-    });
-  };
-  const handlePrintDebtCustomer = () => {
-    if (sortedDebtors.length === 0) {
-      notify('Không có dữ liệu để in!', 'error');
-      return;
-    }
-    printTable({
-      title: 'Công nợ phải thu khách hàng',
-      meta: [`${sortedDebtors.length} khách đang nợ`, `Tổng nợ: ${formatVND(totalDebtReceivable)}`],
-      columns: [
-        { header: 'Khách hàng' },
-        { header: 'SĐT' },
-        { header: 'Đang nợ', align: 'right' },
-        { header: 'Hạn mức', align: 'right' },
-      ],
-      rows: sortedDebtors.slice(0, 1000).map((c) => [c.name, c.phone, c.current_debt.toLocaleString('vi-VN'), c.debt_limit.toLocaleString('vi-VN')]),
-      footer: ['Tổng', '', totalDebtReceivable.toLocaleString('vi-VN'), ''],
-    });
-  };
-  const handlePrintDebtSupplier = () => {
-    if (sortedSuppliers.length === 0) {
-      notify('Không có dữ liệu để in!', 'error');
-      return;
-    }
-    printTable({
-      title: 'Công nợ phải trả nhà cung cấp',
-      meta: [`${sortedSuppliers.length} NCC đang nợ`, `Tổng nợ: ${formatVND(totalSupplierDebt)}`],
-      columns: [
-        { header: 'Nhà cung cấp' },
-        { header: 'SĐT' },
-        { header: 'Đang nợ', align: 'right' },
-        { header: 'Hạn mức', align: 'right' },
-      ],
-      rows: sortedSuppliers.slice(0, 1000).map((s) => [s.name, s.phone, s.current_debt.toLocaleString('vi-VN'), (s.credit_limit || 0).toLocaleString('vi-VN')]),
-      footer: ['Tổng', '', totalSupplierDebt.toLocaleString('vi-VN'), ''],
+      rows: sortedMargin.slice(0, 1000).map((r) => [
+        r.sku ? `${r.name} (${r.sku})` : r.name,
+        String(r.quantity),
+        Math.round(r.revenue).toLocaleString('vi-VN'),
+        Math.round(r.cogs).toLocaleString('vi-VN'),
+        Math.round(r.profit).toLocaleString('vi-VN'),
+        `${r.margin_pct.toFixed(1)}%`,
+      ]),
+      footer: ['Tổng', '', marginTotals.revenue.toLocaleString('vi-VN'), marginTotals.cogs.toLocaleString('vi-VN'), marginTotals.profit.toLocaleString('vi-VN'), `${marginTotals.pct.toFixed(1)}%`],
     });
   };
 
@@ -696,9 +604,7 @@ export function ReportsView() {
       ? `${rangedOrders.length} đơn ${rangeLabel(dateFilter)}`
       : activeTab === 'vat'
         ? `${vatMonthly.length} tháng`
-        : activeTab === 'margin'
-          ? `${sortedMargin.length} mặt hàng`
-          : `${sortedDebtors.length + sortedSuppliers.length} bên nợ (KH + NCC)`;
+        : `${sortedMargin.length} mặt hàng có bán`;
 
   return (
     <div id="reports-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">
@@ -730,14 +636,11 @@ export function ReportsView() {
                 { key: 'overview', label: 'Tổng quan' },
                 { key: 'vat', label: 'VAT đầu ra' },
                 { key: 'margin', label: 'Mặt hàng' },
-                { key: 'debt', label: 'Công nợ' },
               ]}
             />
             {activeTab === 'overview' && <TableTools onExportExcel={handleExportOverview} onPrint={handlePrintOverview} />}
             {activeTab === 'vat' && <TableTools onExportExcel={handleExportVat} onPrint={handlePrintVat} />}
             {activeTab === 'margin' && <TableTools onExportExcel={handleExportMargin} onPrint={handlePrintMargin} />}
-            {activeTab === 'debt' && debtSide === 'customer' && <TableTools onExportExcel={handleExportDebtCustomer} onPrint={handlePrintDebtCustomer} />}
-            {activeTab === 'debt' && debtSide === 'supplier' && <TableTools onExportExcel={handleExportDebtSupplier} onPrint={handlePrintDebtSupplier} />}
           </>
         }
       />
@@ -791,7 +694,7 @@ export function ReportsView() {
                   {formatVND(totalDebtReceivable)}
                 </div>
                 <div className="text-[10px] text-rose-700 mt-1">
-                  {sortedDebtors.length} KH đang nợ • Nợ NCC: <strong className="font-mono">{formatVND(totalSupplierDebt)}</strong>
+                  {customers.filter((c) => c.current_debt > 0).length} KH đang nợ • Nợ NCC: <strong className="font-mono">{formatVND(totalSupplierDebt)}</strong>
                 </div>
               </div>
 
@@ -968,26 +871,19 @@ export function ReportsView() {
             {/* Dòng tổng hợp riêng, ngay trên tiêu đề cột */}
             <SummaryStrip className="flex-wrap gap-2">
               <span>
-                Tìm thấy <strong className="text-slate-900 font-mono">{sortedMargin.length}</strong> mặt hàng
+                Tìm thấy <strong className="text-slate-900 font-mono">{sortedMargin.length}</strong> mặt hàng có bán trong kỳ
               </span>
               <div className="flex items-center gap-4">
                 <span>
-                  Tổng chênh lệch:{' '}
+                  Tổng lãi kỳ:{' '}
                   <strong className="font-mono text-emerald-700 font-bold">
-                    +{formatVND(sortedMargin.reduce((s, p) => s + lineMargin(p.retail_price, p.avg_cost).amount, 0))}
+                    +{formatVND(marginTotals.profit)}
                   </strong>
                 </span>
                 <span>
                   Biên BQ:{' '}
                   <strong className="font-mono text-emerald-700 font-bold">
-                    {sortedMargin.length > 0
-                      ? (
-                          (sortedMargin.reduce((s, p) => s + lineMargin(p.retail_price, p.avg_cost).amount, 0) /
-                            sortedMargin.reduce((s, p) => s + (p.retail_price || 1), 0)) *
-                          100
-                        ).toFixed(1)
-                      : '0.0'}
-                    %
+                    {marginTotals.pct.toFixed(1)}%
                   </strong>
                 </span>
               </div>
@@ -998,33 +894,36 @@ export function ReportsView() {
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
                     <SortableTh className="py-2.5 px-3" label="Tên sản phẩm" sortKey="name" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Giá bán" sortKey="retail_price" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Vốn MAC" sortKey="avg_cost" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
-                    <SortableTh className="py-2.5 px-3 text-right" label="Chênh lệch" sortKey="margin" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="SL bán" sortKey="quantity" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="Doanh thu" sortKey="revenue" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="Vốn" sortKey="cogs" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
+                    <SortableTh className="py-2.5 px-3 text-right" label="Lãi gộp" sortKey="profit" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
                     <SortableTh className="py-2.5 px-3 text-right" label="Tỷ suất lãi" sortKey="margin_pct" activeKey={marginSortKey} dir={marginSortDir} onSort={handleMarginSort} />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {marginRows.length === 0 ? (
-                    <TableEmpty colSpan={5}>Không tìm thấy mặt hàng nào phù hợp.</TableEmpty>
+                    <TableEmpty colSpan={6}>Không có mặt hàng nào bán ra trong kỳ lọc.</TableEmpty>
                   ) : (
-                    marginRows.map((p) => {
-                      const m = lineMargin(p.retail_price, p.avg_cost);
+                    marginRows.map((r) => {
                       return (
-                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-2.5 px-3 font-semibold text-slate-800 max-w-[280px] truncate" title={p.name}>
-                            {p.name}
+                        <tr key={r.product_id || r.sku} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 px-3 font-semibold text-slate-800 max-w-[280px] truncate" title={r.sku ? `${r.name} (${r.sku})` : r.name}>
+                            {r.name}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-800">{formatVND(p.retail_price)}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-800">{r.quantity}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-800">
+                            {formatVND(r.revenue)}
+                          </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-500">
-                            {formatVND(p.avg_cost)}
+                            {formatVND(r.cogs)}
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">
-                            +{formatVND(m.amount)}
+                            +{formatVND(r.profit)}
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <StatusBadge tone="emerald" pill={false} className="font-mono">
-                              {m.pct.toFixed(1)}%
+                              {r.margin_pct.toFixed(1)}%
                             </StatusBadge>
                           </td>
                         </tr>
@@ -1050,189 +949,7 @@ export function ReportsView() {
           </DataTableShell>
         )}
 
-        {activeTab === 'debt' && (
-          <DataTableShell>
-            <div className="p-2.5 border-b border-slate-200 flex flex-wrap items-center gap-2 bg-slate-50">
-              <SearchInput
-                value={debtSide === 'customer' ? debtSearch : supSearch}
-                onChange={(val) => {
-                  if (debtSide === 'customer') {
-                    setDebtSearch(val);
-                    setDebtPage(1);
-                  } else {
-                    setSupSearch(val);
-                    setSupPage(1);
-                  }
-                }}
-                placeholder={debtSide === 'customer' ? 'Tìm khách nợ theo tên, SĐT...' : 'Tìm NCC theo tên, SĐT...'}
-                minWidthClass="min-w-[200px]"
-              />
-              {/* Chiều công nợ: phải thu (KH) / phải trả (NCC) */}
-              <TabSwitcher<'customer' | 'supplier'>
-                active={debtSide}
-                onChange={setDebtSide}
-                options={[
-                  { key: 'customer', label: 'Phải thu KH' },
-                  { key: 'supplier', label: 'Phải trả NCC' },
-                ]}
-              />
-            </div>
-
-            {/* Dòng tổng hợp riêng, ngay trên tiêu đề cột */}
-            <SummaryStrip className="flex-wrap gap-2">
-              <span>
-                Tìm thấy{' '}
-                <strong className="text-slate-900 font-mono">
-                  {debtSide === 'customer' ? sortedDebtors.length : sortedSuppliers.length}
-                </strong>{' '}
-                {debtSide === 'customer' ? 'khách đang nợ' : 'NCC đang nợ'}
-              </span>
-              <div className="flex items-center gap-4">
-                <span>
-                  {debtSide === 'customer' ? 'Tổng phải thu:' : 'Tổng phải trả:'}{' '}
-                  <strong className={`font-mono font-bold ${debtSide === 'customer' ? 'text-rose-600' : 'text-amber-700'}`}>
-                    {formatVND(debtSide === 'customer' ? totalDebtReceivable : totalSupplierDebt)}
-                  </strong>
-                </span>
-              </div>
-            </SummaryStrip>
-
-            {debtSide === 'customer' ? (
-              <>
-                <div className="flex-1 min-h-0 overflow-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                        <SortableTh className="py-2.5 px-3" label="Tên khách" sortKey="name" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
-                        <SortableTh className="py-2.5 px-3" label="SĐT" sortKey="phone" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
-                        <SortableTh className="py-2.5 px-3 text-right" label="Dư nợ hiện hữu" sortKey="current_debt" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
-                        <SortableTh className="py-2.5 px-3 text-right" label="Hạn mức" sortKey="debt_limit" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
-                        <SortableTh className="py-2.5 px-3 text-center" label="Tỷ lệ nợ" sortKey="debt_rate" activeKey={debtSortKey} dir={debtSortDir} onSort={handleDebtSort} />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {debtorRows.length === 0 ? (
-                        <TableEmpty colSpan={5}>Không tìm thấy khách hàng nào phù hợp.</TableEmpty>
-                      ) : (
-                        debtorRows.map((c) => {
-                          const debtRate = c.debt_limit > 0 ? (c.current_debt / c.debt_limit) * 100 : 0;
-                          const overLimit = c.debt_limit > 0 && c.current_debt > c.debt_limit;
-                          return (
-                            <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="py-2.5 px-3 font-semibold text-slate-800">{c.name}</td>
-                              <td className="py-2.5 px-3 font-mono text-slate-500">{c.phone}</td>
-                              <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600">
-                                {formatVND(c.current_debt)}
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-mono text-slate-500">
-                                {formatVND(c.debt_limit)}
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
-                                    overLimit
-                                      ? 'bg-rose-100 text-rose-800'
-                                      : debtRate >= 80
-                                        ? 'bg-amber-100 text-amber-800'
-                                        : 'bg-slate-100 text-slate-700'
-                                  }`}
-                                >
-                                  {debtRate.toFixed(0)}%
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <PaginationBar
-                  currentPage={safeDebtPage}
-                  totalItems={sortedDebtors.length}
-                  pageSize={debtPageSize}
-                  onPageChange={setDebtPage}
-                  onPageSizeChange={(s) => {
-                    setDebtPageSize(s);
-                    setDebtPage(1);
-                  }}
-                  pageSizeOptions={[15, 25, 50, 100]}
-                  itemName="khách hàng"
-                />
-              </>
-            ) : (
-              <>
-                <div className="flex-1 min-h-0 overflow-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                        <SortableTh className="py-2.5 px-3" label="Nhà cung cấp" sortKey="name" activeKey={supSortKey} dir={supSortDir} onSort={handleSupSort} />
-                        <SortableTh className="py-2.5 px-3" label="SĐT" sortKey="phone" activeKey={supSortKey} dir={supSortDir} onSort={handleSupSort} />
-                        <SortableTh className="py-2.5 px-3 text-right" label="Nợ phải trả" sortKey="current_debt" activeKey={supSortKey} dir={supSortDir} onSort={handleSupSort} />
-                        <SortableTh className="py-2.5 px-3 text-right" label="Hạn mức" sortKey="credit_limit" activeKey={supSortKey} dir={supSortDir} onSort={handleSupSort} />
-                        <SortableTh className="py-2.5 px-3 text-center" label="Tỷ lệ nợ" sortKey="debt_rate" activeKey={supSortKey} dir={supSortDir} onSort={handleSupSort} />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {supRows.length === 0 ? (
-                        <TableEmpty colSpan={5}>Không tìm thấy nhà cung cấp nào phù hợp.</TableEmpty>
-                      ) : (
-                        supRows.map((s) => {
-                          const limit = s.credit_limit || 0;
-                          const debtRate = limit > 0 ? (s.current_debt / limit) * 100 : 0;
-                          const overLimit = limit > 0 && s.current_debt > limit;
-                          return (
-                            <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="py-2.5 px-3 font-semibold text-slate-800">{s.name}</td>
-                              <td className="py-2.5 px-3 font-mono text-slate-500">{s.phone}</td>
-                              <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-700">
-                                {formatVND(s.current_debt)}
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-mono text-slate-500">
-                                {limit > 0 ? formatVND(limit) : '—'}
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                {limit > 0 ? (
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
-                                      overLimit
-                                        ? 'bg-rose-100 text-rose-800'
-                                        : debtRate >= 80
-                                          ? 'bg-amber-100 text-amber-800'
-                                          : 'bg-slate-100 text-slate-700'
-                                    }`}
-                                  >
-                                    {debtRate.toFixed(0)}%
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <PaginationBar
-                  currentPage={safeSupPage}
-                  totalItems={sortedSuppliers.length}
-                  pageSize={supPageSize}
-                  onPageChange={setSupPage}
-                  onPageSizeChange={(s) => {
-                    setSupPageSize(s);
-                    setSupPage(1);
-                  }}
-                  pageSizeOptions={[15, 25, 50, 100]}
-                  itemName="nhà cung cấp"
-                />
-              </>
-            )}
-          </DataTableShell>
-        )}
+        
       </div>
     </div>
   );
