@@ -7,6 +7,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
+import { FilterSelect } from '@/components/ui/FilterControls';
 
 export interface PaginationBarProps {
   currentPage: number;
@@ -80,20 +81,15 @@ export function PaginationBar({
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5 text-slate-500 pl-3 border-l border-slate-200">
             <span className="hidden sm:inline">Hiển thị:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                onPageSizeChange(Number(e.target.value));
+            <FilterSelect
+              value={String(pageSize)}
+              onChange={(v) => {
+                onPageSizeChange(Number(v));
                 onPageChange(1);
               }}
-              className="h-7 px-1.5 bg-slate-50 border border-slate-300 rounded text-xs font-semibold text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-hidden"
-            >
-              {pageSizeOptions.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt} dòng
-                </option>
-              ))}
-            </select>
+              options={pageSizeOptions.map((opt) => ({ value: String(opt), label: `${opt} dòng` }))}
+              className="w-[92px]"
+            />
           </div>
         )}
       </div>

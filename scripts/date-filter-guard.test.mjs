@@ -34,6 +34,6 @@ describe('loc thoi gian: mac dinh Tuan nay', () => {
     assert.match(src, /if \(filter\.preset === 'this_week'\)/);
     assert.match(src, /\(\(now\.getDay\(\) \+ 6\) % 7\)/);
     assert.match(src, /startOfWeek\.setHours\(0, 0, 0, 0\)/);
-    assert.match(src, /<option value="this_week">Tuần này<\/option>/);
+    assert.match(src, /\{ value: 'this_week', label: 'Tuần này' \}/);
   });
 });

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Calendar, X } from 'lucide-react';
+import { FilterSelect } from '@/components/ui/FilterControls';
 
 export type DatePreset = 'all' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'custom';
 
@@ -100,20 +101,20 @@ export function DateFilter({ value, onChange, className = '' }: DateFilterProps)
 
   return (
     <div className={`relative flex items-center gap-1.5 ${className}`}>
-      <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-md px-2 h-8 text-xs text-slate-700">
+      <div className="flex items-center gap-1.5">
         <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        <select
+        <FilterSelect
           value={value.preset}
-          onChange={(e) => handleSelectPreset(e.target.value as DatePreset)}
-          className="bg-transparent font-medium focus:outline-hidden cursor-pointer"
-        >
-          <option value="all">Toàn thời gian</option>
-          <option value="today">Hôm nay</option>
-          <option value="yesterday">Hôm qua</option>
-          <option value="this_week">Tuần này</option>
-          <option value="this_month">Tháng này</option>
-          <option value="custom">Tùy chọn ngày...</option>
-        </select>
+          onChange={(v) => handleSelectPreset(v as DatePreset)}
+          options={[
+            { value: 'all', label: 'Toàn thời gian' },
+            { value: 'today', label: 'Hôm nay' },
+            { value: 'yesterday', label: 'Hôm qua' },
+            { value: 'this_week', label: 'Tuần này' },
+            { value: 'this_month', label: 'Tháng này' },
+            { value: 'custom', label: 'Tùy chọn ngày...' },
+          ]}
+        />
       </div>
 
       {value.preset === 'custom' && (

@@ -134,6 +134,22 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     }
   });
 
+  it('FilterSelect tự vẽ (popup hệ điều hành không style được): nút + listbox + portal', () => {
+    const src = read('components/ui/FilterControls.tsx');
+    assert.match(src, /aria-haspopup="listbox"/);
+    assert.match(src, /role="listbox"/);
+    assert.match(src, /role="option"/);
+    assert.match(src, /createPortal\(/);
+    assert.match(src, /<ChevronDown/);
+    assert.match(src, /<Check/);
+    assert.ok(!/^\s*<select[\s>]/m.test(src), 'FilterControls không còn thẻ select gốc');
+    // DateFilter + PaginationBar dùng chung FilterSelect (không select lẻ)
+    assert.match(read('components/common/DateFilter.tsx'), /<FilterSelect/);
+    assert.ok(!/^\s*<select[\s>]/m.test(read('components/common/DateFilter.tsx')), 'DateFilter không còn thẻ select gốc');
+    assert.match(read('components/common/PaginationBar.tsx'), /<FilterSelect/);
+    assert.ok(!/^\s*<select[\s>]/m.test(read('components/common/PaginationBar.tsx')), 'PaginationBar không còn thẻ select gốc');
+  });
+
   it('trạng thái rỗng chuẩn TableEmpty/ListEmpty', () => {
     const emptyUsers = [
       'components/orders/OrdersView.tsx',

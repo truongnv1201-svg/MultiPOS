@@ -134,11 +134,13 @@ test.describe('Kho: điều chỉnh tồn / hao hụt', () => {
         await loginAdmin(page);
         await openInventory(page);
 
-        // Thẻ kho có thêm bộ lọc 2 loại điều chỉnh (0064)
-        const filter = page.locator('select').filter({ has: page.locator('option[value="adjust_loss"]') });
-        await expect(filter).toBeVisible();
-        await expect(filter.locator('option[value="adjust_loss"]')).toHaveCount(1);
-        await expect(filter.locator('option[value="adjust_gain"]')).toHaveCount(1);
+        // Thẻ kho có thêm bộ lọc 2 loại điều chỉnh (0064) — dropdown tự vẽ:
+        // bấm nút lọc rồi kiểm option trong bảng chọn
+        await page.getByRole('button', { name: /Tất cả nghiệp vụ/ }).click();
+        const listbox = page.getByRole('listbox');
+        await expect(listbox.getByRole('option', { name: 'Hao hụt / Điều chỉnh giảm' })).toBeVisible();
+        await expect(listbox.getByRole('option', { name: 'Đếm thừa / Điều chỉnh tăng' })).toBeVisible();
+        await page.keyboard.press('Escape');
 
         // Tab sổ điều chỉnh tồn ở trang Chứng từ, nhãn tab không mang chip đếm
         await openAdjustTab(page);
