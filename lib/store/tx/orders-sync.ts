@@ -105,6 +105,7 @@ export function useTxOrdersSync({ setCashbook }: TxOrdersSyncDeps): TxOrdersSync
           discount_amount: Number(row.discount_amount || 0),
           processing_fee: Number(row.processing_fee || 0),
           subtotal: Number(row.subtotal || 0),
+          unit_cost: row.unit_cost != null ? Number(row.unit_cost) : undefined,
           dimension_details: row.dimension_details || undefined,
           waste_factor: row.waste_factor != null ? Number(row.waste_factor) : undefined,
           material_consumed: row.material_consumed != null ? Number(row.material_consumed) : undefined,

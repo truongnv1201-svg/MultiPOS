@@ -635,6 +635,26 @@ describe('0074: ghi chú phiếu nhập khỏi dòng thẻ kho', () => {
   });
 });
 
+describe('0078: chup von MAC vao dong don luc ban', () => {
+  const sql = read('supabase/migrations/0078_order_item_cost.sql');
+
+  it('them cot unit_cost mac dinh 0 (dong cu/client cu khong gay)', () => {
+    assert.match(sql, /add column if not exists unit_cost numeric\(12,2\) not null default 0/);
+  });
+
+  it('trigger dien von khi lenh ghi khong dua von, ton trong gia tri ghi ro', () => {
+    assert.match(sql, /create or replace function public\.order_items_snapshot_cost\(\)/);
+    assert.match(sql, /if NEW\.unit_cost is null or NEW\.unit_cost = 0 then/);
+    assert.match(sql, /before insert on public\.order_items/);
+  });
+
+  it('client keo von chup ve + bao cao uu tien snapshot', () => {
+    assert.match(read('lib/types.ts'), /unit_cost\?: number;/);
+    assert.match(read('lib/store/tx/orders-sync.ts'), /unit_cost: row\.unit_cost/);
+    assert.match(read('components/reports/ReportsView.tsx'), /historicalUnitCost\(it, products, it\.product_id\)/);
+  });
+});
+
 describe('0077: khoa pos_checkout khoi PUBLIC (chan goi an danh)', () => {
   const sql = read('supabase/migrations/0077_lock_pos_checkout_public.sql');
 

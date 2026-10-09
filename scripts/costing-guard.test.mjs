@@ -10,7 +10,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { previewImportAvg, lineMargin } from '../lib/costing.ts';
+import { previewImportAvg, lineMargin, historicalUnitCost } from '../lib/costing.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
@@ -44,6 +44,23 @@ describe('previewImportAvg: khớp SQL 0042/0048/0053', () => {
     // (0 + 10*10000)/10 = 10000; (10*10000 + 10*20000)/20 = 15000
     assert.equal(s, 20);
     assert.equal(a, 15000);
+  });
+});
+
+describe('historicalUnitCost: von chup luc ban, fallback MAC', () => {
+  const prods = [{ id: 'p1', avg_cost: 20000 }];
+
+  it('don moi co snapshot -> dung snapshot (ke ca khi MAC da doi)', () => {
+    assert.equal(historicalUnitCost({ unit_price: 30000, unit_cost: 18000 }, [{ id: 'p1', avg_cost: 25000 }], 'p1'), 18000);
+  });
+
+  it('don cu chua co snapshot -> MAC hien tai', () => {
+    assert.equal(historicalUnitCost({ unit_price: 30000 }, prods, 'p1'), 20000);
+    assert.equal(historicalUnitCost({ unit_price: 30000, unit_cost: 0 }, prods, 'p1'), 20000);
+  });
+
+  it('mat hang da xoa -> 0.7 gia ban (quy uoc cu)', () => {
+    assert.equal(historicalUnitCost({ unit_price: 30000 }, prods, 'gone'), 21000);
   });
 });
 
@@ -86,6 +103,11 @@ describe('costing: không còn công thức lẻ trong view/store', () => {
     // Gom dòng đơn trong kỳ theo product_id + phân bổ CK bill
     assert.match(rep, /for \(const o of rangedOrders\)/);
     assert.match(rep, /discountShare/);
-    assert.match(rep, /qty \* unitCost/);
+    assert.match(rep, /historicalUnitCost\(it, products, it\.product_id\)/);
+  });
+
+  it('đồng bộ đơn kéo vốn chụp về (pull select * đã gồm unit_cost)', () => {
+    const sync = read('lib/store/tx/orders-sync.ts');
+    assert.match(sync, /unit_cost: row\.unit_cost != null \? Number\(row\.unit_cost\) : undefined,/);
   });
 });

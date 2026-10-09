@@ -63,6 +63,8 @@ export interface OrderItem {
   waste_factor?: number;
   material_consumed?: number; // quantity * (1 + waste_factor/100)
   price_override?: boolean; // Quản lý/Admin đã sửa giá dòng này -> gửi kèm lên server (xem migration 0059)
+  /** Vốn chụp tại lúc bán (0078, server tự điền từ MAC) — dòng cũ = 0/undefined. */
+  unit_cost?: number;
 }
 
 export interface PaymentItem {

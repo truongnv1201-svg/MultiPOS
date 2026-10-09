@@ -24,6 +24,7 @@ import { DataTableShell } from '@/components/common/DataTableShell';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { notify } from '@/components/common/Toast';
 import { exportToExcel, printTable } from '@/lib/excel';
+import { historicalUnitCost } from '@/lib/costing';
 import { sortRows } from '@/lib/sort';
 
 type ReportTab = 'overview' | 'vat' | 'margin';
@@ -245,11 +246,9 @@ const totalSupplierDebt = suppliers.reduce((sum, s) => sum + (s.current_debt || 
   const grossProfit = rangedOrders
     .filter((o) => o.status === 'completed' || o.status === 'partial_returned')
     .reduce((sum, o) => {
-      // rough gross profit = items subtotal - cost
+      // rough gross profit = items subtotal - cost (vốn chụp lúc bán, fallback MAC)
       const orderCost = o.items.reduce((costSum, it) => {
-        const prod = products.find((p) => p.id === it.product_id);
-        const unitCost = prod ? prod.avg_cost : it.unit_price * 0.7;
-        return costSum + it.quantity * unitCost;
+        return costSum + it.quantity * historicalUnitCost(it, products, it.product_id);
       }, 0);
       return sum + (o.total_amount - orderCost);
     }, 0);
@@ -283,8 +282,7 @@ const totalSupplierDebt = suppliers.reduce((sum, s) => sum + (s.current_debt || 
         const discountShare =
           orderSubtotal > 0 ? ((Number(o.discount_amount) || 0) * lineSub) / orderSubtotal : 0;
         const revenue = lineSub - discountShare;
-        const prod = products.find((p) => p.id === it.product_id);
-        const unitCost = prod ? Number(prod.avg_cost) || 0 : Number(it.unit_price) * 0.7;
+        const unitCost = historicalUnitCost(it, products, it.product_id);
         const key = it.product_id || it.sku;
         const row =
           map.get(key) ??

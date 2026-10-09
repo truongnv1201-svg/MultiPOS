@@ -201,10 +201,11 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
 
   it('tab Mặt hàng tính lãi TRONG KỲ từ đơn đã giao (không phải biên tĩnh)', () => {
     const rep = read('components/reports/ReportsView.tsx');
-    // Gom dòng đơn trong kỳ theo product_id, CK bill phân bổ theo tỉ trọng
+    // Gom dòng đơn trong kỳ theo product_id, CK bill phân bổ theo tỉ trọng,
+    // vốn ưu tiên snapshot lúc bán (helper dùng chung, fallback MAC)
     assert.match(rep, /for \(const o of rangedOrders\)/);
     assert.match(rep, /discountShare/);
-    assert.match(rep, /const prod = products\.find\(\(p\) => p\.id === it\.product_id\);/);
+    assert.match(rep, /historicalUnitCost\(it, products, it\.product_id\)/);
     // Không còn biên tĩnh giá bán - vốn MAC
     assert.ok(!/lineMargin\(p\.retail_price, p\.avg_cost\)/.test(rep), 'còn công thức biên tĩnh');
     assert.ok(!/Giá bán/.test(rep.match(/activeTab === 'margin'[\s\S]*$/)[0]), 'còn cột Giá bán/Vốn MAC');

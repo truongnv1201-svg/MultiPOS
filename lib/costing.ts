@@ -64,3 +64,18 @@ export function lineMargin(
   const amount = r - a;
   return { amount, pct: r > 0 ? (amount / r) * 100 : 0 };
 }
+
+// Vốn 1 dòng đơn để tính lãi kỳ (0078): ưu tiên vốn CHỤP lúc bán (chính xác cho
+// đơn mới), dòng cũ chưa có thì fallback MAC hiện tại, mất hàng thì 0.7 giá bán
+// (cùng quy ước Tổng quan cũ để số kỳ trước không đổi đột ngột).
+export function historicalUnitCost(
+  item: { unit_price: number | null | undefined; unit_cost?: number | null },
+  products: { id: string; avg_cost: number | null | undefined }[],
+  productId: string
+): number {
+  const snap = Number(item.unit_cost) || 0;
+  if (snap > 0) return snap;
+  const prod = products.find((p) => p.id === productId);
+  if (prod) return Number(prod.avg_cost) || 0;
+  return Number(item.unit_price) * 0.7;
+}
