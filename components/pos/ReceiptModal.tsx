@@ -298,6 +298,7 @@ export function ReceiptModal() {
             )}
           </tfoot>
         </table>
+        {order.note && <p><strong>Ghi chú:</strong> {order.note}</p>}
         {/* Ký tên + QR + footer — break-inside-avoid */}
         <div className="break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
           {/* Chữ ký — QR bên trái, ký tên bên phải */}
@@ -334,7 +335,6 @@ export function ReceiptModal() {
               </div>
             </div>
           </div>
-          {order.note && <p className={`${compact ? 'mt-1' : 'mt-1.5'}`}><strong>Ghi chú:</strong> {order.note}</p>}
           <p className={`text-center text-slate-500 ${compact ? 'text-[10px] pt-1' : 'text-[11px] pt-1'}`}>{shop.footerThanks} {shop.receiptPolicy && `• ${shop.receiptPolicy}`}</p>
         </div>
       </div>
