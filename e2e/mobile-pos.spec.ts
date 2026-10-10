@@ -41,7 +41,7 @@ test.describe('POS mobile (live backend)', () => {
       // Bảng giỏ ngang phải ẩn trên mobile (record list thay thế)
       await expect(page.locator('#cart-table-container table')).toBeHidden();
 
-      // Thêm 1 hàng vào giỏ (hàng m² đi qua modal F3 → xác nhận luôn) — dòng hiện
+      // Thêm 1 hàng vào giỏ (hàng m2 đi qua modal F3 → xác nhận luôn) — dòng hiện
       // thẳng trong trang, không còn nút tóm tắt / sheet tách rời
       const search = page.locator('#f1-search-input');
       let added = false;

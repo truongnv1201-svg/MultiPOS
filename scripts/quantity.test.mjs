@@ -79,7 +79,7 @@ describe('cờ cho phép bán số lượng thập phân', () => {
     assert.equal(suggestDecimalForUnit('l'), true);
     assert.equal(suggestDecimalForUnit('kg/thùng'), true);
     assert.equal(suggestDecimalForUnit('chai'), false);
-    assert.equal(suggestDecimalForUnit('m²'), false);
+    assert.equal(suggestDecimalForUnit('m2'), false);
     assert.equal(suggestDecimalForUnit(undefined), false);
   });
 });

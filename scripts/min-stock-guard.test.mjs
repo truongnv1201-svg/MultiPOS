@@ -102,7 +102,7 @@ describe('min_stock: wiring UI', () => {
     assert.match(products, /p\.min_stock && p\.min_stock > 0 \? p\.min_stock : ''/);
   });
 
-  it('ô tồn tối thiểu cho nhập thập phân (hàng m² có ngưỡng lẻ như 2.5)', () => {
+  it('ô tồn tối thiểu cho nhập thập phân (hàng m2 có ngưỡng lẻ như 2.5)', () => {
     assert.match(products, /Tồn tối thiểu \(báo sắp hết\)[\s\S]{0,300}allowDecimals/);
   });
 

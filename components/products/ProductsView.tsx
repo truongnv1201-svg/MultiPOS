@@ -240,7 +240,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
     downloadExcelTemplate('hang-hoa', PRODUCT_TEMPLATE, {
       'Mã SKU': '',
       'Tên hàng *': 'Kính cường lực 10mm',
-      'ĐVT': 'm²',
+      'ĐVT': 'm2',
       'Loại (goods/area/combo/service)': 'area',
       'Giá bán': 350000,
       'Giá vốn nhập': 260000,
@@ -282,7 +282,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
             stock_quantity: Math.max(0, parseExcelNum(r['Tồn kho'])),
             min_stock: r['Tồn tối thiểu'] !== '' ? Math.max(0, parseExcelNum(r['Tồn tối thiểu'])) : undefined,
             waste_factor: r['Hao hụt (%)'] !== '' ? Math.max(0, parseExcelNum(r['Hao hụt (%)'])) : undefined,
-            // Cờ số lượng thập phân: "Có"/"Co"/"1"/"true" -> bật (hàng m² luôn bật)
+            // Cờ số lượng thập phân: "Có"/"Co"/"1"/"true" -> bật (hàng m2 luôn bật)
             allow_decimal:
               product_type === 'area' ||
               /^(c[oó]|1|true|yes)$/i.test(String(r['SL thập phân (Có/Không)'] ?? r['SL thập phân'] ?? '').trim()),
@@ -638,7 +638,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                     onChange={(e) => {
                       const val = e.target.value as ProductType;
                       setEditProductType(val);
-                      if (val === 'area') setEditUnit('m²');
+                      if (val === 'area') setEditUnit('m2');
                       else if (val === 'combo') setEditUnit('bộ');
                     }}
                     className="w-full h-8 px-2 border border-slate-300 rounded"
@@ -743,7 +743,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                   className="w-4 h-4 accent-blue-600"
                 />
                 Chỉ bán số lượng nguyên
-                {editProductType === 'area' && <span className="text-slate-400 font-normal">— hàng m² luôn tính thập phân</span>}
+                {editProductType === 'area' && <span className="text-slate-400 font-normal">— hàng m2 luôn tính thập phân</span>}
               </label>
 
               <p className="text-[11px] text-slate-400">

@@ -17,7 +17,7 @@ export const UNIT_OPTIONS = [
   {
     label: 'Vật liệu & kích thước',
     options: [
-      { value: 'm²', label: 'm² — mét vuông' },
+      { value: 'm2', label: 'm2 — mét vuông' },
       { value: 'md', label: 'md — mét dài' },
       { value: 'm', label: 'm — mét' },
       { value: 'cây', label: 'cây' },
@@ -184,10 +184,10 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
                   const val = e.target.value as ProductType;
                   setProductType(val);
                   // Đổi loại hàng thì chọn luôn đơn vị mặc định hợp lý
-                  if (val === 'area') setUnit('m²');
+                  if (val === 'area') setUnit('m2');
                   else if (val === 'combo') setUnit('bộ');
                   else if (val === 'service') setUnit('công');
-                  else if (unit === 'm²' || unit === 'bộ' || unit === 'công') setUnit('cái');
+                  else if (unit === 'm2' || unit === 'bộ' || unit === 'công') setUnit('cái');
                 }}
                 className="w-full h-8 px-2 border border-slate-300 rounded"
               >
@@ -308,7 +308,7 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
                 className="w-4 h-4 accent-blue-600"
               />
               Chỉ bán số lượng nguyên
-              {productType === 'area' && <span className="text-slate-400 font-normal">— hàng m² luôn tính thập phân</span>}
+              {productType === 'area' && <span className="text-slate-400 font-normal">— hàng m2 luôn tính thập phân</span>}
             </label>
             </>
           )}

@@ -151,7 +151,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
   // Remove row
   const handleRemoveRow = (id: string) => {
     if (rows.length <= 1) {
-      notify('Đơn hàng m² bắt buộc có ít nhất 1 dòng quy cách!', 'error');
+      notify('Đơn hàng m2 bắt buộc có ít nhất 1 dòng quy cách!', 'error');
       return;
     }
     setRows((prev) => prev.filter((r) => r.id !== id));
@@ -253,7 +253,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Quy cách m²"
+      aria-label="Quy cách m2"
     >
       <div
         id="dimension-modal-container"
@@ -271,7 +271,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
                 <span className="text-amber-400 font-normal">— {item.name}</span>
               </h2>
               <div className="text-[11px] text-slate-300 flex items-center gap-3">
-                <span>Đơn giá phôi: {formatVND(unitPrice)}/m²</span>
+                <span>Đơn giá phôi: {formatVND(unitPrice)}/m2</span>
                 <span>•</span>
                 <span>Hệ số hao hụt phôi (Waste factor): <strong className="text-amber-300">{wasteFactor}%</strong></span>
               </div>
@@ -339,7 +339,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
                 <th className="py-2 px-2 w-24 text-right">Chu vi (md)</th>
                 <th className="py-2 px-2 w-24 text-right">Công mài (đ)</th>
                 <th className="py-2 px-2 w-24 text-right">Phí GC (đ)</th>
-                <th className="py-2 px-2 w-24 text-right">Diện tích (m²)</th>
+                <th className="py-2 px-2 w-24 text-right">Diện tích (m2)</th>
                 <th className="py-2 px-2 w-10 text-center">Xóa</th>
               </tr>
             </thead>
@@ -471,10 +471,10 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
           <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
             <div className="text-slate-500 text-[11px]">TỔNG DIỆN TÍCH THỰC:</div>
             <div className="text-base font-bold text-blue-700 font-mono">
-              {formatQty(totalActualM2)} m²
+              {formatQty(totalActualM2)} m2
             </div>
             <div className="text-[10px] text-slate-400">
-              Xuất kho (+{wasteFactor}%): <span className="font-semibold text-slate-600">{formatQty(totalWasteM2)} m²</span>
+              Xuất kho (+{wasteFactor}%): <span className="font-semibold text-slate-600">{formatQty(totalWasteM2)} m2</span>
             </div>
           </div>
 

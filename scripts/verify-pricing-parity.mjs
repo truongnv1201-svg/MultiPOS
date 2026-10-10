@@ -124,7 +124,7 @@ for (let i = 0; i < N; i++) {
       const price = pick([Number(area.retail_price), 99999, 123456]);
       items.push(recomputeOrderItem({
         id: `item-${i}-${k}`, product_id: area.sku, sku: area.sku, name: area.name,
-        product_type: 'area', unit: 'm²', unit_price: price, quantity: 0,
+        product_type: 'area', unit: 'm2', unit_price: price, quantity: 0,
         discount_amount: pick([0, 0, 50000]), processing_fee: 0, subtotal: 0,
         dimension_details: [dim], waste_factor: 5,
       }));

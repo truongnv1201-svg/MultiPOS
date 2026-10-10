@@ -34,7 +34,7 @@ test.describe('POS: phím tắt F1 / F9', () => {
     await page.keyboard.press('F1');
     await expect(page.locator('#f1-search-input')).toBeFocused();
 
-    // 3) Thêm 1 món HÀNG THƯỜNG vào giỏ local (click trúng hàng m² sẽ mở modal
+    // 3) Thêm 1 món HÀNG THƯỜNG vào giỏ local (click trúng hàng m2 sẽ mở modal
     // F3 thay vì vào giỏ — đóng modal rồi chọn món khác)
     const search = page.locator('#f1-search-input');
     await search.click();

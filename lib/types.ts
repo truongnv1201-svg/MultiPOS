@@ -31,7 +31,7 @@ export interface Product {
   name: string;
   /** @deprecated Đã bỏ Danh mục khỏi UI (dùng product_type). Server vẫn giữ cột với default 'Chung'. */
   category?: string;
-  unit: string; // m², cây, cái, bộ, mét dài
+  unit: string; // m2, cây, cái, bộ, mét dài
   product_type: ProductType;
   retail_price: number;
   trade_price?: number;

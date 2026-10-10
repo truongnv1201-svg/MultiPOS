@@ -1,6 +1,6 @@
 # MultiPOS — Quản trị Bán hàng & Thi công Đa ngành
 
-Hệ thống POS đa ngành (nhôm kính/tấm đo m², vật tư, combo, dịch vụ), quản lý kho,
+Hệ thống POS đa ngành (nhôm kính/tấm đo m2, vật tư, combo, dịch vụ), quản lý kho,
 công nợ, công trình thi công 4 phase, HRM chấm công–lương, sổ quỹ, báo cáo VAT.
 PWA offline-first (Dexie) + Supabase (Postgres) làm source of truth khi online.
 
@@ -47,7 +47,7 @@ Lệnh khác: `npm run build` (lint chặn build — 0 errors), `npm run lint`, 
   (lưu ý: `0017_payroll.sql` là file lịch sử, không rerun — xem header file).
 - Apply 1 file: `SUPABASE_ACCESS_TOKEN=sbp_... node scripts/apply-one.mjs 0024_cancel_reverse.sql`
 - Verify e2e (đọc `.env.local`, dọn dữ liệu test sau chạy):
-  `node scripts/verify-pos-checkout.mjs` (catalog, tiền thừa, trừ kho, hàng m²),
+  `node scripts/verify-pos-checkout.mjs` (catalog, tiền thừa, trừ kho, hàng m2),
   `node scripts/verify-vat-checkout.mjs` (VAT 8/10%, ship, CK bill — denom đọc từ
   settings, floor như server),
   `node scripts/verify-customer-sync.mjs` (sync KH, guard nợ),

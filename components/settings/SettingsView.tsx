@@ -530,7 +530,7 @@ export function SettingsView() {
               { key: 'showCashier' as const, label: 'Tên thu ngân + ca' },
               { key: 'showCustomerPhone' as const, label: 'SĐT khách hàng' },
               { key: 'showVietqr' as const, label: 'Mã VietQR' },
-              { key: 'showDimensions' as const, label: 'Chi tiết tấm cắt (m²)' },
+              { key: 'showDimensions' as const, label: 'Chi tiết tấm cắt (m2)' },
               { key: 'showDebt' as const, label: 'Dòng công nợ còn lại' },
             ].map((opt) => (
               <label

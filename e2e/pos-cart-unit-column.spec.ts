@@ -70,15 +70,15 @@ test.describe('Gio POS: cot don vi tinh + o sua duoc', () => {
         // 2) Hang dien tich: don vi o cot DVT la m2 (khong con ghep sau so luong)
         const areaRow = rows.filter({ hasText: 'tấm' }).first();
         expect(await areaRow.count()).toBeGreaterThan(0);
-        expect((await areaRow.locator('td').nth(2).innerText()).trim()).toBe('m²');
-        expect(await areaRow.locator('td').nth(4).innerText()).not.toContain('m²');
+        expect((await areaRow.locator('td').nth(2).innerText()).trim()).toBe('m2');
+        expect(await areaRow.locator('td').nth(4).innerText()).not.toContain('m2');
 
         // 3) Hang thuong: don vi lay tu danh muc, khong rong
         const normalRow = rows.filter({ has: page.locator('input[aria-label^="Số lượng"]') }).first();
         expect(await normalRow.count()).toBeGreaterThan(0);
         const normalUnit = (await normalRow.locator('td').nth(2).innerText()).trim();
         expect(normalUnit.length).toBeGreaterThan(0);
-        expect(normalUnit).not.toBe('m²');
+        expect(normalUnit).not.toBe('m2');
 
         // 4) Da bo nut +/-: chi con o nhap so luong
         await expect(page.locator('#cart-table-container [title^="Tăng"]')).toHaveCount(0);

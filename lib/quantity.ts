@@ -10,7 +10,7 @@ export const QTY_MAX_DECIMALS = 3;
 /** Đơn vị thường bán theo số thập phân — dùng để gợi ý tick cờ trong form hàng. */
 const DECIMAL_UNITS = ['kg', 'g', 'gram', 'l', 'lít', 'lit', 'ml', 'tạ', 'yến', 'lạng', 'kg/thùng'];
 
-/** Hàng m² luôn dùng số thập phân (F3 tính ra số thực), không phụ thuộc cờ. */
+/** Hàng m2 luôn dùng số thập phân (F3 tính ra số thực), không phụ thuộc cờ. */
 export function isAreaProduct(productType?: string): boolean {
   return productType === 'area';
 }

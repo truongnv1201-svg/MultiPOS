@@ -83,7 +83,7 @@ describe('recomputeOrderItem', () => {
     const it = recomputeOrderItem({
       ...goods(),
       product_type: 'area',
-      unit: 'm²',
+      unit: 'm2',
       unit_price: 380000,
       quantity: 0,
       subtotal: 0,

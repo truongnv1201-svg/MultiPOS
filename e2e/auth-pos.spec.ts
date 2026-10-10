@@ -41,7 +41,7 @@ test.describe('POS smoke (live backend)', () => {
     await page.locator('#search-results-dropdown div[id^="search-item-"]').first().click();
     // resetSearch chạy sau khi chọn → ô tìm kiếm trống (áp dụng cả hàng goods lẫn area).
     await expect(search).toHaveValue('', { timeout: 10_000 });
-    // Hàng goods → 1 dòng trong giỏ; hàng m² → mở modal F3.
+    // Hàng goods → 1 dòng trong giỏ; hàng m2 → mở modal F3.
     const cartRows = page.locator('#cart-table-container tbody tr');
     const f3 = page.locator('#dimension-modal-overlay');
     const rowCount = await cartRows.count().catch(() => 0);

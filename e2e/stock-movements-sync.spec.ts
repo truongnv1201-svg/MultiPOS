@@ -21,7 +21,7 @@ async function login(page: Page, id: string, pw: string) {
   await expect(page.locator('#pos-screen')).toBeVisible({ timeout: 30_000 });
 }
 
-/** Thêm 1 mặt hàng bất kỳ vào giỏ (hàng m² sẽ mở modal F3 nên bỏ qua). */
+/** Thêm 1 mặt hàng bất kỳ vào giỏ (hàng m2 sẽ mở modal F3 nên bỏ qua). */
 async function addAnyGoods(page: Page) {
   const search = page.locator('#f1-search-input');
   for (const term of ['a', 'e', 'o']) {

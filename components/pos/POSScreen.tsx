@@ -551,7 +551,7 @@ export function POSScreen() {
         return;
       }
 
-      // F3: Mở / sửa Modal m² — dòng area gần nhất trong giỏ; nếu chưa có thì về F1
+      // F3: Mở / sửa Modal m2 — dòng area gần nhất trong giỏ; nếu chưa có thì về F1
       if (e.key === 'F3') {
         e.preventDefault();
         const lastArea = [...activeCart.items].reverse().find((i) => i.product_type === 'area');
@@ -875,7 +875,7 @@ export function POSScreen() {
                         </p>
                         {prod.product_type === 'area' && (
                           <span className="mt-1 inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                            {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m²)
+                            {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m2)
                           </span>
                         )}
                       </div>
@@ -934,7 +934,7 @@ export function POSScreen() {
                             {prod.product_type === 'area' && (
                               <>
                               <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                                {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m²)
+                                {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m2)
                               </span>
                               <button
                                 onClick={() => openStockAreaModal(prod, line.qty, line)}
@@ -1016,7 +1016,7 @@ export function POSScreen() {
                         </p>
                         {prod.product_type === 'area' && (
                           <span className="mt-1 inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                            {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m²)
+                            {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m2)
                           </span>
                         )}
                       </div>
@@ -1076,7 +1076,7 @@ export function POSScreen() {
                             {prod.product_type === 'area' && (
                               <>
                               <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                                {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m²)
+                                {line.dimensionDetails?.length ?? 1} tấm ({formatQty(line.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? line.qty)} m2)
                               </span>
                               <button
                                 onClick={() => openStockAreaModal(prod, line.qty, line)}
@@ -1251,7 +1251,7 @@ export function POSScreen() {
                             {isArea && item.dimension_details && (
                               <>
                                 <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
-                                  {item.dimension_details.length} tấm ({formatQty(item.quantity)} m²)
+                                  {item.dimension_details.length} tấm ({formatQty(item.quantity)} m2)
                                 </span>
                                 <button
                                   onClick={() => setDimensionModalItem({ item, isNew: false })}
@@ -1286,7 +1286,7 @@ export function POSScreen() {
 
                         {/* Unit of measure */}
                         <td className="py-2.5 px-1 text-center text-slate-600 font-mono text-[11px]">
-                          {isArea ? 'm²' : item.unit || '-'}
+                          {isArea ? 'm2' : item.unit || '-'}
                         </td>
 
                         {/* Unit price — Quản lý/Admin sửa được cho riêng đơn này (0059).

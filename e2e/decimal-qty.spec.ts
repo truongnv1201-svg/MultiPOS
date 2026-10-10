@@ -26,7 +26,7 @@ async function pickFirstProduct(page: Page) {
       await expect(page.locator('#search-results-dropdown')).toBeVisible({ timeout: 4_000 });
       await page.locator('#search-results-dropdown div[id^="search-item-"]').first().click();
       if (await page.locator('#dimension-modal-overlay').count()) {
-        // Hàng m² cần bấm Xác nhận F3 mới vào giỏ
+        // Hàng m2 cần bấm Xác nhận F3 mới vào giỏ
         await page.locator('#btn-confirm-dimension-modal').click();
         await expect(page.locator('#dimension-modal-overlay')).toHaveCount(0, { timeout: 15_000 });
       }

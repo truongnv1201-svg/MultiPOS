@@ -240,7 +240,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     []
   );
 
-  // ENTER LẦN 1: phân nhánh — hàng m² mở ngay F3, hàng thường nhảy sang ô SL
+  // ENTER LẦN 1: phân nhánh — hàng m2 mở ngay F3, hàng thường nhảy sang ô SL
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (filteredProducts.length === 0) {
       // Không có kết quả: Enter mở nhanh form tạo hàng hóa mới từ chuỗi đang tìm
@@ -362,7 +362,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
     }
   };
 
-  // Tạo mới xong: nhánh như chọn sản phẩm thường (nhập kho / m² mở F3 / thêm giỏ)
+  // Tạo mới xong: nhánh như chọn sản phẩm thường (nhập kho / m2 mở F3 / thêm giỏ)
   const handleQuickCreated = (product: Product) => {
     setQuickCreateOpen(false);
     if (product.product_type === 'area' && onPickArea) {
@@ -540,7 +540,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
                           : 'bg-blue-100 text-blue-800'
                       }`}
                     >
-                      {isArea ? 'm²' : prod.product_type === 'combo' ? 'CB' : 'SP'}
+                      {isArea ? 'm2' : prod.product_type === 'combo' ? 'CB' : 'SP'}
                     </div>
                     <div>
                       <div className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">

@@ -60,7 +60,7 @@ async function addGoodsToCart(page: Page) {
     const n = Math.min(await items.count(), 4);
     for (let i = 0; i < n; i++) {
       await items.nth(i).click();
-      // Hàng m² mở modal F3 thay vì vào giỏ -> đóng, thử món khác.
+      // Hàng m2 mở modal F3 thay vì vào giỏ -> đóng, thử món khác.
       const modal = page.locator('#dimension-modal-overlay');
       if (await modal.isVisible()) {
         await page.locator('#btn-close-dimension-modal').click();
