@@ -212,7 +212,7 @@ export function ReceiptModal() {
   const renderA4 = (size: 'a4' | 'a5' = 'a4') => {
     const compact = size === 'a5';
     return (
-      <div className={`a4-receipt-container w-full mx-auto ${compact ? 'max-w-[680px] p-4 text-[10px] space-y-2 leading-snug' : 'max-w-[720px] p-8 text-[12px] space-y-4'} bg-white font-sans text-slate-900 leading-relaxed`}>
+      <div className={`a4-receipt-container w-full mx-auto ${compact ? 'max-w-[680px] p-4 text-[11px] space-y-2 leading-snug' : 'max-w-[720px] p-8 text-[13px] space-y-4'} bg-white font-sans text-slate-900 leading-relaxed`}>
         <div className={`flex justify-between items-start border-b-2 border-slate-900 ${compact ? 'pb-2' : 'pb-3'}`}>
           <div>
             <h1 className={`font-extrabold uppercase ${compact ? 'text-sm' : 'text-lg'}`}>{shop.name}</h1>
@@ -225,42 +225,42 @@ export function ReceiptModal() {
             <p>Ngày: {new Date(order.created_at).toLocaleString('vi-VN')}</p>
           </div>
         </div>
-        <div className={`grid grid-cols-2 bg-slate-50 border border-slate-200 rounded ${compact ? 'gap-2 p-2' : 'gap-3 p-3'}`}>
+        <div className={`grid grid-cols-2 bg-slate-50 border border-black rounded ${compact ? 'gap-2 p-2' : 'gap-3 p-3'}`}>
           <div><span className="text-slate-500">Khách hàng: </span><strong>{order.customer_name}</strong>{shop.showCustomerPhone && order.customer_phone && <span> — {order.customer_phone}</span>}</div>
           <div><span className="text-slate-500">Thu ngân: </span>{shop.showCashier ? order.cashier_name : '—'}</div>
         </div>
-        <table className="w-full border-collapse border border-slate-300">
+        <table className="w-full border-collapse border border-black">
           <thead>
-            <tr className="bg-slate-100 text-center">
-              <th className={`border border-slate-300 ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-8 text-center`}>STT</th>
-              <th className={`border border-slate-300 ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} text-center`}>Tên hàng / Quy cách</th>
-              <th className={`border border-slate-300 ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-12 text-center`}>ĐVT</th>
-              <th className={`border border-slate-300 ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-14 text-center`}>SL</th>
-              <th className={`border border-slate-300 ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-20 text-center`}>Đơn giá (đ)</th>
-              <th className={`border border-slate-300 ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-24 text-center`}>Thành tiền (đ)</th>
+            <tr className="bg-slate-100 text-center border-b border-black">
+              <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-8 text-center`}>STT</th>
+              <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} text-center`}>Tên hàng / Quy cách</th>
+              <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-12 text-center`}>ĐVT</th>
+              <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-14 text-center`}>SL</th>
+              <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-20 text-center`}>Đơn giá (đ)</th>
+              <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-24 text-center`}>Thành tiền (đ)</th>
             </tr>
           </thead>
           <tbody>
             {order.items.map((it, i) => (
-              <tr key={i} className="break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center`}>{i + 1}</td>
-                <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
+              <tr key={i} className="break-inside-avoid border-b border-dashed border-slate-300" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center`}>{i + 1}</td>
+                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
                   <div className="font-semibold">{it.name} <span className="font-normal text-slate-500">({it.sku})</span></div>
                   {shop.showDimensions && it.product_type === 'area' && it.dimension_details?.map((d, k) => (
                     <div key={k} className={`${compact ? 'text-[9px]' : 'text-[11px]'} text-slate-600`}>• {d.quantity} tấm {d.length.toFixed(2)}m × {d.width.toFixed(2)}m = {d.actual_m2.toFixed(2)}m²{d.grinding_type !== 'none' ? ' + mài' : ''}</div>
                   ))}
                   {it.processing_fee > 0 && <div className={`${compact ? 'text-[9px]' : 'text-[11px]'} text-amber-700`}>Phí gia công: {formatVND(it.processing_fee)}</div>}
                 </td>
-                <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center`}>{it.unit}</td>
-                <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatQty(it.quantity)}</td>
-                <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatNumber(it.unit_price)}</td>
-                <td className={`border border-slate-200 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono font-bold`}>{formatNumber(it.subtotal)}</td>
+                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center`}>{it.unit}</td>
+                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatQty(it.quantity)}</td>
+                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatNumber(it.unit_price)}</td>
+                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono font-bold`}>{formatNumber(it.subtotal)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {/* Tổng tiền — full width, chống bị ngắt đôi giữa 2 trang */}
-        <div className={`w-full space-y-1 border border-slate-200 rounded ${compact ? 'p-2' : 'p-3'} break-inside-avoid`} style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+        <div className={`w-full space-y-1 border border-black rounded ${compact ? 'p-2' : 'p-3'} break-inside-avoid`} style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
           <div className="flex justify-between"><span>Tổng hàng:</span><span className="font-mono">{formatVND(order.subtotal)}</span></div>
           {order.discount_amount > 0 && <div className="flex justify-between text-rose-600"><span>Chiết khấu:</span><span className="font-mono">-{formatVND(order.discount_amount)}</span></div>}
           {(order.vat_amount || 0) > 0 && <div className="flex justify-between"><span>VAT{order.vat_percent ? ` (${order.vat_percent}%)` : ''}:</span><span className="font-mono">+{formatVND(order.vat_amount || 0)}</span></div>}
@@ -274,7 +274,7 @@ export function ReceiptModal() {
           {/* Chữ ký — QR bên trái, ký tên bên phải */}
           <div className={`flex items-stretch ${compact ? 'gap-3' : 'gap-4'}`}>
             {/* Khối QR bên trái */}
-            <div className={`shrink-0 flex flex-col items-center justify-center border border-slate-200 rounded ${compact ? 'p-1.5 min-w-[84px]' : 'p-2 min-w-[110px]'}`}>
+            <div className={`shrink-0 flex flex-col items-center justify-center border border-black rounded ${compact ? 'p-1.5 min-w-[84px]' : 'p-2 min-w-[110px]'}`}>
               {showVietqrBlock ? (
                 <>
                   {/* QR động theo số tiền từ img.vietqr.io — next/image không tối ưu được ảnh ngoài động + làm vỡ CSS in: giữ <img>. */}
@@ -292,8 +292,8 @@ export function ReceiptModal() {
               )}
             </div>
             {/* Khối ký tên bên phải */}
-            <div className="flex-1 grid grid-cols-2 text-center border border-slate-200 rounded">
-              <div className={`flex flex-col items-center justify-start border-r border-slate-200 ${compact ? 'p-2' : 'p-3'}`}>
+            <div className="flex-1 grid grid-cols-2 text-center border border-black rounded">
+              <div className={`flex flex-col items-center justify-start border-r border-black ${compact ? 'p-2' : 'p-3'}`}>
                 <p className="font-bold">Khách hàng</p>
                 <p className={`text-slate-400 ${compact ? 'text-[10px]' : 'text-[11px]'}`}>(Ký, ghi rõ họ tên)</p>
                 <div className="flex-1" />
