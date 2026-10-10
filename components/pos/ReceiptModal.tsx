@@ -334,7 +334,7 @@ export function ReceiptModal() {
               </div>
             </div>
           </div>
-          {showVietqrBlock && order.note && <p className={`${compact ? 'mt-1' : 'mt-1.5'}`}><strong>Ghi chú:</strong> {order.note}</p>}
+          {order.note && <p className={`${compact ? 'mt-1' : 'mt-1.5'}`}><strong>Ghi chú:</strong> {order.note}</p>}
           <p className={`text-center text-slate-500 ${compact ? 'text-[10px] pt-1' : 'text-[11px] pt-1'}`}>{shop.footerThanks} {shop.receiptPolicy && `• ${shop.receiptPolicy}`}</p>
         </div>
       </div>
