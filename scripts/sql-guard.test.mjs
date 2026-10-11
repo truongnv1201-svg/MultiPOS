@@ -635,11 +635,11 @@ describe('0074: ghi chú phiếu nhập khỏi dòng thẻ kho', () => {
   });
 });
 
-describe('0080: nhập hàng hóa hàng loạt', () => {
-  const sql = read('supabase/migrations/0080_import_products_bulk.sql');
+describe('0081: nhập hàng hóa hàng loạt', () => {
+  const sql = read('supabase/migrations/0081_import_products_bulk.sql');
 
-  it('tồn tại migration 0080', () => {
-    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0080_import_products_bulk.sql')));
+  it('tồn tại migration 0081', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0081_import_products_bulk.sql')));
   });
 
   it('chỉ Admin/Quản lý, giới hạn 2000 dòng/call', () => {

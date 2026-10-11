@@ -1,4 +1,4 @@
--- Migration 0080 — Nhập hàng hóa hàng loạt (file Excel nghìn dòng).
+-- Migration 0081 — Nhập hàng hóa hàng loạt (file Excel nghìn dòng).
 -- Bệnh: client gọi addProduct/updateProduct từng dòng (1+ round-trip/dòng),
 -- file 5000 dòng mất hàng chục phút, lỗi giữa chừng là kẹt.
 -- Fix: RPC nhận mảng dòng, upsert theo SKU (có mã) hoặc tên+ĐVT (không mã),
