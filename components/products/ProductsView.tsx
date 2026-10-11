@@ -309,7 +309,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       // Parse thuần toàn bộ dòng trước (không await): dòng lỗi ghi nhận luôn,
       // dòng đúng gom gửi bulk 1 lần.
       const parsed: { lineNo: number; payload?: {
-        sku?: string; name: string; unit: string; product_type: string;
+        sku?: string; name: string; unit: string; product_type: ProductType;
         retail_price: number; import_price: number; avg_cost: number;
         stock_quantity: number; min_stock?: number; waste_factor?: number;
         allow_decimal: boolean;
