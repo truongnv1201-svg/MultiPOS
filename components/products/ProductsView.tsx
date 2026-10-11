@@ -39,7 +39,7 @@ import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
 
 export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
-  const { products, orders, addProduct, updateProduct, deleteProduct, profile } = useStore();
+  const { products, orders, addProduct, updateProduct, deleteProduct, profile, stockMovements } = useStore();
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -122,6 +122,13 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       notify(`Không thể xóa "${p.name}" vì đã phát sinh trong đơn hàng (cần giữ lịch sử đối soát).`, 'error');
       return;
     }
+    // Server giữ FK thẻ kho/điều chỉnh/công trình: đã từng nhập/xuất/điều chỉnh thì
+    // xóa cứng chắc chắn bị từ chối — chặn sớm ở client và chỉ đường Ngừng bán.
+    const hasMovements = stockMovements.some((m) => m.product_id === p.id);
+    if (hasMovements) {
+      notify(`Không thể xóa "${p.name}" vì đã có thẻ kho (nhập/xuất/điều chỉnh). Dùng nút Ngừng kinh doanh để ẩn khỏi POS — lịch sử giữ nguyên.`, 'error');
+      return;
+    }
     const usedInCombo = products.some((x) => x.combo_items?.some((c) => c.product_id === p.id));
     if (usedInCombo) {
       notify(`Không thể xóa "${p.name}" vì đang là linh kiện trong combo. Gỡ khỏi combo trước.`, 'error');
@@ -137,7 +144,14 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       await deleteProduct(p.id);
       notify('Đã xóa hàng hóa!', 'success');
     } catch (err: any) {
-      notify(`Không xóa được: ${err?.message || 'lỗi không rõ'}`, 'error');
+      const msg = err?.message || 'lỗi không rõ';
+      // Server giữ FK (thẻ kho/đơn/công trình/điều chỉnh/combo): hàng đã phát sinh
+      // là không xóa cứng được dù client đã cho qua (lịch sử nằm ngoài cửa sổ kéo).
+      if (/foreign key|violates|constraint|23503/i.test(msg)) {
+        notify(`Không thể xóa "${p.name}" vì đã có lịch sử phát sinh trên server. Dùng nút Ngừng kinh doanh để ẩn khỏi POS — lịch sử giữ nguyên.`, 'error');
+        return;
+      }
+      notify(`Không xóa được: ${msg}`, 'error');
     }
   };
   // Sắp xếp: bấm header để đảo chiều; đổi sort/filter -> về trang 1.

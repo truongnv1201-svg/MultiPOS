@@ -660,6 +660,13 @@ describe('ngung kinh doanh: an hang khoi POS, giu lich su', () => {
     assert.match(view, /Ngừng bán/);
   });
 
+  it('chan xoa cung khi da co the kho + dich loi FK server thanh huong dan', () => {
+    const view = read('components/products/ProductsView.tsx');
+    assert.match(view, /stockMovements\.some\(\(m\) => m\.product_id === p\.id\)/);
+    assert.match(view, /Dùng nút Ngừng kinh doanh để ẩn khỏi POS/);
+    assert.match(view, /\/foreign key\|violates\|constraint\|23503\/i/);
+  });
+
   it('gia tri ton kho tru hang ngung', () => {
     assert.match(read('components/reports/ReportsView.tsx'), /if \(p\.is_active === false\) return sum; \/\/ hàng ngừng kinh doanh/);
   });
