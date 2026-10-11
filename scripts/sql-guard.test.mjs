@@ -665,7 +665,9 @@ describe('0081: nhập hàng hóa hàng loạt', () => {
     assert.match(catalog, /supa\.rpc\('import_products_bulk', \{ p_lines: chunk \}\)/);
     assert.match(catalog, /await refreshCatalog\(\);/);
     const view = read('components/products/ProductsView.tsx');
-    assert.match(view, /await importProductsBulk\(good\.map\(\(p\) => p\.payload!\)\)/);
+    assert.match(view, /await importProductsBulk\(\s*good\.map\(\(p\) => p\.payload!\)/);
+    assert.match(view, /importProgress=\{importProgress\}/);
+    assert.match(read('components/common/TableTools.tsx'), /importing \? importProgress \|\| 'Đang nhập…' : 'Nhập'/);
   });
 });
 
