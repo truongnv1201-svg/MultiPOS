@@ -39,6 +39,25 @@ export interface CatalogSlice {
   deleteSupplier: (id: string) => Promise<void>;
 }
 
+// PostgREST mặc định chỉ trả 1000 dòng -> kéo phân trang cho đủ (danh mục
+// đã vượt 5000 món mà chỉ hiện 1000).
+async function fetchAllProducts(
+  supa: any,
+  table: string,
+  orderCol: string,
+  cols = '*'
+): Promise<{ data: any[] | null; error: any }> {
+  const all: any[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supa.from(table).select(cols).order(orderCol).range(from, from + PAGE - 1);
+    if (error) return { data: null, error };
+    all.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+  }
+  return { data: all, error: null };
+}
+
 // P1 Sửa/Xóa: id uuid server (= đã đồng bộ), id local còn lại (= chưa lên server).
 const IS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -320,7 +339,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         cacheKeys(db.suppliers).catch(() => [] as string[]),
       ]);
       const [productsPrimary, customersResult, suppliersResult, comboResult] = await Promise.all([
-        supa.from('products').select('*').order('sku'),
+        fetchAllProducts(supa, 'products', 'sku'),
         supa.from('customers').select('*').order('code'),
         supa.from('suppliers').select('*').order('code'),
         supa.from('combo_items').select('combo_product_id,child_product_id,child_sku,quantity'),
@@ -328,7 +347,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       let productsResult = productsPrimary;
       if (productsResult.error) {
         // Anon bị chặn bảng gốc (0051) -> đọc view public không giá vốn
-        const fallback = await supa.from('catalog_public').select('*').order('sku');
+        const fallback = await fetchAllProducts(supa, 'catalog_public', 'sku');
         if (!fallback.error && fallback.data) productsResult = fallback as typeof productsPrimary;
       }
       const { data, error } = productsResult;
