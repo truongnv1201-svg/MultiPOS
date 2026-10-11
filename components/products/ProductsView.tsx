@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   X,
   Filter,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -37,13 +39,16 @@ import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
 
 export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
-  const { products, orders, addProduct, updateProduct, deleteProduct } = useStore();
+  const { products, orders, addProduct, updateProduct, deleteProduct, profile } = useStore();
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [stockStatusFilter, setStockStatusFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
+  const [activeFilter, setActiveFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  // Ngừng kinh doanh chỉ Admin (server chặn is_admin, đây chỉ ẩn nút cho gọn)
+  const canToggleActive = !profile || profile.role === 'admin';
   // Modal thêm mở từ shell trang Hàng hóa khi bare (không thì nội bộ như cũ).
   const [internalAddOpen, setInternalAddOpen] = useState(false);
   const isAddModalOpen = addOpen ?? internalAddOpen;
@@ -109,7 +114,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
 
   const handleDeleteProduct = async (p: Product) => {
     if (p.stock_quantity > 0 && p.product_type !== 'service') {
-      notify(`Không thể xóa "${p.name}" vì còn tồn kho (${p.stock_quantity} ${p.unit}). Hãy xả hết tồn (bán/xuất điều chỉnh) trước khi xóa.`, 'error');
+      notify(`Không thể xóa "${p.name}" vì còn tồn kho (${p.stock_quantity} ${p.unit}). Hãy xả hết tồn (bán/xuất điều chỉnh) trước khi xóa — hoặc bấm Ngừng kinh doanh để ẩn khỏi POS ngay.`, 'error');
       return;
     }
     const usedInOrder = orders.some((o) => o.items.some((it) => it.product_id === p.id));
@@ -158,9 +163,30 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       else if (stockStatusFilter === 'out') matchesStock = p.product_type !== 'service' && isOutOfStock(p);
       else if (stockStatusFilter === 'in_stock') matchesStock = p.product_type !== 'service' && stockStatus(p) === 'ok';
 
-      return matchesSearch && matchesType && matchesStock;
+      const isActive = p.is_active !== false;
+      const matchesActive =
+        activeFilter === 'all' || (activeFilter === 'active' ? isActive : !isActive);
+
+      return matchesSearch && matchesType && matchesStock && matchesActive;
     });
-  }, [products, search, typeFilter, stockStatusFilter]);
+  }, [products, search, typeFilter, stockStatusFilter, activeFilter]);
+
+  const handleToggleActive = async (p: Product) => {
+    const toActive = p.is_active === false;
+    const ok = await confirmDialog(
+      toActive
+        ? `Mở bán lại "${p.name}"? Hàng sẽ hiện lại ở POS và tìm kiếm.`
+        : `Ngừng kinh doanh "${p.name}"? Hàng biến khỏi POS/tìm kiếm (lịch sử đơn, thẻ kho giữ nguyên) và có thể mở lại bất cứ lúc nào.`,
+      { title: toActive ? 'Mở bán lại' : 'Ngừng kinh doanh', confirmLabel: toActive ? 'Mở bán' : 'Ngừng bán' }
+    );
+    if (!ok) return;
+    try {
+      await updateProduct(p.id, { is_active: toActive });
+      notify(toActive ? `Đã mở bán lại "${p.name}".` : `Đã ngừng kinh doanh "${p.name}".`, 'success');
+    } catch (err: any) {
+      notify(`Không lưu được: ${err?.message || 'lỗi không rõ'}`, 'error');
+    }
+  };
 
   const sortedProducts = useMemo(() => {
     if (!sortKey) return filteredProducts;
@@ -383,6 +409,19 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
             { value: 'in_stock', label: 'Còn nhiều (trên tồn tối thiểu)' },
           ]}
         />
+        <FilterSelect
+          value={activeFilter}
+          onChange={(val) => {
+            setActiveFilter(val as 'active' | 'inactive' | 'all');
+            setPage(1);
+          }}
+          title="Lọc hàng đang bán / ngừng kinh doanh"
+          options={[
+            { value: 'active', label: 'Đang bán' },
+            { value: 'inactive', label: 'Ngừng kinh doanh' },
+            { value: 'all', label: 'Tất cả' },
+          ]}
+        />
         {bare && (
           <TableTools
             onExportExcel={handleExportExcel}
@@ -462,6 +501,15 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
+                  {canToggleActive && (
+                    <button
+                      onClick={() => handleToggleActive(p)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 text-slate-500 bg-white active:bg-slate-100"
+                      aria-label={p.is_active === false ? `Mở bán lại ${p.name}` : `Ngừng kinh doanh ${p.name}`}
+                    >
+                      {p.is_active === false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDeleteProduct(p)}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
@@ -500,13 +548,21 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
               ) : (
                 paginatedProducts.map((p) => {
                   const isArea = p.product_type === 'area';
+                  const isInactive = p.is_active === false;
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={p.id} className={`hover:bg-slate-50 transition-colors ${isInactive ? 'opacity-55' : ''}`}>
                       <td className="py-2.5 px-3 font-mono font-bold text-blue-700">
                         {p.sku}
                       </td>
                       <td className="py-2.5 px-3">
-                        <div className="font-semibold text-slate-800">{p.name}</div>
+                        <div className="font-semibold text-slate-800">
+                          {p.name}
+                          {isInactive && (
+                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600">
+                              Ngừng bán
+                            </span>
+                          )}
+                        </div>
                         {p.combo_items && (
                           <div className="text-[10px] text-purple-600">
                             Gồm {p.combo_items.length} linh kiện con
@@ -577,6 +633,15 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+                        {canToggleActive && (
+                          <button
+                            onClick={() => handleToggleActive(p)}
+                            className="p-1.5 text-slate-500 hover:bg-slate-100 rounded transition-colors"
+                            title={p.is_active === false ? 'Mở bán lại' : 'Ngừng kinh doanh (ẩn khỏi POS, giữ lịch sử)'}
+                          >
+                            {p.is_active === false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteProduct(p)}
                           className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors"

@@ -239,6 +239,7 @@ const totalSupplierDebt = suppliers.reduce((sum, s) => sum + (s.current_debt || 
 
   const totalStockValue = products.reduce((sum, p) => {
     if (p.product_type === 'service') return sum;
+    if (p.is_active === false) return sum; // hàng ngừng kinh doanh không tính vào giá trị tồn
     return sum + p.stock_quantity * p.avg_cost;
   }, 0);
 

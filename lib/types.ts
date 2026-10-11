@@ -45,6 +45,8 @@ export interface Product {
   default_grinding_price?: number;
   combo_items?: ComboItem[]; // for combo items
   image?: string;
+  /** Ngừng kinh doanh (0080): ẩn khỏi POS/tìm kiếm/báo cáo tồn, giữ lịch sử. Mặc định true. */
+  is_active?: boolean;
 }
 
 export interface OrderItem {

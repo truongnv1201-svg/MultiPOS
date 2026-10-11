@@ -345,6 +345,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         waste_factor: row.waste_factor != null ? Number(row.waste_factor) : undefined,
         default_grinding_price: row.default_grinding_price != null ? Number(row.default_grinding_price) : undefined,
         combo_items: comboItemsByProduct.get(row.id),
+        is_active: row.is_active !== false,
       }));
       const mappedCustomers: Customer[] = (customersResult.data as any[]).map((row) => ({
         id: row.id,
@@ -523,6 +524,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         id: `prod-${Date.now()}`,
         sku,
         avg_cost: data.avg_cost ?? data.import_price, // INT-ERR-01 fix
+        is_active: data.is_active !== false,
       };
       let newProd = localProd;
       if (supa) {

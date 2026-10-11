@@ -635,6 +635,36 @@ describe('0074: ghi chú phiếu nhập khỏi dòng thẻ kho', () => {
   });
 });
 
+describe('ngung kinh doanh: an hang khoi POS, giu lich su', () => {
+  it('migration them cot is_active mac dinh true', () => {
+    const sql = read('supabase/migrations/0080_product_is_active.sql');
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0080_product_is_active.sql')));
+    assert.match(sql, /add column if not exists is_active boolean not null default true/);
+  });
+
+  it('type + pull mang co theo (mac dinh true khi thieu)', () => {
+    assert.match(read('lib/types.ts'), /is_active\?: boolean;/);
+    assert.match(read('lib/store/catalog.tsx'), /is_active: row\.is_active !== false,/);
+  });
+
+  it('POS khong ban hang ngung (danh muc van thay de mo lai)', () => {
+    assert.match(read('components/pos/ProductSearchBar.tsx'), /p\.is_active !== false &&/);
+  });
+
+  it('danh muc loc mac dinh Dang ban + nut bat/tat cua Admin', () => {
+    const view = read('components/products/ProductsView.tsx');
+    assert.match(view, /activeFilter, setActiveFilter/);
+    assert.match(view, /\(activeFilter === 'active' \? isActive : !isActive\)/);
+    assert.match(view, /canToggleActive = !profile \|\| profile\.role === 'admin'/);
+    assert.match(view, /handleToggleActive/);
+    assert.match(view, /Ngừng bán/);
+  });
+
+  it('gia tri ton kho tru hang ngung', () => {
+    assert.match(read('components/reports/ReportsView.tsx'), /if \(p\.is_active === false\) return sum; \/\/ hàng ngừng kinh doanh/);
+  });
+});
+
 describe('0078: chup von MAC vao dong don luc ban', () => {
   const sql = read('supabase/migrations/0078_order_item_cost.sql');
 
