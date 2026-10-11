@@ -208,7 +208,7 @@ interface StoreContextType {
   // Master Data Mutators
   addProduct: (product: Omit<Product, 'id' | 'sku'> & { sku?: string }) => Promise<Product>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
-  importProductsBulk: (lines: ImportBulkLine[]) => Promise<ImportBulkResult>;
+  importProductsBulk: (lines: ImportBulkLine[], onProgress?: (done: number, total: number) => void) => Promise<ImportBulkResult>;
   deleteProduct: (id: string) => Promise<void>;
   addCustomer: (customer: Omit<Customer, 'id' | 'code' | 'created_at'> & { created_at?: string }) => Promise<Customer>;
   updateCustomer: (id: string, updates: Partial<Customer>) => Promise<void>;

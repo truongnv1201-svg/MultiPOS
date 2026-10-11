@@ -10,12 +10,14 @@ export function TableTools({
   onImportExcel,
   onDownloadTemplate,
   importing = false,
+  importProgress = null,
 }: {
   onExportExcel: () => void;
   onPrint: () => void;
   onImportExcel?: (file: File) => void;
   onDownloadTemplate?: () => void;
   importing?: boolean;
+  importProgress?: string | null;
 }) {
   return (
     <div className="flex items-center gap-1.5 ml-auto shrink-0">
@@ -38,7 +40,7 @@ export function TableTools({
           title="Nhập dữ liệu từ file Excel"
         >
           <Upload className="w-3.5 h-3.5" />
-          <span className="hidden lg:inline">{importing ? 'Đang nhập…' : 'Nhập'}</span>
+          <span className="hidden lg:inline">{importing ? importProgress || 'Đang nhập…' : 'Nhập'}</span>
           <input
             type="file"
             accept=".xlsx,.xls,.csv"

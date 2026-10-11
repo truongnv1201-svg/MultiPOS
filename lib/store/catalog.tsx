@@ -29,7 +29,7 @@ export interface CatalogSlice {
   syncCustomers: () => Promise<Record<string, string>>;
   addProduct: (data: Omit<Product, 'id' | 'sku'> & { sku?: string }) => Promise<Product>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
-  importProductsBulk: (lines: ImportBulkLine[]) => Promise<ImportBulkResult>;
+  importProductsBulk: (lines: ImportBulkLine[], onProgress?: (done: number, total: number) => void) => Promise<ImportBulkResult>;
   addCustomer: (data: Omit<Customer, 'id' | 'code' | 'created_at'> & { created_at?: string }) => Promise<Customer>;
   updateCustomer: (id: string, updates: Partial<Customer>) => Promise<void>;
   addSupplier: (data: Omit<Supplier, 'id' | 'code'>) => Promise<Supplier>;
@@ -881,7 +881,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   // lỗi từng dòng gom lại, xong kéo catalog để Dexie/state khớp truth server.
   // Offline/chưa login -> throw để caller rơi về đường từng dòng (queue local).
   const importProductsBulk = useCallback(
-    async (lines: ImportBulkLine[]): Promise<ImportBulkResult> => {
+    async (lines: ImportBulkLine[], onProgress?: (done: number, total: number) => void): Promise<ImportBulkResult> => {
       if (!supa) throw new Error('Chưa kết nối Supabase.');
       if (!user) throw new Error('Vui lòng đăng nhập trước khi nhập hàng loạt.');
       if (!isOnline) throw new Error('Đang offline.');
@@ -889,6 +889,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Forbidden: cần quyền quản lý');
       }
       const out: ImportBulkResult = { created: 0, updated: 0, errors: [] };
+      onProgress?.(0, lines.length);
       for (let start = 0; start < lines.length; start += 500) {
         const chunk = lines.slice(start, start + 500);
         const { data, error } = await supa.rpc('import_products_bulk', { p_lines: chunk });
@@ -898,8 +899,10 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         out.created += r.created || 0;
         out.updated += r.updated || 0;
         for (const e of r.errors || []) out.errors.push({ ...e, index: start + (e.index ?? 0) });
+        onProgress?.(Math.min(start + chunk.length, lines.length), lines.length);
       }
       await refreshCatalog();
+      onProgress?.(lines.length, lines.length);
       return out;
     },
     [supa, user, isOnline, profile, refreshCatalog]

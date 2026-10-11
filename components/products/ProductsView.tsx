@@ -57,6 +57,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
     setInternalAddOpen(next);
   };
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<string | null>(null);
   // Sửa hàng hóa: prefill từ bản ghi, không cho đụng tồn kho/vốn BQ (đi luồng nhập kho)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editName, setEditName] = useState('');
@@ -352,7 +353,11 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       // Offline/chưa login: rơi về đường từng dòng (queue local như cũ).
       if (good.length > 0 && supabaseReady && isOnline) {
         try {
-          const res = await importProductsBulk(good.map((p) => p.payload!));
+          const total = good.length;
+          const res = await importProductsBulk(
+            good.map((p) => p.payload!),
+            (done) => setImportProgress(`Đang nhập ${done}/${total}…`)
+          );
           created = res.created;
           updated = res.updated;
           const byIndex = new Map(good.map((p, i) => [i, p.lineNo]));
@@ -398,6 +403,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {
       setImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -417,6 +423,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
               onImportExcel={handleImportExcel}
               onDownloadTemplate={handleDownloadTemplate}
               importing={importing}
+              importProgress={importProgress}
             />
             <AppButton id="btn-open-add-product-modal" onClick={() => setIsAddModalOpen(true)}>
               <Plus className="w-4 h-4" />
