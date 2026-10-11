@@ -667,6 +667,12 @@ describe('ngung kinh doanh: an hang khoi POS, giu lich su', () => {
     assert.match(view, /\/foreign key\|violates\|constraint\|23503\/i/);
   });
 
+  it('chua phat sinh gi thi xoa duoc ke ca con ton go tay (bao ro mat so ton)', () => {
+    const view = read('components/products/ProductsView.tsx');
+    assert.ok(!/còn tồn kho.*trước khi xóa/.test(view), 'không còn chốt chặn tồn kho');
+    assert.match(view, /Số tồn gõ tay.*sẽ mất theo/);
+  });
+
   it('gia tri ton kho tru hang ngung', () => {
     assert.match(read('components/reports/ReportsView.tsx'), /if \(p\.is_active === false\) return sum; \/\/ hàng ngừng kinh doanh/);
   });

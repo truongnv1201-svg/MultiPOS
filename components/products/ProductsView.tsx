@@ -113,10 +113,6 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
   };
 
   const handleDeleteProduct = async (p: Product) => {
-    if (p.stock_quantity > 0 && p.product_type !== 'service') {
-      notify(`Không thể xóa "${p.name}" vì còn tồn kho (${p.stock_quantity} ${p.unit}). Hãy xả hết tồn (bán/xuất điều chỉnh) trước khi xóa — hoặc bấm Ngừng kinh doanh để ẩn khỏi POS ngay.`, 'error');
-      return;
-    }
     const usedInOrder = orders.some((o) => o.items.some((it) => it.product_id === p.id));
     if (usedInOrder) {
       notify(`Không thể xóa "${p.name}" vì đã phát sinh trong đơn hàng (cần giữ lịch sử đối soát).`, 'error');
@@ -124,6 +120,9 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
     }
     // Server giữ FK thẻ kho/điều chỉnh/công trình: đã từng nhập/xuất/điều chỉnh thì
     // xóa cứng chắc chắn bị từ chối — chặn sớm ở client và chỉ đường Ngừng bán.
+    // Chưa phát sinh gì thì xóa được NGAY CẢ khi còn số tồn gõ tay (con số đó mất
+    // theo, đã hỏi rõ trong hộp xác nhận): hàng đợi offline đã dọn nên không hồi
+    // sinh, server không có gì ràng buộc nên cho qua.
     const hasMovements = stockMovements.some((m) => m.product_id === p.id);
     if (hasMovements) {
       notify(`Không thể xóa "${p.name}" vì đã có thẻ kho (nhập/xuất/điều chỉnh). Dùng nút Ngừng kinh doanh để ẩn khỏi POS — lịch sử giữ nguyên.`, 'error');
@@ -134,11 +133,17 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       notify(`Không thể xóa "${p.name}" vì đang là linh kiện trong combo. Gỡ khỏi combo trước.`, 'error');
       return;
     }
-    const ok = await confirmDialog(`Xóa vĩnh viễn "${p.name}" khỏi danh mục?\nThao tác đồng bộ lên server và không thể hoàn tác.`, {
-      title: 'Xóa hàng hóa',
-      confirmLabel: 'Xóa',
-      danger: true,
-    });
+    const ok = await confirmDialog(
+      `Xóa vĩnh viễn "${p.name}" khỏi danh mục?\nThao tác đồng bộ lên server và không thể hoàn tác.` +
+        (p.stock_quantity > 0 && p.product_type !== 'service'
+          ? `\nSố tồn gõ tay (${p.stock_quantity} ${p.unit}) sẽ mất theo.`
+          : ''),
+      {
+        title: 'Xóa hàng hóa',
+        confirmLabel: 'Xóa',
+        danger: true,
+      }
+    );
     if (!ok) return;
     try {
       await deleteProduct(p.id);
