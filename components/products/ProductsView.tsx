@@ -308,6 +308,9 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       let updated = 0;
       const errors: string[] = [];
       const validTypes: ProductType[] = ['goods', 'area', 'combo', 'service'];
+      // Danh sách đã biết = danh mục cũ + hàng vừa tạo trong lần nhập này
+      // (state products không tự cập nhật giữa các vòng lặp).
+      const known = [...products];
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
         const lineNo = i + 2;
@@ -334,24 +337,27 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
           };
           const sku = (r['Mã SKU'] || '').trim();
           const existing =
-            (sku && products.find((p) => p.sku.toLowerCase() === sku.toLowerCase())) ||
-            products.find((p) => p.name.toLowerCase() === name.toLowerCase() && p.unit.toLowerCase() === payload.unit.toLowerCase());
+            (sku && known.find((p) => p.sku.toLowerCase() === sku.toLowerCase())) ||
+            known.find((p) => p.name.toLowerCase() === name.toLowerCase() && p.unit.toLowerCase() === payload.unit.toLowerCase());
           if (existing) {
             await updateProduct(existing.id, payload);
+            const idx = known.findIndex((p) => p.id === existing.id);
+            if (idx >= 0) known[idx] = { ...known[idx], ...payload, sku: sku || known[idx].sku };
             updated++;
           } else {
-            await addProduct(sku ? { ...payload, sku } : payload);
+            const createdProd = await addProduct(sku ? { ...payload, sku } : payload);
+            known.push(createdProd);
             created++;
           }
         } catch (err: any) {
           errors.push(`Dòng ${lineNo}: ${err?.message || 'lỗi không rõ'}`);
-          if (errors.length >= 10) {
-            errors.push('… (chỉ hiện 10 lỗi đầu)');
-            break;
-          }
+          // Không break: lỗi 1 dòng không được chặn các dòng còn lại,
+          // chỉ gọn thông báo (file dài mà lỗi hết thì báo tổng số).
         }
       }
-      notify(`Nhập xong: ${created} tạo mới, ${updated} cập nhật${errors.length > 0 ? `\nLỗi:\n${errors.join('\n')}` : ''}`, 'info');
+      const shown = errors.slice(0, 10).join('\n');
+      const hidden = errors.length > 10 ? `\n… và ${errors.length - 10} lỗi khác` : '';
+      notify(`Nhập xong: ${created} tạo mới, ${updated} cập nhật${errors.length > 0 ? `\nLỗi (${errors.length} dòng):\n${shown}${hidden}` : ''}`, 'info');
     } catch (err: any) {
       notify(`Đọc file thất bại: ${err?.message || err}`, 'error');
     } finally {
