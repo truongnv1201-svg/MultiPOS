@@ -47,6 +47,7 @@ import {
 import { AuthProvider, useAuth } from './store/auth';
 import { CommerceProvider, useCommerce } from './store/commerce';
 import { CatalogProvider, useCatalog } from './store/catalog';
+import type { ImportBulkLine, ImportBulkResult } from './store/catalog';
 import { NetworkProvider, useNetwork } from './store/network';
 import { TransactionsProvider, useTransactions } from './store/transactions';
 import { HrmProvider, useHrm } from './store/hrm-slice';
@@ -207,6 +208,7 @@ interface StoreContextType {
   // Master Data Mutators
   addProduct: (product: Omit<Product, 'id' | 'sku'> & { sku?: string }) => Promise<Product>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  importProductsBulk: (lines: ImportBulkLine[]) => Promise<ImportBulkResult>;
   deleteProduct: (id: string) => Promise<void>;
   addCustomer: (customer: Omit<Customer, 'id' | 'code' | 'created_at'> & { created_at?: string }) => Promise<Customer>;
   updateCustomer: (id: string, updates: Partial<Customer>) => Promise<void>;
@@ -346,6 +348,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     syncCustomers,
     addProduct,
     updateProduct,
+    importProductsBulk,
     deleteProduct,
     addCustomer,
     updateCustomer,
@@ -890,6 +893,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     syncDebtsFromServer,
     addProduct,
     updateProduct,
+    importProductsBulk,
     deleteProduct,
     addCustomer,
     updateCustomer,

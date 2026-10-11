@@ -29,6 +29,7 @@ export interface CatalogSlice {
   syncCustomers: () => Promise<Record<string, string>>;
   addProduct: (data: Omit<Product, 'id' | 'sku'> & { sku?: string }) => Promise<Product>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  importProductsBulk: (lines: ImportBulkLine[]) => Promise<ImportBulkResult>;
   addCustomer: (data: Omit<Customer, 'id' | 'code' | 'created_at'> & { created_at?: string }) => Promise<Customer>;
   updateCustomer: (id: string, updates: Partial<Customer>) => Promise<void>;
   addSupplier: (data: Omit<Supplier, 'id' | 'code'>) => Promise<Supplier>;
@@ -40,6 +41,26 @@ export interface CatalogSlice {
 
 // P1 Sửa/Xóa: id uuid server (= đã đồng bộ), id local còn lại (= chưa lên server).
 const IS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface ImportBulkLine {
+  sku?: string;
+  name: string;
+  unit: string;
+  product_type: string;
+  retail_price: number;
+  import_price: number;
+  avg_cost: number;
+  stock_quantity: number;
+  min_stock?: number;
+  waste_factor?: number;
+  allow_decimal: boolean;
+}
+
+export interface ImportBulkResult {
+  created: number;
+  updated: number;
+  errors: { index: number; sku?: string; name?: string; error: string }[];
+}
 
 async function remapPendingCatalogReferences(
   entity: PendingMasterData['entity'],
@@ -856,6 +877,34 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     [supa, user, isOnline]
   );
 
+  // Nhập hàng loạt qua RPC (file Excel nghìn dòng): chia chunk 500/call,
+  // lỗi từng dòng gom lại, xong kéo catalog để Dexie/state khớp truth server.
+  // Offline/chưa login -> throw để caller rơi về đường từng dòng (queue local).
+  const importProductsBulk = useCallback(
+    async (lines: ImportBulkLine[]): Promise<ImportBulkResult> => {
+      if (!supa) throw new Error('Chưa kết nối Supabase.');
+      if (!user) throw new Error('Vui lòng đăng nhập trước khi nhập hàng loạt.');
+      if (!isOnline) throw new Error('Đang offline.');
+      if (profile?.role !== 'admin' && profile?.role !== 'manager') {
+        throw new Error('Forbidden: cần quyền quản lý');
+      }
+      const out: ImportBulkResult = { created: 0, updated: 0, errors: [] };
+      for (let start = 0; start < lines.length; start += 500) {
+        const chunk = lines.slice(start, start + 500);
+        const { data, error } = await supa.rpc('import_products_bulk', { p_lines: chunk });
+        if (error) throw new Error(error.message);
+        const r = data as { ok?: boolean; created?: number; updated?: number; errors?: { index: number; sku?: string; name?: string; error: string }[] } | null;
+        if (!r?.ok) throw new Error('Server không nhận lô hàng.');
+        out.created += r.created || 0;
+        out.updated += r.updated || 0;
+        for (const e of r.errors || []) out.errors.push({ ...e, index: start + (e.index ?? 0) });
+      }
+      await refreshCatalog();
+      return out;
+    },
+    [supa, user, isOnline, profile, refreshCatalog]
+  );
+
   const value: CatalogSlice = {
     products,
     suppliers,
@@ -870,6 +919,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     syncCustomers,
     addProduct,
     updateProduct,
+    importProductsBulk,
     addCustomer,
     updateCustomer,
     addSupplier,

@@ -635,6 +635,40 @@ describe('0074: ghi chú phiếu nhập khỏi dòng thẻ kho', () => {
   });
 });
 
+describe('0080: nhập hàng hóa hàng loạt', () => {
+  const sql = read('supabase/migrations/0080_import_products_bulk.sql');
+
+  it('tồn tại migration 0080', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0080_import_products_bulk.sql')));
+  });
+
+  it('chỉ Admin/Quản lý, giới hạn 2000 dòng/call', () => {
+    assert.match(sql, /if not public\.is_manager\(\) then/);
+    assert.match(sql, /jsonb_array_length\(p_lines\) > 2000/);
+    assert.match(sql, /grant execute on function public\.import_products_bulk\(jsonb\) to authenticated/);
+  });
+
+  it('upsert theo SKU hoặc tên+ĐVT, SKU trống sinh nối tiếp có khóa', () => {
+    assert.match(sql, /select id into v_pid from public\.products where sku = v_sku/);
+    assert.match(sql, /where lower\(name\) = lower\(v_name\) and lower\(unit\) = lower\(v_unit\)/);
+    assert.match(sql, /pg_advisory_xact_lock\(hashtext\('product_sp_seq'\)\)/);
+    assert.match(sql, /'SP' \|\| lpad\(v_next::text, 6, '0'\)/);
+  });
+
+  it('lỗi từng dòng gom lại, không abort cả lô', () => {
+    assert.match(sql, /exception when others then/);
+    assert.match(sql, /'errors', v_errors/);
+  });
+
+  it('client bulk khi online, rơi về từng dòng khi offline', () => {
+    const catalog = read('lib/store/catalog.tsx');
+    assert.match(catalog, /supa\.rpc\('import_products_bulk', \{ p_lines: chunk \}\)/);
+    assert.match(catalog, /await refreshCatalog\(\);/);
+    const view = read('components/products/ProductsView.tsx');
+    assert.match(view, /await importProductsBulk\(good\.map\(\(p\) => p\.payload!\)\)/);
+  });
+});
+
 describe('ngung kinh doanh: an hang khoi POS, giu lich su', () => {
   it('migration them cot is_active mac dinh true', () => {
     const sql = read('supabase/migrations/0080_product_is_active.sql');

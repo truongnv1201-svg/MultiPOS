@@ -39,7 +39,7 @@ import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
 
 export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
-  const { products, orders, addProduct, updateProduct, deleteProduct, profile, stockMovements } = useStore();
+  const { products, orders, addProduct, updateProduct, deleteProduct, profile, stockMovements, importProductsBulk, isOnline, supabaseReady } = useStore();
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -304,15 +304,15 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
         notify('File không có dữ liệu!', 'error');
         return;
       }
-      let created = 0;
-      let updated = 0;
-      const errors: string[] = [];
       const validTypes: ProductType[] = ['goods', 'area', 'combo', 'service'];
-      // Danh sách đã biết = danh mục cũ + hàng vừa tạo trong lần nhập này
-      // (state products không tự cập nhật giữa các vòng lặp).
-      const known = [...products];
-      for (let i = 0; i < rows.length; i++) {
-        const r = rows[i];
+      // Parse thuần toàn bộ dòng trước (không await): dòng lỗi ghi nhận luôn,
+      // dòng đúng gom gửi bulk 1 lần.
+      const parsed: { lineNo: number; payload?: {
+        sku?: string; name: string; unit: string; product_type: string;
+        retail_price: number; import_price: number; avg_cost: number;
+        stock_quantity: number; min_stock?: number; waste_factor?: number;
+        allow_decimal: boolean;
+      }; error?: string }[] = rows.map((r, i) => {
         const lineNo = i + 2;
         try {
           const name = (r['Tên hàng *'] || r['Tên hàng'] || '').trim();
@@ -320,39 +320,75 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
           const rawType = (r['Loại (goods/area/combo/service)'] || r['Loại'] || 'goods').trim().toLowerCase();
           const product_type = (validTypes.includes(rawType as ProductType) ? rawType : 'goods') as ProductType;
           const priceRaw = r['Giá bán'] ?? r['Giá bán lẻ'] ?? 0;
-          const payload = {
-            name,
-            unit: (r['ĐVT'] || 'cái').trim(),
-            product_type,
-            retail_price: Math.max(0, Math.round(parseExcelNum(priceRaw))),
-            import_price: Math.max(0, Math.round(parseExcelNum(r['Giá vốn nhập']))),
-            avg_cost: Math.max(0, Math.round(parseExcelNum(r['Giá vốn nhập']))),
-            stock_quantity: Math.max(0, parseExcelNum(r['Tồn kho'])),
-            min_stock: r['Tồn tối thiểu'] !== '' ? Math.max(0, parseExcelNum(r['Tồn tối thiểu'])) : undefined,
-            waste_factor: r['Hao hụt (%)'] !== '' ? Math.max(0, parseExcelNum(r['Hao hụt (%)'])) : undefined,
-            // Cờ số lượng thập phân: "Có"/"Co"/"1"/"true" -> bật (hàng m2 luôn bật)
-            allow_decimal:
-              product_type === 'area' ||
-              /^(c[oó]|1|true|yes)$/i.test(String(r['SL thập phân (Có/Không)'] ?? r['SL thập phân'] ?? '').trim()),
-          };
           const sku = (r['Mã SKU'] || '').trim();
-          const existing =
-            (sku && known.find((p) => p.sku.toLowerCase() === sku.toLowerCase())) ||
-            known.find((p) => p.name.toLowerCase() === name.toLowerCase() && p.unit.toLowerCase() === payload.unit.toLowerCase());
-          if (existing) {
-            await updateProduct(existing.id, payload);
-            const idx = known.findIndex((p) => p.id === existing.id);
-            if (idx >= 0) known[idx] = { ...known[idx], ...payload, sku: sku || known[idx].sku };
-            updated++;
-          } else {
-            const createdProd = await addProduct(sku ? { ...payload, sku } : payload);
-            known.push(createdProd);
-            created++;
+          return {
+            lineNo,
+            payload: {
+              ...(sku ? { sku } : {}),
+              name,
+              unit: (r['ĐVT'] || 'cái').trim(),
+              product_type,
+              retail_price: Math.max(0, Math.round(parseExcelNum(priceRaw))),
+              import_price: Math.max(0, Math.round(parseExcelNum(r['Giá vốn nhập']))),
+              avg_cost: Math.max(0, Math.round(parseExcelNum(r['Giá vốn nhập']))),
+              stock_quantity: Math.max(0, parseExcelNum(r['Tồn kho'])),
+              min_stock: r['Tồn tối thiểu'] !== '' ? Math.max(0, parseExcelNum(r['Tồn tối thiểu'])) : undefined,
+              waste_factor: r['Hao hụt (%)'] !== '' ? Math.max(0, parseExcelNum(r['Hao hụt (%)'])) : undefined,
+              // Cờ số lượng thập phân: "Có"/"Co"/"1"/"true" -> bật (hàng m2 luôn bật)
+              allow_decimal:
+                product_type === 'area' ||
+                /^(c[oó]|1|true|yes)$/i.test(String(r['SL thập phân (Có/Không)'] ?? r['SL thập phân'] ?? '').trim()),
+            },
+          };
+        } catch (err: any) {
+          return { lineNo, error: err?.message || 'lỗi không rõ' };
+        }
+      });
+      const errors: string[] = parsed.filter((p) => p.error).map((p) => `Dòng ${p.lineNo}: ${p.error}`);
+      const good = parsed.filter((p) => p.payload);
+      let created = 0;
+      let updated = 0;
+      // Online: bulk 1 RPC/chunk qua server (nhanh hơn từng dòng hàng trăm lần).
+      // Offline/chưa login: rơi về đường từng dòng (queue local như cũ).
+      if (good.length > 0 && supabaseReady && isOnline) {
+        try {
+          const res = await importProductsBulk(good.map((p) => p.payload!));
+          created = res.created;
+          updated = res.updated;
+          const byIndex = new Map(good.map((p, i) => [i, p.lineNo]));
+          for (const e of res.errors) {
+            const ln = byIndex.get(e.index);
+            errors.push(`Dòng ${ln ?? '?'}${e.sku ? ` (${e.sku})` : ''}: ${e.error}`);
           }
         } catch (err: any) {
-          errors.push(`Dòng ${lineNo}: ${err?.message || 'lỗi không rõ'}`);
-          // Không break: lỗi 1 dòng không được chặn các dòng còn lại,
-          // chỉ gọn thông báo (file dài mà lỗi hết thì báo tổng số).
+          errors.push(`Bulk thất bại, chưa ghi dòng nào: ${err?.message || 'lỗi không rõ'}`);
+        }
+      } else if (good.length > 0) {
+        // Danh sách đã biết = danh mục cũ + hàng vừa tạo trong lần nhập này
+        // (state products không tự cập nhật giữa các vòng lặp).
+        const known = [...products];
+        for (const p of good) {
+          const payload = p.payload!;
+          try {
+            const sku = payload.sku || '';
+            const existing =
+              (sku && known.find((x) => x.sku.toLowerCase() === sku.toLowerCase())) ||
+              known.find((x) => x.name.toLowerCase() === payload.name.toLowerCase() && x.unit.toLowerCase() === payload.unit.toLowerCase());
+            if (existing) {
+              await updateProduct(existing.id, payload);
+              const idx = known.findIndex((x) => x.id === existing.id);
+              if (idx >= 0) known[idx] = { ...known[idx], ...payload, sku: sku || known[idx].sku };
+              updated++;
+            } else {
+              const createdProd = await addProduct(sku ? { ...payload, sku } : payload);
+              known.push(createdProd);
+              created++;
+            }
+          } catch (err: any) {
+            errors.push(`Dòng ${p.lineNo}: ${err?.message || 'lỗi không rõ'}`);
+            // Không break: lỗi 1 dòng không được chặn các dòng còn lại,
+            // chỉ gọn thông báo (file dài mà lỗi hết thì báo tổng số).
+          }
         }
       }
       const shown = errors.slice(0, 10).join('\n');
