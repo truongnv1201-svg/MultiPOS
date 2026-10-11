@@ -65,7 +65,7 @@ describe('0051: catalog public ẩn giá vốn', () => {
 
   it('client fallback sang view khi anon', () => {
     const catalog = read('lib/store/catalog.tsx');
-    assert.match(catalog, /from\('catalog_public'\)/);
+    assert.match(catalog, /fetchAllProducts\(supa, 'catalog_public', 'sku'\)/);
   });
 });
 

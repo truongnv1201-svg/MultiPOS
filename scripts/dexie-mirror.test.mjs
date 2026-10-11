@@ -42,7 +42,8 @@ describe('mirror cache Dexie: không xoá bản ghi ghi cục bộ trong lúc k�
 
   it('mọi đường pull đều chụp khoá cache TRƯỚC khi gọi server', () => {
     assert.match(catalog, /const \[staleProductIds, staleCustomerIds, staleSupplierIds\] = await Promise\.all\(\[\s*cacheKeys\(db\.products\)/);
-    assert.match(catalog, /from\('products'\)\.select\('\*'\)\.order\('sku'\)/);
+    assert.match(catalog, /fetchAllProducts\(supa, 'products', 'sku'\)/);
+    assert.match(catalog, /\.range\(from, from \+ PAGE - 1\)/);
     assert.match(projects, /const staleProjectIds = await cacheKeys\(db\.projects\)/);
     assert.match(projects, /from\('projects'\)\.select\('\*'\)\.order\('code'\)/);
     assert.match(shiftStock, /const staleCashbookIds = await cacheKeys\(db\.cashbook\)/);
