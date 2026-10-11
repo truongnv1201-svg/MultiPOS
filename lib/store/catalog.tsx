@@ -892,13 +892,33 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       onProgress?.(0, lines.length);
       for (let start = 0; start < lines.length; start += 500) {
         const chunk = lines.slice(start, start + 500);
-        const { data, error } = await supa.rpc('import_products_bulk', { p_lines: chunk });
-        if (error) throw new Error(error.message);
-        const r = data as { ok?: boolean; created?: number; updated?: number; errors?: { index: number; sku?: string; name?: string; error: string }[] } | null;
-        if (!r?.ok) throw new Error('Server không nhận lô hàng.');
-        out.created += r.created || 0;
-        out.updated += r.updated || 0;
-        for (const e of r.errors || []) out.errors.push({ ...e, index: start + (e.index ?? 0) });
+        // Treo request (rớt gói tin, fetch không timeout) thì kẹt cả file ở đúng
+        // mốc chunk đó — đua 120s + thử lại tối đa 3 lần. Thử lại an toàn vì RPC
+        // upsert theo SKU/tên+ĐVT: dòng đã lọt ở lần mất tín hiệu sẽ rơi vào
+        // nhánh cập nhật, không sinh trùng.
+        let r: { ok?: boolean; created?: number; updated?: number; errors?: { index: number; sku?: string; name?: string; error: string }[] } | null = null;
+        let lastErr = '';
+        for (let attempt = 1; attempt <= 3; attempt += 1) {
+          try {
+            const call = supa.rpc('import_products_bulk', { p_lines: chunk });
+            const { data, error } = await Promise.race([
+              call,
+              new Promise<never>((_, reject) =>
+                window.setTimeout(() => reject(new Error('hết 120s chờ server')), 120000)
+              ),
+            ]);
+            if (error) throw new Error(error.message);
+            if (!data?.ok) throw new Error('Server không nhận lô hàng.');
+            r = data;
+            break;
+          } catch (err: any) {
+            lastErr = err?.message || 'lỗi không rõ';
+            if (attempt === 3) throw new Error(`Lô ${start + 1}-${start + chunk.length} thất bại sau 3 lần thử: ${lastErr}`);
+          }
+        }
+        out.created += r!.created || 0;
+        out.updated += r!.updated || 0;
+        for (const e of r!.errors || []) out.errors.push({ ...e, index: start + (e.index ?? 0) });
         onProgress?.(Math.min(start + chunk.length, lines.length), lines.length);
       }
       await refreshCatalog();
