@@ -540,7 +540,7 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
             <div className="hidden md:flex w-full md:w-96 bg-slate-100 flex flex-col min-h-0">
               <div className="flex-1 min-h-0 bg-white border border-slate-200 rounded-xl shadow-2xs p-3 flex flex-col overflow-y-auto">
                 <div className="space-y-4 text-xs">
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+                  <div className="px-1 pt-1 space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-mono text-[10px] font-bold text-blue-700">
                         {liveSelectedSupplier.code}
