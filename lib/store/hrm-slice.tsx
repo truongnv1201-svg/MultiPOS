@@ -397,7 +397,9 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
     },
-    [requireHrmManager, supa, user, isOnline, employees]
+    // profile?.role dùng trong guard 0082 (đổi chế độ chỉ Admin) — liệt kê để
+    // exhaustive-deps khỏi warn (requireHrmManager cũng đã đổi theo profile).
+    [requireHrmManager, supa, user, profile, isOnline, employees]
   );
 
   // Tạo tài khoản đăng nhập qua API (dùng session hiện tại, không đá login) — dùng chung các luồng gộp

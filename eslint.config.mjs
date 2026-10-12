@@ -9,7 +9,10 @@ const __dirname = path.dirname(__filename);
 export default defineConfig([
   // P3-loop fix: bỏ qua output sinh tự động (Playwright trace viewer, test artifacts, build)
   // để lint chỉ quét source — trước đây trace assets từng gây 188 lỗi giả.
-  { ignores: ["playwright-report/**", "test-results/**", ".next/**", "node_modules/**"] },
+  // gen-build-info.cjs là script build Node (.cjs không nằm trong files mà
+  // eslint-config-next đăng ký plugin react-hooks) — quét nó gây lỗi config
+  // "could not find plugin react-hooks" (CI #251 đỏ), không phải lỗi code.
+  { ignores: ["playwright-report/**", "test-results/**", ".next/**", "node_modules/**", "scripts/gen-build-info.cjs"] },
   {
     extends: [...next],
     // TODO(P3): React Compiler bỏ qua tối ưu vài useMemo (Inventory/Suppliers) nhưng memo tay
