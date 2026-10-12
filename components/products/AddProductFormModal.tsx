@@ -12,7 +12,7 @@ import { NumberInput } from '@/components/common/NumberInput';
 import { QTY_MAX_DECIMALS, roundQty, suggestDecimalForUnit } from '@/lib/quantity';
 import { SheetShell } from '@/components/common/SheetShell';
 import { FilterSelect } from '@/components/ui/FilterControls';
-import { MarginCalcField } from '@/components/products/MarginCalcField';
+import { MarginHint, MarkupPctInput } from '@/components/products/MarginCalcField';
 import { Plus } from 'lucide-react';
 
 export const UNIT_OPTIONS = [
@@ -220,7 +220,19 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid gap-2 ${productType !== 'service' && productType !== 'combo' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Giá vốn nhập (đ)</label>
+              <NumberInput
+                value={importPrice}
+                onChange={(val) => setImportPrice(val)}
+                placeholder="0"
+                className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
+              />
+            </div>
+            {productType !== 'service' && productType !== 'combo' && (
+              <MarkupPctInput cost={importPrice} onPriceChange={(val) => setRetailPrice(val)} />
+            )}
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Giá bán (đ)</label>
               <NumberInput
@@ -231,23 +243,10 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
                 className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
               />
             </div>
-            <div>
-              <label className="font-semibold text-slate-700 block mb-1">Giá vốn nhập (đ)</label>
-              <NumberInput
-                value={importPrice}
-                onChange={(val) => setImportPrice(val)}
-                placeholder="0"
-                className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
-              />
-            </div>
           </div>
 
           {productType !== 'service' && productType !== 'combo' && (
-            <MarginCalcField
-              cost={importPrice}
-              price={retailPrice}
-              onPriceChange={(val) => setRetailPrice(val)}
-            />
+            <MarginHint cost={importPrice} price={retailPrice} />
           )}
 
           {productType === 'area' && (

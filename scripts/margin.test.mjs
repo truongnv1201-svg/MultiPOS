@@ -77,24 +77,35 @@ describe('margin: wiring UI (chống nhân bản logic)', () => {
     assert.match(read('lib/costing.ts'), /export function priceFromMarkup/);
     assert.match(read('lib/costing.ts'), /export function markupFromPrice/);
     // Component không hardcode công thức (phải gọi helper dùng chung).
-    assert.ok(!/c \* \(1 \+/.test(field), 'MarginCalcField cấm tính tay, phải gọi priceFromMarkup');
+    assert.ok(!/c \* \(1 \+/.test(field), 'cấm tính tay, phải gọi priceFromMarkup');
     assert.match(field, /priceFromMarkup/);
-    assert.match(field, /markupFromPrice/);
     assert.match(field, /lineMargin/);
   });
 
-  it('form thêm và form sửa dùng chung MarginCalcField', () => {
-    assert.match(addForm, /MarginCalcField/);
-    assert.match(products, /MarginCalcField/);
+  it('form thêm và form sửa dùng chung cụm cộng %', () => {
+    assert.match(addForm, /MarkupPctInput/);
+    assert.match(addForm, /MarginHint/);
+    assert.match(products, /MarkupPctInput/);
+    assert.match(products, /MarginHint/);
   });
 
   it('component ẩn khi cả 2 vốn đều 0 (dịch vụ/combo/hàng chưa nhập)', () => {
-    assert.ok(/c <= 0 && a <= 0/.test(field), 'MarginCalcField phải tự ẩn khi không có vốn');
+    assert.ok(/c <= 0/.test(field), 'MarkupPctInput phải tự ẩn khi không có vốn');
+    assert.ok(/c <= 0 \|\| p <= 0/.test(field), 'MarginHint ẩn khi thiếu vốn/giá');
+  });
+
+  it('thứ tự ô giá: vốn nhập -> cộng % -> giá bán', () => {
+    for (const [name, src] of [['form thêm', addForm], ['form sửa', products]]) {
+      const costIdx = src.indexOf('Giá vốn nhập (đ)');
+      const pctIdx = src.indexOf('<MarkupPctInput');
+      const priceIdx = src.indexOf('Giá bán (đ)');
+      assert.ok(costIdx >= 0 && pctIdx > costIdx && priceIdx > pctIdx, `${name} phải xếp vốn -> % -> giá`);
+    }
   });
 
   it('form thêm/sửa giấu cụm % với service/combo', () => {
-    assert.match(addForm, /productType !== 'service' && productType !== 'combo' && \(\s*\n?\s*<MarginCalcField/);
-    assert.match(products, /editProductType !== 'service' && editProductType !== 'combo' && \(\s*\n?\s*<MarginCalcField/);
+    assert.match(addForm, /productType !== 'service' && productType !== 'combo' && \(\s*\n?\s*<MarkupPctInput/);
+    assert.match(products, /editProductType !== 'service' && editProductType !== 'combo' && \(\s*\n?\s*<MarkupPctInput/);
   });
 
   it('form sửa truyền vốn BQ làm tham chiếu (không dùng để tính giá)', () => {

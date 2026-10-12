@@ -35,7 +35,7 @@ import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
 import { AppButton } from '@/components/ui/AppButton';
 import { AddProductFormModal, UNIT_FLAT_OPTIONS } from '@/components/products/AddProductFormModal';
-import { MarginCalcField } from '@/components/products/MarginCalcField';
+import { MarginHint, MarkupPctInput } from '@/components/products/MarginCalcField';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
@@ -819,16 +819,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
               </div>
 
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Giá bán (đ)</label>
-                  <NumberInput
-                    value={editRetailPrice}
-                    onChange={(val) => setEditRetailPrice(val)}
-                    placeholder="0"
-                    className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
-                  />
-                </div>
+              <div className={`grid gap-2 ${editProductType !== 'service' && editProductType !== 'combo' ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Giá vốn nhập (đ)</label>
                   <NumberInput
@@ -838,14 +829,25 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                     className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
                   />
                 </div>
+                {editProductType !== 'service' && editProductType !== 'combo' && (
+                  <MarkupPctInput cost={editImportPrice} onPriceChange={(val) => setEditRetailPrice(val)} />
+                )}
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Giá bán (đ)</label>
+                  <NumberInput
+                    value={editRetailPrice}
+                    onChange={(val) => setEditRetailPrice(val)}
+                    placeholder="0"
+                    className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
+                  />
+                </div>
               </div>
 
               {editProductType !== 'service' && editProductType !== 'combo' && (
-                <MarginCalcField
+                <MarginHint
                   cost={editImportPrice}
                   price={editRetailPrice}
                   avgCost={editingProduct?.avg_cost}
-                  onPriceChange={(val) => setEditRetailPrice(val)}
                 />
               )}
 
