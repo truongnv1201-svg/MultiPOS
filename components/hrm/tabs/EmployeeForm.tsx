@@ -47,6 +47,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { TableTools } from '@/components/common/TableTools';
+import { FilterSelect } from '@/components/ui/FilterControls';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 // P3: atoms/tokens/helpers thuần dùng chung các tab (tách ra ui.tsx).
@@ -220,25 +221,23 @@ export function EmployeeForm({
                   <label htmlFor="emp-position" className="text-xs font-semibold text-slate-700">
                     Chức vụ <span className="text-rose-500">*</span>
                   </label>
-                  <select
+                  <FilterSelect
                     id="emp-position"
                     value={position}
-                    onChange={(e) => {
-                      setPosition(e.target.value);
+                    onChange={(v) => {
+                      setPosition(v);
                       if (errors.position) setErr('position', '');
                     }}
-                    className={`${INPUT} ${errors.position ? 'border-rose-400 ring-2 ring-rose-100' : ''}`}
-                  >
-                    <option value="">— Chọn —</option>
-                    {(initial?.position && !POSITION_OPTIONS.includes(initial.position)
-                      ? [initial.position, ...POSITION_OPTIONS]
-                      : POSITION_OPTIONS
-                    ).map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
+                    title="Chọn chức vụ"
+                    options={[
+                      { value: '', label: '— Chọn —' },
+                      ...(initial?.position && !POSITION_OPTIONS.includes(initial.position)
+                        ? [initial.position, ...POSITION_OPTIONS]
+                        : POSITION_OPTIONS
+                      ).map((p) => ({ value: p, label: p })),
+                    ]}
+                    className={`mt-1 ${errors.position ? 'ring-2 ring-rose-100 rounded-md' : ''}`}
+                  />
                   {fieldErr('position')}
                 </div>
               </div>
@@ -250,6 +249,46 @@ export function EmployeeForm({
               </div>
             </div>
           </section>
+            </div>
+            <div className="space-y-3 min-w-0">
+          {/* 0082: chế độ chấm công — chỉ Admin được đổi */}
+          {isAdmin ? (
+            <section>
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-1.5">Chế độ chấm công</h4>
+              <div className="grid grid-cols-3 gap-1 bg-slate-100 rounded-xl p-1" role="radiogroup" aria-label="Chế độ chấm công">
+                {(['normal', 'fixed', 'none'] as AttendanceMode[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={attMode === m}
+                    title={ATTENDANCE_MODE_META[m].label}
+                    onClick={() => {
+                      setAttMode(m);
+                      if (m === 'fixed') setSalaryType('monthly');
+                    }}
+                    className={`py-1.5 px-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                      attMode === m ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {m === 'normal' ? 'Chấm công' : m === 'fixed' ? 'Cố định' : 'Không lương'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                {attMode === 'normal' && 'Có mặt trên lưới chấm công, lương theo công thực tế.'}
+                {attMode === 'fixed' && 'Ẩn khỏi lưới chấm công, hưởng nguyên lương tháng + phụ cấp.'}
+                {attMode === 'none' && 'Ẩn khỏi lưới chấm công và bảng lương (chủ/cộng tác viên).'}
+              </p>
+              {fieldErr('salaryType')}
+              {fieldErr('monthlySalary')}
+            </section>
+          ) : (
+            initial && (initial.attendance_mode === 'fixed' || initial.attendance_mode === 'none') && (
+              <p className="text-[11px] font-bold text-slate-500 bg-slate-100 rounded-lg px-3 py-2">
+                Chế độ: {ATTENDANCE_MODE_META[initial.attendance_mode].label} (chỉ Admin đổi được).
+              </p>
+            )
+          )}
 
           <section>
             <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-1.5">Lương & phụ cấp</h4>
@@ -297,46 +336,6 @@ export function EmployeeForm({
               </div>
             </div>
           </section>
-            </div>
-            <div className="space-y-3 min-w-0">
-          {/* 0082: chế độ chấm công — chỉ Admin được đổi */}
-          {isAdmin ? (
-            <section>
-              <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-1.5">Chế độ chấm công</h4>
-              <div className="grid grid-cols-3 gap-1 bg-slate-100 rounded-xl p-1" role="radiogroup" aria-label="Chế độ chấm công">
-                {(['normal', 'fixed', 'none'] as AttendanceMode[]).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    aria-pressed={attMode === m}
-                    title={ATTENDANCE_MODE_META[m].label}
-                    onClick={() => {
-                      setAttMode(m);
-                      if (m === 'fixed') setSalaryType('monthly');
-                    }}
-                    className={`py-1.5 px-1 text-xs font-bold rounded-lg transition cursor-pointer ${
-                      attMode === m ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    {m === 'normal' ? 'Chấm công' : m === 'fixed' ? 'Cố định' : 'Không lương'}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                {attMode === 'normal' && 'Có mặt trên lưới chấm công, lương theo công thực tế.'}
-                {attMode === 'fixed' && 'Ẩn khỏi lưới chấm công, hưởng nguyên lương tháng + phụ cấp.'}
-                {attMode === 'none' && 'Ẩn khỏi lưới chấm công và bảng lương (chủ/cộng tác viên).'}
-              </p>
-              {fieldErr('salaryType')}
-              {fieldErr('monthlySalary')}
-            </section>
-          ) : (
-            initial && (initial.attendance_mode === 'fixed' || initial.attendance_mode === 'none') && (
-              <p className="text-[11px] font-bold text-slate-500 bg-slate-100 rounded-lg px-3 py-2">
-                Chế độ: {ATTENDANCE_MODE_META[initial.attendance_mode].label} (chỉ Admin đổi được).
-              </p>
-            )
-          )}
 
           <section>
             <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-1.5">Tài khoản đăng nhập</h4>
@@ -408,13 +407,14 @@ export function EmployeeForm({
                       <label htmlFor="emp-role" className="text-xs font-semibold text-slate-700">
                         Quyền
                       </label>
-                      <select id="emp-role" value={acctRole} onChange={(e) => setAcctRole(e.target.value)} className={INPUT}>
-                        {roleOptions.map((r) => (
-                          <option key={r} value={r}>
-                            {ROLE_LABELS[r]}
-                          </option>
-                        ))}
-                      </select>
+                      <FilterSelect
+                        id="emp-role"
+                        value={acctRole}
+                        onChange={setAcctRole}
+                        title="Chọn quyền đăng nhập"
+                        options={roleOptions.map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
+                        className="mt-1"
+                      />
                     </div>
                   </div>
                 </div>
@@ -445,13 +445,14 @@ export function EmployeeForm({
                     <label htmlFor="emp-role" className="text-xs font-semibold text-slate-700">
                       Quyền
                     </label>
-                    <select id="emp-role" value={acctRole} onChange={(e) => setAcctRole(e.target.value)} className={INPUT}>
-                      {roleOptions.map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </option>
-                      ))}
-                    </select>
+                    <FilterSelect
+                      id="emp-role"
+                      value={acctRole}
+                      onChange={setAcctRole}
+                      title="Chọn quyền đăng nhập"
+                      options={roleOptions.map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
+                      className="mt-1"
+                    />
                   </div>
                 </div>
                 {!isAdmin && <p className="text-[11px] text-slate-500">Quản lý chỉ tạo được Thu ngân / Thợ.</p>}
