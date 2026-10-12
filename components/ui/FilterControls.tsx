@@ -45,6 +45,31 @@ interface FilterSelectProps {
   disabled?: boolean;
 }
 
+// Đo rộng nhãn theo font hệ thống (khớp text-xs trong listbox) để listbox
+// ôm đúng nội dung dài nhất. Cache canvas ở module, chỉ chạy trên browser.
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+function labelWidthPx(label: string): number {
+  try {
+    if (measureCtx === undefined) {
+      if (typeof document === 'undefined') return label.length * 7;
+      const canvas = document.createElement('canvas');
+      measureCtx = canvas.getContext('2d');
+    }
+    if (!measureCtx) return label.length * 7;
+    measureCtx.font = '600 12px ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+    return measureCtx.measureText(label).width;
+  } catch {
+    return label.length * 7;
+  }
+}
+
+// Rộng listbox = nội dung dài nhất + padding + chỗ tick chọn, kẹp trong màn hình.
+function contentWidthPx(options: { value: string; label: string }[]): number {
+  let max = 0;
+  for (const o of options) max = Math.max(max, labelWidthPx(o.label));
+  return Math.ceil(max) + 20 + 22 + 8;
+}
+
 export function FilterSelect({ id, value, onChange, options, title, className = '', disabled = false }: FilterSelectProps) {
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -61,9 +86,10 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
     if (!r) return;
     const idx = Math.max(0, options.findIndex((o) => o.value === value));
     setActiveIdx(idx);
-    // Listbox rộng đúng bằng nút ở mọi chỗ (quy ước chung) — đo 1 lần lúc mở.
-    const width = r.width;
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+    // Listbox rộng theo nội dung dài nhất ngay từ đầu (quy ước chung):
+    // không hẹp hơn nút, không tràn màn hình; nhãn quá dài cắt ellipsis + tooltip.
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - Math.max(r.width, 170) - 8));
+    const width = Math.min(Math.max(r.width, contentWidthPx(options)), window.innerWidth - left - 8);
     // Gần đáy màn hình thì xổ lên trên thay vì xuống dưới.
     if (window.innerHeight - r.bottom < 280) {
       setPos({ bottom: window.innerHeight - r.top + 4, left, width });
@@ -176,6 +202,7 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
                     aria-selected={isSel}
                     data-idx={i}
                     tabIndex={-1}
+                    title={o.label}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => pick(o.value)}
                     onMouseEnter={() => setActiveIdx(i)}
