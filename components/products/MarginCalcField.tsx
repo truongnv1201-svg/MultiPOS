@@ -1,7 +1,7 @@
 // Máy tính cộng % trên vốn nhập — dùng chung cho form Thêm + Sửa hàng hóa.
 // Bố cục: Giá vốn nhập -> Cộng % -> Giá bán (3 ô trên 1 hàng); gợi ý gọn 1 dòng
 // lãi/biên suy từ giá hiện tại (sửa giá tay thì dòng này cập nhật theo).
-// - Ô % là tác vụ một chiều: nhập % -> tính giá, gọi onPriceChange, xóa ô.
+// - Ô % giữ lại giá trị đã nhập để user đối chiếu trong lúc cân nhắc giá bán.
 // - Không làm tròn nghìn: giá = tròn từng đồng (hàng nhạy giá như dây điện).
 'use client';
 
@@ -30,7 +30,6 @@ export function MarkupPctInput({ cost, onPriceChange }: MarkupPctInputProps) {
     setMarkup(val);
     if (c > 0 && val !== 0) {
       onPriceChange(priceFromMarkup(c, val));
-      setMarkup('');
     }
   };
 
