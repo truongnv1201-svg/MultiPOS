@@ -2,6 +2,8 @@
 // Chạy: npm test (node --test scripts/pricing.test.mjs scripts/hrm.test.mjs)
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   HR_POLICY,
   attendanceModeOf,
@@ -135,8 +137,7 @@ describe('attendance_mode 0082: mien cham cong', () => {
     assert.equal(it.gross, 0);
   });
 });
-describe('buildPayrollItem', () => {
-  it('NV lương ngày: công + OT + phụ cấp theo công', () => {
+describe('buildPayrollItem', () => {  it('NV lương ngày: công + OT + phụ cấp theo công', () => {
     const emp = { id: 'e1', full_name: 'Thợ A', salary_type: 'daily', daily_wage: 300000, allowance_default: 10000 };
     const days = [
       { status: 'present', ot_hours: 0 },
@@ -158,5 +159,21 @@ describe('buildPayrollItem', () => {
     assert.equal(it.gross, 1500000);
     assert.equal(it.advance, 500000);
     assert.equal(it.net, 1000000);
+  });
+});
+
+describe('nut Mo bang luong: bam lai van an (khong phu thuoc screen doi gia tri)', () => {
+  const ROOT = join(import.meta.dirname, '..');
+  const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
+  const ov = read('components/hrm/tabs/OverviewTab.tsx');
+  const view = read('components/hrm/HRMView.tsx');
+
+  it('OverviewTab nhan onOpenPayroll va goi thang, fallback setCurrentScreen', () => {
+    assert.match(ov, /export function OverviewTab\(\{ onOpenPayroll \}/);
+    assert.match(ov, /if \(onOpenPayroll\) onOpenPayroll\(\);/);
+  });
+
+  it('HRMView truyen setSubTab attendance thang cho nut', () => {
+    assert.match(view, /<OverviewTab onOpenPayroll=\{\(\) => setSubTab\('attendance'\)\} \/>/);
   });
 });

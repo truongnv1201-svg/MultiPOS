@@ -197,7 +197,7 @@ export function HRMView() {
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
-        {subTab === 'overview' && <OverviewTab />}
+        {subTab === 'overview' && <OverviewTab onOpenPayroll={() => setSubTab('attendance')} />}
         {subTab === 'staff' && (
           <StaffTab
             employees={employees}

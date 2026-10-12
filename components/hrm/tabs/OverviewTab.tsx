@@ -75,7 +75,7 @@ import {
   currentMonthKey,
 } from '@/components/hrm/ui';
 // ---------- Tab 1: Tổng quan ----------
-export function OverviewTab() {
+export function OverviewTab({ onOpenPayroll }: { onOpenPayroll?: () => void } = {}) {
   const { employees, attendanceDays, payrollRuns, profile, markDay, setCurrentScreen } = useStore();
   const isManager = profile?.role === 'admin' || profile?.role === 'manager';
   const now = new Date();
@@ -314,7 +314,14 @@ export function OverviewTab() {
                 </div>
               </dl>
             )}
-            <button onClick={() => setCurrentScreen('payroll')} className={`${BTN_BLUE} w-full mt-3`}>
+            {/* Mở thẳng tab lương (không vòng qua currentScreen — bấm lại vẫn ăn, kể cả khi screen đã là 'payroll') */}
+            <button
+              onClick={() => {
+                if (onOpenPayroll) onOpenPayroll();
+                else setCurrentScreen('payroll');
+              }}
+              className={`${BTN_BLUE} w-full mt-3`}
+            >
               {run ? 'Mở bảng lương' : 'Lập bảng lương'} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
