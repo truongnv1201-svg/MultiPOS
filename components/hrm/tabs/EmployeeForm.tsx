@@ -172,7 +172,7 @@ export function EmployeeForm({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-label={initial ? 'Sửa hồ sơ nhân viên' : 'Thêm nhân viên'}>
       <div className="absolute inset-0 bg-slate-900/60" onClick={onClose} aria-hidden="true" />
-      <div className="relative bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="relative bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-4 py-3 bg-slate-900 text-white flex items-center gap-2.5 shrink-0">
           {initial ? (
             <Avatar name={initial.full_name} size="sm" />
@@ -185,10 +185,13 @@ export function EmployeeForm({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 text-xs">
+          {/* 2 cột trên desktop (trái: hồ sơ + lương · phải: chế độ + tài khoản + trạng thái), 1 cột trên mobile */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-3 min-w-0">
           <section>
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-2">Thông tin chung</h4>
-            <div className="space-y-3">
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-1.5">Thông tin chung</h4>
+            <div className="space-y-2.5">
               <div>
                 <label htmlFor="emp-name" className="text-xs font-semibold text-slate-700">
                   Họ tên <span className="text-rose-500">*</span>
@@ -249,8 +252,8 @@ export function EmployeeForm({
           </section>
 
           <section>
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-2">Lương & phụ cấp</h4>
-            <div className="space-y-3">
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-1.5">Lương & phụ cấp</h4>
+            <div className="space-y-2.5">
               <div>
                 <span className="text-xs font-semibold text-slate-700" id="salary-type-label">
                   Hình thức lương
@@ -294,40 +297,36 @@ export function EmployeeForm({
               </div>
             </div>
           </section>
-
+            </div>
+            <div className="space-y-3 min-w-0">
           {/* 0082: chế độ chấm công — chỉ Admin được đổi */}
           {isAdmin ? (
             <section>
-              <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-2">Chế độ chấm công</h4>
-              <div className="space-y-1.5" role="radiogroup" aria-label="Chế độ chấm công">
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-1.5">Chế độ chấm công</h4>
+              <div className="grid grid-cols-3 gap-1 bg-slate-100 rounded-xl p-1" role="radiogroup" aria-label="Chế độ chấm công">
                 {(['normal', 'fixed', 'none'] as AttendanceMode[]).map((m) => (
-                  <label
+                  <button
                     key={m}
-                    className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition ${
-                      attMode === m ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'
+                    type="button"
+                    aria-pressed={attMode === m}
+                    title={ATTENDANCE_MODE_META[m].label}
+                    onClick={() => {
+                      setAttMode(m);
+                      if (m === 'fixed') setSalaryType('monthly');
+                    }}
+                    className={`py-1.5 px-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                      attMode === m ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="att-mode"
-                      checked={attMode === m}
-                      onChange={() => {
-                        setAttMode(m);
-                        if (m === 'fixed') setSalaryType('monthly');
-                      }}
-                      className="mt-0.5 accent-blue-600"
-                    />
-                    <span>
-                      <span className="block text-xs font-bold text-slate-800">{ATTENDANCE_MODE_META[m].label}</span>
-                      <span className="block text-[11px] text-slate-500">
-                        {m === 'normal' && 'Có mặt trên lưới chấm công, lương tính theo công thực tế.'}
-                        {m === 'fixed' && 'Ẩn khỏi lưới chấm công, hưởng nguyên lương tháng + phụ cấp.'}
-                        {m === 'none' && 'Ẩn khỏi lưới chấm công và bảng lương (chủ/cộng tác viên).'}
-                      </span>
-                    </span>
-                  </label>
+                    {m === 'normal' ? 'Chấm công' : m === 'fixed' ? 'Cố định' : 'Không lương'}
+                  </button>
                 ))}
               </div>
+              <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                {attMode === 'normal' && 'Có mặt trên lưới chấm công, lương theo công thực tế.'}
+                {attMode === 'fixed' && 'Ẩn khỏi lưới chấm công, hưởng nguyên lương tháng + phụ cấp.'}
+                {attMode === 'none' && 'Ẩn khỏi lưới chấm công và bảng lương (chủ/cộng tác viên).'}
+              </p>
               {fieldErr('salaryType')}
               {fieldErr('monthlySalary')}
             </section>
@@ -340,9 +339,10 @@ export function EmployeeForm({
           )}
 
           <section>
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-2">Tài khoản đăng nhập</h4>          {initial ? (
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-1.5">Tài khoản đăng nhập</h4>
+          {initial ? (
             linkedAcct ? (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2.5">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 space-y-2">
                 <p className="text-sm font-bold text-emerald-700">✓ Mã đăng nhập: {initial.code}</p>
                 <div>
                   <label htmlFor="emp-newpw" className="text-xs font-semibold text-slate-700">
@@ -385,7 +385,7 @@ export function EmployeeForm({
                 </div>
               </div>
             ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-3">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-2">
                   <p className="text-xs text-amber-800 font-bold">Hồ sơ {initial.code} chưa có tài khoản — đặt mật khẩu để tạo.</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -420,7 +420,7 @@ export function EmployeeForm({
                 </div>
               )
             ) : (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 space-y-2">
                 <p className="text-xs text-slate-600">
                   Mã NV <strong className="font-mono text-amber-700">{previewCode}</strong> — NV dùng mã này + mật khẩu để đăng nhập.
                 </p>
@@ -460,40 +460,39 @@ export function EmployeeForm({
           </section>
 
           {initial && (
-            <section>
-              <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-2">Trạng thái làm việc</h4>
-              <div
-                className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 ${liveStatus === 'active' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-100 border-slate-200'}`}
-              >
-                <span className={`w-2 h-2 rounded-full ${liveStatus === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden="true" />
-                <span className={`text-sm font-bold ${liveStatus === 'active' ? 'text-emerald-800' : 'text-slate-500'}`}>
-                  {liveStatus === 'active' ? 'Đang làm việc' : 'Đã nghỉ việc'}
-                </span>
-                {liveStatus === 'active' ? (
-                  <button
-                    onClick={async () => {
-                      if (!(await confirmDialog(`Cho ${initial.code} – ${initial.full_name} nghỉ việc? (Giữ lại lịch sử công/lương)`, { title: 'Cho nghỉ việc', confirmLabel: 'Cho nghỉ việc' }))) return;
-                      const ok = await onStatus(initial.id, 'inactive');
-                      if (ok) setLiveStatus('inactive');
-                    }}
-                    className="ml-auto px-3 py-1.5 text-xs font-bold text-rose-700 border border-rose-300 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                  >
-                    Cho nghỉ việc
-                  </button>
-                ) : (
-                  <button
-                    onClick={async () => {
-                      const ok = await onStatus(initial.id, 'active');
-                      if (ok) setLiveStatus('active');
-                    }}
-                    className="ml-auto px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-300 hover:bg-emerald-100 rounded-lg transition cursor-pointer"
-                  >
-                    Đi làm lại
-                  </button>
-                )}
-              </div>
-            </section>
+            <div
+              className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 ${liveStatus === 'active' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-100 border-slate-200'}`}
+            >
+              <span className={`w-2 h-2 rounded-full shrink-0 ${liveStatus === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden="true" />
+              <span className={`text-xs font-bold truncate ${liveStatus === 'active' ? 'text-emerald-800' : 'text-slate-500'}`}>
+                {liveStatus === 'active' ? 'Đang làm việc' : 'Đã nghỉ việc'}
+              </span>
+              {liveStatus === 'active' ? (
+                <button
+                  onClick={async () => {
+                    if (!(await confirmDialog(`Cho ${initial.code} – ${initial.full_name} nghỉ việc? (Giữ lại lịch sử công/lương)`, { title: 'Cho nghỉ việc', confirmLabel: 'Cho nghỉ việc' }))) return;
+                    const ok = await onStatus(initial.id, 'inactive');
+                    if (ok) setLiveStatus('inactive');
+                  }}
+                  className="ml-auto shrink-0 px-2.5 py-1 text-xs font-bold text-rose-700 border border-rose-300 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                >
+                  Cho nghỉ việc
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    const ok = await onStatus(initial.id, 'active');
+                    if (ok) setLiveStatus('active');
+                  }}
+                  className="ml-auto shrink-0 px-2.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-300 hover:bg-emerald-100 rounded-lg transition cursor-pointer"
+                >
+                  Đi làm lại
+                </button>
+              )}
+            </div>
           )}
+            </div>
+          </div>
         </div>
 
         <div className="px-3 py-2.5 border-t border-slate-200 flex justify-end gap-2 shrink-0 bg-slate-50">
