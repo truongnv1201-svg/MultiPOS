@@ -22,6 +22,63 @@ const ROLE_LABEL_HEADER: Record<string, string> = {
   worker: 'Thợ',
 };
 
+const BUILD_INFO_KEY = 'multipos_build_info';
+
+// Chip version CalVer tự động (ngày build + SHA commit từ /api/version).
+// SSR-safe: localStorage chỉ đọc khi có window; fetch 1 lần lúc mount.
+function formatBuildLabel(info: { sha?: string | null; date?: string | null }): string {
+  const sha = typeof info.sha === 'string' && info.sha ? info.sha.slice(0, 7) : '';
+  const date = typeof info.date === 'string' && info.date ? info.date : '';
+  if (date && sha) return `${date} · ${sha}`;
+  if (sha) return sha;
+  if (date) return date;
+  return 'dev';
+}
+
+function readCachedBuildLabel(): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = window.localStorage.getItem(BUILD_INFO_KEY);
+    if (!raw) return null;
+    return formatBuildLabel(JSON.parse(raw) as { sha?: string | null; date?: string | null });
+  } catch {
+    return null;
+  }
+}
+
+function BuildVersionChip() {
+  const [label, setLabel] = useState<string | null>(readCachedBuildLabel);
+  useEffect(() => {
+    let dead = false;
+    fetch('/api/version', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (dead || !d) return;
+        try {
+          window.localStorage.setItem(BUILD_INFO_KEY, JSON.stringify({ sha: d.sha ?? null, date: d.date ?? null }));
+        } catch {
+          /* máy chặn storage -> vẫn hiện số mới cho phiên này */
+        }
+        setLabel(formatBuildLabel(d as { sha?: string | null; date?: string | null }));
+      })
+      .catch(() => {
+        /* offline: giữ số đã cache, hoặc 'dev' */
+        if (!dead) setLabel((prev) => prev ?? 'dev');
+      });
+    return () => {
+      dead = true;
+    };
+  }, []);
+  return (
+    <span
+      className="hidden sm:inline-flex text-[10px] font-semibold px-1 py-0.2 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded font-mono"
+      title={label && label !== 'dev' ? `Bản build ${label} — trùng mã banner "Có bản mới"` : 'Bản chạy local/dev'}
+    >
+      {label ?? '…'}
+    </span>
+  );
+}
+
 export function GlobalHeader() {
   const {
     flyoutMenuOpen,
@@ -264,9 +321,7 @@ export function GlobalHeader() {
           <div className="flex flex-col">
             <span className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5 leading-none">
               MultiPOS
-              <span className="hidden sm:inline-flex text-[10px] font-semibold px-1 py-0.2 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded">
-                v2.14
-              </span>
+              <BuildVersionChip />
             </span>
             <span className="text-[10px] text-slate-400 hidden lg:inline">
               Bán lẻ & Thi công Nhôm kính

@@ -441,6 +441,31 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     assert.match(pwa, /sha !== firstShaRef\.current/);
     assert.match(pwa, /dismissedShaRef\.current = latestShaRef\.current/);
   });
+
+  it('chip version CalVer tu dong (ngay build + SHA, khong sua tay)', () => {
+    // scripts/gen-build-info.cjs sinh public/build-info.json mỗi lần build
+    const gen = read('scripts/gen-build-info.cjs');
+    assert.match(gen, /build-info\.json/);
+    assert.match(gen, /VERCEL_GIT_COMMIT_SHA/);
+    assert.match(gen, /git rev-parse --short HEAD/);
+    assert.match(gen, /Asia\/Ho_Chi_Minh/);
+    // next.config.ts gọi generator (mọi Build Command đều qua đây)
+    assert.match(read('next.config.ts'), /gen-build-info\.cjs/);
+    assert.match(read('next.config.ts'), /genBuildInfo\(\)/);
+    // route trả cả sha + date cho chip
+    const route = read('app/api/version/route.ts');
+    assert.match(route, /build-info\.json/);
+    assert.match(route, /NextResponse\.json\(\{ sha, date \}\)/);
+    // header không còn số gán cứng, chip đọc từ API + cache local
+    const header = read('components/GlobalHeader.tsx');
+    assert.ok(!/v2\.14/.test(header), 'header còn số version gán cứng');
+    assert.match(header, /BuildVersionChip/);
+    assert.match(header, /fetch\('\/api\/version', \{ cache: 'no-store' \}\)/);
+    assert.match(header, /multipos_build_info/);
+    // tên app cài đặt + file sinh không mang version
+    assert.ok(!/v2\.14/.test(read('public/manifest.webmanifest')), 'manifest còn version cũ');
+    assert.match(read('.gitignore'), /public\/build-info\.json/);
+  });
 });
 
 describe('Giai đoạn 4: icon PWA + in điện thoại + bàn phím + record list giá/KH', () => {

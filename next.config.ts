@@ -1,5 +1,15 @@
 import type {NextConfig} from 'next';
 
+// Chip version CalVer tu dong: ghi public/build-info.json (ngay + SHA) moi lan
+// nap config (mọi Build Command đều qua đây). Best-effort, không chặn build.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { genBuildInfo } = require('./scripts/gen-build-info.cjs');
+  genBuildInfo();
+} catch {
+  /* route /api/version tu tra fallback */
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   eslint: {
