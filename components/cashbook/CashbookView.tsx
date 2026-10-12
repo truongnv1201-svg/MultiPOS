@@ -27,6 +27,7 @@ import { exportToExcel, printTable } from '@/lib/excel';
 import { NumberInput } from '@/components/common/NumberInput';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { notify } from '@/components/common/Toast';
+import { includeInPayroll } from '@/lib/hrm';
 import { sortRows } from '@/lib/sort';
 import { DataTableShell } from '@/components/common/DataTableShell';
 
@@ -59,7 +60,8 @@ export function CashbookView() {
   // Nhân viên nhận tạm ứng (chỉ hiện khi Hạng mục = Tạm ứng lương)
   const [advanceEmpId, setAdvanceEmpId] = useState('');
   const isAdvanceVoucher = voucherType === 'expense' && category === 'advance';
-  const activeEmployees = employees.filter((e) => e.status === 'active');
+  // 0082: dropdown tạm ứng ẩn diện 'none' (không lương) — slice cũng chặn đôi.
+  const activeEmployees = employees.filter((e) => e.status === 'active' && includeInPayroll(e));
 
   // Total balance computations — cộng số dư đầu kỳ trong Cài đặt (mặc định 0).
   // Trước đây cộng cứng 2M/15M trong code nên project mới chưa phát sinh gì vẫn

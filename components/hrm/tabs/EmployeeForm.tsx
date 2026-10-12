@@ -9,6 +9,7 @@ import { formatVND } from '@/lib/format';
 import { NumberInput } from '@/components/common/NumberInput';
 import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, printTable } from '@/lib/excel';
 import {
+  ATTENDANCE_MODE_META,
   ATTENDANCE_STATUS_META,
   ATTENDANCE_STATUS_ORDER,
   POSITION_OPTIONS,
@@ -19,7 +20,7 @@ import {
   todayIso,
   buildPayrollItem,
 } from '@/lib/hrm';
-import type { AttendanceDay, AttendanceStatus, Employee, PayrollItem, PayrollRun, SalaryAdvance } from '@/lib/hrm';
+import type { AttendanceDay, AttendanceStatus, AttendanceMode, Employee, PayrollItem, PayrollRun, SalaryAdvance } from '@/lib/hrm';
 import type { EmployeeInput, HrmAccount } from '@/lib/store';
 import {
   Users,
@@ -104,6 +105,8 @@ export function EmployeeForm({
   const [monthlySalary, setMonthlySalary] = useState(initial?.monthly_salary || 0);
   const [allowance, setAllowance] = useState(initial?.allowance_default || 0);
   const [startDate, setStartDate] = useState(initial?.start_date || todayIso());
+  // 0082: chế độ chấm công — chỉ Admin được đổi (manager lưu không gửi kèm).
+  const [attMode, setAttMode] = useState<AttendanceMode>(initial?.attendance_mode ?? 'normal');
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const linkedAcct = initial?.user_id ? accounts.find((a) => a.id === initial.user_id) : undefined;
@@ -128,6 +131,9 @@ export function EmployeeForm({
     const errs: Record<string, string> = {};
     if (!fullName.trim()) errs.fullName = 'Nhập họ tên nhân viên.';
     if (!position) errs.position = 'Chọn chức vụ.';
+    // 0082: diện cố định phải có lương tháng để trả nguyên tháng.
+    if (isAdmin && attMode === 'fixed' && salaryType !== 'monthly') errs.salaryType = 'Diện lương cố định phải dùng hình thức Lương tháng.';
+    if (isAdmin && attMode === 'fixed' && !(monthlySalary > 0)) errs.monthlySalary = 'Nhập lương tháng cho diện cố định.';
     if (!initial && acctPassword.trim().length < 6) errs.acctPassword = 'Mật khẩu từ 6 ký tự trở lên.';
     if (initial && !initial.user_id && acctPassword && acctPassword.trim().length < 6)
       errs.acctPassword = 'Mật khẩu từ 6 ký tự trở lên (bỏ trống = chỉ lưu hồ sơ).';
@@ -145,6 +151,8 @@ export function EmployeeForm({
         monthly_salary: monthlySalary,
         allowance_default: allowance,
         start_date: startDate || undefined,
+        // 0082: chỉ Admin được đặt/đổi chế độ (manager: undefined = giữ nguyên).
+        ...(isAdmin ? { attendance_mode: attMode } : {}),
       };
       if (!initial) {
         await onCreateWithAccount(fields, { password: acctPassword.trim(), role: acctRole });
@@ -287,9 +295,52 @@ export function EmployeeForm({
             </div>
           </section>
 
+          {/* 0082: chế độ chấm công — chỉ Admin được đổi */}
+          {isAdmin ? (
+            <section>
+              <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-2">Chế độ chấm công</h4>
+              <div className="space-y-1.5" role="radiogroup" aria-label="Chế độ chấm công">
+                {(['normal', 'fixed', 'none'] as AttendanceMode[]).map((m) => (
+                  <label
+                    key={m}
+                    className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition ${
+                      attMode === m ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="att-mode"
+                      checked={attMode === m}
+                      onChange={() => {
+                        setAttMode(m);
+                        if (m === 'fixed') setSalaryType('monthly');
+                      }}
+                      className="mt-0.5 accent-blue-600"
+                    />
+                    <span>
+                      <span className="block text-xs font-bold text-slate-800">{ATTENDANCE_MODE_META[m].label}</span>
+                      <span className="block text-[11px] text-slate-500">
+                        {m === 'normal' && 'Có mặt trên lưới chấm công, lương tính theo công thực tế.'}
+                        {m === 'fixed' && 'Ẩn khỏi lưới chấm công, hưởng nguyên lương tháng + phụ cấp.'}
+                        {m === 'none' && 'Ẩn khỏi lưới chấm công và bảng lương (chủ/cộng tác viên).'}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {fieldErr('salaryType')}
+              {fieldErr('monthlySalary')}
+            </section>
+          ) : (
+            initial && (initial.attendance_mode === 'fixed' || initial.attendance_mode === 'none') && (
+              <p className="text-[11px] font-bold text-slate-500 bg-slate-100 rounded-lg px-3 py-2">
+                Chế độ: {ATTENDANCE_MODE_META[initial.attendance_mode].label} (chỉ Admin đổi được).
+              </p>
+            )
+          )}
+
           <section>
-            <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-2">Tài khoản đăng nhập</h4>
-          {initial ? (
+            <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 mb-2">Tài khoản đăng nhập</h4>          {initial ? (
             linkedAcct ? (
               <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2.5">
                 <p className="text-sm font-bold text-emerald-700">✓ Mã đăng nhập: {initial.code}</p>

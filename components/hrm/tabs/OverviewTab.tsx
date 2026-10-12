@@ -11,6 +11,8 @@ import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, pri
 import {
   ATTENDANCE_STATUS_META,
   ATTENDANCE_STATUS_ORDER,
+  attendanceModeOf,
+  includeInPayroll,
   POSITION_OPTIONS,
   HR_POLICY,
   otPay,
@@ -84,6 +86,10 @@ export function OverviewTab() {
   const [markBusy, setMarkBusy] = useState<string | null>(null);
 
   const actives = useMemo(() => employees.filter((e) => e.status === 'active'), [employees]);
+  // 0082: sĩ số chấm công chỉ tính diện phải chấm; ước lương gồm cả diện cố định.
+  const attendanceActives = useMemo(() => actives.filter((e) => attendanceModeOf(e) === 'normal'), [actives]);
+  const payrollActives = useMemo(() => actives.filter(includeInPayroll), [actives]);
+  const exemptCount = actives.length - attendanceActives.length;
   const monthDaysList = useMemo(() => attendanceDays.filter((d) => d.work_date.startsWith(month)), [attendanceDays, month]);
   const totalDays = monthDaysList.reduce((s, d) => s + (ATTENDANCE_STATUS_META[d.status]?.days ?? 0), 0);
   const totalOt = monthDaysList.reduce((s, d) => s + (Number(d.ot_hours) || 0), 0);
@@ -95,8 +101,10 @@ export function OverviewTab() {
       list.push(d);
       byEmp.set(d.employee_id, list);
     }
-    return actives.reduce((s, e) => s + buildPayrollItem(e, byEmp.get(e.id) || []).net, 0);
-  }, [actives, monthDaysList]);
+    // 0082: diện cố định trả nguyên tháng (buildPayrollItem tự xử), diện không
+    // lương đã lọc khỏi payrollActives.
+    return payrollActives.reduce((s, e) => s + buildPayrollItem(e, byEmp.get(e.id) || []).net, 0);
+  }, [payrollActives, monthDaysList]);
 
   // Biểu đồ CSS: số người có công theo từng ngày
   const perDay = useMemo(() => {
@@ -115,7 +123,7 @@ export function OverviewTab() {
     return { presentSet, leaveSet };
   }, [monthDaysList]);
 
-  const maxHead = Math.max(1, actives.length);
+  const maxHead = Math.max(1, attendanceActives.length);
   const empName = (id: string) => employees.find((e) => e.id === id)?.full_name || '—';
 
   // Chỉ vẽ các ngày đã qua — ngày tương lai không hiện cột stub
@@ -131,8 +139,8 @@ export function OverviewTab() {
     }
     return m;
   }, [attendanceDays, today]);
-  const missingToday = useMemo(() => actives.filter((e) => !todayRecs.has(e.id)), [actives, todayRecs]);
-  const markedToday = actives.length - missingToday.length;
+  const missingToday = useMemo(() => attendanceActives.filter((e) => !todayRecs.has(e.id)), [attendanceActives, todayRecs]);
+  const markedToday = attendanceActives.length - missingToday.length;
 
   return (
     <div className="space-y-3">
@@ -141,7 +149,7 @@ export function OverviewTab() {
           icon={<Users className="w-5 h-5" />}
           label="Đang làm việc"
           value={String(actives.length)}
-          sub={`${employees.length} hồ sơ · ${employees.length - actives.length} nghỉ việc`}
+          sub={`${employees.length} hồ sơ · ${employees.length - actives.length} nghỉ việc${exemptCount > 0 ? ` · ${exemptCount} miễn CC` : ''}`}
           valueCls="text-slate-900"
           iconCls="bg-slate-800 text-white"
         />
@@ -172,7 +180,7 @@ export function OverviewTab() {
               Tổng <strong className="text-slate-800">{totalDays}</strong> công · <strong className="text-slate-800">{totalOt}h</strong> TC · BQ <strong className="text-slate-800">{avgPerDay}</strong>/ngày
             </span>
           </div>
-          {actives.length === 0 ? (
+          {attendanceActives.length === 0 ? (
             <EmptyState icon={<Users className="w-5 h-5" />} title="Chưa có nhân viên" hint="Thêm hồ sơ ở tab Nhân sự để bắt đầu chấm công." />
           ) : elapsed.length === 0 ? (
             <EmptyState icon={<CalendarDays className="w-5 h-5" />} title="Tháng này chưa bắt đầu" hint="Biểu đồ sẽ hiện khi sang ngày làm việc đầu tiên." />
@@ -237,11 +245,11 @@ export function OverviewTab() {
               <ClipboardCheck className="w-4 h-4 text-emerald-600" />
               <h3 className="text-sm font-extrabold text-slate-800">Hôm nay · {today.slice(8)}/{today.slice(5, 7)}</h3>
               <span className="ml-auto text-[11px] font-bold tabular-nums text-slate-500">
-                <span className="text-emerald-700">{markedToday}</span>/{actives.length} đã chấm
+                <span className="text-emerald-700">{markedToday}</span>/{attendanceActives.length} đã chấm
               </span>
             </div>
-            <div className="h-2 rounded-full bg-slate-100 mt-2 overflow-hidden" role="progressbar" aria-valuenow={markedToday} aria-valuemin={0} aria-valuemax={Math.max(1, actives.length)} aria-label="Tiến độ chấm công hôm nay">
-              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${actives.length > 0 ? Math.round((markedToday / actives.length) * 100) : 0}%` }} />
+            <div className="h-2 rounded-full bg-slate-100 mt-2 overflow-hidden" role="progressbar" aria-valuenow={markedToday} aria-valuemin={0} aria-valuemax={Math.max(1, attendanceActives.length)} aria-label="Tiến độ chấm công hôm nay">
+              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${attendanceActives.length > 0 ? Math.round((markedToday / attendanceActives.length) * 100) : 0}%` }} />
             </div>
             {missingToday.length === 0 ? (
               <p className="text-xs text-emerald-700 font-bold mt-2 flex items-center gap-1">

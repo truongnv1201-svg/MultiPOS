@@ -1,5 +1,6 @@
 // P3: types dùng chung của store (tách từ lib/store.tsx — re-export ở đó để giữ import cũ).
 import type { OrderItem } from '../types';
+import type { AttendanceMode } from '../hrm';
 
 export interface CartTab {
   id: string;
@@ -37,6 +38,7 @@ export interface EmployeeInput {
   allowance_default?: number;
   start_date?: string;
   user_id?: string; // gắn tài khoản đăng nhập (gộp thành một với hồ sơ)
+  attendance_mode?: AttendanceMode; // 0082: chỉ Admin được đổi (guard ở slice)
 }
 
 // Tài khoản đăng nhập (profiles) để gắn vào hồ sơ HRM

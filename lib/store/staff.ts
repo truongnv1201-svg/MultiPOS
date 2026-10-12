@@ -2,7 +2,7 @@
 import type { EmployeeInput } from './types';
 
 export function employeeCols(input: EmployeeInput) {
-  return {
+  const base = {
     full_name: input.full_name.trim(),
     phone: input.phone?.trim() || null,
     position: input.position?.trim() || null,
@@ -13,4 +13,7 @@ export function employeeCols(input: EmployeeInput) {
     start_date: input.start_date || null,
     user_id: input.user_id || null,
   };
+  // 0082: chỉ ghi chế độ chấm công khi form gửi rõ (manager lưu hồ sơ thường
+  // không gửi -> giữ nguyên, khỏi ghi đè nhầm về 'normal').
+  return input.attendance_mode !== undefined ? { ...base, attendance_mode: input.attendance_mode } : base;
 }

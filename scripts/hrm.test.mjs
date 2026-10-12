@@ -4,6 +4,9 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   HR_POLICY,
+  attendanceModeOf,
+  includeInPayroll,
+  requiresAttendance,
   otPay,
   dailyEmployeeDayPay,
   monthlyEmployeePay,
@@ -96,6 +99,42 @@ describe('login id', () => {
   });
 });
 
+describe('attendance_mode 0082: mien cham cong', () => {
+  it('thieu cot (cache cu) / gia tri la -> normal', () => {
+    assert.equal(attendanceModeOf({}), 'normal');
+    assert.equal(attendanceModeOf({ attendance_mode: undefined }), 'normal');
+    assert.equal(attendanceModeOf({ attendance_mode: 'vip' }), 'normal');
+    assert.equal(attendanceModeOf({ attendance_mode: 'fixed' }), 'fixed');
+    assert.equal(attendanceModeOf({ attendance_mode: 'none' }), 'none');
+  });
+  it('requiresAttendance chi true voi normal; includeInPayroll tru none', () => {
+    assert.equal(requiresAttendance({}), true);
+    assert.equal(requiresAttendance({ attendance_mode: 'fixed' }), false);
+    assert.equal(requiresAttendance({ attendance_mode: 'none' }), false);
+    assert.equal(includeInPayroll({}), true);
+    assert.equal(includeInPayroll({ attendance_mode: 'fixed' }), true);
+    assert.equal(includeInPayroll({ attendance_mode: 'none' }), false);
+  });
+  it("fixed: bo qua attendance_days, huong nguyen thang + PC - ung", () => {
+    const emp = { id: 'e3', full_name: 'Quan ly', salary_type: 'monthly', monthly_salary: 10000000, allowance_default: 500000, attendance_mode: 'fixed' };
+    const days = Array.from({ length: 5 }, () => ({ status: 'present', ot_hours: 2 }));
+    const it = buildPayrollItem(emp, days, { e3: 1000000 });
+    assert.equal(it.days, HR_POLICY.standardDaysPerMonth);
+    assert.equal(it.ot_hours, 0);
+    assert.equal(it.gross, 10000000);
+    assert.equal(it.allowance, 500000);
+    assert.equal(it.advance, 1000000);
+    assert.equal(it.net, 9500000);
+    assert.match(it.note || '', /cố định/);
+  });
+  it('none: goi nham van tra dong 0d an toan', () => {
+    const emp = { id: 'e4', full_name: 'Chu', salary_type: 'monthly', monthly_salary: 20000000, allowance_default: 0, attendance_mode: 'none' };
+    const it = buildPayrollItem(emp, [{ status: 'present', ot_hours: 0 }], {});
+    assert.equal(it.net, 0);
+    assert.equal(it.days, 0);
+    assert.equal(it.gross, 0);
+  });
+});
 describe('buildPayrollItem', () => {
   it('NV lương ngày: công + OT + phụ cấp theo công', () => {
     const emp = { id: 'e1', full_name: 'Thợ A', salary_type: 'daily', daily_wage: 300000, allowance_default: 10000 };

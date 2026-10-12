@@ -11,6 +11,7 @@ import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, pri
 import {
   ATTENDANCE_STATUS_META,
   ATTENDANCE_STATUS_ORDER,
+  includeInPayroll,
   POSITION_OPTIONS,
   HR_POLICY,
   otPay,
@@ -107,7 +108,8 @@ export function AdvancesModal({
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
-  const actives = useMemo(() => employees.filter((e) => e.status === 'active').sort((a, b) => a.code.localeCompare(b.code)), [employees]);
+  // 0082: diện 'none' (không lương) không được tạm ứng.
+  const actives = useMemo(() => employees.filter((e) => e.status === 'active' && includeInPayroll(e)).sort((a, b) => a.code.localeCompare(b.code)), [employees]);
   const list = useMemo(
     () => advances.filter((a) => a.month === month).sort((a, b) => b.advance_date.localeCompare(a.advance_date) || b.created_at.localeCompare(a.created_at)),
     [advances, month],

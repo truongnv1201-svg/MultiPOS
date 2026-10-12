@@ -11,6 +11,7 @@ import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, pri
 import {
   ATTENDANCE_STATUS_META,
   ATTENDANCE_STATUS_ORDER,
+  attendanceModeOf,
   POSITION_OPTIONS,
   HR_POLICY,
   otPay,
@@ -99,6 +100,8 @@ export function AttendanceTab({
 }) {
   const [search, setSearch] = useState('');
   const [hideMarked, setHideMarked] = useState(false);
+  // 0082: diện miễn chấm công ẩn mặc định (không có ô công) — bật để kiểm tra.
+  const [showExempt, setShowExempt] = useState(false);
   const [sel, setSel] = useState<{ empId: string; iso: string } | null>(null);
   const [ot, setOt] = useState(0);
   const [note, setNote] = useState('');
@@ -123,13 +126,21 @@ export function AttendanceTab({
     const q = search.trim().toLowerCase();
     return employees
       .filter((e) => e.status === 'active')
+      // 0082: ẩn diện miễn chấm công (admin bật toggle để kiểm tra, chỉ xem).
+      .filter((e) => showExempt || attendanceModeOf(e) === 'normal')
       .filter((e) => !q || e.full_name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q))
       .filter((e) => {
         if (!hideMarked) return true;
         return workIsos.some((iso) => !cellMap.get(`${e.id}:${iso}`));
       })
       .sort((a, b) => a.code.localeCompare(b.code));
-  }, [employees, search, hideMarked, workIsos, cellMap]);
+  }, [employees, search, showExempt, hideMarked, workIsos, cellMap]);
+
+  // 0082: số người bị ẩn để ghi chú gọn trên toolbar.
+  const exemptHidden = useMemo(
+    () => employees.filter((e) => e.status === 'active' && attendanceModeOf(e) !== 'normal').length,
+    [employees]
+  );
 
   const rowTotals = useMemo(() => {
     const m = new Map<string, { days: number; ot: number }>();
@@ -179,6 +190,9 @@ export function AttendanceTab({
 
   const cycleCell = async (empId: string, iso: string) => {
     if (!isManager || locked || busy) return;
+    // 0082: dòng miễn chỉ xem (đã disable nút, guard thêm cho phím tắt).
+    const emp = employees.find((e) => e.id === empId);
+    if (emp && attendanceModeOf(emp) !== 'normal') return;
     const cur = cellMap.get(`${empId}:${iso}`);
     const next = CYCLE[(CYCLE.indexOf(cur?.status ?? null) + 1) % CYCLE.length];
     setBusy(true);
@@ -195,6 +209,8 @@ export function AttendanceTab({
 
   const fillRowPresent = async () => {
     if (!selEmp || !isManager || locked || filling) return;
+    // 0082: diện miễn không có ô công.
+    if (attendanceModeOf(selEmp) !== 'normal') return;
     const missing = workIsos.filter((iso) => !cellMap.get(`${selEmp.id}:${iso}`));
     if (missing.length === 0) {
       notify(`${selEmp.full_name} đã đủ công các ngày làm việc trong tháng.`, 'info');
@@ -243,6 +259,8 @@ export function AttendanceTab({
       moveSel(0, -1);
     } else if (KEY_TO_STATUS[e.key]) {
       e.preventDefault();
+      const target = rows.find((r) => r.id === sel.empId);
+      if (target && attendanceModeOf(target) !== 'normal') return;
       const cur = cellMap.get(`${sel.empId}:${sel.iso}`);
       await onMark({ employee_id: sel.empId, work_date: sel.iso, status: KEY_TO_STATUS[e.key], ot_hours: cur?.ot_hours || 0, note: cur?.note });
     } else if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -371,6 +389,25 @@ export function AttendanceTab({
           </span>
           Chỉ hiện chưa đủ công
         </button>
+        {/* 0082: toggle hiện diện miễn (chỉ xem) */}
+        {exemptHidden > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowExempt((prev) => !prev)}
+            aria-pressed={showExempt}
+            className={`inline-flex h-8 items-center gap-1.5 px-2.5 rounded-md border text-xs font-medium transition-colors ${
+              showExempt
+                ? 'border-violet-500 bg-violet-50 text-violet-700'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+            }`}
+            title="Diện miễn chấm công không có ô công — bật để xem"
+          >
+            <span className={`h-3 w-3 rounded-sm border flex items-center justify-center ${showExempt ? 'border-violet-600 bg-violet-600' : 'border-slate-300 bg-white'}`}>
+              {showExempt && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
+            </span>
+            {showExempt ? `Đang hiện ${exemptHidden} miễn CC` : `Ẩn ${exemptHidden} miễn CC`}
+          </button>
+        )}
         <TableTools onExportExcel={handleExportExcel} onPrint={handlePrint} />
         {locked && (
           <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold bg-slate-800 text-amber-300" title="Đã chốt ở mục lương bên dưới — bấm Mở lại để chấm/sửa">
@@ -411,6 +448,8 @@ export function AttendanceTab({
           <tbody>
             {rows.map((e) => {
               const t = rowTotals.get(e.id) || { days: 0, ot: 0 };
+              // 0082: dòng miễn chỉ xem (không chấm, không tính tổng).
+              const isExempt = attendanceModeOf(e) !== 'normal';
               return (
                 <tr key={e.id} className="hover:bg-slate-50 transition-colors">
                   <td className="sticky left-0 z-10 bg-white border-r border-slate-200 px-2.5 py-1">
@@ -423,6 +462,11 @@ export function AttendanceTab({
                       <span className="min-w-0">
                         <span className="block font-bold text-slate-800 truncate leading-tight">{e.full_name}</span>
                         <span className="block font-mono text-[10px] text-slate-400 leading-tight">{e.code}</span>
+                        {isExempt && (
+                          <span className="inline-block mt-0.5 px-1.5 py-px text-[10px] font-bold rounded bg-violet-100 text-violet-700">
+                            Miễn CC{attendanceModeOf(e) === 'fixed' ? ' · Cố định' : ' · Không lương'}
+                          </span>
+                        )}
                       </span>
                     </button>
                   </td>
@@ -438,12 +482,12 @@ export function AttendanceTab({
                         }`}
                       >
                         <button
-                          disabled={!isManager || locked}
+                          disabled={!isManager || locked || isExempt}
                           onClick={() => {
                             setSel({ empId: e.id, iso: d.iso });
                             cycleCell(e.id, d.iso);
                           }}
-                          title={`${e.full_name} — ${d.iso}${rec ? `: ${ATTENDANCE_STATUS_META[rec.status]?.label ?? ''}${rec.ot_hours ? ` +${rec.ot_hours}h TC` : ''}${rec.note ? ` (${rec.note})` : ''}` : ': chưa chấm'}`}
+                          title={isExempt ? `${e.full_name} — diện miễn chấm công` : `${e.full_name} — ${d.iso}${rec ? `: ${ATTENDANCE_STATUS_META[rec.status]?.label ?? ''}${rec.ot_hours ? ` +${rec.ot_hours}h TC` : ''}${rec.note ? ` (${rec.note})` : ''}` : ': chưa chấm'}`}
                           aria-label={`${e.full_name} ngày ${d.iso}: ${rec ? ATTENDANCE_STATUS_META[rec.status]?.label : 'chưa chấm'}`}
                           className={`w-8 h-8 rounded-md font-extrabold transition cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 ${
                             rec ? STATUS_STYLE[rec.status] + ' shadow-sm' : 'text-slate-300 hover:bg-slate-200 hover:text-slate-500'
@@ -513,14 +557,20 @@ export function AttendanceTab({
               </div>
               <div className="text-xs text-slate-500 tabular-nums">
                 Ngày {sel.iso}
-                {selRec && (
-                  <span className={`ml-2 px-1.5 py-0.5 rounded-md border text-[11px] font-bold ${STATUS_CHIP[selRec.status]}`}>
-                    {ATTENDANCE_STATUS_META[selRec.status]?.label}
+                {attendanceModeOf(selEmp) !== 'normal' ? (
+                  <span className="ml-2 px-1.5 py-0.5 rounded-md border text-[11px] font-bold bg-violet-50 text-violet-700 border-violet-200">
+                    Miễn chấm công — chỉ xem
                   </span>
+                ) : (
+                  selRec && (
+                    <span className={`ml-2 px-1.5 py-0.5 rounded-md border text-[11px] font-bold ${STATUS_CHIP[selRec.status]}`}>
+                      {ATTENDANCE_STATUS_META[selRec.status]?.label}
+                    </span>
+                  )
                 )}
               </div>
             </div>
-            {isManager && !locked && (
+            {isManager && !locked && attendanceModeOf(selEmp) === 'normal' && (
               <button
                 onClick={fillRowPresent}
                 disabled={filling}
@@ -536,7 +586,7 @@ export function AttendanceTab({
             {ATTENDANCE_STATUS_ORDER.map((st, i) => (
               <button
                 key={st}
-                disabled={!isManager || locked}
+                disabled={!isManager || locked || attendanceModeOf(selEmp) !== 'normal'}
                 onClick={() => onMark({ employee_id: sel.empId, work_date: sel.iso, status: st, ot_hours: ot, note })}
                 className={`rounded-lg py-2 font-extrabold transition cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-60 disabled:cursor-default ${
                   selRec?.status === st ? STATUS_STYLE[st] + ' ring-2 ring-blue-500 ring-offset-1 shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -557,7 +607,7 @@ export function AttendanceTab({
               <div className="flex items-center gap-1 mt-1">
                 <button
                   onClick={() => setOt((v) => Math.max(0, Math.round((v - 0.5) * 10) / 10))}
-                  disabled={!isManager || locked}
+                  disabled={!isManager || locked || attendanceModeOf(selEmp) !== 'normal'}
                   className="w-8 h-8 rounded-md border border-slate-300 font-extrabold hover:bg-slate-100 transition disabled:opacity-40 cursor-pointer"
                   aria-label="Giảm tăng ca"
                 >
@@ -569,13 +619,13 @@ export function AttendanceTab({
                   step={0.5}
                   value={ot}
                   onChange={(e) => setOt(Math.max(0, Number(e.target.value) || 0))}
-                  disabled={!isManager || locked}
+                  disabled={!isManager || locked || attendanceModeOf(selEmp) !== 'normal'}
                   aria-label="Số giờ tăng ca"
                   className="w-16 h-8 border border-slate-300 rounded-md px-2 text-xs tabular-nums text-center"
                 />
                 <button
                   onClick={() => setOt((v) => Math.round((v + 0.5) * 10) / 10)}
-                  disabled={!isManager || locked}
+                  disabled={!isManager || locked || attendanceModeOf(selEmp) !== 'normal'}
                   className="w-8 h-8 rounded-md border border-slate-300 font-extrabold hover:bg-slate-100 transition disabled:opacity-40 cursor-pointer"
                   aria-label="Tăng tăng ca"
                 >
@@ -591,12 +641,12 @@ export function AttendanceTab({
                 id="att-note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                disabled={!isManager || locked}
+                disabled={!isManager || locked || attendanceModeOf(selEmp) !== 'normal'}
                 placeholder="Đi muộn 15p…"
                 className="mt-1 w-full h-8 border border-slate-300 rounded-md px-2.5 text-xs"
               />
             </div>
-            {isManager && !locked && (
+            {isManager && !locked && attendanceModeOf(selEmp) === 'normal' && (
               <>
                 <button
                   onClick={async () => {

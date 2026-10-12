@@ -11,9 +11,13 @@ import {
   Employee,
   AttendanceDay,
   AttendanceStatus,
+  AttendanceMode,
   PayrollRun,
   PayrollItem,
   SalaryAdvance,
+  attendanceModeOf,
+  includeInPayroll,
+  requiresAttendance,
   buildPayrollItem,
   nextEmployeeCode,
   employeeLoginEmail,
@@ -177,6 +181,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
           allowance_default: Number(r.allowance_default) || 0,
           start_date: r.start_date ?? undefined,
           status: r.status ?? 'active',
+          attendance_mode: (r.attendance_mode === 'fixed' || r.attendance_mode === 'none' ? r.attendance_mode : 'normal') as AttendanceMode,
           user_id: r.user_id ?? undefined,
           created_at: r.created_at,
           synced: true,
@@ -312,6 +317,19 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         notify('Nhập tên nhân viên!', 'error');
         return false;
       }
+      // 0082: chế độ chấm công chỉ Admin được đổi (manager lưu hồ sơ thường không
+      // gửi attendance_mode -> employeeCols giữ nguyên, qua được guard này).
+      const prevEmp = input.id ? employees.find((e) => e.id === input.id) : undefined;
+      const prevMode = attendanceModeOf(prevEmp ?? {});
+      const nextMode: AttendanceMode = input.attendance_mode ?? prevMode;
+      if (nextMode !== prevMode && profile?.role !== 'admin') {
+        notify('Chỉ Admin được đổi chế độ chấm công!', 'error');
+        return false;
+      }
+      if (nextMode === 'fixed' && (input.salary_type ?? prevEmp?.salary_type ?? 'daily') !== 'monthly') {
+        notify('Miễn chấm công hưởng lương phải dùng hình thức Lương tháng!', 'error');
+        return false;
+      }
       if (!isOnline || !supa || !user) {
         notify('Cần Online mới thêm/sửa nhân viên được!', 'error');
         return false;
@@ -333,6 +351,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
                     phone: cols.phone ?? undefined,
                     position: cols.position ?? undefined,
                     start_date: cols.start_date ?? undefined,
+                    attendance_mode: ('attendance_mode' in cols ? (cols as { attendance_mode?: AttendanceMode }).attendance_mode : undefined) ?? e.attendance_mode ?? 'normal',
                     user_id: input.user_id !== undefined ? input.user_id || undefined : e.user_id,
                   }
                 : e
@@ -364,6 +383,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
             allowance_default: Number(r.allowance_default) || 0,
             start_date: r.start_date ?? undefined,
             status: 'active',
+            attendance_mode: (r.attendance_mode === 'fixed' || r.attendance_mode === 'none' ? r.attendance_mode : 'normal') as AttendanceMode,
             user_id: r.user_id ?? undefined,
             created_at: r.created_at,
             synced: true,
@@ -438,6 +458,15 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         notify('Quản lý chỉ được tạo tài khoản Thu ngân / Thợ!', 'error');
         return false;
       }
+      // 0082: chế độ chấm công chỉ Admin được đặt ngay lúc tạo.
+      if ((emp.attendance_mode ?? 'normal') !== 'normal' && profile?.role !== 'admin') {
+        notify('Chỉ Admin được đặt chế độ miễn chấm công!', 'error');
+        return false;
+      }
+      if ((emp.attendance_mode ?? 'normal') === 'fixed' && emp.salary_type !== 'monthly') {
+        notify('Miễn chấm công hưởng lương phải dùng hình thức Lương tháng!', 'error');
+        return false;
+      }
       if (!isOnline || !supa || !user) {
         notify('Cần Online mới thêm nhân viên được!', 'error');
         return false;
@@ -467,6 +496,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
           allowance_default: Number(r.allowance_default) || 0,
           start_date: r.start_date ?? undefined,
           status: 'active',
+          attendance_mode: (r.attendance_mode === 'fixed' || r.attendance_mode === 'none' ? r.attendance_mode : 'normal') as AttendanceMode,
           user_id: userId,
           created_at: r.created_at,
           synced: true,
@@ -574,6 +604,11 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       const emp = employees.find((e) => e.id === input.employee_id);
       if (!emp || emp.status !== 'active') {
         notify('Chọn nhân viên đang làm việc!', 'error');
+        return false;
+      }
+      // 0082: diện 'none' không lương thì không có tạm ứng lương.
+      if (!includeInPayroll(emp)) {
+        notify(`${emp.full_name} thuộc diện không lương — không ghi tạm ứng!`, 'error');
         return false;
       }
       const amount = Math.max(0, Math.round(Number(input.amount) || 0));
@@ -704,6 +739,11 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       const emp = employees.find((e) => e.id === input.employee_id);
       if (!emp || emp.status !== 'active') {
         notify('Chọn nhân viên đang làm việc!', 'error');
+        return false;
+      }
+      // 0082: diện 'none' không lương thì không có tạm ứng lương.
+      if (!includeInPayroll(emp)) {
+        notify(`${emp.full_name} thuộc diện không lương — không ghi tạm ứng!`, 'error');
         return false;
       }
       const amount = Math.max(0, Math.round(Number(input.amount) || 0));
@@ -838,6 +878,12 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       const canWriteServer = !!supa && !!user && isOnline;
+      // 0082: NV miễn chấm công không có ô công — chặn sớm khỏi sinh rác attendance_days.
+      const targetEmp = employees.find((e) => e.id === input.employee_id);
+      if (targetEmp && !requiresAttendance(targetEmp)) {
+        notify(`${targetEmp.full_name} thuộc diện miễn chấm công — không cần chấm!`, 'error');
+        return false;
+      }
       const ot = Math.max(0, Number(input.ot_hours) || 0);
       const note = input.note?.trim() || null;
       const serverCols = { employee_id: input.employee_id, work_date: input.work_date, status: input.status, ot_hours: ot, note };
@@ -884,7 +930,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       markPayrollStale(lockMonth);
       return true;
     },
-    [requireHrmManager, attendanceDays, supa, user, isOnline, payrollLocks, markPayrollStale]
+    [requireHrmManager, attendanceDays, employees, supa, user, isOnline, payrollLocks, markPayrollStale]
   );
 
   const clearDay = useCallback(
@@ -990,14 +1036,17 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         byEmp.set(r.employee_id, list);
       }
       const actives = employees.filter((e) => e.status === 'active');
-      if (actives.length === 0) throw new Error('Chưa có nhân viên đang làm việc nào!');
+      // 0082: diện 'none' (không lương) không lên bảng lương; diện 'fixed' vẫn lên
+      // (buildPayrollItem tự trả nguyên tháng, khỏi cần attendance_days).
+      const payrollEmps = actives.filter(includeInPayroll);
+      if (payrollEmps.length === 0) throw new Error('Chưa có nhân viên đang làm việc nào!');
       // Tạm ứng cộng dồn từ model salary_advances (có chứng từ riêng)
       const advByEmp: Record<string, number> = {};
       for (const a of advances) {
         if (a.month !== month) continue;
         advByEmp[a.employee_id] = (advByEmp[a.employee_id] || 0) + (Number(a.amount) || 0);
       }
-      const built = actives.map((emp) => {
+      const built = payrollEmps.map((emp) => {
         const mine: AttendanceDay[] = (byEmp.get(emp.id) || []).map((r) => ({
           id: r.id,
           employee_id: r.employee_id,

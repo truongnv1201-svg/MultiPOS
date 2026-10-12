@@ -4,6 +4,16 @@
 
 export type SalaryType = 'daily' | 'monthly';
 
+// Chế độ chấm công (0082): normal = chấm như cũ; fixed = miễn chấm công, ăn lương
+// tháng cố định đủ 26 công chuẩn; none = miễn chấm công + không lên bảng lương.
+export type AttendanceMode = 'normal' | 'fixed' | 'none';
+
+export const ATTENDANCE_MODE_META: Record<AttendanceMode, { label: string; short: string }> = {
+  normal: { label: 'Chấm công', short: 'CC' },
+  fixed: { label: 'Miễn CC · Lương cố định', short: 'CĐ' },
+  none: { label: 'Miễn CC · Không lương', short: 'KL' },
+};
+
 export interface Employee {
   id: string;
   code: string; // NV0001
@@ -16,9 +26,24 @@ export interface Employee {
   allowance_default: number;
   start_date?: string; // YYYY-MM-DD
   status: 'active' | 'inactive';
+  attendance_mode?: AttendanceMode; // vắng (cache cũ) = 'normal'
   user_id?: string; // link profiles (nếu có login)
   created_at: string;
   synced?: boolean;
+}
+
+// Chuẩn hóa chế độ (cache Dexie cũ chưa có cột -> 'normal', giữ flow cũ).
+export function attendanceModeOf(e: Pick<Employee, 'attendance_mode'>): AttendanceMode {
+  return e.attendance_mode === 'fixed' || e.attendance_mode === 'none' ? e.attendance_mode : 'normal';
+}
+
+export function requiresAttendance(e: Pick<Employee, 'attendance_mode'>): boolean {
+  return attendanceModeOf(e) === 'normal';
+}
+
+// Có lên bảng lương không (loại 'none' — chủ/cộng tác viên không lương).
+export function includeInPayroll(e: Pick<Employee, 'attendance_mode'>): boolean {
+  return attendanceModeOf(e) !== 'none';
 }
 
 export type AttendanceStatus = 'present' | 'half' | 'leave_paid' | 'leave_unpaid' | 'holiday';
@@ -203,12 +228,52 @@ export function nextEmployeeCode(existing: Pick<Employee, 'code'>[]): string {
   return `NV${String(max + 1).padStart(4, '0')}`;
 }
 
-// Snapshot 1 dòng lương từ hồ sơ + công tháng (pure — dùng chung cho generatePayroll)
+// Snapshot 1 dòng lương từ hồ sơ + công tháng (pure — dùng chung cho generatePayroll).
+// 0082: NV 'fixed' (miễn chấm công) bỏ qua attendance_days, hưởng nguyên 1 tháng
+// lương + phụ cấp tháng (OT = 0, note "cố định"); NV 'none' không gọi hàm này
+// (đã lọc ở buildDraftPayroll/estimate) — có gọi nhầm thì trả dòng 0đ an toàn.
 export function buildPayrollItem(
   emp: Employee,
   days: AttendanceDay[],
   advances: Record<string, number> = {},
 ): Omit<PayrollItem, 'id' | 'run_id'> {
+  if (attendanceModeOf(emp) === 'none') {
+    return {
+      employee_id: emp.id,
+      employee_name: emp.full_name,
+      salary_type: emp.salary_type,
+      base_salary: emp.salary_type === 'daily' ? emp.daily_wage : emp.monthly_salary,
+      days: 0,
+      ot_hours: 0,
+      gross: 0,
+      allowance: 0,
+      deduction: 0,
+      advance: 0,
+      note: 'Không lương (miễn chấm công)',
+      net: 0,
+      paid: false,
+    };
+  }
+  if (attendanceModeOf(emp) === 'fixed') {
+    const base = Math.max(0, Math.round(Number(emp.monthly_salary) || 0));
+    const allowance = Math.max(0, Math.round(Number(emp.allowance_default) || 0));
+    const advance = Math.round(advances[emp.id] || 0);
+    return {
+      employee_id: emp.id,
+      employee_name: emp.full_name,
+      salary_type: 'monthly',
+      base_salary: base,
+      days: HR_POLICY.standardDaysPerMonth,
+      ot_hours: 0,
+      gross: base,
+      allowance,
+      deduction: 0,
+      advance,
+      note: 'Lương cố định (miễn chấm công)',
+      net: payrollItemNet(base, allowance, 0, advance),
+      paid: false,
+    };
+  }
   const dayCount = days.reduce((s, d) => s + (ATTENDANCE_STATUS_META[d.status]?.days ?? 0), 0);
   const ot = days.reduce((s, d) => s + (Number(d.ot_hours) || 0), 0);
   if (emp.salary_type === 'monthly') {

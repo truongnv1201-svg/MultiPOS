@@ -734,6 +734,42 @@ describe('0078: chup von MAC vao dong don luc ban', () => {
   });
 });
 
+describe('0082: che do cham cong (mien cham cong)', () => {
+  const sql = read('supabase/migrations/0082_employees_attendance_mode.sql');
+
+  it('ton tai migration 0082', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0082_employees_attendance_mode.sql')), 'thieu 0082');
+  });
+
+  it('them cot attendance_mode mac dinh normal + check 3 gia tri + index', () => {
+    assert.match(sql, /add column if not exists attendance_mode text not null default 'normal'/);
+    assert.match(sql, /check \(attendance_mode in \('normal', 'fixed', 'none'\)\)/);
+    assert.match(sql, /create index if not exists idx_employees_attendance_mode/);
+  });
+
+  it('doi che do chi Admin (manager luu thuong giu nguyen)', () => {
+    const slice = read('lib/store/hrm-slice.tsx');
+    assert.match(slice, /Chỉ Admin được đổi chế độ chấm công!/);
+    assert.match(slice, /Chỉ Admin được đặt chế độ miễn chấm công!/);
+    assert.match(slice, /Miễn chấm công hưởng lương phải dùng hình thức Lương tháng!/);
+  });
+
+  it('mien cham cong khong co o cong, khong luong khong tam ung/len bang', () => {
+    const slice = read('lib/store/hrm-slice.tsx');
+    assert.match(slice, /thuộc diện miễn chấm công — không cần chấm!/);
+    assert.match(slice, /thuộc diện không lương — không ghi tạm ứng!/);
+    assert.match(slice, /const payrollEmps = actives\.filter\(includeInPayroll\)/);
+    assert.match(slice, /const built = payrollEmps\.map\(\(emp\) => \{/);
+  });
+
+  it('luoi cham cong an dien mien, tong quan tru si so mien', () => {
+    const att = read('components/hrm/tabs/AttendanceTab.tsx');
+    assert.match(att, /\.filter\(\(e\) => showExempt \|\| attendanceModeOf\(e\) === 'normal'\)/);
+    const ov = read('components/hrm/tabs/OverviewTab.tsx');
+    assert.match(ov, /const attendanceActives = useMemo\(\(\) => actives\.filter\(\(e\) => attendanceModeOf\(e\) === 'normal'\), \[actives\]\)/);
+    assert.match(ov, /const payrollActives = useMemo\(\(\) => actives\.filter\(includeInPayroll\), \[actives\]\)/);
+  });
+});
 describe('0077: khoa pos_checkout khoi PUBLIC (chan goi an danh)', () => {
   const sql = read('supabase/migrations/0077_lock_pos_checkout_public.sql');
 

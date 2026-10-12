@@ -9,8 +9,10 @@ import { formatVND } from '@/lib/format';
 import { NumberInput } from '@/components/common/NumberInput';
 import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, printTable } from '@/lib/excel';
 import {
+  ATTENDANCE_MODE_META,
   ATTENDANCE_STATUS_META,
   ATTENDANCE_STATUS_ORDER,
+  attendanceModeOf,
   POSITION_OPTIONS,
   HR_POLICY,
   otPay,
@@ -19,7 +21,7 @@ import {
   todayIso,
   buildPayrollItem,
 } from '@/lib/hrm';
-import type { AttendanceDay, AttendanceStatus, Employee, PayrollItem, PayrollRun, SalaryAdvance } from '@/lib/hrm';
+import type { AttendanceDay, AttendanceStatus, AttendanceMode, Employee, PayrollItem, PayrollRun, SalaryAdvance } from '@/lib/hrm';
 import type { EmployeeInput, HrmAccount } from '@/lib/store';
 import {
   Users,
@@ -98,6 +100,8 @@ export function StaffTab({
 }) {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'daily' | 'monthly'>('all');
+  // 0082: lọc chế độ chấm công (mặc định tất cả để admin thấy cả diện miễn).
+  const [modeFilter, setModeFilter] = useState<'all' | AttendanceMode>('all');
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Employee | 'new' | null>(null);
   const [importing, setImporting] = useState(false);
@@ -110,9 +114,13 @@ export function StaffTab({
     return employees
       .filter((e) => (showInactive ? true : e.status === 'active'))
       .filter((e) => (typeFilter === 'all' ? true : e.salary_type === typeFilter))
+      .filter((e) => (modeFilter === 'all' ? true : attendanceModeOf(e) === modeFilter))
       .filter((e) => !q || e.full_name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.phone || '').includes(q))
       .sort((a, b) => a.code.localeCompare(b.code));
-  }, [employees, search, typeFilter, showInactive]);
+  }, [employees, search, typeFilter, modeFilter, showInactive]);
+
+  // 0082: số diện miễn trong tập đang lọc (hiển thị gọn ở metric strip).
+  const exemptCount = useMemo(() => list.filter((e) => attendanceModeOf(e) !== 'normal').length, [list]);
 
   // Tổng lương/phụ cấp theo đúng tập đang lọc — đưa vào metric strip chung.
   const metrics = useMemo(
@@ -140,6 +148,7 @@ export function StaffTab({
     'Lương tháng': e.monthly_salary,
     'Phụ cấp': e.allowance_default,
     'Ngày vào làm': e.start_date || '',
+    'Chế độ (CC/CĐ/KL)': attendanceModeOf(e) === 'fixed' ? 'CĐ' : attendanceModeOf(e) === 'none' ? 'KL' : 'CC',
     'Trạng thái': e.status === 'active' ? 'Đang làm' : 'Nghỉ việc',
   });
 
@@ -183,7 +192,7 @@ export function StaffTab({
   };
 
   const handleDownloadTemplate = () => {
-    downloadExcelTemplate('nhan-su', ['Mã NV', 'Họ tên *', 'SĐT', 'Chức vụ', 'Hình thức (daily/monthly)', 'Lương ngày', 'Lương tháng', 'Phụ cấp', 'Ngày vào làm (YYYY-MM-DD)'], {
+    downloadExcelTemplate('nhan-su', ['Mã NV', 'Họ tên *', 'SĐT', 'Chức vụ', 'Hình thức (daily/monthly)', 'Lương ngày', 'Lương tháng', 'Phụ cấp', 'Ngày vào làm (YYYY-MM-DD)', 'Chế độ (CC/CĐ/KL)'], {
       'Mã NV': '',
       'Họ tên *': 'Nguyễn Văn A',
       'SĐT': '0901234567',
@@ -193,6 +202,7 @@ export function StaffTab({
       'Lương tháng': 0,
       'Phụ cấp': 20000,
       'Ngày vào làm (YYYY-MM-DD)': '2026-01-05',
+      'Chế độ (CC/CĐ/KL)': 'CC',
     });
   };
 
@@ -216,6 +226,12 @@ export function StaffTab({
           const rawType = (r['Hình thức (daily/monthly)'] || r['Hình thức'] || 'daily').trim().toLowerCase();
           const salary_type = (rawType === 'monthly' || rawType === 'tháng' ? 'monthly' : 'daily') as 'daily' | 'monthly';
           const startRaw = (r['Ngày vào làm (YYYY-MM-DD)'] || r['Ngày vào làm'] || '').trim();
+          // 0082: cột chế độ — chỉ Admin được nhập (manager: bỏ qua, giữ nguyên).
+          const rawMode = (r['Chế độ (CC/CĐ/KL)'] || r['Chế độ'] || 'CC').trim().toUpperCase();
+          const attendance_mode: AttendanceMode =
+            rawMode === 'CĐ' || rawMode === 'CD' || rawMode === 'FIXED' ? 'fixed'
+            : rawMode === 'KL' || rawMode === 'NONE' ? 'none'
+            : 'normal';
           const fields: EmployeeInput = {
             full_name,
             phone: (r['SĐT'] || '').trim() || undefined,
@@ -225,6 +241,7 @@ export function StaffTab({
             monthly_salary: Math.max(0, Math.round(parseExcelNum(r['Lương tháng']))),
             allowance_default: Math.max(0, Math.round(parseExcelNum(r['Phụ cấp']))),
             start_date: /^\d{4}-\d{2}-\d{2}$/.test(startRaw) ? startRaw : undefined,
+            ...(isAdmin ? { attendance_mode } : {}),
           };
           const code = (r['Mã NV'] || '').trim();
           const existing =
@@ -278,6 +295,19 @@ export function StaffTab({
             ]}
           />
 
+          {/* 0082: lọc chế độ chấm công */}
+          <FilterSelect
+            value={modeFilter}
+            onChange={(v) => setModeFilter(v as 'all' | AttendanceMode)}
+            title="Lọc chế độ chấm công"
+            options={[
+              { value: 'all', label: 'Tất cả chế độ' },
+              { value: 'normal', label: 'Chấm công' },
+              { value: 'fixed', label: 'Miễn CC · Cố định' },
+              { value: 'none', label: 'Miễn CC · Không lương' },
+            ]}
+          />
+
           {/* Lọc trạng thái — pill toggle cùng nhịp h-8 của bộ lọc chung */}
           <button
             type="button"
@@ -317,6 +347,7 @@ export function StaffTab({
             {list.length !== employees.length && (
               <span className="text-slate-400"> (trong tổng {employees.length})</span>
             )}
+            {exemptCount > 0 && <span className="text-slate-400"> · {exemptCount} miễn CC</span>}
           </span>
           <span className="flex items-center gap-4">
             <span>
@@ -383,6 +414,14 @@ export function StaffTab({
                   >
                     {e.salary_type === 'daily' ? 'Lương ngày' : 'Lương tháng'}
                   </span>
+                  {attendanceModeOf(e) !== 'normal' && (
+                    <span
+                      className={`ml-1 px-2 py-0.5 text-xs font-bold rounded-full border whitespace-nowrap ${attendanceModeOf(e) === 'fixed' ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}
+                      title={ATTENDANCE_MODE_META[attendanceModeOf(e)].label}
+                    >
+                      {ATTENDANCE_MODE_META[attendanceModeOf(e)].short === 'CĐ' ? 'Miễn CC · Cố định' : 'Miễn CC · Không lương'}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">
                   <div className="tabular-nums font-bold text-slate-800">{formatVND(e.salary_type === 'daily' ? e.daily_wage : e.monthly_salary)}</div>
