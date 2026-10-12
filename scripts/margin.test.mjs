@@ -95,6 +95,11 @@ describe('margin: wiring UI (chống nhân bản logic)', () => {
     assert.ok(/c <= 0 \|\| p <= 0/.test(field), 'MarginHint ẩn khi thiếu vốn/giá');
   });
 
+  it('giữ lại % đã nhập để user đối chiếu với giá bán', () => {
+    assert.match(field, /setMarkup\(val\)/);
+    assert.doesNotMatch(field, /setMarkup\(''\)/);
+  });
+
   it('thứ tự ô giá: vốn nhập -> cộng % -> giá bán', () => {
     for (const [name, src] of [['form thêm', addForm], ['form sửa', products]]) {
       const costIdx = src.indexOf('Giá vốn nhập (đ)');
