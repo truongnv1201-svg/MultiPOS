@@ -89,8 +89,9 @@ describe('margin: wiring UI (chống nhân bản logic)', () => {
     assert.match(products, /MarginHint/);
   });
 
-  it('component ẩn khi cả 2 vốn đều 0 (dịch vụ/combo/hàng chưa nhập)', () => {
-    assert.ok(/c <= 0/.test(field), 'MarkupPctInput phải tự ẩn khi không có vốn');
+  it('ô % luôn hiện, khóa khi chưa có vốn (không ẩn hẳn)', () => {
+    assert.ok(!/if \(c <= 0\) return null/.test(field), 'MarkupPctInput cấm return null khi thiếu vốn');
+    assert.match(field, /disabled=\{c <= 0\}/);
     assert.ok(/c <= 0 \|\| p <= 0/.test(field), 'MarginHint ẩn khi thiếu vốn/giá');
   });
 

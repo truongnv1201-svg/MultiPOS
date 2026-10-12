@@ -20,15 +20,15 @@ interface MarkupPctInputProps {
   onPriceChange: (price: number) => void;
 }
 
-// Ô nhập % (cột giữa hàng giá). Vốn = 0 thì % vô nghĩa -> ẩn.
+// Ô nhập % (cột giữa hàng giá). Chưa có vốn thì khóa (không ẩn) để user vẫn
+// thấy tính năng và biết phải nhập vốn trước.
 export function MarkupPctInput({ cost, onPriceChange }: MarkupPctInputProps) {
   const [markup, setMarkup] = useState<number | ''>('');
   const c = Number(cost) || 0;
-  if (c <= 0) return null;
 
   const handleMarkup = (val: number) => {
     setMarkup(val);
-    if (val !== 0) {
+    if (c > 0 && val !== 0) {
       onPriceChange(priceFromMarkup(c, val));
       setMarkup('');
     }
@@ -42,9 +42,11 @@ export function MarkupPctInput({ cost, onPriceChange }: MarkupPctInputProps) {
         onChange={handleMarkup}
         allowDecimals
         maxDecimals={2}
-        placeholder="Vd: 30"
+        placeholder={c > 0 ? 'Vd: 30' : 'Nhập vốn trước'}
         suffix="%"
-        className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono bg-white focus:border-blue-500 focus:outline-hidden"
+        disabled={c <= 0}
+        title={c > 0 ? 'Nhập % để tính giá bán từ vốn' : 'Nhập giá vốn nhập trước rồi mới cộng %'}
+        className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono bg-white focus:border-blue-500 focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-400"
       />
     </div>
   );
