@@ -101,21 +101,19 @@ export function DateFilter({ value, onChange, className = '' }: DateFilterProps)
 
   return (
     <div className={`relative flex items-center gap-1.5 ${className}`}>
-      <div className="flex items-center gap-1.5">
-        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        <FilterSelect
-          value={value.preset}
-          onChange={(v) => handleSelectPreset(v as DatePreset)}
-          options={[
-            { value: 'all', label: 'Toàn thời gian' },
-            { value: 'today', label: 'Hôm nay' },
-            { value: 'yesterday', label: 'Hôm qua' },
-            { value: 'this_week', label: 'Tuần này' },
-            { value: 'this_month', label: 'Tháng này' },
-            { value: 'custom', label: 'Tùy chọn ngày...' },
-          ]}
-        />
-      </div>
+      <FilterSelect
+        value={value.preset}
+        onChange={(v) => handleSelectPreset(v as DatePreset)}
+        title="Lọc theo thời gian"
+        options={[
+          { value: 'all', label: 'Toàn thời gian' },
+          { value: 'today', label: 'Hôm nay' },
+          { value: 'yesterday', label: 'Hôm qua' },
+          { value: 'this_week', label: 'Tuần này' },
+          { value: 'this_month', label: 'Tháng này' },
+          { value: 'custom', label: 'Tùy chỉnh ngày…' },
+        ]}
+      />
 
       {value.preset === 'custom' && (
         <div className="flex items-center gap-1 px-2 h-8 bg-blue-50 border border-blue-200 rounded-md text-[11px] font-mono text-blue-800">

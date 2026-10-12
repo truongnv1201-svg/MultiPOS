@@ -36,4 +36,12 @@ describe('loc thoi gian: mac dinh Tuan nay', () => {
     assert.match(src, /startOfWeek\.setHours\(0, 0, 0, 0\)/);
     assert.match(src, /\{ value: 'this_week', label: 'Tuần này' \}/);
   });
+
+  it('tuy chinh ngay nam trong listbox (khong nut lich roi ben ngoai)', () => {
+    const src = read('components/common/DateFilter.tsx');
+    assert.match(src, /\{ value: 'custom', label: 'Tùy chỉnh ngày…' \}/);
+    assert.ok(!/<Calendar className="w-3\.5/.test(src), 'bỏ icon lịch rời cạnh dropdown');
+    assert.match(src, /<Calendar className="w-4 h-4 text-blue-600" \/>/);
+    assert.match(src, /Chọn khoảng ngày/);
+  });
 });
