@@ -48,7 +48,7 @@ interface FilterSelectProps {
 export function FilterSelect({ id, value, onChange, options, title, className = '', disabled = false }: FilterSelectProps) {
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
-  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; minWidth: number; maxWidth: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value) ?? options[0];
@@ -61,13 +61,16 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
     if (!r) return;
     const idx = Math.max(0, options.findIndex((o) => o.value === value));
     setActiveIdx(idx);
-    const width = Math.max(r.width, 170);
-    const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+    // Chuẩn như select gốc: listbox không hẹp hơn nút, giãn theo nội dung
+    // (kẹp trong màn hình) thay vì ép cứng 1 số — khỏi lệch cỡ giữa các chỗ.
+    const minWidth = Math.max(r.width, 170);
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - minWidth - 8));
+    const maxWidth = Math.max(minWidth, window.innerWidth - left - 8);
     // Gần đáy màn hình thì xổ lên trên thay vì xuống dưới.
     if (window.innerHeight - r.bottom < 280) {
-      setPos({ bottom: window.innerHeight - r.top + 4, left, width });
+      setPos({ bottom: window.innerHeight - r.top + 4, left, minWidth, maxWidth });
     } else {
-      setPos({ top: r.bottom + 4, left, width });
+      setPos({ top: r.bottom + 4, left, minWidth, maxWidth });
     }
     setOpen(true);
   };
@@ -157,7 +160,8 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
                 top: pos.top,
                 bottom: pos.bottom,
                 left: pos.left,
-                width: pos.width,
+                minWidth: pos.minWidth,
+                maxWidth: pos.maxWidth,
                 maxHeight: 264,
               }}
             >
@@ -182,7 +186,7 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
                       isActive ? 'bg-slate-100' : ''
                     } ${isSel ? 'text-blue-700 font-semibold' : 'text-slate-700 font-medium'}`}
                   >
-                    <span className="truncate">{o.label}</span>
+                    <span className="truncate min-w-0">{o.label}</span>
                     {isSel && <Check className="w-3.5 h-3.5 shrink-0" />}
                   </button>
                 );
