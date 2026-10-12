@@ -240,6 +240,7 @@ export function CashbookView() {
               tone="emerald"
               onClick={() => {
                 setVoucherType('receipt');
+                setCategory('other');
                 setIsModalOpen(true);
               }}
             >
@@ -250,6 +251,7 @@ export function CashbookView() {
               tone="rose"
               onClick={() => {
                 setVoucherType('expense');
+                setCategory('other');
                 setIsModalOpen(true);
               }}
             >
@@ -498,39 +500,39 @@ export function CashbookView() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Loại quỹ</label>
-                  <select
+                  <FilterSelect
                     value={fundType}
-                    onChange={(e) => setFundType(e.target.value as any)}
-                    className="w-full h-8 px-2 border border-slate-300 rounded"
-                  >
-                    <option value="cash">Tiền mặt tại két</option>
-                    <option value="bank">Tài khoản Ngân hàng</option>
-                  </select>
+                    onChange={(v) => setFundType(v as any)}
+                    title="Chọn loại quỹ"
+                    options={[
+                      { value: 'cash', label: 'Tiền mặt tại két' },
+                      { value: 'bank', label: 'Tài khoản Ngân hàng' },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Hạng mục</label>
-                  <select
+                  <FilterSelect
                     value={category}
-                    onChange={(e) => setCategory(e.target.value as any)}
-                    className="w-full h-8 px-2 border border-slate-300 rounded"
-                  >
-                    {voucherType === 'receipt' ? (
-                      <>
-                        <option value="sales">Doanh thu bán lẻ</option>
-                        <option value="deposit">Tiền cọc đơn hàng</option>
-                        <option value="debt_collection">Thu hồi công nợ</option>
-                        <option value="other">Thu nhập khác</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="supplier_payment">Thanh toán nhà cung cấp</option>
-                        <option value="material">Mua vật tư gấp</option>
-                        <option value="labor">Chi lương</option>
-                        <option value="advance">Tạm ứng lương (khấu trừ bảng lương)</option>
-                        <option value="other">Chi phí vận hành / khác</option>
-                      </>
-                    )}
-                  </select>
+                    onChange={(v) => setCategory(v as any)}
+                    title="Chọn hạng mục"
+                    options={
+                      voucherType === 'receipt'
+                        ? [
+                            { value: 'sales', label: 'Doanh thu bán lẻ' },
+                            { value: 'deposit', label: 'Tiền cọc đơn hàng' },
+                            { value: 'debt_collection', label: 'Thu hồi công nợ' },
+                            { value: 'other', label: 'Thu nhập khác' },
+                          ]
+                        : [
+                            { value: 'supplier_payment', label: 'Thanh toán nhà cung cấp' },
+                            { value: 'material', label: 'Mua vật tư gấp' },
+                            { value: 'labor', label: 'Chi lương' },
+                            { value: 'advance', label: 'Tạm ứng lương (khấu trừ bảng lương)' },
+                            { value: 'other', label: 'Chi phí vận hành / khác' },
+                          ]
+                    }
+                  />
                 </div>
               </div>
 
@@ -550,18 +552,15 @@ export function CashbookView() {
                 <label className="font-semibold text-slate-700 block mb-1">Người nộp / nhận tiền</label>
                 {isAdvanceVoucher ? (
                   <>
-                    <select
+                    <FilterSelect
                       value={advanceEmpId}
-                      onChange={(e) => setAdvanceEmpId(e.target.value)}
-                      className="w-full h-8 px-2 border border-slate-300 rounded bg-white"
-                    >
-                      <option value="">— Chọn nhân viên nhận ứng * —</option>
-                      {activeEmployees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.code} — {emp.full_name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setAdvanceEmpId}
+                      title="Chọn nhân viên nhận ứng"
+                      options={[
+                        { value: '', label: '— Chọn nhân viên nhận ứng * —' },
+                        ...activeEmployees.map((emp) => ({ value: emp.id, label: `${emp.code} — ${emp.full_name}` })),
+                      ]}
+                    />
                     <p className="text-[11px] text-amber-700 mt-1">Tạm ứng khấu trừ vào lương tháng hiện tại, tự hiện trong bảng lương.</p>
                   </>
                 ) : (

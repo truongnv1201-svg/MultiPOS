@@ -9,6 +9,7 @@ import { formatQty } from '@/lib/quantity';
 import { calculateDimensionRow } from '@/lib/db';
 import { notify } from '@/components/common/Toast';
 import { NumberInput } from '@/components/common/NumberInput';
+import { FilterSelect } from '@/components/ui/FilterControls';
 import { Plus, Trash2, Settings2, RefreshCw, X, Check, HelpCircle } from 'lucide-react';
 
 interface DialogProps {
@@ -297,18 +298,13 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
             <span className="font-semibold text-amber-900">
               Đơn giá công mài:
             </span>
-            <select
+            <FilterSelect
               id="batch-grinding-select"
               value={batchGrindingType}
-              onChange={(e) => setBatchGrindingType(e.target.value)}
-              className="h-8 px-2.5 bg-white border border-amber-300 rounded-md text-xs font-medium text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
-            >
-              {grindingServices.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {grindingLabel(g.id)}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setBatchGrindingType(v)}
+              title="Chọn đơn giá công mài áp cho mọi dòng"
+              options={grindingServices.map((g) => ({ value: g.id, label: grindingLabel(g.id) }))}
+            />
             <button
               id="btn-sync-all-rows"
               onClick={handleBatchSync}

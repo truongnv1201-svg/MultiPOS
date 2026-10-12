@@ -814,15 +814,16 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
                 </div>
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Nhóm khách hàng</label>
-                  <select
+                  <FilterSelect
                     value={group}
-                    onChange={(e) => setGroup(e.target.value as any)}
-                    className="w-full h-8 px-2 border border-slate-300 rounded"
-                  >
-                    <option value="contractor">Thợ nhôm kính / Thi công</option>
-                    <option value="retail">Khách lẻ tại quầy</option>
-                    <option value="wholesale">Đại lý / Công ty nội thất</option>
-                  </select>
+                    onChange={(v) => setGroup(v as any)}
+                    title="Chọn nhóm khách hàng"
+                    options={[
+                      { value: 'contractor', label: 'Thợ nhôm kính / Thi công' },
+                      { value: 'retail', label: 'Khách lẻ tại quầy' },
+                      { value: 'wholesale', label: 'Đại lý / Công ty nội thất' },
+                    ]}
+                  />
                 </div>
               </div>
               <div>
@@ -897,15 +898,16 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
                 </div>
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Nhóm khách hàng</label>
-                  <select
+                  <FilterSelect
                     value={editGroup}
-                    onChange={(e) => setEditGroup(e.target.value as any)}
-                    className="w-full h-8 px-2 border border-slate-300 rounded"
-                  >
-                    <option value="contractor">Thợ nhôm kính / Thi công</option>
-                    <option value="retail">Khách lẻ tại quầy</option>
-                    <option value="wholesale">Đại lý / Công ty nội thất</option>
-                  </select>
+                    onChange={(v) => setEditGroup(v as any)}
+                    title="Chọn nhóm khách hàng"
+                    options={[
+                      { value: 'contractor', label: 'Thợ nhôm kính / Thi công' },
+                      { value: 'retail', label: 'Khách lẻ tại quầy' },
+                      { value: 'wholesale', label: 'Đại lý / Công ty nội thất' },
+                    ]}
+                  />
                 </div>
               </div>
               <div>

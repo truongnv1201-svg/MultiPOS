@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { notify } from '@/components/common/Toast';
 import { NumberInput } from '@/components/common/NumberInput';
+import { FilterSelect } from '@/components/ui/FilterControls';
 import { OfflineReadyCard } from '@/components/settings/OfflineReadyCard';
 import { VIETQR_BANKS, isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
 import { PRINT_TEMPLATES } from '@/lib/store';
@@ -244,16 +245,17 @@ export function SettingsView() {
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Thanh toán mặc định</label>
-              <select
+              <FilterSelect
                 value={shop.defaultPayment}
+                onChange={(v) => updateShop({ defaultPayment: v as any })}
+                title="Chọn thanh toán mặc định"
+                options={[
+                  { value: 'cash', label: 'Tiền mặt' },
+                  { value: 'transfer', label: 'Chuyển khoản' },
+                  { value: 'debt', label: 'Ghi nợ' },
+                ]}
                 disabled={!isAdmin}
-                onChange={(e) => updateShop({ defaultPayment: e.target.value as any })}
-                className="w-full h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
-              >
-                <option value="cash">Tiền mặt</option>
-                <option value="transfer">Chuyển khoản</option>
-                <option value="debt">Ghi nợ</option>
-              </select>
+              />
             </div>
           </div>
         </div>
@@ -275,19 +277,16 @@ export function SettingsView() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Ngân hàng</label>
-              <select
+              <FilterSelect
                 value={vietqr.bank}
+                onChange={(v) => updateVietqr({ bank: v })}
+                title="Chọn ngân hàng"
+                options={[
+                  { value: '', label: '-- Chọn ngân hàng --' },
+                  ...VIETQR_BANKS.map((b) => ({ value: b.code, label: `${b.name} (${b.code})` })),
+                ]}
                 disabled={!isAdmin}
-                onChange={(e) => updateVietqr({ bank: e.target.value })}
-                className="w-full h-8 px-2 border border-slate-300 rounded font-medium disabled:bg-slate-50"
-              >
-                <option value="">-- Chọn ngân hàng --</option>
-                {VIETQR_BANKS.map((b) => (
-                  <option key={b.code} value={b.code}>
-                    {b.name} ({b.code})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Số tài khoản (chỉ số)</label>

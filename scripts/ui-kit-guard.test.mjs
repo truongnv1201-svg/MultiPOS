@@ -153,6 +153,22 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     assert.ok(!/^\s*<select[\s>]/m.test(read('components/hrm/tabs/StaffTab.tsx')), 'StaffTab không còn thẻ select gốc');
     assert.match(read('components/inventory/StockAdjustTable.tsx'), /<FilterSelect/);
     assert.ok(!/^\s*<select[\s>]/m.test(read('components/inventory/StockAdjustTable.tsx')), 'StockAdjustTable không còn thẻ select gốc');
+    // Đợt dropdown chung 10/2026: modal phiếu thu/chi, form hàng hóa/KH, cài đặt, HRM, POS
+    for (const f of [
+      'components/cashbook/CashbookView.tsx',
+      'components/products/ProductsView.tsx',
+      'components/products/AddProductFormModal.tsx',
+      'components/customers/CustomersView.tsx',
+      'components/settings/SettingsView.tsx',
+      'components/hrm/tabs/AttendancePayrollTab.tsx',
+      'components/hrm/tabs/AdvancesModal.tsx',
+      'components/pos/DimensionModalF3.tsx',
+      'components/pos/ReceiptModal.tsx',
+    ]) {
+      const src = read(f);
+      assert.match(src, /<FilterSelect/, `${f} phải dùng FilterSelect chung`);
+      assert.ok(!/^\s*<select[\s>]/m.test(src), `${f} không còn thẻ select gốc`);
+    }
   });
 
   it('trạng thái rỗng chuẩn TableEmpty/ListEmpty', () => {

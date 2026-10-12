@@ -113,7 +113,7 @@ test.describe('số lượng thập phân', () => {
     await expect(dialog).toBeVisible();
 
     // Mặc định: Loại = Thường, ô "chỉ số nguyên" KHÔNG tick (= bán thập phân được)
-    await expect(dialog.locator('select').first()).toHaveValue('goods');
+    await expect(dialog.locator('#add-product-type-select')).toContainText('Thường');
     await expect(dialog.getByText('Chỉ bán số lượng nguyên')).toBeVisible();
     await expect(dialog.locator('input[type="checkbox"]').first()).not.toBeChecked();
 
@@ -124,7 +124,8 @@ test.describe('số lượng thập phân', () => {
     }
 
     // Chọn đơn vị kg vẫn giữ mặc định (không khóa số nguyên)
-    await dialog.locator('select').nth(1).selectOption('kg');
+    await dialog.locator('#add-product-unit-select').click();
+    await page.getByRole('listbox').getByRole('option', { name: 'kg — kilôgam' }).click();
     await expect(dialog.locator('input[type="checkbox"]').first()).not.toBeChecked();
   });
 });

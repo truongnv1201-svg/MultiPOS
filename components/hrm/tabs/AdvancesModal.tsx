@@ -47,6 +47,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { TableTools } from '@/components/common/TableTools';
+import { FilterSelect } from '@/components/ui/FilterControls';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 // P3: atoms/tokens/helpers thuần dùng chung các tab (tách ra ui.tsx).
@@ -136,14 +137,16 @@ export function AdvancesModal({
         <div className="flex flex-wrap items-end gap-2 mt-2.5 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
           <label className="text-xs font-semibold text-slate-700">
             Nhân viên <span className="text-rose-500">*</span>
-            <select value={empId} onChange={(e) => setEmpId(e.target.value)} className="mt-1 border border-slate-300 rounded-md px-2 h-8 text-xs bg-white min-w-[170px] block">
-              <option value="">— Chọn —</option>
-              {actives.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.code} — {e.full_name}
-                </option>
-              ))}
-            </select>
+            <FilterSelect
+              value={empId}
+              onChange={setEmpId}
+              title="Chọn nhân viên tạm ứng"
+              options={[
+                { value: '', label: '— Chọn —' },
+                ...actives.map((e) => ({ value: e.id, label: `${e.code} — ${e.full_name}` })),
+              ]}
+              className="mt-1 min-w-[170px]"
+            />
           </label>
           <label className="text-xs font-semibold text-slate-700">
             Số tiền (đ) <span className="text-rose-500">*</span>
@@ -151,10 +154,16 @@ export function AdvancesModal({
           </label>
           <label className="text-xs font-semibold text-slate-700">
             Quỹ chi
-            <select value={fund} onChange={(e) => setFund(e.target.value as 'cash' | 'bank')} className="mt-1 border border-slate-300 rounded-md px-2 h-8 text-xs bg-white block">
-              <option value="cash">Tiền mặt</option>
-              <option value="bank">Ngân hàng</option>
-            </select>
+            <FilterSelect
+              value={fund}
+              onChange={(v) => setFund(v as 'cash' | 'bank')}
+              title="Chọn quỹ chi"
+              options={[
+                { value: 'cash', label: 'Tiền mặt' },
+                { value: 'bank', label: 'Ngân hàng' },
+              ]}
+              className="mt-1"
+            />
           </label>
           <label className="text-xs font-semibold text-slate-700">
             Ngày ứng

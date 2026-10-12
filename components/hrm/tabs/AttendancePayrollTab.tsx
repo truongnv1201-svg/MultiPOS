@@ -46,6 +46,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { TableTools } from '@/components/common/TableTools';
+import { FilterSelect } from '@/components/ui/FilterControls';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 // P3: atoms/tokens/helpers thuần dùng chung các tab (tách ra ui.tsx).
@@ -273,10 +274,15 @@ export function AttendancePayrollTab({
                   <button onClick={() => onReopen(run.id)} className={BTN_GHOST}>
                     <LockOpen className="w-4 h-4" /> Mở lại
                   </button>
-                  <select value={fund} onChange={(e) => setFund(e.target.value as 'cash' | 'bank')} aria-label="Quỹ chi lương" className="text-xs bg-white border border-slate-300 rounded-md px-2 h-8 text-slate-700 font-medium">
-                    <option value="cash">Tiền mặt</option>
-                    <option value="bank">Ngân hàng</option>
-                  </select>
+                  <FilterSelect
+                    value={fund}
+                    onChange={(v) => setFund(v as 'cash' | 'bank')}
+                    title="Quỹ chi lương"
+                    options={[
+                      { value: 'cash', label: 'Tiền mặt' },
+                      { value: 'bank', label: 'Ngân hàng' },
+                    ]}
+                  />
                   <button onClick={() => onPay(run.id, fund)} className={BTN_OK}>
                     <Banknote className="w-4 h-4" /> Chi lương
                   </button>

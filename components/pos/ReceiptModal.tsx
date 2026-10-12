@@ -8,6 +8,7 @@ import { formatQty } from '@/lib/quantity';
 import { isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
 import { printElementInTab } from '@/lib/print';
 import { notify } from '@/components/common/Toast';
+import { FilterSelect } from '@/components/ui/FilterControls';
 import { Printer, X, QrCode, Receipt, Share2 } from 'lucide-react';
 
 export function ReceiptModal() {
@@ -364,9 +365,12 @@ export function ReceiptModal() {
 
         <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-semibold text-slate-600 flex items-center gap-1"><Receipt className="w-3.5 h-3.5" /> Mẫu in:</span>
-          <select value={template} onChange={(e) => handlePickTemplate(e.target.value as PrintTemplate)} className="h-8 px-2 text-xs border border-slate-300 rounded-md font-semibold bg-white">
-            {PRINT_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
+          <FilterSelect
+            value={template}
+            onChange={(v) => handlePickTemplate(v as PrintTemplate)}
+            title="Chọn mẫu in"
+            options={PRINT_TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
+          />
           <span className="text-[11px] text-slate-500">{PRINT_TEMPLATES.find((t) => t.id === template)?.desc}</span>
           <span className="ml-auto text-[11px] font-mono text-slate-500">In {copies} liên • {shop.printerWidth}</span>
         </div>

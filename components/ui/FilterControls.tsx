@@ -42,9 +42,10 @@ interface FilterSelectProps {
   options: { value: string; label: string }[];
   title?: string;
   className?: string;
+  disabled?: boolean;
 }
 
-export function FilterSelect({ id, value, onChange, options, title, className = '' }: FilterSelectProps) {
+export function FilterSelect({ id, value, onChange, options, title, className = '', disabled = false }: FilterSelectProps) {
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
@@ -55,6 +56,7 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
   const close = () => setOpen(false);
 
   const openMenu = () => {
+    if (disabled) return;
     const r = btnRef.current?.getBoundingClientRect();
     if (!r) return;
     const idx = Math.max(0, options.findIndex((o) => o.value === value));
@@ -117,6 +119,7 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
         title={title}
         aria-haspopup="listbox"
         aria-expanded={open}
+        disabled={disabled}
         onClick={() => (open ? close() : openMenu())}
         onBlur={(e) => {
           if (!e.currentTarget.parentElement?.contains(e.relatedTarget as Node | null)) close();
@@ -136,7 +139,7 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
             if (opt) pick(opt.value);
           }
         }}
-        className="h-8 px-2 w-full bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 hover:border-slate-400 focus:border-blue-500 focus:outline-hidden flex items-center justify-between gap-1.5 transition-colors cursor-pointer"
+        className="h-8 px-2 w-full bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 hover:border-slate-400 focus:border-blue-500 focus:outline-hidden flex items-center justify-between gap-1.5 transition-colors cursor-pointer disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-default disabled:hover:border-slate-300"
       >
         <span className="truncate">{selected?.label ?? ''}</span>
         <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />

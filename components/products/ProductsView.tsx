@@ -33,7 +33,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
 import { AppButton } from '@/components/ui/AppButton';
-import { AddProductFormModal, UNIT_OPTIONS } from '@/components/products/AddProductFormModal';
+import { AddProductFormModal, UNIT_FLAT_OPTIONS } from '@/components/products/AddProductFormModal';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
@@ -766,40 +766,31 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Loại sản phẩm</label>
-                  <select
+                  <FilterSelect
                     value={editProductType}
-                    onChange={(e) => {
-                      const val = e.target.value as ProductType;
+                    onChange={(v) => {
+                      const val = v as ProductType;
                       setEditProductType(val);
                       if (val === 'area') setEditUnit('m2');
                       else if (val === 'combo') setEditUnit('bộ');
                     }}
-                    className="w-full h-8 px-2 border border-slate-300 rounded"
-                  >
-                    <option value="area">Diện tích (Kính, Tấm alu, MDF)</option>
-                    <option value="goods">Thường (Cây nhôm, Phụ kiện)</option>
-                    <option value="combo">Combo trọn bộ (Trừ kho con)</option>
-                    <option value="service">Dịch vụ (Công lắp đặt)</option>
-                  </select>
+                    title="Chọn loại sản phẩm"
+                    options={[
+                      { value: 'area', label: 'Diện tích (Kính, Tấm alu, MDF)' },
+                      { value: 'goods', label: 'Thường (Cây nhôm, Phụ kiện)' },
+                      { value: 'combo', label: 'Combo trọn bộ (Trừ kho con)' },
+                      { value: 'service', label: 'Dịch vụ (Công lắp đặt)' },
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Đơn vị tính</label>
-                  <select
+                  <FilterSelect
                     value={editUnit}
-                    onChange={(e) => setEditUnit(e.target.value)}
-                    aria-label="Đơn vị tính"
-                    className="w-full h-8 px-2.5 border border-slate-300 rounded bg-white"
-                  >
-                    {UNIT_OPTIONS.map((group) => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.options.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                    onChange={(v) => setEditUnit(v)}
+                    title="Chọn đơn vị tính"
+                    options={UNIT_FLAT_OPTIONS}
+                  />
                 </div>
               </div>
 

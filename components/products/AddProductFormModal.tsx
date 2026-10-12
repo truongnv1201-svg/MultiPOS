@@ -11,6 +11,7 @@ import { Product, ProductType } from '@/lib/types';
 import { NumberInput } from '@/components/common/NumberInput';
 import { QTY_MAX_DECIMALS, roundQty, suggestDecimalForUnit } from '@/lib/quantity';
 import { SheetShell } from '@/components/common/SheetShell';
+import { FilterSelect } from '@/components/ui/FilterControls';
 import { Plus } from 'lucide-react';
 
 export const UNIT_OPTIONS = [
@@ -62,6 +63,9 @@ export const UNIT_OPTIONS = [
     ],
   },
 ] as const;
+
+// Bản phẳng cho FilterSelect chung (không hỗ trợ optgroup): giữ đúng thứ tự nhóm.
+export const UNIT_FLAT_OPTIONS: { value: string; label: string }[] = UNIT_OPTIONS.flatMap((g) => [...g.options]);
 
 interface AddProductFormModalProps {
   open: boolean;
@@ -178,10 +182,11 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Loại sản phẩm</label>
-              <select
+              <FilterSelect
+                id="add-product-type-select"
                 value={productType}
-                onChange={(e) => {
-                  const val = e.target.value as ProductType;
+                onChange={(v) => {
+                  const val = v as ProductType;
                   setProductType(val);
                   // Đổi loại hàng thì chọn luôn đơn vị mặc định hợp lý
                   if (val === 'area') setUnit('m2');
@@ -189,37 +194,28 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
                   else if (val === 'service') setUnit('công');
                   else if (unit === 'm2' || unit === 'bộ' || unit === 'công') setUnit('cái');
                 }}
-                className="w-full h-8 px-2 border border-slate-300 rounded"
-              >
-                <option value="area">Diện tích (Kính, Tấm alu, MDF)</option>
-                <option value="goods">Thường (Cây nhôm, Phụ kiện)</option>
-                <option value="combo">Combo trọn bộ (Trừ kho con)</option>
-                <option value="service">Dịch vụ (Công lắp đặt)</option>
-              </select>
+                title="Chọn loại sản phẩm"
+                options={[
+                  { value: 'area', label: 'Diện tích (Kính, Tấm alu, MDF)' },
+                  { value: 'goods', label: 'Thường (Cây nhôm, Phụ kiện)' },
+                  { value: 'combo', label: 'Combo trọn bộ (Trừ kho con)' },
+                  { value: 'service', label: 'Dịch vụ (Công lắp đặt)' },
+                ]}
+              />
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Đơn vị tính</label>
-              <select
+              <FilterSelect
+                id="add-product-unit-select"
                 value={unit}
-                onChange={(e) => {
-                  const next = e.target.value;
+                onChange={(next) => {
                   setUnit(next);
                   // Đơn vị cân nặng/thể tích (kg, l, tạ...) -> gợi ý TẮT khóa số nguyên
                   if (suggestDecimalForUnit(next) && productType !== 'area') setIntegerOnly(false);
                 }}
-                aria-label="Đơn vị tính"
-                className="w-full h-8 px-2.5 border border-slate-300 rounded bg-white"
-              >
-                {UNIT_OPTIONS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.options.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+                title="Chọn đơn vị tính"
+                options={UNIT_FLAT_OPTIONS}
+              />
             </div>
           </div>
 
