@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { Product, ProductType } from '@/lib/types';
 import { formatVND, formatNumber } from '@/lib/format';
+import { lineMargin } from '@/lib/costing';
 import {
   Boxes,
   Plus,
@@ -34,6 +35,7 @@ import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
 import { AppButton } from '@/components/ui/AppButton';
 import { AddProductFormModal, UNIT_FLAT_OPTIONS } from '@/components/products/AddProductFormModal';
+import { MarginCalcField } from '@/components/products/MarginCalcField';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
@@ -220,6 +222,11 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       import_price: (p) => p.import_price,
       waste_factor: (p) => p.waste_factor,
       stock_quantity: (p) => p.stock_quantity,
+      // Biên lãi trên vốn BQ (món chưa có vốn/tắt bán xếp cuối khi asc).
+      margin: (p) =>
+        p.retail_price > 0 && p.avg_cost > 0
+          ? (p.retail_price - p.avg_cost) / p.retail_price
+          : -1,
     };
     const get = getters[sortKey];
     if (!get) return filteredProducts;
@@ -551,6 +558,9 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                     <span className="text-[11px] text-slate-600 font-mono">
                       <span className="text-blue-700 font-bold">{formatVND(p.retail_price)}</span>
                       {p.avg_cost > 0 ? ` · vốn ${formatVND(p.avg_cost)}` : ''}
+                      {p.retail_price > 0 && p.avg_cost > 0
+                        ? ` • B ${Math.round(lineMargin(p.retail_price, p.avg_cost).pct)}%`
+                        : ''}
                     </span>
                     <span className="text-[11px] text-slate-500 font-mono">
                       {p.product_type === 'service'
@@ -656,6 +666,20 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-bold text-blue-600">
                         {formatVND(p.retail_price)}
+                        {p.retail_price > 0 && p.avg_cost > 0 && (() => {
+                          const pct = lineMargin(p.retail_price, p.avg_cost).pct;
+                          const tone = pct < 10 ? 'text-rose-600' : pct < 25 ? 'text-amber-600' : 'text-emerald-600';
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => handleSort('margin')}
+                              title="Biên lãi trên vốn BQ — bấm để sắp xếp theo biên"
+                              className={`block ml-auto text-[10px] font-bold ${tone} hover:underline`}
+                            >
+                              B {pct.toFixed(1)}%{sortKey === 'margin' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                            </button>
+                          );
+                        })()}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono text-slate-600">
                         {formatVND(p.avg_cost)}
@@ -815,6 +839,15 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                   />
                 </div>
               </div>
+
+              {editProductType !== 'service' && editProductType !== 'combo' && (
+                <MarginCalcField
+                  cost={editImportPrice}
+                  price={editRetailPrice}
+                  avgCost={editingProduct?.avg_cost}
+                  onPriceChange={(val) => setEditRetailPrice(val)}
+                />
+              )}
 
               {editProductType !== 'service' && editProductType !== 'combo' && (
                 <div>

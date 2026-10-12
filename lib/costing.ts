@@ -65,6 +65,32 @@ export function lineMargin(
   return { amount, pct: r > 0 ? (amount / r) * 100 : 0 };
 }
 
+// ── Cộng % trên vốn nhập (máy tính giá bán, form thêm/sửa hàng hóa) ──
+// giá = tròn từng đồng(vốn × (1 + m%)); KHÔNG làm tròn nghìn — hàng nhạy giá
+// (dây điện...) biến động từng đồng, tròn nghìn là tự bóp biên.
+// Thuần client: kết quả ghi vào products.retail_price như gõ tay nên không cần
+// bản song sinh SQL (khác MAC/parity ở trên).
+export function priceFromMarkup(
+  cost: number | null | undefined,
+  markupPct: number | null | undefined
+): number {
+  const c = Number(cost) || 0;
+  const m = Number(markupPct) || 0;
+  if (c <= 0) return 0;
+  return Math.max(0, Math.round(c * (1 + m / 100)));
+}
+
+// % đã cộng ngược từ cặp (vốn, giá): vốn <= 0 thì 0 (khỏi chia 0).
+export function markupFromPrice(
+  cost: number | null | undefined,
+  price: number | null | undefined
+): number {
+  const c = Number(cost) || 0;
+  const p = Number(price) || 0;
+  if (c <= 0) return 0;
+  return ((p - c) / c) * 100;
+}
+
 // Vốn 1 dòng đơn để tính lãi kỳ (0078): ưu tiên vốn CHỤP lúc bán (chính xác cho
 // đơn mới), dòng cũ chưa có thì fallback MAC hiện tại, mất hàng thì 0.7 giá bán
 // (cùng quy ước Tổng quan cũ để số kỳ trước không đổi đột ngột).

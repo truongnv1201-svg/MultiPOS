@@ -12,6 +12,7 @@ import { NumberInput } from '@/components/common/NumberInput';
 import { QTY_MAX_DECIMALS, roundQty, suggestDecimalForUnit } from '@/lib/quantity';
 import { SheetShell } from '@/components/common/SheetShell';
 import { FilterSelect } from '@/components/ui/FilterControls';
+import { MarginCalcField } from '@/components/products/MarginCalcField';
 import { Plus } from 'lucide-react';
 
 export const UNIT_OPTIONS = [
@@ -240,6 +241,14 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
               />
             </div>
           </div>
+
+          {productType !== 'service' && productType !== 'combo' && (
+            <MarginCalcField
+              cost={importPrice}
+              price={retailPrice}
+              onPriceChange={(val) => setRetailPrice(val)}
+            />
+          )}
 
           {productType === 'area' && (
             <div className="grid grid-cols-2 gap-2 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
