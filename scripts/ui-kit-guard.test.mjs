@@ -169,12 +169,11 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
       assert.match(src, /<FilterSelect/, `${f} phải dùng FilterSelect chung`);
       assert.ok(!/^\s*<select[\s>]/m.test(src), `${f} không còn thẻ select gốc`);
     }
-    // Listbox chuẩn select gốc: không hẹp hơn nút (minWidth), giãn theo nội
-    // dung trong màn hình (maxWidth) — mọi chỗ đồng đều, không ép cứng 1 số.
+    // Listbox rộng đúng bằng nút ở mọi chỗ (quy ước chung).
     const kit = read('components/ui/FilterControls.tsx');
-    assert.match(kit, /minWidth = Math\.max\(r\.width, 170\)/);
-    assert.match(kit, /maxWidth = Math\.max\(minWidth, window\.innerWidth - left - 8\)/);
-    assert.ok(!/width: pos\.width/.test(kit), 'không còn ép cứng rộng listbox');
+    assert.match(kit, /const width = r\.width;/);
+    assert.ok(!/minWidth: pos\.minWidth/.test(kit), 'không còn giãn theo nội dung');
+    assert.ok(!/maxWidth: pos\.maxWidth/.test(kit), 'không còn giãn theo nội dung');
   });
 
   it('trạng thái rỗng chuẩn TableEmpty/ListEmpty', () => {
