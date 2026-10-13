@@ -401,12 +401,12 @@ describe('CK theo dong POS: thu ngan nhap % truc tiep tren gio', () => {
     assert.match(read('lib/pricing.ts'), /export function lineGrossOf/);
   });
 
-  it('hoa don A4/A5 co 2 cot CK rieng (%, đ), chan tong span lech', () => {
+  it('hoa don A4/A5: 2 cot CK rieng, khong nhan dong thua (K80 giu dong CK)', () => {
     const receipt = read('components/pos/ReceiptModal.tsx');
     assert.match(receipt, /CK \(\%\)<\/th>/);
     assert.match(receipt, /CK \(đ\)<\/th>/);
     assert.match(receipt, /lineDiscountPercent\(it\)/);
-    assert.match(receipt, /CK dòng: -\{formatVND\(it\.discount_amount\)\}/);
+    assert.ok(!/CK dòng: -\{formatVND\(it\.discount_amount\)\}/.test(receipt), 'A4/A5 còn nhãn CK dòng thừa dưới tên hàng');
     assert.match(receipt, /CK \{lineDiscountPercent\(it\)\}\%: -\{formatVND\(it\.discount_amount\)\}/);
     // 8 cot (STT/Ten/DVT/SL/CK%/CKd/DG/TT) -> chan tong colSpan 7, khong con 5
     assert.match(receipt, /<td colSpan=\{7\}/);
