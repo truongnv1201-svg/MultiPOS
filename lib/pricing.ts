@@ -162,6 +162,16 @@ export function lineDiscountFromPercent(
   return Math.min(gross, Math.round((gross * p) / 100));
 }
 
+/** Tiền nhập trực tiếp -> CK dòng (kẹp 0..tiền dòng, tròn đồng). */
+export function lineDiscountFromAmount(
+  item: Pick<OrderItem, 'subtotal' | 'discount_amount'>,
+  amount: number
+): number {
+  const gross = lineGrossOf(item);
+  if (!(gross > 0)) return 0;
+  return Math.min(gross, Math.max(0, Math.round(Number(amount) || 0)));
+}
+
 /** % hiển thị từ tiền CK đã lưu (1 số lẻ, để gõ lại không trôi số). */
 export function lineDiscountPercent(item: Pick<OrderItem, 'subtotal' | 'discount_amount'>): number {
   const gross = lineGrossOf(item);

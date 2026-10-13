@@ -10,6 +10,7 @@ import {
   resolvePaidAmount,
   lineGrossOf,
   lineDiscountFromPercent,
+  lineDiscountFromAmount,
   lineDiscountPercent,
 } from '../lib/pricing.ts';
 
@@ -283,6 +284,13 @@ describe('CK theo dong POS: nhap % gon, luu tien', () => {
     assert.equal(lineGrossOf(zero), 0);
     assert.equal(lineDiscountFromPercent(zero, 50), 0);
     assert.equal(lineDiscountPercent(zero), 0);
+  });
+  it('nhap tien truc tiep: tron dong, kep 0..tien dong', () => {
+    assert.equal(lineDiscountFromAmount(goods(), 3000), 3000);
+    assert.equal(lineDiscountFromAmount(goods(), 0), 0);
+    assert.equal(lineDiscountFromAmount(goods(), -100), 0);
+    assert.equal(lineDiscountFromAmount(goods(), 99999999), 248000);
+    assert.equal(lineDiscountFromAmount(goods(), 2480.6), 2481);
   });
   it('CK dong tru truoc CK bill F8 (giỏ 248k, CK dòng 24800 + bill 10%)', () => {
     const disc = lineDiscountFromPercent(goods(), 10);

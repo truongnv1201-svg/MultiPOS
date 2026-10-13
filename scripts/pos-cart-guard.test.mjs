@@ -382,23 +382,27 @@ describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh ti�
 describe('CK theo dong POS: thu ngan nhap % truc tiep tren gio', () => {
   const pos = read('components/pos/POSScreen.tsx');
 
-  it('bang desktop co cot CK (%), record mobile co o CK ke o SL', () => {
+  it('bang desktop co cot CK (%) + cot CK (đ) rieng, record mobile co o CK ke o SL', () => {
     assert.match(pos, /CK \(\%\)/);
+    assert.match(pos, /CK \(đ\)/);
     assert.match(pos, /<LineDiscountInput/);
     assert.match(pos, /ariaLabel=\{`Chiết khấu dòng \$\{item\.name\}`\}/);
+    assert.match(pos, /aria-label=\{`Tiền chiết khấu dòng \$\{item\.name\}`\}/);
   });
 
-  it('% quy ra tien + kep qua helper chung, luu discount_amount (khong them truong)', () => {
+  it('% va tien dong bo 2 chieu qua helper chung, luu discount_amount (khong them truong)', () => {
     assert.match(pos, /lineDiscountFromPercent\(item, pct\)/);
+    assert.match(pos, /lineDiscountFromAmount\(item, value\)/);
     assert.match(pos, /updateCartItem\(item\.id, \{ discount_amount: lineDiscountFromPercent/);
+    assert.match(pos, /updateCartItem\(item\.id, \{ discount_amount: lineDiscountFromAmount/);
     assert.match(read('lib/pricing.ts'), /export function lineDiscountFromPercent/);
+    assert.match(read('lib/pricing.ts'), /export function lineDiscountFromAmount/);
     assert.match(read('lib/pricing.ts'), /export function lineDiscountPercent/);
     assert.match(read('lib/pricing.ts'), /export function lineGrossOf/);
   });
 
-  it('dong co CK hien do + so tien, hoa don in CK dong', () => {
+  it('dong co CK hien do, hoa don in CK dong', () => {
     assert.match(pos, /active=\{item\.discount_amount > 0\}/);
-    assert.match(pos, /-\{formatVND\(item\.discount_amount\)\}/);
     assert.match(read('components/pos/ReceiptModal.tsx'), /CK dòng: -\{formatVND\(it\.discount_amount\)\}/);
   });
 

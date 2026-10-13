@@ -17,7 +17,7 @@ import { notify } from '@/components/common/Toast';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
-import { resolvePaidAmount, lineDiscountFromPercent, lineDiscountPercent } from '@/lib/pricing';
+import { resolvePaidAmount, lineDiscountFromPercent, lineDiscountFromAmount, lineDiscountPercent } from '@/lib/pricing';
 import { previewImportAvg } from '@/lib/costing';
 import { allowsDecimalQty, formatQty, parseQtyInput, snapQty } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
@@ -1239,7 +1239,7 @@ export function POSScreen() {
                 })}
               </div>
               <div className="hidden lg:block border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
-              <table className="w-full min-w-[760px] text-left text-xs border-collapse">
+              <table className="w-full min-w-[840px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 select-none">
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
@@ -1248,6 +1248,7 @@ export function POSScreen() {
                     <th className="py-2.5 px-2.5 w-28 text-right">Đơn giá (đ)</th>
                     <th className="py-2.5 px-2.5 w-28 text-center">SL / Diện tích</th>
                     <th className="py-2.5 px-2.5 w-20 text-center" title="Chiết khấu riêng từng dòng (% trên tiền dòng, trừ trước CK cả bill)">CK (%)</th>
+                    <th className="py-2.5 px-2.5 w-28 text-right" title="Tiền chiết khấu dòng (đồng bộ 2 chiều với CK %)">CK (đ)</th>
                     <th className="py-2.5 px-2.5 w-24 text-right">Phí GC (đ)</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
                     <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
@@ -1356,7 +1357,7 @@ export function POSScreen() {
                           )}
                         </td>
 
-                        {/* CK theo dòng — thu ngân dùng được (quy ra tiền, kẹp ≤ tiền dòng) */}
+                        {/* CK theo dòng (%): thu ngân dùng được, quy ra tiền, kẹp ≤ tiền dòng */}
                         <td
                           className="py-2.5 px-2.5 text-center"
                           title={
@@ -1373,11 +1374,22 @@ export function POSScreen() {
                             }
                             ariaLabel={`Chiết khấu dòng ${item.name}`}
                           />
-                          {item.discount_amount > 0 && (
-                            <div className="text-[10px] font-mono text-rose-600 leading-tight">
-                              -{formatVND(item.discount_amount)}
-                            </div>
-                          )}
+                        </td>
+
+                        {/* CK theo dòng (đ): nhập trực tiếp, đồng bộ 2 chiều với CK (%) */}
+                        <td className="py-2.5 px-2.5 text-right">
+                          <NumberInput
+                            value={item.discount_amount || 0}
+                            allowDecimals={false}
+                            placeholder="0"
+                            aria-label={`Tiền chiết khấu dòng ${item.name}`}
+                            title="Tiền chiết khấu dòng (đồng bộ với CK %)"
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(value) =>
+                              updateCartItem(item.id, { discount_amount: lineDiscountFromAmount(item, value) })
+                            }
+                            className={editCellClass('w-full', `text-right ${item.discount_amount > 0 ? 'text-rose-700!' : ''}`)}
+                          />
                         </td>
 
                         {/* Processing fee */}
