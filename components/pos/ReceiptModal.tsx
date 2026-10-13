@@ -220,19 +220,22 @@ export function ReceiptModal() {
             <p>ĐC: {shop.address} • Hotline: {shop.hotline}</p>
             {(shop.taxCode || shop.email) && <p>MST: {shop.taxCode || '—'} • Email: {shop.email || '—'}</p>}
           </div>
-          <div className="flex items-start gap-3">
+          <div className="flex items-stretch gap-3">
             <div className="text-right">
               <p className={`font-extrabold uppercase ${compact ? 'text-sm' : 'text-base'}`}>Hóa đơn bán hàng</p>
               <p>Số: <strong>{order.order_code}</strong></p>
               <p>Ngày: {new Date(order.created_at).toLocaleString('vi-VN')}</p>
             </div>
             {showVietqrBlock && (
-              <VietqrCode
-                config={vietqr}
-                amount={qrAmount}
-                addInfo={`${order.order_code} MULTIPOS`}
-                className={`${compact ? 'w-16 h-16' : 'w-20 h-20'} shrink-0`}
-              />
+              // Khung vuông cao bằng khối 3 dòng chữ + viền đen, QR fill đầy khung
+              <div className={`${compact ? 'h-[58px] w-[58px]' : 'h-[68px] w-[68px]'} border border-black bg-white p-[3px] shrink-0`}>
+                <VietqrCode
+                  config={vietqr}
+                  amount={qrAmount}
+                  addInfo={`${order.order_code} MULTIPOS`}
+                  className="h-full w-full"
+                />
+              </div>
             )}
           </div>
         </div>

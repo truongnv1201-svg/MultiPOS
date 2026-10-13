@@ -407,6 +407,9 @@ describe('CK theo dong POS: thu ngan nhap % truc tiep tren gio', () => {
     const receipt = read('components/pos/ReceiptModal.tsx');
     assert.match(receipt, /<VietqrCode/);
     assert.match(receipt, /amount=\{qrAmount\}/);
+    // Khung vuông bằng khối 3 dòng chữ + viền đen, QR fill đầy
+    assert.match(receipt, /h-\[68px\] w-\[68px\]/);
+    assert.match(receipt, /border border-black bg-white p-\[3px\]/);
     assert.ok(!/Thanh toán VietQR/.test(receipt), 'còn chú thích dưới QR');
     assert.ok(!/Quét mã tra cứu hóa đơn/.test(receipt), 'còn QR tra cứu ở hàng chữ ký A4/A5');
     assert.ok(!/Khối QR bên trái/.test(receipt), 'còn cột QR ở hàng chữ ký A4/A5');
