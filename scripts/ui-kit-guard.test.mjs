@@ -169,11 +169,10 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
       assert.match(src, /<FilterSelect/, `${f} phải dùng FilterSelect chung`);
       assert.ok(!/^\s*<select[\s>]/m.test(src), `${f} không còn thẻ select gốc`);
     }
-    // Listbox rộng theo nội dung dài nhất ngay từ đầu (quy ước chung):
-    // không hẹp hơn nút, không tràn màn hình; nhãn quá dài cắt + tooltip.
+    // Quy ước chung: listbox rộng đúng bằng nút ở mọi chỗ.
+    // Nhãn dài hơn nút cắt ellipsis, hover hiện đủ qua tooltip.
     const kit = read('components/ui/FilterControls.tsx');
-    assert.match(kit, /contentWidthPx\(options\)/);
-    assert.match(kit, /measureText\(label\)/);
+    assert.match(kit, /const width = r\.width;/);
     assert.match(kit, /title=\{o\.label\}/);
   });
 
