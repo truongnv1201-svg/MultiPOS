@@ -22,7 +22,14 @@ import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 
 export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
-  const { customers, orders, addCustomer, updateCustomer, deleteCustomer, collectDebt } = useStore();
+  const { customers, orders, profile, addCustomer, updateCustomer, deleteCustomer, collectDebt } = useStore();
+
+  // 0083: thu nợ = thu ngân trở lên; xóa KH = quản lý trở lên (khớp guard server);
+  // !profile = chế độ local-only (chưa cấu hình Supabase)
+  const canCollectDebt = !profile || profile.role !== 'worker';
+  const canDeleteCustomer = !profile || profile.role === 'admin' || profile.role === 'manager';
+  const detailActionCols = 1 + (canCollectDebt ? 1 : 0) + (canDeleteCustomer ? 1 : 0);
+  const detailActionGrid = detailActionCols === 3 ? 'grid-cols-3' : detailActionCols === 2 ? 'grid-cols-2' : 'grid-cols-1';
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState<string>('all');
   const [debtFilter, setDebtFilter] = useState<string>('all');
@@ -520,16 +527,18 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteCustomer(c);
-                            }}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded text-rose-600 transition-colors hover:bg-rose-50"
-                            title="Xóa khách hàng"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {canDeleteCustomer && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCustomer(c);
+                              }}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded text-rose-600 transition-colors hover:bg-rose-50"
+                              title="Xóa khách hàng"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           </div>
                         </td>
                       </tr>
@@ -591,21 +600,22 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
                 </div>
               </div>
 
-              {/* Debt settlement quick trigger */}
-              {visibleCustomer.current_debt > 0 ? (
-                <button
-                  onClick={() => handleOpenCollectModal(visibleCustomer)}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <DollarSign className="w-4 h-4" />
-                  <span>Lập Phiếu Thu Nợ Khách Hàng (PT)</span>
-                </button>
-              ) : (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-center font-medium flex items-center justify-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Khách hàng không còn dư nợ!</span>
-                </div>
-              )}
+              {/* Debt settlement quick trigger — 0083: thợ không thu nợ */}
+              {canCollectDebt &&
+                (visibleCustomer.current_debt > 0 ? (
+                  <button
+                    onClick={() => handleOpenCollectModal(visibleCustomer)}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    <span>Lập Phiếu Thu Nợ Khách Hàng (PT)</span>
+                  </button>
+                ) : (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-center font-medium flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Khách hàng không còn dư nợ!</span>
+                  </div>
+                ))}
             </div>
           </div>
           </div>
@@ -656,7 +666,7 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
               )}
             </div>
 
-            <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 grid grid-cols-3 gap-2">
+            <div className={`shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 grid ${detailActionGrid} gap-2`}>
               <button
                 type="button"
                 onClick={() => {
@@ -668,29 +678,33 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
                 <Edit2 className="w-4 h-4" />
                 Sửa
               </button>
-              <button
-                type="button"
-                disabled={selectedCustomer.current_debt <= 0}
-                onClick={() => {
-                  setIsMobileDetailOpen(false);
-                  handleOpenCollectModal(selectedCustomer);
-                }}
-                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-xs font-bold text-white active:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500"
-              >
-                <DollarSign className="w-4 h-4" />
-                Thu nợ
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileDetailOpen(false);
-                  handleDeleteCustomer(selectedCustomer);
-                }}
-                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white text-xs font-bold text-rose-600 active:bg-rose-50"
-              >
-                <Trash2 className="w-4 h-4" />
-                Xóa
-              </button>
+              {canCollectDebt && (
+                <button
+                  type="button"
+                  disabled={selectedCustomer.current_debt <= 0}
+                  onClick={() => {
+                    setIsMobileDetailOpen(false);
+                    handleOpenCollectModal(selectedCustomer);
+                  }}
+                  className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-xs font-bold text-white active:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Thu nợ
+                </button>
+              )}
+              {canDeleteCustomer && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileDetailOpen(false);
+                    handleDeleteCustomer(selectedCustomer);
+                  }}
+                  className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white text-xs font-bold text-rose-600 active:bg-rose-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </button>
+              )}
             </div>
           </div>
         </div>

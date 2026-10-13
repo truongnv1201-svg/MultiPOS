@@ -12,3 +12,6 @@ test-results/
 playwright-report/
 # Chip version CalVer: sinh mỗi lần build, không commit
 public/build-info.json
+# Runtime Python nhúng của agent ngoài (179MB) + config IDE ngoài — không commit
+Python/
+.qoder/

@@ -36,11 +36,16 @@ import { sortRows } from '@/lib/sort';
 export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
   const {
     orders,
+    profile,
     setReceiptModalOrder,
     cancelOrder,
     returnOrder,
     setCurrentScreen,
   } = useStore();
+
+  // 0083: thợ không hủy/trả (khớp guard server is_counter_staff); !profile = local-only
+  const canMoneyOps =
+    !profile || profile.role === 'admin' || profile.role === 'manager' || profile.role === 'cashier';
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -642,28 +647,30 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div className="mt-auto pt-3 border-t border-slate-200 space-y-2">
-              {selectedOrder.status === 'completed' && (
-                <button
-                  onClick={() => handleReturnOrder(selectedOrder)}
-                  className="w-full py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Trả hàng & Hoàn tiền (Khấu trừ nợ)</span>
-                </button>
-              )}
+            {/* Action buttons — 0083: thợ không hủy/trả (khớp guard server) */}
+            {canMoneyOps && (
+              <div className="mt-auto pt-3 border-t border-slate-200 space-y-2">
+                {selectedOrder.status === 'completed' && (
+                  <button
+                    onClick={() => handleReturnOrder(selectedOrder)}
+                    className="w-full py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Trả hàng & Hoàn tiền (Khấu trừ nợ)</span>
+                  </button>
+                )}
 
-              {selectedOrder.status !== 'cancelled' && (
-                <button
-                  onClick={() => handleCancelOrder(selectedOrder.id)}
-                  className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Ban className="w-3.5 h-3.5" />
-                  <span>Hủy hóa đơn & Hoàn quỹ</span>
-                </button>
-              )}
-            </div>
+                {selectedOrder.status !== 'cancelled' && (
+                  <button
+                    onClick={() => handleCancelOrder(selectedOrder.id)}
+                    className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Hủy hóa đơn & Hoàn quỹ</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           </div>
         ) : (

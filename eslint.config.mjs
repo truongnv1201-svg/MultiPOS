@@ -12,7 +12,8 @@ export default defineConfig([
   // gen-build-info.cjs là script build Node (.cjs không nằm trong files mà
   // eslint-config-next đăng ký plugin react-hooks) — quét nó gây lỗi config
   // "could not find plugin react-hooks" (CI #251 đỏ), không phải lỗi code.
-  { ignores: ["playwright-report/**", "test-results/**", ".next/**", "node_modules/**", "scripts/gen-build-info.cjs"] },
+  // Python/ là runtime Python nhúng (không phải source JS của app) — quét vào gây lỗi parse.
+  { ignores: ["playwright-report/**", "test-results/**", ".next/**", "node_modules/**", "Python/**", "scripts/gen-build-info.cjs"] },
   {
     extends: [...next],
     // TODO(P3): React Compiler bỏ qua tối ưu vài useMemo (Inventory/Suppliers) nhưng memo tay
