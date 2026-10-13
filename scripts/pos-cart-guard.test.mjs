@@ -378,3 +378,34 @@ describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh ti�
     assert.match(catalog, /Dùng hồ sơ cũ/);
   });
 });
+
+describe('CK theo dong POS: thu ngan nhap % truc tiep tren gio', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+
+  it('bang desktop co cot CK (%), record mobile co o CK ke o SL', () => {
+    assert.match(pos, /CK \(\%\)/);
+    assert.match(pos, /<LineDiscountInput/);
+    assert.match(pos, /ariaLabel=\{`Chiết khấu dòng \$\{item\.name\}`\}/);
+  });
+
+  it('% quy ra tien + kep qua helper chung, luu discount_amount (khong them truong)', () => {
+    assert.match(pos, /lineDiscountFromPercent\(item, pct\)/);
+    assert.match(pos, /updateCartItem\(item\.id, \{ discount_amount: lineDiscountFromPercent/);
+    assert.match(read('lib/pricing.ts'), /export function lineDiscountFromPercent/);
+    assert.match(read('lib/pricing.ts'), /export function lineDiscountPercent/);
+    assert.match(read('lib/pricing.ts'), /export function lineGrossOf/);
+  });
+
+  it('dong co CK hien do + so tien, hoa don in CK dong', () => {
+    assert.match(pos, /active=\{item\.discount_amount > 0\}/);
+    assert.match(pos, /-\{formatVND\(item\.discount_amount\)\}/);
+    assert.match(read('components/pos/ReceiptModal.tsx'), /CK dòng: -\{formatVND\(it\.discount_amount\)\}/);
+  });
+
+  it('component o CK dung chung style o sua + cho so le + kep 0..100', () => {
+    const input = read('components/pos/LineDiscountInput.tsx');
+    assert.match(input, /editCellClass\(/);
+    assert.match(input, /allowDecimals/);
+    assert.match(input, /Math\.min\(100, Math\.round\(value \* 10\) \/ 10\)/);
+  });
+});

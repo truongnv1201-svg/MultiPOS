@@ -8,6 +8,9 @@ import {
   recomputeOrderItem,
   calcCartTotals,
   resolvePaidAmount,
+  lineGrossOf,
+  lineDiscountFromPercent,
+  lineDiscountPercent,
 } from '../lib/pricing.ts';
 
 const goods = (over = {}) => ({
@@ -255,5 +258,37 @@ describe('calc tự kẹp đầu vào bẩn (state cũ / DB)', () => {
     const t = calcCartTotals(cart({ items: [goods()], vat_percent: 200 }));
     assert.equal(t.vat_amount, 248000);
     assert.equal(t.vat_percent, 100);
+  });
+});
+
+describe('CK theo dong POS: nhap % gon, luu tien', () => {
+  it('gross = subtotal + discount (chinh xac ca hang dien tich)', () => {
+    assert.equal(lineGrossOf(goods()), 248000);
+    assert.equal(lineGrossOf(goods({ subtotal: 200000, discount_amount: 48000 })), 248000);
+  });
+  it('% -> tien, tron dong, kep 0..100 va <= tien dong', () => {
+    assert.equal(lineDiscountFromPercent(goods(), 10), 24800);
+    assert.equal(lineDiscountFromPercent(goods(), 0), 0);
+    assert.equal(lineDiscountFromPercent(goods(), -5), 0);
+    assert.equal(lineDiscountFromPercent(goods(), 150), 248000);
+    assert.equal(lineDiscountFromPercent(goods(), 100), 248000);
+  });
+  it('% hien thi 1 so le, gõ lai khong troi (10% -> 10)', () => {
+    const disc = lineDiscountFromPercent(goods(), 10);
+    assert.equal(lineDiscountPercent(goods({ subtotal: 248000 - disc, discount_amount: disc })), 10);
+    assert.equal(lineDiscountPercent(goods({ subtotal: 248000, discount_amount: 0 })), 0);
+  });
+  it('dong 0d -> % va tien đều 0 (khỏi chia 0)', () => {
+    const zero = goods({ subtotal: 0, discount_amount: 0, quantity: 0, unit_price: 0 });
+    assert.equal(lineGrossOf(zero), 0);
+    assert.equal(lineDiscountFromPercent(zero, 50), 0);
+    assert.equal(lineDiscountPercent(zero), 0);
+  });
+  it('CK dong tru truoc CK bill F8 (giỏ 248k, CK dòng 24800 + bill 10%)', () => {
+    const disc = lineDiscountFromPercent(goods(), 10);
+    const item = { ...goods(), subtotal: 248000 - disc, discount_amount: disc };
+    const t = calcCartTotals(cart({ items: [item], discount_percent: 10 }));
+    assert.equal(t.discount_amount, 22320);
+    assert.equal(t.payable, 223200 - 22320);
   });
 });

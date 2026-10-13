@@ -8,6 +8,7 @@ import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import { readOnlyCellClass, editCellClass } from '@/components/common/EditableCell';
 import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
 import { PriceDraftInput } from '@/components/pos/PriceDraftInput';
+import { LineDiscountInput } from '@/components/pos/LineDiscountInput';
 import MobilePaymentSheet, { type MobilePaymentMethod } from '@/components/pos/MobilePaymentSheet';
 import { POSQuickCustomerModal } from '@/components/pos/POSQuickCustomerModal';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
@@ -16,7 +17,7 @@ import { notify } from '@/components/common/Toast';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { formatVND, formatNumber, handleMoneyInputChange } from '@/lib/format';
 import { vietnamizeError } from '@/lib/error-vi';
-import { resolvePaidAmount } from '@/lib/pricing';
+import { resolvePaidAmount, lineDiscountFromPercent, lineDiscountPercent } from '@/lib/pricing';
 import { previewImportAvg } from '@/lib/costing';
 import { allowsDecimalQty, formatQty, parseQtyInput, snapQty } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
@@ -1201,6 +1202,25 @@ export function POSScreen() {
                               width="w-20"
                             />
                           )}
+                          <span
+                            className="inline-flex items-center gap-0.5"
+                            title={
+                              item.discount_amount > 0
+                                ? `Giảm ${formatVND(item.discount_amount)} trên dòng này`
+                                : 'Chiết khấu riêng dòng này (% trên tiền dòng)'
+                            }
+                          >
+                            <LineDiscountInput
+                              percent={lineDiscountPercent(item)}
+                              active={item.discount_amount > 0}
+                              onCommit={(pct) =>
+                                updateCartItem(item.id, { discount_amount: lineDiscountFromPercent(item, pct) })
+                              }
+                              ariaLabel={`Chiết khấu dòng ${item.name}`}
+                              width="w-14"
+                            />
+                            <span className="text-[11px] font-bold text-slate-400">%</span>
+                          </span>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">
@@ -1219,7 +1239,7 @@ export function POSScreen() {
                 })}
               </div>
               <div className="hidden lg:block border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
-              <table className="w-full min-w-[720px] text-left text-xs border-collapse">
+              <table className="w-full min-w-[760px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 select-none">
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
@@ -1227,6 +1247,7 @@ export function POSScreen() {
                     <th className="py-2.5 px-1 w-16 text-center" title="Đơn vị tính của mặt hàng">ĐVT</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Đơn giá (đ)</th>
                     <th className="py-2.5 px-2.5 w-28 text-center">SL / Diện tích</th>
+                    <th className="py-2.5 px-2.5 w-20 text-center" title="Chiết khấu riêng từng dòng (% trên tiền dòng, trừ trước CK cả bill)">CK (%)</th>
                     <th className="py-2.5 px-2.5 w-24 text-right">Phí GC (đ)</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
                     <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
@@ -1332,6 +1353,30 @@ export function POSScreen() {
                               onCommit={(value) => updateCartItem(item.id, { quantity: value })}
                               ariaLabel={`Số lượng ${item.name}`}
                             />
+                          )}
+                        </td>
+
+                        {/* CK theo dòng — thu ngân dùng được (quy ra tiền, kẹp ≤ tiền dòng) */}
+                        <td
+                          className="py-2.5 px-2.5 text-center"
+                          title={
+                            item.discount_amount > 0
+                              ? `Giảm ${formatVND(item.discount_amount)} trên dòng này`
+                              : 'Chiết khấu riêng dòng này (% trên tiền dòng)'
+                          }
+                        >
+                          <LineDiscountInput
+                            percent={lineDiscountPercent(item)}
+                            active={item.discount_amount > 0}
+                            onCommit={(pct) =>
+                              updateCartItem(item.id, { discount_amount: lineDiscountFromPercent(item, pct) })
+                            }
+                            ariaLabel={`Chiết khấu dòng ${item.name}`}
+                          />
+                          {item.discount_amount > 0 && (
+                            <div className="text-[10px] font-mono text-rose-600 leading-tight">
+                              -{formatVND(item.discount_amount)}
+                            </div>
                           )}
                         </td>
 

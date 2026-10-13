@@ -141,6 +141,33 @@ export function calcCartTotals(cart: CartTotalsInput): CartTotals {
   };
 }
 
+// CK theo dòng ở POS (mở cho cả thu ngân): nhập % gọn nhẹ, lưu discount_amount (đ).
+// gross = subtotal + discount — chính xác theo định nghĩa recomputeOrderItem
+// (subtotal = max(0, round(gross - discount))), đúng cả hàng diện tích.
+// Server pos_checkout kẹp CK dòng ≤ tiền dòng — UI kẹp tương đương ở đây.
+
+/** Tiền hàng trước CK của 1 dòng (để quy % ra tiền + kẹp). */
+export function lineGrossOf(item: Pick<OrderItem, 'subtotal' | 'discount_amount'>): number {
+  return Math.max(0, Math.round(item.subtotal) + Math.max(0, Math.round(item.discount_amount || 0)));
+}
+
+/** % nhập vào -> tiền CK dòng (kẹp 0..100% và ≤ tiền dòng). */
+export function lineDiscountFromPercent(
+  item: Pick<OrderItem, 'subtotal' | 'discount_amount'>,
+  pct: number
+): number {
+  const gross = lineGrossOf(item);
+  if (!(gross > 0)) return 0;
+  const p = Math.min(100, Math.max(0, Number(pct) || 0));
+  return Math.min(gross, Math.round((gross * p) / 100));
+}
+
+/** % hiển thị từ tiền CK đã lưu (1 số lẻ, để gõ lại không trôi số). */
+export function lineDiscountPercent(item: Pick<OrderItem, 'subtotal' | 'discount_amount'>): number {
+  const gross = lineGrossOf(item);
+  if (!(gross > 0)) return 0;
+  return Math.round((Math.max(0, Math.round(item.discount_amount || 0)) / gross) * 1000) / 10;
+}
 // Số tiền khách đã trả hiệu dụng từ ô tendered:
 // Ô trống = trả đủ CHỈ cho chuyển khoản; tiền mặt bắt buộc đã nhập (UI chặn),
 // nợ ghi 0 để rơi vào guard nợ vô chủ. Dùng chung cho POSScreen (chặn nợ vô chủ) và

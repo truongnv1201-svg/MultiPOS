@@ -251,6 +251,7 @@ export function ReceiptModal() {
                     <div key={k} className={`${compact ? 'text-[9px]' : 'text-[11px]'} text-slate-600`}>• {d.quantity} tấm {d.length.toFixed(2)}m × {d.width.toFixed(2)}m = {d.actual_m2.toFixed(2)}m2{d.grinding_type !== 'none' ? ' + mài' : ''}</div>
                   ))}
                   {it.processing_fee > 0 && <div className={`${compact ? 'text-[9px]' : 'text-[11px]'} text-amber-700`}>Phí gia công: {formatVND(it.processing_fee)}</div>}
+                  {it.discount_amount > 0 && <div className={`${compact ? 'text-[9px]' : 'text-[11px]'} text-rose-600`}>CK dòng: -{formatVND(it.discount_amount)}</div>}
                 </td>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center`}>{it.unit}</td>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatQty(it.quantity)}</td>
