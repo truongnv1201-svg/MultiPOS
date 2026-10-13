@@ -45,10 +45,44 @@ interface FilterSelectProps {
   disabled?: boolean;
 }
 
+// Đo rộng nhãn theo font hệ thống (khớp text-xs) để nút rộng sẵn theo option
+// dài nhất ngay từ đầu. Cache canvas ở module; SSR-safe (không document -> 0).
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+function labelWidthPx(label: string): number {
+  try {
+    if (measureCtx === undefined) {
+      if (typeof document === 'undefined') return 0;
+      const canvas = document.createElement('canvas');
+      measureCtx = canvas.getContext('2d');
+    }
+    if (!measureCtx) return 0;
+    measureCtx.font = '600 12px ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+    return measureCtx.measureText(label).width;
+  } catch {
+    return 0;
+  }
+}
+
+// Rộng nội dung dài nhất + padding + chỗ tick chọn (px).
+function contentWidthPx(options: { value: string; label: string }[]): number {
+  let max = 0;
+  for (const o of options) max = Math.max(max, labelWidthPx(o.label));
+  if (max <= 0) return 0;
+  return Math.ceil(max) + 20 + 22 + 8;
+}
+
 export function FilterSelect({ id, value, onChange, options, title, className = '', disabled = false }: FilterSelectProps) {
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
+  // Nút rộng sẵn theo nội dung (đo sau mount để khỏi lệch SSR — cùng mẫu useIsPhone).
+  const labelsKey = options.map((o) => o.label).join('\n');
+  const [contentMin, setContentMin] = useState(0);
+  useEffect(() => {
+    const sync = () => setContentMin(contentWidthPx(options));
+    sync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labelsKey]);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value) ?? options[0];
@@ -113,7 +147,10 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
   };
 
   return (
-    <div className={`min-w-0 ${className}`}>
+    <div
+      className={`min-w-0 ${className}`}
+      style={contentMin > 0 ? { minWidth: `min(${contentMin}px, 100%)` } : undefined}
+    >
       <button
         ref={btnRef}
         id={id}
