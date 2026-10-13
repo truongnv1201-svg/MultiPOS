@@ -224,10 +224,19 @@ export function ReceiptModal() {
             <p>ĐC: {shop.address} • Hotline: {shop.hotline}</p>
             {(shop.taxCode || shop.email) && <p>MST: {shop.taxCode || '—'} • Email: {shop.email || '—'}</p>}
           </div>
-          <div className="text-right">
-            <p className={`font-extrabold uppercase ${compact ? 'text-sm' : 'text-base'}`}>Hóa đơn bán hàng</p>
-            <p>Số: <strong>{order.order_code}</strong></p>
-            <p>Ngày: {new Date(order.created_at).toLocaleString('vi-VN')}</p>
+          <div className="flex items-start gap-3">
+            <div className="text-right">
+              <p className={`font-extrabold uppercase ${compact ? 'text-sm' : 'text-base'}`}>Hóa đơn bán hàng</p>
+              <p>Số: <strong>{order.order_code}</strong></p>
+              <p>Ngày: {new Date(order.created_at).toLocaleString('vi-VN')}</p>
+            </div>
+            {showVietqrBlock && (
+              <>
+                {/* QR VietQR gọn (chỉ mã, không chú thích) đặt cạnh tiêu đề hóa đơn */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={buildVietqrUrl(vietqr, qrAmount, `${order.order_code} MULTIPOS`)} alt="VietQR thanh toán" className={`${compact ? 'w-16 h-16' : 'w-20 h-20'} object-contain shrink-0`} />
+              </>
+            )}
           </div>
         </div>
         <div className={`grid grid-cols-2 ${compact ? 'gap-2' : 'gap-3'}`}>
@@ -308,29 +317,11 @@ export function ReceiptModal() {
           </tfoot>
         </table>
         {order.note && <p><strong>Ghi chú:</strong> {order.note}</p>}
-        {/* Ký tên + QR + footer — break-inside-avoid */}
+        {/* Ký tên (QR đã dời lên header) + footer — break-inside-avoid */}
         <div className="break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-          {/* Chữ ký — QR bên trái, ký tên bên phải */}
+          {/* Chữ ký 2 bên */}
           <div className="flex items-stretch gap-3">
-            {/* Khối QR bên trái */}
-            <div className={`shrink-0 flex flex-col items-center justify-center ${compact ? 'min-w-[84px]' : 'min-w-[110px]'}`}>
-              {showVietqrBlock ? (
-                <>
-                  {/* QR động theo số tiền từ img.vietqr.io — next/image không tối ưu được ảnh ngoài động + làm vỡ CSS in: giữ <img>. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={buildVietqrUrl(vietqr, order.total_amount, `${order.order_code} MULTIPOS`)} alt="VietQR" className={`${compact ? 'w-16 h-16' : 'w-20 h-20'} object-contain`} />
-                  <p className={`font-bold text-center ${compact ? 'text-[9px] mt-0.5' : 'text-[10px] mt-1'}`}>Thanh toán VietQR</p>
-                  <p className={`text-slate-500 text-center ${compact ? 'text-[8px]' : 'text-[9px]'}`}>{vietqr.bank} • {vietqr.account}</p>
-                  <p className={`font-mono font-bold text-center ${compact ? 'text-[9px]' : 'text-[10px]'}`}>{formatVND(order.debt_amount > 0 ? order.debt_amount : order.total_amount)}</p>
-                </>
-              ) : (
-                <>
-                  <QrCode className={`${compact ? 'w-12 h-12' : 'w-16 h-16'} text-slate-700`} />
-                  <p className={`text-slate-400 text-center ${compact ? 'text-[8px] mt-0.5' : 'text-[9px] mt-1'}`}>Quét mã tra cứu hóa đơn</p>
-                </>
-              )}
-            </div>
-            {/* Khối ký tên bên phải */}
+            {/* Khối ký tên */}
             <div className="flex-1 grid grid-cols-2 text-center">
               <div className={`flex flex-col items-center justify-start ${compact ? 'p-2' : 'p-3'}`}>
                 <p className="font-bold">Khách hàng</p>

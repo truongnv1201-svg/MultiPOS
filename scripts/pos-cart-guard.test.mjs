@@ -401,6 +401,14 @@ describe('CK theo dong POS: thu ngan nhap % truc tiep tren gio', () => {
     assert.match(read('lib/pricing.ts'), /export function lineGrossOf/);
   });
 
+  it('hoa don A4/A5: QR gon tren header, bo cum QR chu ky', () => {
+    const receipt = read('components/pos/ReceiptModal.tsx');
+    assert.match(receipt, /alt="VietQR thanh toán"/);
+    assert.ok(!/Thanh toán VietQR/.test(receipt), 'còn chú thích dưới QR');
+    assert.ok(!/Quét mã tra cứu hóa đơn/.test(receipt), 'còn QR tra cứu ở hàng chữ ký A4/A5');
+    assert.ok(!/Khối QR bên trái/.test(receipt), 'còn cột QR ở hàng chữ ký A4/A5');
+  });
+
   it('hoa don A4/A5: 2 cot CK rieng, khong nhan dong thua (K80 giu dong CK)', () => {
     const receipt = read('components/pos/ReceiptModal.tsx');
     assert.match(receipt, /CK \(\%\)<\/th>/);
