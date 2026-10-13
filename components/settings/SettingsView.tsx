@@ -6,7 +6,8 @@ import { notify } from '@/components/common/Toast';
 import { NumberInput } from '@/components/common/NumberInput';
 import { FilterSelect } from '@/components/ui/FilterControls';
 import { OfflineReadyCard } from '@/components/settings/OfflineReadyCard';
-import { VIETQR_BANKS, isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
+import { VIETQR_BANKS, isVietqrReady } from '@/lib/vietqr';
+import { VietqrCode } from '@/components/common/VietqrCode';
 import { PRINT_TEMPLATES } from '@/lib/store';
 import type { PrintTemplate, PrinterWidth } from '@/lib/store';
 import {
@@ -315,13 +316,7 @@ export function SettingsView() {
           <div className="flex items-center gap-3">
               {isVietqrReady(vietqr) ? (
                 <>
-                  {/* QR mẫu từ img.vietqr.io (ảnh ngoài, đổi theo cấu hình) — next/image không phù hợp: giữ <img>. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={buildVietqrUrl(vietqr)}
-                  alt="VietQR mẫu"
-                  className="w-24 h-24 border border-slate-200 rounded object-contain"
-                />
+                  <VietqrCode config={vietqr} className="w-24 h-24 border border-slate-200 rounded" />
                 <p className="text-[11px] text-emerald-700 font-semibold">
                   Hợp lệ — mã QR thật (số tiền động theo đơn) sẽ hiện ở màn hình thu tiền & phiếu in.
                 </p>

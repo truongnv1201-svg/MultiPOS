@@ -1,4 +1,6 @@
-// VietQR cấu hình thương mại: QR ảnh qua img.vietqr.io (không cần API key).
+// VietQR phong cách riêng của shop: dựng chuỗi payload EMVCo và vẽ QR sạch
+// (SVG, không logo/khung/chú thích VietQR) bằng react-qr-code.
+// Lợi thêm: QR sinh offline tại máy — in ấn không phụ thuộc mạng img.vietqr.io.
 // Cần: mã ngân hàng + số tài khoản + tên chủ TK (nhập ở Cài đặt).
 
 export interface VietqrConfig {
@@ -32,9 +34,65 @@ export function vietqrAddInfo(raw: string): string {
   return noAccent.replace(/[^A-Za-z0-9 ]/g, '').slice(0, 25).trim() || 'THANHTOAN';
 }
 
-export function buildVietqrUrl(cfg: VietqrConfig, amount?: number, addInfo?: string): string {
-  const info = encodeURIComponent(vietqrAddInfo(addInfo || 'THANHTOAN'));
-  const accName = encodeURIComponent(vietqrAddInfo(cfg.name || ''));
-  const amt = amount === undefined ? '' : `&amount=${Math.max(0, Math.round(amount))}`;
-  return `https://img.vietqr.io/image/${cfg.bank}-${cfg.account}-compact2.png?accountName=${accName}${amt}&addInfo=${info}`;
+// --- Payload EMVCo VietQR (chuẩn Napas) để tự vẽ QR ---
+
+// Mã BIN Napas của các ngân hàng trong VIETQR_BANKS (chuẩn công khai).
+export const VIETQR_BANK_BINS: Record<string, string> = {
+  MB: '970422',
+  VCB: '970436',
+  TCB: '970407',
+  ACB: '970416',
+  BIDV: '970418',
+  VPB: '970432',
+  TPB: '970423',
+  STB: '970403',
+  HDB: '970437',
+  SHB: '970443',
+  MSB: '970426',
+  OCB: '970448',
+};
+
+function emvField(id: string, value: string): string {
+  return `${id}${String(value.length).padStart(2, '0')}${value}`;
+}
+
+// CRC16-CCITT-FALSE (poly 0x1021, init 0xFFFF) — vector chuẩn "123456789" -> 0x29B1.
+export function crc16ccitt(input: string): number {
+  let crc = 0xffff;
+  for (let i = 0; i < input.length; i++) {
+    crc ^= input.charCodeAt(i) << 8;
+    for (let b = 0; b < 8; b++) {
+      crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+    }
+  }
+  return crc & 0xffff;
+}
+
+/**
+ * Dựng chuỗi payload VietQR (0002...6304 + CRC) từ cấu hình shop.
+ * - 00=01, 01=11 (tĩnh, dùng lại được), 38 Napas (BIN + STK), 52/53/58/59,
+ *   54 khi có số tiền, 62 nội dung CK (≤25 ký tự), 63 CRC.
+ * - Trả null khi ngân hàng lạ (ngoài VIETQR_BANKS) — UI không vẽ QR giả.
+ */
+export function buildVietqrPayload(cfg: VietqrConfig, amount?: number, addInfo?: string): string | null {
+  const bin = VIETQR_BANK_BINS[(cfg.bank || '').toUpperCase()];
+  const account = (cfg.account || '').trim();
+  if (!bin || !/^\d{6,19}$/.test(account)) return null;
+  const acctInfo = emvField('00', bin) + emvField('01', account);
+  const napas = emvField('00', 'A000000727') + emvField('01', acctInfo);
+  const name = (vietqrAddInfo(cfg.name || 'SHOP').toUpperCase() || 'SHOP').slice(0, 25);
+  let payload =
+    emvField('00', '01') +
+    emvField('01', '11') +
+    emvField('38', napas) +
+    emvField('52', '0000') +
+    emvField('53', '704');
+  if (amount !== undefined) payload += emvField('54', String(Math.max(0, Math.round(amount))));
+  payload += emvField('58', 'VN') + emvField('59', name);
+  payload += emvField('62', emvField('08', vietqrAddInfo(addInfo || 'THANHTOAN')));
+  const crc = crc16ccitt(payload + '6304')
+    .toString(16)
+    .toUpperCase()
+    .padStart(4, '0');
+  return `${payload}6304${crc}`;
 }

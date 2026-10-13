@@ -6,7 +6,8 @@ import type { PrintTemplate } from '@/lib/store';
 import { formatVND, formatNumber } from '@/lib/format';
 import { lineDiscountPercent } from '@/lib/pricing';
 import { formatQty } from '@/lib/quantity';
-import { isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
+import { isVietqrReady } from '@/lib/vietqr';
+import { VietqrCode } from '@/components/common/VietqrCode';
 import { printElementInTab } from '@/lib/print';
 import { notify } from '@/components/common/Toast';
 import { FilterSelect } from '@/components/ui/FilterControls';
@@ -152,12 +153,7 @@ export function ReceiptModal() {
   const qrBlock = () => (
     <div className="py-1 flex flex-col items-center justify-center text-center space-y-1">
       {showVietqrBlock ? (
-        <>
-          {/* QR động theo số tiền từ img.vietqr.io — next/image không tối ưu được ảnh ngoài động + làm vỡ CSS in: giữ <img>. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={buildVietqrUrl(vietqr, qrAmount, `${order.order_code} MULTIPOS`)} alt="VietQR" className="w-28 h-28 object-contain" />
-          <p className="text-[9px] text-slate-500 font-sans">{vietqr.bank} • {vietqr.account} • {formatVND(qrAmount)}</p>
-        </>
+        <VietqrCode config={vietqr} amount={qrAmount} addInfo={`${order.order_code} MULTIPOS`} className="w-28 h-28" />
       ) : (
         <>
           <QrCode className="w-12 h-12 text-slate-800" />
@@ -231,11 +227,12 @@ export function ReceiptModal() {
               <p>Ngày: {new Date(order.created_at).toLocaleString('vi-VN')}</p>
             </div>
             {showVietqrBlock && (
-              <>
-                {/* QR VietQR gọn (chỉ mã, không chú thích) đặt cạnh tiêu đề hóa đơn */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={buildVietqrUrl(vietqr, qrAmount, `${order.order_code} MULTIPOS`)} alt="VietQR thanh toán" className={`${compact ? 'w-16 h-16' : 'w-20 h-20'} object-contain shrink-0`} />
-              </>
+              <VietqrCode
+                config={vietqr}
+                amount={qrAmount}
+                addInfo={`${order.order_code} MULTIPOS`}
+                className={`${compact ? 'w-16 h-16' : 'w-20 h-20'} shrink-0`}
+              />
             )}
           </div>
         </div>

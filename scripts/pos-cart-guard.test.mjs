@@ -312,7 +312,9 @@ describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh ti�
   it('QR khổ K80 thu đúng số còn nợ (như khổ A4)', () => {
     const receipt = read('components/pos/ReceiptModal.tsx');
     assert.match(receipt, /const qrAmount = order\.debt_amount > 0 \? order\.debt_amount : order\.total_amount;/);
-    assert.match(receipt, /buildVietqrUrl\(vietqr, qrAmount,/);
+    assert.match(receipt, /<VietqrCode/);
+    assert.ok(!/buildVietqrUrl/.test(receipt), 'còn dùng ảnh img.vietqr.io');
+    assert.ok(!/img\.vietqr\.io/.test(receipt), 'còn ảnh mạng VietQR');
   });
 
   it('doanh thu KPI chỉ tính đơn đã giao (cùng tập với lãi gộp)', () => {
@@ -401,12 +403,14 @@ describe('CK theo dong POS: thu ngan nhap % truc tiep tren gio', () => {
     assert.match(read('lib/pricing.ts'), /export function lineGrossOf/);
   });
 
-  it('hoa don A4/A5: QR gon tren header, bo cum QR chu ky', () => {
+  it('hoa don A4/A5: QR gon tren header (SVG tu ve), bo cum QR chu ky', () => {
     const receipt = read('components/pos/ReceiptModal.tsx');
-    assert.match(receipt, /alt="VietQR thanh toán"/);
+    assert.match(receipt, /<VietqrCode/);
+    assert.match(receipt, /amount=\{qrAmount\}/);
     assert.ok(!/Thanh toán VietQR/.test(receipt), 'còn chú thích dưới QR');
     assert.ok(!/Quét mã tra cứu hóa đơn/.test(receipt), 'còn QR tra cứu ở hàng chữ ký A4/A5');
     assert.ok(!/Khối QR bên trái/.test(receipt), 'còn cột QR ở hàng chữ ký A4/A5');
+    assert.ok(!/img\.vietqr\.io/.test(receipt), 'còn ảnh mạng VietQR');
   });
 
   it('hoa don A4/A5: 2 cot CK rieng, khong nhan dong thua (K80 giu dong CK)', () => {
