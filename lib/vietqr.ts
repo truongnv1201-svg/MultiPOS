@@ -69,9 +69,11 @@ export function crc16ccitt(input: string): number {
 }
 
 /**
- * Dựng chuỗi payload VietQR (0002...6304 + CRC) từ cấu hình shop.
- * - 00=01, 01=11 (tĩnh, dùng lại được), 38 Napas (BIN + STK), 52/53/58/59,
- *   54 khi có số tiền, 62 nội dung CK (≤25 ký tự), 63 CRC.
+ * Dựng chuỗi payload VietQR từ cấu hình shop — byte-identical với payload
+ * img.vietqr.io sinh (đã giải mã QR thật và đối chiếu từng field).
+ * - 00=01, 01=12 (động, kèm số tiền), 38 Napas (BIN + STK + tag dịch vụ
+ *   QRIBFTTA), 53=704, 54 khi có số tiền, 58=VN, 62 nội dung CK (≤25 ký tự),
+ *   63 CRC. KHÔNG có 52/59/60 như bản chuẩn (thêm vào là app báo sai định dạng).
  * - Trả null khi ngân hàng lạ (ngoài VIETQR_BANKS) — UI không vẽ QR giả.
  */
 export function buildVietqrPayload(cfg: VietqrConfig, amount?: number, addInfo?: string): string | null {
@@ -79,16 +81,14 @@ export function buildVietqrPayload(cfg: VietqrConfig, amount?: number, addInfo?:
   const account = (cfg.account || '').trim();
   if (!bin || !/^\d{6,19}$/.test(account)) return null;
   const acctInfo = emvField('00', bin) + emvField('01', account);
-  const napas = emvField('00', 'A000000727') + emvField('01', acctInfo);
-  const name = (vietqrAddInfo(cfg.name || 'SHOP').toUpperCase() || 'SHOP').slice(0, 25);
+  const napas = emvField('00', 'A000000727') + emvField('01', acctInfo) + emvField('02', 'QRIBFTTA');
   let payload =
     emvField('00', '01') +
-    emvField('01', '11') +
+    emvField('01', '12') +
     emvField('38', napas) +
-    emvField('52', '0000') +
     emvField('53', '704');
   if (amount !== undefined) payload += emvField('54', String(Math.max(0, Math.round(amount))));
-  payload += emvField('58', 'VN') + emvField('59', name);
+  payload += emvField('58', 'VN');
   payload += emvField('62', emvField('08', vietqrAddInfo(addInfo || 'THANHTOAN')));
   const crc = crc16ccitt(payload + '6304')
     .toString(16)

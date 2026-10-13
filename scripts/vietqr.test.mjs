@@ -68,11 +68,27 @@ describe('vietqrAddInfo', () => {
 });
 
 describe('buildVietqrPayload', () => {
-  it('khung EMVCo: 00=01, 01=11, 52/53/58 đúng, CRC cuối 4 hex hoa', () => {
+  // Known-answer: payload img.vietqr.io sinh cho cùng input (đã giải mã QR thật).
+  // Chuỗi này quét được ngoài thực tế — builder phải ra byte-identical.
+  const KNOWN =
+    '00020101021238540010A00000072701240006970422011003544646880208QRIBFTTA53037045405855005802VN62090805HD0016304EB82';
+
+  it('byte-identical với payload chuẩn đang quét được', () => {
+    assert.equal(
+      buildVietqrPayload({ bank: 'MB', account: '0354464688', name: 'SON MINH' }, 85500, 'HD001'),
+      KNOWN
+    );
+  });
+
+  it('khung đúng: 01=12 (động), tag dịch vụ QRIBFTTA, không 52/59/60', () => {
     const p = buildVietqrPayload(cfg, 85500, 'HD-001');
     assert.ok(p);
-    assert.match(p, /^00020101021138/);
-    assert.match(p, /52040000/);
+    assert.match(p, /^00020101021238/);
+    assert.ok(p.includes('0208QRIBFTTA'), 'thiếu tag dịch vụ trong nhánh 38');
+    const top = tlv(p).fields;
+    assert.ok(!('52' in top), 'thừa field 52');
+    assert.ok(!('59' in top), 'thừa field 59');
+    assert.ok(!('60' in top), 'thừa field 60');
     assert.match(p, /5303704/);
     assert.match(p, /5802VN/);
     assert.match(p, /6304[0-9A-F]{4}$/);
@@ -88,11 +104,10 @@ describe('buildVietqrPayload', () => {
     assert.equal(acct['01'], '0354464688');
   });
 
-  it('số tiền + tên + nội dung CK đúng TLV', () => {
+  it('số tiền + nội dung CK đúng TLV (tên do ngân hàng tự hiện)', () => {
     const p = buildVietqrPayload(cfg, 85500, 'HD-001 MULTIPOS');
     const top = tlv(p).fields;
     assert.equal(top['54'], '85500');
-    assert.equal(top['59'], 'NGUYEN VAN SON');
     assert.equal(tlv(top['62']).fields['08'], 'HD001 MULTIPOS');
   });
 
