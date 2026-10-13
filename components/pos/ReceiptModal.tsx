@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useStore, PRINT_TEMPLATES, normalizePrintTemplate } from '@/lib/store';
 import type { PrintTemplate } from '@/lib/store';
 import { formatVND, formatNumber } from '@/lib/format';
+import { lineDiscountPercent } from '@/lib/pricing';
 import { formatQty } from '@/lib/quantity';
 import { isVietqrReady, buildVietqrUrl } from '@/lib/vietqr';
 import { printElementInTab } from '@/lib/print';
@@ -190,6 +191,9 @@ export function ReceiptModal() {
               <span className="w-1/4 text-center">{formatQty(it.quantity)} {it.unit}</span>
               <span className="w-1/4 text-right">{formatVND(it.subtotal)}</span>
             </div>
+            {it.discount_amount > 0 && (
+              <div className="text-[9px] text-rose-600">CK {lineDiscountPercent(it)}%: -{formatVND(it.discount_amount)}</div>
+            )}
             {shop.showDimensions && it.product_type === 'area' && it.dimension_details && (
               <div className="text-[9px] text-slate-600 pl-2 space-y-0.5">
                 {it.dimension_details.map((d, dIdx) => (
@@ -238,6 +242,8 @@ export function ReceiptModal() {
               <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-12 text-center`}>ĐVT</th>
               <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-14 text-center`}>SL</th>
               <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-20 text-center`}>Đơn giá (đ)</th>
+              <th className={`border-x border-black ${compact ? 'px-1 py-1' : 'px-1.5 py-1.5'} w-12 text-center`}>CK (%)</th>
+              <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-20 text-center`}>CK (đ)</th>
               <th className={`border-x border-black ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'} w-24 text-center`}>Thành tiền (đ)</th>
             </tr>
           </thead>
@@ -256,6 +262,8 @@ export function ReceiptModal() {
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center`}>{it.unit}</td>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatQty(it.quantity)}</td>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatNumber(it.unit_price)}</td>
+                <td className={`border-x border-black ${compact ? 'px-1 py-0.5' : 'px-1.5 py-1'} text-center font-mono`}>{lineDiscountPercent(it) > 0 ? `${lineDiscountPercent(it)}%` : '—'}</td>
+                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono ${it.discount_amount > 0 ? 'text-rose-600' : ''}`}>{it.discount_amount > 0 ? `-${formatNumber(it.discount_amount)}` : '—'}</td>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono font-bold`}>{formatNumber(it.subtotal)}</td>
               </tr>
             ))}
@@ -263,38 +271,38 @@ export function ReceiptModal() {
           {/* Tổng tiền gộp luôn vào bảng nội dung */}
           <tfoot className="[&_td]:border-x [&_td]:border-black">
             <tr className="border-t border-dashed border-slate-400">
-              <td colSpan={5} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Tổng hàng:</td>
+              <td colSpan={7} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Tổng hàng:</td>
               <td className={`text-right font-mono ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>{formatVND(order.subtotal)}</td>
             </tr>
             {order.discount_amount > 0 && (
               <tr className="border-t border-dashed border-slate-400 text-rose-600">
-                <td colSpan={5} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Chiết khấu:</td>
+                <td colSpan={7} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Chiết khấu:</td>
                 <td className={`text-right font-mono ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>-{formatVND(order.discount_amount)}</td>
               </tr>
             )}
             {(order.vat_amount || 0) > 0 && (
               <tr className="border-t border-dashed border-slate-400">
-                <td colSpan={5} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>VAT{order.vat_percent ? ` (${order.vat_percent}%)` : ''}:</td>
+                <td colSpan={7} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>VAT{order.vat_percent ? ` (${order.vat_percent}%)` : ''}:</td>
                 <td className={`text-right font-mono ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>+{formatVND(order.vat_amount || 0)}</td>
               </tr>
             )}
             {order.shipping_fee > 0 && (
               <tr className="border-t border-dashed border-slate-400">
-                <td colSpan={5} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Vận chuyển:</td>
+                <td colSpan={7} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Vận chuyển:</td>
                 <td className={`text-right font-mono ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>+{formatVND(order.shipping_fee)}</td>
               </tr>
             )}
             <tr className="border-t border-black font-bold">
-              <td colSpan={5} className={`text-right ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'}`}>TỔNG CỘNG:</td>
+              <td colSpan={7} className={`text-right ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'}`}>TỔNG CỘNG:</td>
               <td className={`text-right font-mono ${compact ? 'px-1.5 py-1' : 'px-2 py-1.5'}`}>{formatVND(order.total_amount)}</td>
             </tr>
             <tr className="border-t border-dashed border-slate-400">
-              <td colSpan={5} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Đã thanh toán:</td>
+              <td colSpan={7} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Đã thanh toán:</td>
               <td className={`text-right font-mono font-bold ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>{formatVND(order.paid_amount)}</td>
             </tr>
             {order.debt_amount > 0 && (
               <tr className="border-t border-dashed border-slate-400 text-rose-600 font-bold">
-                <td colSpan={5} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Còn phải thu:</td>
+                <td colSpan={7} className={`text-right ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>Còn phải thu:</td>
                 <td className={`text-right font-mono ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>{formatVND(order.debt_amount)}</td>
               </tr>
             )}
