@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
 import { useClickOutside } from '@/lib/useClickOutside';
 import { allowsDecimalQty, formatQty, parseQtyInput, roundQty, snapQty } from '@/lib/quantity';
+import { rankProducts } from '@/lib/product-search';
 import { notify } from '@/components/common/Toast';
 import { Search, PackagePlus, ScanLine, Keyboard } from 'lucide-react';
 import { AddProductFormModal } from '@/components/products/AddProductFormModal';
@@ -211,18 +212,14 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
 
   useClickOutside(searchWrapRef, isDropdownOpen, closeDropdown);
 
+  // Lọc thô + xếp tầng liên quan (lib/product-search, có unit test):
+  // trúng MỌI từ gõ, mã/tên/đầu từ lên trước, không dấu chỉ là fallback.
   const filteredProducts = React.useMemo(() => {
     if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return products
-      .filter(
-        (p) =>
-          p.is_active !== false &&
-          (p.name.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
-          (p.barcode && p.barcode.includes(q)))
-      )
-      .slice(0, 8);
+    return rankProducts(
+      products.filter((p) => p.is_active !== false),
+      searchQuery
+    ).slice(0, 8);
   }, [products, searchQuery]);
 
   const resetSearch = () => {

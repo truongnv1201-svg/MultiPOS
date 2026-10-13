@@ -684,7 +684,8 @@ describe('ngung kinh doanh: an hang khoi POS, giu lich su', () => {
   });
 
   it('POS khong ban hang ngung (danh muc van thay de mo lai)', () => {
-    assert.match(read('components/pos/ProductSearchBar.tsx'), /p\.is_active !== false &&/);
+    // Lọc cờ trước khi xếp hạng (rankProducts không biết is_active).
+    assert.match(read('components/pos/ProductSearchBar.tsx'), /products\.filter\(\(p\) => p\.is_active !== false\)/);
   });
 
   it('danh muc loc mac dinh Dang ban + nut bat/tat cua Admin', () => {
