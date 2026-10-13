@@ -100,3 +100,38 @@ describe('0083: siet quyen theo vai tro (RPC tien/no + xoa KH)', () => {
     assert.match(pkg, /scripts\/rpc-acl-guard\.test\.mjs/);
   });
 });
+
+describe('0084: khoa not 9 ham definer con mo (audit phat hien sau 0083)', () => {
+  const sql = read('supabase/migrations/0084_lock_remaining_definers.sql');
+  const code = sql
+    .split('\n')
+    .filter((l) => !/^\s*--/.test(l))
+    .join('\n');
+
+  it('tồn tại migration 0084', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0084_lock_remaining_definers.sql')), 'thiếu 0084');
+  });
+
+  it('revoke PUBLIC/anon + grant authenticated cho đúng 9 chữ ký prod', () => {
+    for (const sig of [
+      'checkout_order\\(UUID, NUMERIC, JSONB, TEXT, NUMERIC\\)',
+      'consume_stock_for_order\\(UUID\\)',
+      'open_shift\\(NUMERIC\\)',
+      'close_shift\\(UUID, NUMERIC\\)',
+      'generate_order_code\\(TEXT, DATE\\)',
+      'generate_master_code\\(TEXT, INTEGER\\)',
+      'order_items_snapshot_cost\\(\\)',
+      'trg_fill_stock_movement_balances\\(\\)',
+      'rls_auto_enable\\(\\)',
+    ]) {
+      assert.match(code, new RegExp(`REVOKE EXECUTE ON FUNCTION public\\.${sig} FROM PUBLIC;`));
+      assert.match(code, new RegExp(`REVOKE EXECUTE ON FUNCTION public\\.${sig} FROM anon;`));
+      assert.match(code, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${sig} TO authenticated;`));
+    }
+  });
+
+  it('không đổi thân hàm, không DROP (chỉ siết ACL)', () => {
+    assert.ok(!/create or replace function/i.test(code), '0084 không được redefine hàm');
+    assert.ok(!/drop function/i.test(code), 'không được DROP');
+  });
+});
