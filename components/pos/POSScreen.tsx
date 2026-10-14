@@ -1150,7 +1150,7 @@ export function POSScreen() {
           )}
         </div>
         ) : (
-        <div id="cart-table-container" className="flex-1 min-h-0 overflow-auto p-2">
+        <div id="cart-table-container" className="flex-1 min-h-0 overflow-auto p-2 pb-0 lg:pb-2">
           {activeCart.items.length === 0 ? (
             <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
               <ShoppingBag className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mb-2 stroke-1" />
@@ -1164,7 +1164,7 @@ export function POSScreen() {
               {/* Mobile/tablet: record list giỏ hiện thẳng trong trang (không sheet tách rời) */}
               <div
                 id="cart-record-list"
-                className="lg:hidden mb-2 divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden"
+                className="lg:hidden divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden"
               >
                 {activeCart.items.map((item) => {
                   const isAreaItem = item.product_type === 'area';

@@ -31,6 +31,11 @@ describe('POS: giỏ hiện thẳng trong trang trên mobile (không sheet tách
     assert.match(pos, /allowDecimal=\{allowsDecimalQty\(productById\(item\.product_id\)\)\}/);
   });
 
+  it('danh sách giỏ chạm sát thanh toán (không dải xám dư đáy mobile)', () => {
+    assert.match(pos, /id="cart-table-container" className="[^"]*pb-0[^"]*lg:pb-2"/);
+    assert.doesNotMatch(pos, /id="cart-record-list"[\s\S]{0,200}mb-2/);
+  });
+
   it('không còn sheet giỏ tách rời (file đã xóa, không còn state mở sheet)', () => {
     assert.ok(!existsSync(join(ROOT, 'components/pos/MobileCartSheet.tsx')), 'file sheet phải bị xóa');
     assert.doesNotMatch(pos, /MobileCartSheet/);
