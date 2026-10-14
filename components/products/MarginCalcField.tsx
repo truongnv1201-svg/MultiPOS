@@ -1,11 +1,12 @@
 // Máy tính cộng % trên vốn nhập — dùng chung cho form Thêm + Sửa hàng hóa.
 // Bố cục: Giá vốn nhập -> Cộng % -> Giá bán (3 ô trên 1 hàng); gợi ý gọn 1 dòng
 // lãi/biên suy từ giá hiện tại (sửa giá tay thì dòng này cập nhật theo).
-// - Ô % giữ lại giá trị đã nhập để user đối chiếu trong lúc cân nhắc giá bán.
+// - Ô % là controlled (form cha giữ markup theo phiên mở): gõ % -> tính giá ngay;
+//   sửa vốn mà % còn số + giá chưa sửa tay -> cha tính lại giá theo % đã nhập.
 // - Không làm tròn nghìn: giá = tròn từng đồng (hàng nhạy giá như dây điện).
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { NumberInput } from '@/components/common/NumberInput';
 import { formatVND } from '@/lib/format';
 import { lineMargin, priceFromMarkup } from '@/lib/costing';
@@ -16,18 +17,21 @@ export const MARGIN_DIVERGE_WARN_PP = 20;
 interface MarkupPctInputProps {
   /** Giá vốn nhập (gần nhất) — gốc tính cộng %. */
   cost: number | '';
+  /** % đang nhập — form cha sở hữu, reset mỗi lần mở form. */
+  value: number | '';
+  /** Gọi khi user nhập % (cha lưu % + xóa cờ "giá sửa tay"). */
+  onMarkupChange: (val: number) => void;
   /** Gọi khi user nhập % -> giá mới đã tính. */
   onPriceChange: (price: number) => void;
 }
 
 // Ô nhập % (cột giữa hàng giá). Chưa có vốn thì khóa (không ẩn) để user vẫn
 // thấy tính năng và biết phải nhập vốn trước.
-export function MarkupPctInput({ cost, onPriceChange }: MarkupPctInputProps) {
-  const [markup, setMarkup] = useState<number | ''>('');
+export function MarkupPctInput({ cost, value, onMarkupChange, onPriceChange }: MarkupPctInputProps) {
   const c = Number(cost) || 0;
 
   const handleMarkup = (val: number) => {
-    setMarkup(val);
+    onMarkupChange(val);
     if (c > 0 && val !== 0) {
       onPriceChange(priceFromMarkup(c, val));
     }
@@ -37,7 +41,7 @@ export function MarkupPctInput({ cost, onPriceChange }: MarkupPctInputProps) {
     <div>
       <label className="font-semibold text-slate-700 block mb-1">Cộng (%)</label>
       <NumberInput
-        value={markup}
+        value={value}
         onChange={handleMarkup}
         allowDecimals
         maxDecimals={2}

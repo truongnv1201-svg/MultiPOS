@@ -13,6 +13,7 @@ import { QTY_MAX_DECIMALS, roundQty, suggestDecimalForUnit } from '@/lib/quantit
 import { SheetShell } from '@/components/common/SheetShell';
 import { FilterSelect } from '@/components/ui/FilterControls';
 import { MarginHint, MarkupPctInput } from '@/components/products/MarginCalcField';
+import { priceFromMarkup } from '@/lib/costing';
 import { Plus } from 'lucide-react';
 
 export const UNIT_OPTIONS = [
@@ -92,6 +93,28 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
   const [productType, setProductType] = useState<ProductType>('goods');
   const [retailPrice, setRetailPrice] = useState<number | ''>('');
   const [importPrice, setImportPrice] = useState<number | ''>('');
+  // % cộng đã nhập + cờ "giá đã sửa tay": vốn đổi mà % còn số + giá chưa sửa
+  // tay thì tính lại giá theo % (Plan B); đã sửa tay thì giữ giá user chốt.
+  const [markup, setMarkup] = useState<number | ''>('');
+  const [priceDirty, setPriceDirty] = useState(false);
+
+  const handleMarkupChange = (val: number) => {
+    setMarkup(val);
+    setPriceDirty(false);
+  };
+
+  const handleCostChange = (val: number) => {
+    setImportPrice(val);
+    const c = Number(val) || 0;
+    if (c > 0 && markup !== '' && markup !== 0 && !priceDirty) {
+      setRetailPrice(priceFromMarkup(c, markup));
+    }
+  };
+
+  const handlePriceChange = (val: number) => {
+    setRetailPrice(val);
+    setPriceDirty(true);
+  };
   const [stockQuantity, setStockQuantity] = useState<number | ''>('');
   // Ngưỡng tồn ít riêng của mặt hàng (lib/stock.ts) — để trống = dùng mặc định 15.
   const [minStock, setMinStock] = useState<number | ''>('');
@@ -225,20 +248,20 @@ export function AddProductFormModal({ open, onClose, seedQuery, onCreated }: Add
               <label className="font-semibold text-slate-700 block mb-1">Giá vốn nhập (đ)</label>
               <NumberInput
                 value={importPrice}
-                onChange={(val) => setImportPrice(val)}
+                onChange={handleCostChange}
                 placeholder="0"
                 className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
               />
             </div>
             {productType !== 'service' && productType !== 'combo' && (
-              <MarkupPctInput cost={importPrice} onPriceChange={(val) => setRetailPrice(val)} />
+              <MarkupPctInput cost={importPrice} value={markup} onMarkupChange={handleMarkupChange} onPriceChange={(val) => setRetailPrice(val)} />
             )}
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Giá bán (đ)</label>
               <NumberInput
                 id="add-product-price-input"
                 value={retailPrice}
-                onChange={(val) => setRetailPrice(val)}
+                onChange={handlePriceChange}
                 placeholder="0"
                 className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
               />

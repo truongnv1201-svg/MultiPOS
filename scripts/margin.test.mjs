@@ -95,9 +95,24 @@ describe('margin: wiring UI (chống nhân bản logic)', () => {
     assert.ok(/c <= 0 \|\| p <= 0/.test(field), 'MarginHint ẩn khi thiếu vốn/giá');
   });
 
-  it('giữ lại % đã nhập để user đối chiếu với giá bán', () => {
-    assert.match(field, /setMarkup\(val\)/);
-    assert.doesNotMatch(field, /setMarkup\(''\)/);
+  it('ô % là controlled (cha giữ markup, field không state nội bộ)', () => {
+    assert.doesNotMatch(field, /useState/);
+    assert.match(field, /onMarkupChange/);
+    assert.ok(!/useEffect/.test(field), 'field không tự recompute theo vốn — cha quyết (cờ dirty)');
+  });
+
+  it('vốn đổi tính lại giá khi % còn + giá chưa sửa tay (Plan B)', () => {
+    assert.match(addForm, /priceFromMarkup\(c, markup\)/);
+    assert.match(products, /priceFromMarkup\(c, editMarkup\)/);
+    assert.ok(/!priceDirty\)/.test(addForm), 'form thêm phải kẹp cờ dirty');
+    assert.ok(/!editPriceDirty\)/.test(products), 'form sửa phải kẹp cờ dirty');
+    assert.match(addForm, /setPriceDirty\(true\)/);
+    assert.match(products, /setEditPriceDirty\(true\)/);
+  });
+
+  it('mở form sửa reset % + dirty (không tự đụng giá cũ)', () => {
+    assert.match(products, /setEditMarkup\(''\)/);
+    assert.match(products, /setEditPriceDirty\(false\)/);
   });
 
   it('thứ tự ô giá: vốn nhập -> cộng % -> giá bán', () => {

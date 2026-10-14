@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { Product, ProductType } from '@/lib/types';
 import { formatVND, formatNumber } from '@/lib/format';
-import { lineMargin } from '@/lib/costing';
+import { lineMargin, priceFromMarkup } from '@/lib/costing';
 import {
   Boxes,
   Plus,
@@ -67,6 +67,28 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
   const [editProductType, setEditProductType] = useState<ProductType>('goods');
   const [editRetailPrice, setEditRetailPrice] = useState(0);
   const [editImportPrice, setEditImportPrice] = useState(0);
+  // % cộng đã nhập + cờ "giá đã sửa tay" (reset mỗi lần mở form sửa để không
+  // tự đụng giá cũ: chỉ tính lại khi user gõ % trong phiên này).
+  const [editMarkup, setEditMarkup] = useState<number | ''>('');
+  const [editPriceDirty, setEditPriceDirty] = useState(false);
+
+  const handleEditMarkupChange = (val: number) => {
+    setEditMarkup(val);
+    setEditPriceDirty(false);
+  };
+
+  const handleEditCostChange = (val: number) => {
+    setEditImportPrice(val);
+    const c = Number(val) || 0;
+    if (c > 0 && editMarkup !== '' && editMarkup !== 0 && !editPriceDirty) {
+      setEditRetailPrice(priceFromMarkup(c, editMarkup));
+    }
+  };
+
+  const handleEditPriceChange = (val: number) => {
+    setEditRetailPrice(val);
+    setEditPriceDirty(true);
+  };
   const [editWasteFactor, setEditWasteFactor] = useState(0);
   const [editGrindingPrice, setEditGrindingPrice] = useState(0);
   const [editIntegerOnly, setEditIntegerOnly] = useState(false);
@@ -79,6 +101,8 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
     setEditProductType(p.product_type);
     setEditRetailPrice(p.retail_price);
     setEditImportPrice(p.import_price);
+    setEditMarkup('');
+    setEditPriceDirty(false);
     setEditWasteFactor(p.waste_factor ?? 0);
     setEditGrindingPrice(p.default_grinding_price ?? 0);
     setEditIntegerOnly(p.product_type !== 'area' && p.allow_decimal === false);
@@ -824,19 +848,19 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                   <label className="font-semibold text-slate-700 block mb-1">Giá vốn nhập (đ)</label>
                   <NumberInput
                     value={editImportPrice}
-                    onChange={(val) => setEditImportPrice(val)}
+                    onChange={handleEditCostChange}
                     placeholder="0"
                     className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
                   />
                 </div>
                 {editProductType !== 'service' && editProductType !== 'combo' && (
-                  <MarkupPctInput cost={editImportPrice} onPriceChange={(val) => setEditRetailPrice(val)} />
+                  <MarkupPctInput cost={editImportPrice} value={editMarkup} onMarkupChange={handleEditMarkupChange} onPriceChange={(val) => setEditRetailPrice(val)} />
                 )}
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Giá bán (đ)</label>
                   <NumberInput
                     value={editRetailPrice}
-                    onChange={(val) => setEditRetailPrice(val)}
+                    onChange={handleEditPriceChange}
                     placeholder="0"
                     className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono focus:border-blue-500 focus:outline-hidden"
                   />
