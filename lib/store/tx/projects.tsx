@@ -19,7 +19,7 @@ import { STOCK_ADJUST_REASON_LABEL } from '../../types';
 import { db, generateOrderCode } from '../../db';
 import { dailyCodeStamp, nextDailyCode } from '../../codes';
 import { cacheKeys, mirrorUpsert } from './mirror';
-import { asUuidOrNull } from './constants';
+import { asUuidOrNull, stageCashbookVoucher } from './constants';
 import { stableNext } from '../stable';
 import { notify } from '@/components/common/Toast';
 import { vietnamizeError } from '@/lib/error-vi';
@@ -43,6 +43,7 @@ export interface TxProjectsDeps {
   setCashbook: React.Dispatch<React.SetStateAction<CashbookEntry[]>>;
   setCurrentShift: React.Dispatch<React.SetStateAction<Shift>>;
   setStockMovements: React.Dispatch<React.SetStateAction<StockMovement[]>>;
+  syncPendingOpsRef: React.MutableRefObject<(retryFailed?: boolean) => Promise<{ synced: number; failed: number }>>;
 }
 
 export interface TxProjects {
@@ -91,7 +92,7 @@ export interface StockAdjustResult {
   lossAmount: number;
 }
 
-export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setStockMovements }: TxProjectsDeps): TxProjects {
+export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setStockMovements, syncPendingOpsRef }: TxProjectsDeps): TxProjects {
   const { supa, user, profile, setLoginOpen } = useAuth();
   const { products, setProducts, customerMap } = useCatalog();
   const { isOnline } = useNetwork();
@@ -520,16 +521,19 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
           created_at: now,
         });
       }
+      // Tính next NGOÀI setState rồi persist sau — updater phải thuần (StrictMode double-invoke).
+      const stockUpdates: { id: string; nextStock: number }[] = [];
+      for (const [id, ns] of stockAfter) {
+        const p = products.find((x) => x.id === id);
+        if (p && ns !== undefined && ns !== p.stock_quantity) stockUpdates.push({ id, nextStock: ns });
+      }
       setProducts((prev) =>
         prev.map((x) => {
-          const ns = stockAfter.get(x.id);
-          if (ns !== undefined && ns !== x.stock_quantity) {
-            db.products.update(x.id, { stock_quantity: ns }).catch(console.warn);
-            return { ...x, stock_quantity: ns };
-          }
-          return x;
+          const u = stockUpdates.find((s) => s.id === x.id);
+          return u ? { ...x, stock_quantity: u.nextStock } : x;
         })
       );
+      for (const u of stockUpdates) db.products.update(u.id, { stock_quantity: u.nextStock }).catch(console.warn);
       setStockMovements((prev) => [...movements.reverse(), ...prev]);
       const updated = recalcProjectTotals({ ...project, materials: [...project.materials, ...newLines] });
       setProjects((prev) => prev.map((x) => (x.id === projectId ? updated : x)));
@@ -789,14 +793,19 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         if (delta < 0) wasteLinesBySku.set(i.product.id, -delta);
       }
 
+      // Tính next NGOÀI setState rồi persist sau — updater phải thuần (StrictMode double-invoke).
+      const stockUpdates: { id: string; nextStock: number }[] = [];
+      for (const [id, ns] of stockAfter) {
+        const p = products.find((x) => x.id === id);
+        if (p && ns !== undefined && ns !== p.stock_quantity) stockUpdates.push({ id, nextStock: ns });
+      }
       setProducts((prev) =>
         prev.map((x) => {
-          const ns = stockAfter.get(x.id);
-          if (ns === undefined || ns === x.stock_quantity) return x;
-          db.products.update(x.id, { stock_quantity: ns }).catch(console.warn);
-          return { ...x, stock_quantity: ns };
+          const u = stockUpdates.find((s) => s.id === x.id);
+          return u ? { ...x, stock_quantity: u.nextStock } : x;
         })
       );
+      for (const u of stockUpdates) db.products.update(u.id, { stock_quantity: u.nextStock }).catch(console.warn);
       setStockMovements((prev) => [...movements.reverse(), ...prev]);
       // Gộp theo id thay vì cộng thẳng: dòng local vừa tạo có id = clientRef, và nếu
       // phiếu này đã có trong state (vd bấm Ghi lại, hoặc kéo server vừa rồi) thì thay
@@ -1008,18 +1017,17 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         note: `Thu cọc công trình ${project.code} (${project.name})`,
         created_at: new Date().toISOString(),
       };
+      await stageCashbookVoucher(entry);
       setCashbook((prev) => [entry, ...prev]);
-      db.cashbook.add(entry).catch(console.warn);
+      void syncPendingOpsRef.current();
       if (paymentMethod === 'cash') {
-        setCurrentShift((prev) => {
-          const updatedShift: Shift = {
-            ...prev,
-            cash_sales: prev.cash_sales + Math.round(amount),
-            expected_cash: prev.expected_cash + Math.round(amount),
-          };
-          db.shifts.put(updatedShift).catch(console.warn);
-          return updatedShift;
-        });
+        const updatedShift: Shift = {
+          ...currentShift,
+          cash_sales: currentShift.cash_sales + Math.round(amount),
+          expected_cash: currentShift.expected_cash + Math.round(amount),
+        };
+        setCurrentShift(updatedShift);
+        db.shifts.put(updatedShift).catch(console.warn);
       }
       const updated: Project = {
         ...project,
@@ -1030,7 +1038,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
       void pushProjectToServer(updated);
       return updated;
     },
-    [projects, supa, user, currentShift, setLoginOpen, setCashbook, setCurrentShift, pushProjectToServer]
+    [projects, supa, user, currentShift, setLoginOpen, setCashbook, setCurrentShift, pushProjectToServer, syncPendingOpsRef]
   );
 
   // ================================================================
@@ -1089,30 +1097,39 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         if (m.is_adjust) continue;
         restoreQty.set(m.product_id, (restoreQty.get(m.product_id) || 0) + (m.quantity || 0));
       }
+      // Tính next + movements NGOÀI setState rồi persist sau — updater phải thuần,
+      // StrictMode double-invoke updater sẽ ghi Dexie/đẩy movement lặp nếu để side-effect bên trong.
       if (restoreQty.size > 0) {
         const movements: StockMovement[] = [];
-        setProducts((prev) =>
-          prev.map((x) => {
-            const qty = restoreQty.get(x.id) || 0;
-            if (!(qty > 0)) return x;
-            const ns = Math.round((x.stock_quantity + qty) * 1000) / 1000;
-            db.products.update(x.id, { stock_quantity: ns }).catch(console.warn);
-            movements.push({
-              id: `sm-delproj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              reference_code: project.code,
-              product_id: x.id,
-              product_name: x.name,
-              movement_type: 'return',
-              quantity: qty,
-              previous_stock: x.stock_quantity,
-              new_stock: ns,
-              note: `Trả kho khi xoá dự án ${project.code} (${project.name})`,
-              created_at: now,
-            });
-            return { ...x, stock_quantity: ns };
-          })
-        );
-        setStockMovements((prev) => [...movements.reverse(), ...prev]);
+        const stockUpdates: { id: string; nextStock: number }[] = [];
+        for (const p of products) {
+          const qty = restoreQty.get(p.id) || 0;
+          if (!(qty > 0)) continue;
+          const ns = Math.round((p.stock_quantity + qty) * 1000) / 1000;
+          stockUpdates.push({ id: p.id, nextStock: ns });
+          movements.push({
+            id: `sm-delproj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            reference_code: project.code,
+            product_id: p.id,
+            product_name: p.name,
+            movement_type: 'return',
+            quantity: qty,
+            previous_stock: p.stock_quantity,
+            new_stock: ns,
+            note: `Trả kho khi xoá dự án ${project.code} (${project.name})`,
+            created_at: now,
+          });
+        }
+        if (stockUpdates.length > 0) {
+          setProducts((prev) =>
+            prev.map((x) => {
+              const u = stockUpdates.find((s) => s.id === x.id);
+              return u ? { ...x, stock_quantity: u.nextStock } : x;
+            })
+          );
+          for (const u of stockUpdates) db.products.update(u.id, { stock_quantity: u.nextStock }).catch(console.warn);
+          setStockMovements((prev) => [...movements.reverse(), ...prev]);
+        }
       }
       setProjects((prev) => prev.filter((x) => x.id !== projectId));
       db.projects.delete(projectId).catch(console.warn);
@@ -1124,7 +1141,7 @@ export function useTxProjects({ currentShift, setCashbook, setCurrentShift, setS
         unlinked_adjustments: Number((data as Record<string, unknown>).unlinked_adjustments || 0),
       };
     },
-    [supa, user, profile, isOnline, projects, setLoginOpen, setProducts, setProjects, setStockMovements]
+    [supa, user, profile, isOnline, projects, products, setLoginOpen, setProducts, setProjects, setStockMovements]
   );
 
   const removeProjectLine = useCallback(

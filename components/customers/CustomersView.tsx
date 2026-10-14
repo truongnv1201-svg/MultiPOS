@@ -65,6 +65,8 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
   const [group, setGroup] = useState<'retail' | 'contractor' | 'wholesale'>('contractor');
   const [debtLimit, setDebtLimit] = useState(20000000);
   const [importing, setImporting] = useState(false);
+  // Chặn double-submit: 3 modal KH không mở cùng lúc nên dùng chung 1 cờ saving
+  const [saving, setSaving] = useState(false);
   // Edit customer modal
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [editName, setEditName] = useState('');
@@ -84,7 +86,8 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
 
   const handleUpdateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingCustomer || !editName.trim()) return;
+    if (!editingCustomer || !editName.trim() || saving) return;
+    setSaving(true);
     try {
       const updates = {
         name: editName.trim(),
@@ -101,6 +104,8 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
       notify('Đã lưu thay đổi khách hàng!', 'success');
     } catch (err: any) {
       notify(`Không lưu được: ${err?.message || 'lỗi không rõ'}`, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -299,18 +304,24 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
 
   const handleConfirmCollect = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCustomer || collectAmount <= 0) return;
+    if (!selectedCustomer || collectAmount <= 0 || saving) return;
 
-    const ok = await collectDebt(selectedCustomer.id, collectAmount, collectMethod, collectNote);
-    if (!ok) return;
-    setIsCollectModalOpen(false);
-    notify(`Đã thu ${formatVND(collectAmount)} tiền nợ của ${selectedCustomer.name} thành công!`, 'success');
+    setSaving(true);
+    try {
+      const ok = await collectDebt(selectedCustomer.id, collectAmount, collectMethod, collectNote);
+      if (!ok) return;
+      setIsCollectModalOpen(false);
+      notify(`Đã thu ${formatVND(collectAmount)} tiền nợ của ${selectedCustomer.name} thành công!`, 'success');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || saving) return;
 
+    setSaving(true);
     try {
       const created = await addCustomer({
         name: name.trim(),
@@ -330,6 +341,8 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
       notify(`Thêm khách hàng "${created.name}" mới thành công!`, 'success');
     } catch (err: any) {
       notify(`Không thể thêm khách hàng: ${err?.message || 'lỗi không rõ'}`, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -786,9 +799,10 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
               <button
                 type="submit"
                 id="btn-confirm-collect-customer"
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold"
+                disabled={saving}
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-xs font-bold"
               >
-                Xác nhận thu nợ
+                {saving ? 'Đang xử lý...' : 'Xác nhận thu nợ'}
               </button>
             </div>
           </form>
@@ -871,9 +885,10 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
               <button
                 type="submit"
                 id="btn-add-customer-save"
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
+                disabled={saving}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs font-bold"
               >
-                Lưu khách hàng
+                {saving ? 'Đang lưu...' : 'Lưu khách hàng'}
               </button>
             </div>
           </form>
@@ -955,9 +970,10 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
               <button
                 type="submit"
                 id="btn-edit-customer-save"
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
+                disabled={saving}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs font-bold"
               >
-                Lưu thay đổi
+                {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </div>
           </form>

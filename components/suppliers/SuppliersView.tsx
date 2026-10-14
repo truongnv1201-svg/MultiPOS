@@ -68,6 +68,8 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
   const [initialDebt, setInitialDebt] = useState(0);
   const [creditLimit, setCreditLimit] = useState(100000000);
   const [importing, setImporting] = useState(false);
+  // Chặn double-submit: 3 modal NCC không mở cùng lúc nên dùng chung 1 cờ saving
+  const [saving, setSaving] = useState(false);
   // Edit supplier modal
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [editName, setEditName] = useState('');
@@ -87,7 +89,8 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
 
   const handleUpdateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSupplier || !editName.trim()) return;
+    if (!editingSupplier || !editName.trim() || saving) return;
+    setSaving(true);
     try {
       await updateSupplier(editingSupplier.id, {
         name: editName.trim(),
@@ -103,6 +106,8 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
       notify('Đã lưu thay đổi nhà cung cấp!', 'success');
     } catch (err: any) {
       notify(`Không lưu được: ${err?.message || 'lỗi không rõ'}`, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -272,8 +277,9 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || saving) return;
 
+    setSaving(true);
     try {
       const created = await addSupplier({
         name: name.trim(),
@@ -295,24 +301,31 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
       notify(`Đã thêm nhà cung cấp "${created.name}" thành công!`, 'success');
     } catch (err: any) {
       notify(`Không thể thêm nhà cung cấp: ${err?.message || 'lỗi không rõ'}`, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleExecutePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!payingSupplier || payAmount <= 0) return;
+    if (!payingSupplier || payAmount <= 0 || saving) return;
 
-    const success = await paySupplierDebt(
-      payingSupplier.id,
-      payAmount,
-      payMethod,
-      payNote || `Thanh toán công nợ vật tư cho ${payingSupplier.name}`
-    );
+    setSaving(true);
+    try {
+      const success = await paySupplierDebt(
+        payingSupplier.id,
+        payAmount,
+        payMethod,
+        payNote || `Thanh toán công nợ vật tư cho ${payingSupplier.name}`
+      );
 
-    if (success) {
-      setPayingSupplier(null);
-      setPayAmount(0);
-      setPayNote('');
+      if (success) {
+        setPayingSupplier(null);
+        setPayAmount(0);
+        setPayNote('');
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -783,9 +796,10 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
                 <button
                   type="submit"
                   id="btn-add-supplier-save"
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded shadow-xs"
+                  disabled={saving}
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded shadow-xs"
                 >
-                  Lưu nhà cung cấp
+                  {saving ? 'Đang lưu...' : 'Lưu nhà cung cấp'}
                 </button>
               </div>
             </form>
@@ -867,9 +881,10 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded shadow-xs"
+                  disabled={saving}
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded shadow-xs"
                 >
-                  Lưu thay đổi
+                  {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
                 </button>
               </div>
             </form>
@@ -961,9 +976,10 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
                 <button
                   type="submit"
                   id="btn-confirm-pay-supplier"
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded shadow-xs"
+                  disabled={saving}
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold rounded shadow-xs"
                 >
-                  Xác nhận chi {formatVND(payAmount)}
+                  {saving ? 'Đang xử lý...' : `Xác nhận chi ${formatVND(payAmount)}`}
                 </button>
               </div>
             </form>

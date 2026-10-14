@@ -49,7 +49,7 @@ export function useTxCheckout({
 }: TxCheckoutDeps): TxCheckout {
   const { supa, user, profile, setLoginOpen } = useAuth();
   const { shop } = useCommerce();
-  const { products, setProducts, setCustomers, customerMap, syncCustomers } = useCatalog();
+  const { products, setProducts, customers, setCustomers, customerMap, syncCustomers } = useCatalog();
   const { isOnline } = useNetwork();
 
   // Thu ngân hiện tại gắn với tài khoản đăng nhập (fix kết ca ẩn danh)
@@ -294,31 +294,30 @@ export function useTxCheckout({
         return null;
       }
 
-      // Update in-memory and DB stock (không kẹp max(0) để khỏi lệch truth với server)
+      // Update in-memory and DB stock (không kẹp max(0) để khỏi lệch truth với server).
+      // Tính next value NGOÀI setState rồi persist sau — updater phải thuần,
+      // StrictMode double-invoke updater sẽ ghi Dexie lặp nếu để side-effect bên trong.
+      const stockUpdates: { id: string; nextStock: number }[] = [];
+      for (const [pid, need] of Object.entries(stockDeductions)) {
+        const p = products.find((x) => x.id === pid);
+        if (p) stockUpdates.push({ id: pid, nextStock: Math.round((p.stock_quantity - need) * 1000) / 1000 });
+      }
       setProducts((prev) =>
         prev.map((p) => {
-          const deduct = stockDeductions[p.id];
-          if (deduct) {
-            const nextStock = Math.round((p.stock_quantity - deduct) * 1000) / 1000;
-            db.products.update(p.id, { stock_quantity: nextStock }).catch(console.warn);
-            return { ...p, stock_quantity: nextStock };
-          }
-          return p;
+          const u = stockUpdates.find((x) => x.id === p.id);
+          return u ? { ...p, stock_quantity: u.nextStock } : p;
         })
       );
+      for (const u of stockUpdates) db.products.update(u.id, { stock_quantity: u.nextStock }).catch(console.warn);
 
       // 2. Customer Debt update (current_debt >= 0)
       if (actualDebt > 0 && activeCart.customer_id) {
-        setCustomers((prev) =>
-          prev.map((c) => {
-            if (c.id === activeCart.customer_id) {
-              const nextDebt = c.current_debt + actualDebt;
-              db.customers.update(c.id, { current_debt: nextDebt }).catch(console.warn);
-              return { ...c, current_debt: nextDebt };
-            }
-            return c;
-          })
-        );
+        const cust = customers.find((c) => c.id === activeCart.customer_id);
+        if (cust) {
+          const nextDebt = cust.current_debt + actualDebt;
+          setCustomers((prev) => prev.map((c) => (c.id === cust.id ? { ...c, current_debt: nextDebt } : c)));
+          db.customers.update(cust.id, { current_debt: nextDebt }).catch(console.warn);
+        }
       }
 
       // 3. Cashbook Invariant: Single real recording (bán thẳng -> 'sales')
@@ -342,19 +341,17 @@ export function useTxCheckout({
         db.cashbook.add(newEntry).catch(console.warn);
 
         // Update current shift stats (doanh thu bán theo kênh tiền)
-        setCurrentShift((prev) => {
-          const isCash = activeCart.payment_method === 'cash';
-          const updatedShift: Shift = {
-            ...prev,
-            cash_sales: isCash ? prev.cash_sales + paidAmount : prev.cash_sales,
-            transfer_sales: !isCash ? prev.transfer_sales + paidAmount : prev.transfer_sales,
-            deposit_collected: prev.deposit_collected,
-            expected_cash: isCash ? prev.expected_cash + paidAmount : prev.expected_cash,
-            order_count: prev.order_count + 1,
-          };
-          db.shifts.put(updatedShift).catch(console.warn);
-          return updatedShift;
-        });
+        const isCash = activeCart.payment_method === 'cash';
+        const updatedShift: Shift = {
+          ...currentShift,
+          cash_sales: isCash ? currentShift.cash_sales + paidAmount : currentShift.cash_sales,
+          transfer_sales: !isCash ? currentShift.transfer_sales + paidAmount : currentShift.transfer_sales,
+          deposit_collected: currentShift.deposit_collected,
+          expected_cash: isCash ? currentShift.expected_cash + paidAmount : currentShift.expected_cash,
+          order_count: currentShift.order_count + 1,
+        };
+        setCurrentShift(updatedShift);
+        db.shifts.put(updatedShift).catch(console.warn);
       }
 
       // 4. Save order to DB and state
@@ -418,6 +415,7 @@ export function useTxCheckout({
       customerMap,
       syncCustomers,
       products,
+      customers,
       clearActiveCart,
       setLoginOpen,
       setCustomers,

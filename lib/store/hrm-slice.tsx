@@ -26,6 +26,7 @@ import type { MarkDayInput, CashbookEntry } from '../types';
 import type { EmployeeInput, HrmAccount } from './types';
 import { db, generateOrderCode } from '../db';
 import { cacheKeys, mirrorUpsert } from './tx/mirror';
+import { stageCashbookVoucher } from './tx/constants';
 import { createClient } from '@supabase/supabase-js';
 import { vietnamizeError } from '../error-vi';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
@@ -75,7 +76,7 @@ const HrmContext = createContext<HrmSlice | null>(null);
 export function HrmProvider({ children }: { children: React.ReactNode }) {
   const { supa, user, profile, setLoginOpen } = useAuth();
   const { isOnline } = useNetwork();
-  const { setCashbook, cashbook, currentShift } = useTransactions();
+  const { setCashbook, cashbook, currentShift, syncPendingOps } = useTransactions();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [attendanceDays, setAttendanceDays] = useState<AttendanceDay[]>([]);
   const [payrollLocks, setPayrollLocks] = useState<string[]>([]);
@@ -88,6 +89,9 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
   const [accounts, setAccounts] = useState<HrmAccount[]>([]);
   // Chữ ký dữ liệu server lần cuối — refresh trùng thì bỏ qua, tránh render + ghi Dexie thừa
   const hrmSigRef = useRef<Record<string, string>>({});
+  // Khoá chống race markDay: 1 ô (nv,ngày) chỉ 1 lần ghi đang chạy — bấm đúp trước khi
+  // state kịp re-render sẽ thấy `found` undefined ở cả 2 lần và insert trùng lên server.
+  const markDayLocks = useRef(new Map<string, Promise<boolean>>());
 
   // === HRM rebuild (gọn cho shop nhỏ) ===
   // employees là master duy nhất; công là điểm danh ngày; phép duyệt tự sinh công.
@@ -676,8 +680,11 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
           created_at: r.created_at,
         };
         setAdvances((prev) => [rec, ...prev]);
+        // Phiếu chi phải vào hàng đồng bộ (idempotent theo entry.id) — trước đây chỉ
+        // ghi local nên tiền tạm ứng không bao giờ lên server.
+        await stageCashbookVoucher(entry);
         setCashbook((prev) => [entry, ...prev]);
-        db.cashbook.add(entry).catch(() => {});
+        void syncPendingOps();
         markPayrollStale(month);
         return true;
       } catch (err: any) {
@@ -685,7 +692,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
     },
-    [requireHrmManager, supa, user, isOnline, employees, payrollLocks, markPayrollStale, setCashbook]
+    [requireHrmManager, supa, user, isOnline, employees, payrollLocks, markPayrollStale, setCashbook, syncPendingOps]
   );
 
   // Xóa 1 lần tạm ứng (kèm phiếu chi của nó). Tháng đã chốt/chi thì cấm.
@@ -704,14 +711,24 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       if (!await confirmDialog(`Xóa lần tạm ứng ${adv.amount.toLocaleString('vi-VN')}đ của ${adv.employee_name || ''} ngày ${adv.advance_date}? (Xóa luôn phiếu chi ${adv.cashbook_code || ''})`)) return false;
+      const targetEntry = adv.cashbook_code ? cashbook.find((e) => e.code === adv.cashbook_code) : undefined;
+      if (targetEntry?.synced) {
+        notify('Phiếu chi đã đồng bộ lên server — không xóa được nữa. Cần hoàn tiền thì lập phiếu thu đảo ở Sổ quỹ.', 'error');
+        return false;
+      }
       try {
         const { error } = await supa.from('salary_advances').delete().eq('id', id);
         if (error) throw new Error(error.message);
         setAdvances((prev) => prev.filter((a) => a.id !== id));
-        if (adv.cashbook_code) {
-          const target = cashbook.find((e) => e.code === adv.cashbook_code);
+        if (targetEntry) {
           setCashbook((prev) => prev.filter((e) => e.code !== adv.cashbook_code));
-          if (target) db.cashbook.delete(target.id).catch(() => {});
+          await db.cashbook.delete(targetEntry.id).catch(() => {});
+          // Rút luôn op 'voucher' đang chờ của phiếu này (chưa đẩy server thì không
+          // được để nó bay lên sau khi bản gốc đã xóa).
+          await db.pendingOps
+            .filter((o) => o.kind === 'voucher' && (o.payload as { entryId?: string }).entryId === targetEntry.id)
+            .delete()
+            .catch(() => {});
         }
         markPayrollStale(adv.month);
         return true;
@@ -809,8 +826,9 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
           created_at: r.created_at,
         };
         setAdvances((prev) => [rec, ...prev]);
+        await stageCashbookVoucher(entry);
         setCashbook((prev) => [entry, ...prev]);
-        db.cashbook.add(entry).catch(() => {});
+        void syncPendingOps();
         markPayrollStale(month);
         return true;
       } catch (err: any) {
@@ -818,7 +836,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
     },
-    [requireHrmManager, supa, user, isOnline, employees, payrollLocks, currentShift, markPayrollStale, setLoginOpen, setCashbook]
+    [requireHrmManager, supa, user, isOnline, employees, payrollLocks, currentShift, markPayrollStale, setLoginOpen, setCashbook, syncPendingOps]
   );
 
   // Cho nghỉ việc / đi làm lại (giữ lịch sử công + lương)
@@ -870,7 +888,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Chấm/sửa 1 ô công ngày (upsert theo cặp nhân viên/ngày). OT + ghi chú nhập thẳng tại ô.
-  const markDay = useCallback(
+  const markDayInner = useCallback(
     async (input: MarkDayInput): Promise<boolean> => {
       if (!input.employee_id || !input.work_date) return false;
       if (!requireHrmManager('chấm công')) return false;
@@ -933,6 +951,26 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
       return true;
     },
     [requireHrmManager, attendanceDays, employees, supa, user, isOnline, payrollLocks, markPayrollStale]
+  );
+
+  // Vỏ chống race: bấm đúp cùng ô trước khi state kịp re-render, cả 2 lần markDayInner
+  // đều thấy `found` undefined -> insert trùng server. Khoá theo (nv,ngày): lần bấm sau
+  // chờ kết quả lần trước thay vì ghi đè nhau.
+  const markDay = useCallback(
+    async (input: MarkDayInput): Promise<boolean> => {
+      if (!input.employee_id || !input.work_date) return false;
+      const lockKey = `${input.employee_id}|${input.work_date}`;
+      const inflight = markDayLocks.current.get(lockKey);
+      if (inflight) return inflight;
+      const task = markDayInner(input);
+      markDayLocks.current.set(lockKey, task);
+      try {
+        return await task;
+      } finally {
+        markDayLocks.current.delete(lockKey);
+      }
+    },
+    [markDayInner]
   );
 
   const clearDay = useCallback(
@@ -1005,6 +1043,30 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
           db.attendanceDays.delete(rec.id).catch(() => {});
           db.attendanceDays.add(updated).catch(() => {});
           setAttendanceDays((prev) => prev.map((a) => (a.id === rec.id ? updated : a)));
+          continue;
+        }
+        // Heal race 2 máy cùng chấm 1 ô: server đã có dòng (nv,ngày) -> nhận id server
+        // khỏi retry insert trùng mỗi chu kỳ. Lỗi khác (mạng/RLS) vẫn giữ để đợt sau.
+        if (error && !String(error.message || '').toLowerCase().includes('network')) {
+          try {
+            const { data: exist } = await supa
+              .from('attendance_days')
+              .select('id')
+              .eq('employee_id', rec.employee_id)
+              .eq('work_date', rec.work_date)
+              .maybeSingle();
+            const sid = (exist as { id?: string } | null)?.id;
+            if (sid) {
+              db.attendanceDays.delete(rec.id).catch(() => {});
+              db.attendanceDays.put({ ...rec, id: sid, synced: true }).catch(() => {});
+              setAttendanceDays((prev) => {
+                const rest = prev.filter((a) => a.id !== rec.id);
+                return rest.some((a) => a.id === sid) ? rest : [{ ...rec, id: sid, synced: true }, ...rest];
+              });
+            }
+          } catch {
+            /* giữ lại thử đợt sau */
+          }
         }
       } catch {
         /* giữ lại thử đợt sau */
@@ -1237,9 +1299,10 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
             .eq('id', it.id);
           if (itemErr) throw new Error(itemErr.message);
           setPayrollItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, paid: true, cashbook_code: code } : p)));
+          await stageCashbookVoucher(entry);
           setCashbook((prev) => [entry, ...prev]);
-          db.cashbook.add(entry).catch(() => {});
         }
+        void syncPendingOps();
         await supa.from('payroll_runs').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', runId);
         await refreshHrm();
         if (excluded.length > 0) {
@@ -1260,7 +1323,7 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
     },
-    [requireHrmManager, supa, payrollRuns, payrollItems, refreshHrm, setCashbook]
+    [requireHrmManager, supa, payrollRuns, payrollItems, refreshHrm, setCashbook, syncPendingOps]
   );
 
   // Vừa login / vừa online lại -> kéo HRM về, đẩy tồn máy lên.

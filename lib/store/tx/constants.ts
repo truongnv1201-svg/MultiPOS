@@ -2,7 +2,7 @@
 // Tách verbatim từ lib/store/transactions.tsx để composer + sub-hooks dùng chung.
 import { db } from '../../db';
 import type { PendingOp } from '../../db';
-import type { Shift, Supplier } from '../../types';
+import type { CashbookEntry, Shift, Supplier } from '../../types';
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -57,6 +57,26 @@ export async function enqueueOp(kind: PendingOp['kind'], payload: Record<string,
     console.warn('Pending operation enqueue failed:', error);
     return false;
   }
+}
+
+// Ghi phiếu thu/chi vào sổ quỹ LOCAL + hàng đồng bộ (op 'voucher' -> record_cashbook_voucher).
+// Mọi luồng tiền mặt (lương/tạm ứng/cọc/phiếu tay) phải qua hàm này để server nhận đúng
+// phiếu — idempotent theo entry.id (client_ref), server tự đánh mã chính thức.
+export async function stageCashbookVoucher(entry: CashbookEntry): Promise<void> {
+  await db.transaction('rw', [db.cashbook, db.pendingOps], async () => {
+    await db.cashbook.add(entry);
+    const queued = await enqueueOp('voucher', {
+      entryId: entry.id,
+      type: entry.type,
+      fund: entry.fund_type,
+      category: entry.category,
+      amount: entry.amount,
+      partner: entry.partner_name || '',
+      reference: entry.reference_order_code || '',
+      note: entry.note || '',
+    });
+    if (!queued) throw new Error('Không lưu được phiếu thu/chi vào hàng đợi đồng bộ.');
+  });
 }
 
 // P0-scale: cửa sổ + phân trang pull đơn server (trần ~1000 dòng/request của

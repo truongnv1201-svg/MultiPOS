@@ -99,32 +99,31 @@ export function useTxOrderReturns({
           restoreQty[child.product_id] = (restoreQty[child.product_id] || 0) + child.quantity * item.quantity;
         }
       }
-      if (Object.keys(restoreQty).length > 0) {
+      // Tính next value NGOÀI setState rồi persist sau — updater phải thuần,
+      // StrictMode double-invoke updater sẽ ghi Dexie lặp nếu để side-effect bên trong.
+      const stockUpdates: { id: string; nextStock: number }[] = [];
+      for (const [pid, qty] of Object.entries(restoreQty)) {
+        const p = products.find((x) => x.id === pid);
+        if (p && qty > 0) stockUpdates.push({ id: pid, nextStock: Math.round((p.stock_quantity + qty) * 1000) / 1000 });
+      }
+      if (stockUpdates.length > 0) {
         setProducts((prev) =>
           prev.map((p) => {
-            const qty = restoreQty[p.id] || 0;
-            if (qty > 0) {
-              const nextStock = p.stock_quantity + qty;
-              db.products.update(p.id, { stock_quantity: nextStock }).catch(console.warn);
-              return { ...p, stock_quantity: nextStock };
-            }
-            return p;
+            const u = stockUpdates.find((x) => x.id === p.id);
+            return u ? { ...p, stock_quantity: u.nextStock } : p;
           })
         );
+        for (const u of stockUpdates) db.products.update(u.id, { stock_quantity: u.nextStock }).catch(console.warn);
       }
 
       // 2. Clamp/reverse customer debt
       if (order.debt_amount > 0 && order.customer_id) {
-        setCustomers((prev) =>
-          prev.map((c) => {
-            if (c.id === order.customer_id) {
-              const nextDebt = Math.max(0, c.current_debt - order.debt_amount);
-              db.customers.update(c.id, { current_debt: nextDebt }).catch(console.warn);
-              return { ...c, current_debt: nextDebt };
-            }
-            return c;
-          })
-        );
+        const cust = customers.find((c) => c.id === order.customer_id);
+        if (cust) {
+          const nextDebt = Math.max(0, cust.current_debt - order.debt_amount);
+          setCustomers((prev) => prev.map((c) => (c.id === cust.id ? { ...c, current_debt: nextDebt } : c)));
+          db.customers.update(cust.id, { current_debt: nextDebt }).catch(console.warn);
+        }
       }
 
       // 3. Refund payments to respective funds (FIN-ERR-05)
@@ -162,7 +161,7 @@ export function useTxOrderReturns({
       }
       return true;
     },
-    [orders, setOrders, setPendingQueue, products, supa, user, currentShift, isOnline, resolveServerOrderId, setLoginOpen, setCustomers, setProducts, setCashbook]
+    [orders, setOrders, setPendingQueue, products, customers, supa, user, currentShift, isOnline, resolveServerOrderId, setLoginOpen, setCustomers, setProducts, setCashbook]
   );
 
   // Return Order with Debt Clamping (FIN-ERR-03)
@@ -267,16 +266,12 @@ export function useTxOrderReturns({
         if (srvCashRefund == null) cashRefund = totalRefundAmount - debtDeduction;
 
         if (debtDeduction > 0) {
-          setCustomers((prev) =>
-            prev.map((c) => {
-              if (c.id === order.customer_id) {
-                const nextDebt = c.current_debt - debtDeduction;
-                db.customers.update(c.id, { current_debt: nextDebt }).catch(console.warn);
-                return { ...c, current_debt: nextDebt };
-              }
-              return c;
-            })
-          );
+          const cust = customers.find((c) => c.id === order.customer_id);
+          if (cust) {
+            const nextDebt = cust.current_debt - debtDeduction;
+            setCustomers((prev) => prev.map((c) => (c.id === cust.id ? { ...c, current_debt: nextDebt } : c)));
+            db.customers.update(cust.id, { current_debt: nextDebt }).catch(console.warn);
+          }
         }
       }
 
@@ -287,17 +282,20 @@ export function useTxOrderReturns({
         : pRestock.map((l) => ({ sku: l.sku, quantity: l.quantity }));
       const finalSkipped: ReturnSkipped[] = [...clientSkipped, ...srvSkipped];
       if (finalRestocked.length > 0) {
-        setProducts((prev) =>
-          prev.map((p) => {
-            const line = finalRestocked.find((l) => l.sku === p.sku);
-            if (line && line.quantity > 0) {
-              const nextStock = Math.round((p.stock_quantity + line.quantity) * 1000) / 1000;
-              db.products.update(p.id, { stock_quantity: nextStock }).catch(console.warn);
-              return { ...p, stock_quantity: nextStock };
-            }
-            return p;
-          })
-        );
+        const restockUpdates: { id: string; nextStock: number }[] = [];
+        for (const line of finalRestocked) {
+          const p = products.find((x) => x.sku === line.sku);
+          if (p && line.quantity > 0) restockUpdates.push({ id: p.id, nextStock: Math.round((p.stock_quantity + line.quantity) * 1000) / 1000 });
+        }
+        if (restockUpdates.length > 0) {
+          setProducts((prev) =>
+            prev.map((p) => {
+              const u = restockUpdates.find((x) => x.id === p.id);
+              return u ? { ...p, stock_quantity: u.nextStock } : p;
+            })
+          );
+          for (const u of restockUpdates) db.products.update(u.id, { stock_quantity: u.nextStock }).catch(console.warn);
+        }
       }
       const restockNote =
         finalRestocked.length > 0

@@ -108,15 +108,14 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       await db.cashbook.add(entry);
 
       if (paymentMethod === 'cash') {
-        setCurrentShift((prev) => {
-          const updated = {
-            ...prev,
-            cash_sales: prev.cash_sales + actualCollect,
-            expected_cash: prev.expected_cash + actualCollect,
-          };
-          db.shifts.put(updated).catch(console.warn);
-          return updated;
-        });
+        // Tính NGOÀI setState rồi persist sau — updater phải thuần (StrictMode double-invoke).
+        const updatedShift: Shift = {
+          ...currentShift,
+          cash_sales: currentShift.cash_sales + actualCollect,
+          expected_cash: currentShift.expected_cash + actualCollect,
+        };
+        setCurrentShift(updatedShift);
+        db.shifts.put(updatedShift).catch(console.warn);
       }
 
       // Refresh nợ thật từ server (local có thể lệch truth) — best-effort
@@ -185,15 +184,24 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
         }
       }
       if (updated > 0) {
-        setCustomers((prev) =>
-          prev.map((c) => {
-            const t = next.get(c.id);
-            if (!t) return c;
-            if (c.current_debt === t.debt && c.debt_limit === t.limit) return c;
-            db.customers.update(c.id, { current_debt: t.debt, debt_limit: t.limit }).catch(console.warn);
-            return { ...c, current_debt: t.debt, debt_limit: t.limit };
-          })
-        );
+        // Tính next NGOÀI setState rồi persist sau — updater phải thuần.
+        const debtUpdates: { id: string; debt: number; limit: number }[] = [];
+        for (const c of customers) {
+          const t = next.get(c.id);
+          if (!t) continue;
+          if (c.current_debt === t.debt && c.debt_limit === t.limit) continue;
+          debtUpdates.push({ id: c.id, debt: t.debt, limit: t.limit });
+        }
+        if (debtUpdates.length > 0) {
+          setCustomers((prev) =>
+            prev.map((c) => {
+              const u = debtUpdates.find((x) => x.id === c.id);
+              return u ? { ...c, current_debt: u.debt, debt_limit: u.limit } : c;
+            })
+          );
+          for (const u of debtUpdates)
+            db.customers.update(u.id, { current_debt: u.debt, debt_limit: u.limit }).catch(console.warn);
+        }
       }
       return { updated, skipped };
     } catch (err: any) {

@@ -167,8 +167,9 @@ describe('thống kê ca đúng kênh tiền (không còn cọc)', () => {
   const checkout = read('lib/store/tx/checkout.tsx');
 
   it('doanh thu chia đúng kênh cash/transfer, không nhánh cọc', () => {
-    assert.match(checkout, /cash_sales: isCash \? prev\.cash_sales \+ paidAmount : prev\.cash_sales/);
-    assert.match(checkout, /transfer_sales: !isCash \? prev\.transfer_sales \+ paidAmount : prev\.transfer_sales/);
+    // Tính trên currentShift ngoài updater rồi persist sau — updater phải thuần.
+    assert.match(checkout, /cash_sales: isCash \? currentShift\.cash_sales \+ paidAmount : currentShift\.cash_sales/);
+    assert.match(checkout, /transfer_sales: !isCash \? currentShift\.transfer_sales \+ paidAmount : currentShift\.transfer_sales/);
     assert.doesNotMatch(checkout, /isDeposit/);
   });
 

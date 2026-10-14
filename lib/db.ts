@@ -12,6 +12,7 @@ import {
   DimensionDetail,
 } from './types';
 import type { Employee, AttendanceDay } from './hrm';
+import { dailyCodeStamp } from './codes';
 
 export interface PendingMasterData {
   id: string;
@@ -156,6 +157,30 @@ let masterSeq = 12;
 let cashSeq = 5;
 let projectSeq = 2;
 
+// Khởi đầu orderSeq từ MAX mã phiếu HÔM NAY đang có trong máy (đơn, sổ quỹ, phiếu
+// nhập) — trước đây orderSeq = 10 cứng nên tải lại trang là quay về ...-0011, trùng
+// mã phiên trước cùng ngày (server tự cấp mã riêng khi sync, nhưng mã tạm trùng
+// gây nhầm đối chiếu + va chạm tham chiếu trước khi remap). Mã sai định dạng/khác
+// ngày bỏ qua. Gọi 1 lần ở initializeDatabase, trước mọi thao tác nghiệp vụ.
+async function seedOrderSeqFromLocal(): Promise<void> {
+  try {
+    const stamp = dailyCodeStamp();
+    let max = 0;
+    const scan = (codes: Array<string | undefined | null>) => {
+      for (const c of codes) {
+        const m = /^[A-Z]{2}-(\d{6})-(\d+)$/.exec((c || '').trim().toUpperCase());
+        if (m && m[1] === stamp) max = Math.max(max, parseInt(m[2], 10));
+      }
+    };
+    scan((await db.orders.toArray()).map((o) => (o as { order_code?: string }).order_code));
+    scan((await db.cashbook.toArray()).map((e) => (e as { code?: string }).code));
+    scan((await db.purchaseOrders.toArray()).map((p) => (p as { code?: string }).code));
+    if (max > orderSeq) orderSeq = max;
+  } catch {
+    /* giữ mặc định — đỡ hơn crash boot */
+  }
+}
+
 export function generateOrderCode(prefix: 'HD' | 'TH' | 'NH' | 'CT' | 'PQ' | 'PT' | 'PC'): string {
   const d = new Date();
   const yy = String(d.getFullYear()).slice(-2);
@@ -181,6 +206,7 @@ export { calculateDimensionRow, recomputeOrderItem } from './pricing';
 // Local storage starts empty. Server data is loaded by the providers when available.
 export async function initializeDatabase(): Promise<void> {
   await db.open();
+  await seedOrderSeqFromLocal();
 }
 
 // Marker project Supabase mà cache máy trạm này đang giữ. Đổi URL project mà không

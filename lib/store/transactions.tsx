@@ -180,6 +180,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     setCashbook: shiftStock.setCashbook,
     setCurrentShift: shiftStock.setCurrentShift,
     setStockMovements: shiftStock.setStockMovements,
+    syncPendingOpsRef,
   });
 
   // Thu ngân hiện tại gắn với tài khoản đăng nhập (giữ công thức gốc).

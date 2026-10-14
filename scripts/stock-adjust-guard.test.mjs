@@ -47,8 +47,8 @@ describe('0064: điều chỉnh tồn / hao hụt', () => {
       !/UPDATE public\.products SET[^;]*avg_cost/i.test(fn[0]),
       'adjust_stock KHÔNG được sửa avg_cost (giá vốn đã chốt lúc nhập kho)'
     );
-    // Client cũng chỉ ghi stock_quantity.
-    const client = projects.match(/db\.products\.update\(x\.id, \{ stock_quantity: ns \}\)/);
+    // Client cũng chỉ ghi stock_quantity (được tính ngoài setState rồi persist sau).
+    const client = projects.match(/db\.products\.update\((?:x|u)\.id, \{ stock_quantity: (?:ns|u\.nextStock) \}\)/);
     assert.ok(client, 'client chỉ cập nhật stock_quantity');
   });
 

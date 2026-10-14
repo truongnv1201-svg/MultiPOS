@@ -12,7 +12,6 @@ import {
   Users,
   Hammer,
   Trash2,
-  X,
   HardHat,
   Search,
   Phone,
@@ -26,6 +25,7 @@ import {
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { NumberInput } from '@/components/common/NumberInput';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
+import { SheetShell } from '@/components/common/SheetShell';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
 import { TableTools } from '@/components/common/TableTools';
@@ -136,20 +136,25 @@ export function ProjectsView() {
 
   const handleAddWorker = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentProject) return;
-    const updated = await addProjectWorker(currentProject.id, {
-      worker_name: wName,
-      role: wRole,
-      days_worked: wDays,
-      daily_wage: wWage,
-      allowance: wAllow,
-      employee_id: wEmployeeId || undefined,
-      employee_code: pickedEmployee?.code,
-    });
-    if (updated) {
-      setSelectedProject(updated);
-      setIsWorkerModalOpen(false);
-      resetWorkerForm();
+    if (!currentProject || saving) return;
+    setSaving(true);
+    try {
+      const updated = await addProjectWorker(currentProject.id, {
+        worker_name: wName,
+        role: wRole,
+        days_worked: wDays,
+        daily_wage: wWage,
+        allowance: wAllow,
+        employee_id: wEmployeeId || undefined,
+        employee_code: pickedEmployee?.code,
+      });
+      if (updated) {
+        setSelectedProject(updated);
+        setIsWorkerModalOpen(false);
+        resetWorkerForm();
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -163,6 +168,8 @@ export function ProjectsView() {
   const [isDepModalOpen, setIsDepModalOpen] = useState(false);
   const [depAmount, setDepAmount] = useState(0);
   const [depMethod, setDepMethod] = useState<'cash' | 'transfer'>('cash');
+  // Chặn double-submit: các modal dự án không mở cùng lúc nên dùng chung 1 cờ saving
+  const [saving, setSaving] = useState(false);
 
   const openFinModal = () => {
     if (!currentProject) return;
@@ -174,35 +181,45 @@ export function ProjectsView() {
 
   const handleSaveFinance = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentProject) return;
-    const updated = await updateProjectFinance(currentProject.id, {
-      estimated_revenue: finEstimated,
-      settled_revenue: finSettled,
-      other_costs: finOther,
-    });
-    if (updated) {
-      setSelectedProject(updated);
-      setIsFinModalOpen(false);
+    if (!currentProject || saving) return;
+    setSaving(true);
+    try {
+      const updated = await updateProjectFinance(currentProject.id, {
+        estimated_revenue: finEstimated,
+        settled_revenue: finSettled,
+        other_costs: finOther,
+      });
+      if (updated) {
+        setSelectedProject(updated);
+        setIsFinModalOpen(false);
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleCollectDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentProject) return;
-    const remaining = Math.max(0, currentProject.settled_revenue - (currentProject.deposit_amount || 0));
-    if (depAmount > remaining) {
-      const ok = await confirmDialog(
-        `Số thu ${formatVND(depAmount)} vượt số còn phải thu ${formatVND(remaining)}.\nVẫn thu?`,
-        { title: 'Thu cọc/đợt', confirmLabel: 'Vẫn thu' }
-      );
-      if (!ok) return;
-    }
-    const updated = await collectProjectDeposit(currentProject.id, depAmount, depMethod);
-    if (updated) {
-      setSelectedProject(updated);
-      setIsDepModalOpen(false);
-      setDepAmount(0);
-      notify(`Đã thu ${formatVND(depAmount)} cho công trình ${currentProject.code}.`, 'success');
+    if (!currentProject || saving) return;
+    setSaving(true);
+    try {
+      const remaining = Math.max(0, currentProject.settled_revenue - (currentProject.deposit_amount || 0));
+      if (depAmount > remaining) {
+        const ok = await confirmDialog(
+          `Số thu ${formatVND(depAmount)} vượt số còn phải thu ${formatVND(remaining)}.\nVẫn thu?`,
+          { title: 'Thu cọc/đợt', confirmLabel: 'Vẫn thu' }
+        );
+        if (!ok) return;
+      }
+      const updated = await collectProjectDeposit(currentProject.id, depAmount, depMethod);
+      if (updated) {
+        setSelectedProject(updated);
+        setIsDepModalOpen(false);
+        setDepAmount(0);
+        notify(`Đã thu ${formatVND(depAmount)} cho công trình ${currentProject.code}.`, 'success');
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -220,42 +237,46 @@ export function ProjectsView() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    try {
+      // Link KH có sẵn để ăn công nợ + đồng bộ server; tên gõ mới thì lưu chay
+      const matchedCustomer = customers.find((c) => c.id === customerPick);
+      const resolvedCustomerId = matchedCustomer ? matchedCustomer.id : '';
+      const resolvedCustomerName = matchedCustomer
+        ? matchedCustomer.name
+        : customerPick.trim() || 'Chủ đầu tư';
+      // Bỏ qua báo giá -> quyết toán = 0 (chỉ nhập sau ở modal tài chính)
+      const settled = skipEstimate ? 0 : estimatedRevenue;
 
-    // Link KH có sẵn để ăn công nợ + đồng bộ server; tên gõ mới thì lưu chay
-    const matchedCustomer = customers.find((c) => c.id === customerPick);
-    const resolvedCustomerId = matchedCustomer ? matchedCustomer.id : '';
-    const resolvedCustomerName = matchedCustomer
-      ? matchedCustomer.name
-      : customerPick.trim() || 'Chủ đầu tư';
-    // Bỏ qua báo giá -> quyết toán = 0 (chỉ nhập sau ở modal tài chính)
-    const settled = skipEstimate ? 0 : estimatedRevenue;
+      const created = await addProject({
+        name: name.trim(),
+        customer_id: resolvedCustomerId,
+        customer_name: resolvedCustomerName,
+        address,
+        estimated_revenue: estimatedRevenue,
+        settled_revenue: settled,
+        deposit_amount: 0,
+        materials: [],
+        workers: [],
+        other_costs: 0,
+        material_cost_total: 0,
+        labor_cost_total: 0,
+        total_cost: 0,
+        actual_profit: settled,
+        created_at: new Date().toISOString(),
+      });
 
-    const created = await addProject({
-      name: name.trim(),
-      customer_id: resolvedCustomerId,
-      customer_name: resolvedCustomerName,
-      address,
-      estimated_revenue: estimatedRevenue,
-      settled_revenue: settled,
-      deposit_amount: 0,
-      materials: [],
-      workers: [],
-      other_costs: 0,
-      material_cost_total: 0,
-      labor_cost_total: 0,
-      total_cost: 0,
-      actual_profit: settled,
-      created_at: new Date().toISOString(),
-    });
-
-    setSelectedProject(created);
-    setIsNewProjectModalOpen(false);
-    setName('');
-    setCustomerPick('');
-    setAddress('');
-    setEstimatedRevenue(0);
-    setSkipEstimate(false);
+      setSelectedProject(created);
+      setIsNewProjectModalOpen(false);
+      setName('');
+      setCustomerPick('');
+      setAddress('');
+      setEstimatedRevenue(0);
+      setSkipEstimate(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ---- 0066: Sửa thông tin + Xoá dự án ----
@@ -272,22 +293,27 @@ export function ProjectsView() {
 
   const handleSaveEditInfo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentProject || !editName.trim()) return;
-    const matched = customers.find((c) => c.id === editCustomerPick);
-    const resolvedCustomerId = matched ? matched.id : '';
-    const resolvedCustomerName = matched ? matched.name : editCustomerPick.trim() || 'Chủ đầu tư';
-    const patch = {
-      name: editName.trim(),
-      customer_id: resolvedCustomerId,
-      customer_name: resolvedCustomerName,
-      address: editAddress.trim(),
-    };
-    // updateProject trả void nhưng đã tự setProjects trong store — ở đây ghép lại object
-    // mới cho selectedProject local để UI hiện ngay mà không cần đợi sync.
-    await updateProject(currentProject.id, patch);
-    setSelectedProject({ ...currentProject, ...patch });
-    setIsEditInfoOpen(false);
-    notify(`Đã cập nhật thông tin công trình ${currentProject.code}.`, 'success');
+    if (!currentProject || !editName.trim() || saving) return;
+    setSaving(true);
+    try {
+      const matched = customers.find((c) => c.id === editCustomerPick);
+      const resolvedCustomerId = matched ? matched.id : '';
+      const resolvedCustomerName = matched ? matched.name : editCustomerPick.trim() || 'Chủ đầu tư';
+      const patch = {
+        name: editName.trim(),
+        customer_id: resolvedCustomerId,
+        customer_name: resolvedCustomerName,
+        address: editAddress.trim(),
+      };
+      // updateProject trả void nhưng đã tự setProjects trong store — ở đây ghép lại object
+      // mới cho selectedProject local để UI hiện ngay mà không cần đợi sync.
+      await updateProject(currentProject.id, patch);
+      setSelectedProject({ ...currentProject, ...patch });
+      setIsEditInfoOpen(false);
+      notify(`Đã cập nhật thông tin công trình ${currentProject.code}.`, 'success');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteProject = async (project: Project) => {
@@ -1013,18 +1039,15 @@ export function ProjectsView() {
 
       {/* Modal: Thêm thợ (tổng lương = ngày × lương + phụ cấp) */}
       {isWorkerModalOpen && currentProject && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <form
-            onSubmit={handleAddWorker}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">Thêm thợ cho {currentProject.code}</h3>
-              <button type="button" onClick={() => setIsWorkerModalOpen(false)} className="p-1 text-slate-400 hover:text-white rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3 text-xs">
+        <SheetShell
+          open
+          onClose={() => setIsWorkerModalOpen(false)}
+          label="Thêm thợ"
+          title={`Thêm thợ cho ${currentProject.code}`}
+          icon={<HardHat className="w-4 h-4 text-blue-400" />}
+        >
+          <form onSubmit={handleAddWorker} className="flex flex-col min-h-0">
+            <div className="p-4 space-y-3 text-xs overflow-y-auto">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Thợ (chọn từ nhân sự) *</label>
                 <SearchableSelect
@@ -1083,28 +1106,25 @@ export function ProjectsView() {
               >
                 Hủy
               </button>
-              <button type="submit" className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold">
-                Thêm thợ
+              <button type="submit" disabled={saving} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs font-bold">
+                {saving ? 'Đang lưu...' : 'Thêm thợ'}
               </button>
             </div>
           </form>
-        </div>
+        </SheetShell>
       )}
 
       {/* Modal tài chính: dự toán / quyết toán / chi khác độc lập */}
       {isFinModalOpen && currentProject && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <form
-            onSubmit={handleSaveFinance}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">Số tài chính {currentProject.code}</h3>
-              <button type="button" onClick={() => setIsFinModalOpen(false)} className="p-1 text-slate-400 hover:text-white rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3 text-xs">
+        <SheetShell
+          open
+          onClose={() => setIsFinModalOpen(false)}
+          label="Số tài chính công trình"
+          title={`Số tài chính ${currentProject.code}`}
+          icon={<Wallet className="w-4 h-4 text-amber-400" />}
+        >
+          <form onSubmit={handleSaveFinance} className="flex flex-col min-h-0">
+            <div className="p-4 space-y-3 text-xs overflow-y-auto">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Giá trị dự toán ban đầu (đ)</label>
                 <NumberInput min={0} value={finEstimated} onChange={(v) => setFinEstimated(v)} className="w-full h-8 px-2.5 border border-slate-300 rounded font-mono" />
@@ -1123,30 +1143,25 @@ export function ProjectsView() {
               <button type="button" onClick={() => setIsFinModalOpen(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded">
                 Hủy
               </button>
-              <button type="submit" className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold">
-                Lưu số
+              <button type="submit" disabled={saving} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs font-bold">
+                {saving ? 'Đang lưu...' : 'Lưu số'}
               </button>
             </div>
           </form>
-        </div>
+        </SheetShell>
       )}
 
       {/* Modal thu tiền công trình (cọc/đợt) */}
       {isDepModalOpen && currentProject && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <form
-            onSubmit={handleCollectDeposit}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">
-                Thu cọc/đợt {currentProject.code}
-              </h3>
-              <button type="button" onClick={() => setIsDepModalOpen(false)} className="p-1 text-slate-400 hover:text-white rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3 text-xs">
+        <SheetShell
+          open
+          onClose={() => setIsDepModalOpen(false)}
+          label="Thu cọc/đợt công trình"
+          title={`Thu cọc/đợt ${currentProject.code}`}
+          icon={<Banknote className="w-4 h-4 text-emerald-400" />}
+        >
+          <form onSubmit={handleCollectDeposit} className="flex flex-col min-h-0">
+            <div className="p-4 space-y-3 text-xs overflow-y-auto">
               <p className="text-slate-600">
                 Đã thu trước: <strong className="font-mono">{formatVND(currentProject.deposit_amount || 0)}</strong>
                 {' '}· Còn phải thu: <strong className="font-mono">{formatVND(Math.max(0, currentProject.settled_revenue - (currentProject.deposit_amount || 0)))}</strong>
@@ -1179,25 +1194,25 @@ export function ProjectsView() {
               <button type="button" onClick={() => setIsDepModalOpen(false)} className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded">
                 Hủy
               </button>
-              <button type="submit" disabled={!(depAmount > 0)} className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-xs font-bold">
-                Xác nhận thu {formatVND(depAmount)}
+              <button type="submit" disabled={saving || !(depAmount > 0)} className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-xs font-bold">
+                {saving ? 'Đang xử lý...' : `Xác nhận thu ${formatVND(depAmount)}`}
               </button>
             </div>
           </form>
-        </div>
+        </SheetShell>
       )}
 
       {/* New Project Modal */}
       {isNewProjectModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-label="Lập dự án thi công mới">
-          <form
-            onSubmit={handleCreateProject}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">Lập Dự Án Thi Công Mới (MÃ CT-YYMMDD-XXXX)</h3>
-            </div>
-            <div className="p-4 space-y-3 text-xs">
+        <SheetShell
+          open
+          onClose={() => setIsNewProjectModalOpen(false)}
+          label="Lập dự án thi công mới"
+          title="Lập Dự Án Thi Công Mới (MÃ CT-YYMMDD-XXXX)"
+          icon={<Building2 className="w-4 h-4 text-blue-400" />}
+        >
+          <form onSubmit={handleCreateProject} className="flex flex-col min-h-0">
+            <div className="p-4 space-y-3 text-xs overflow-y-auto">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Tên công trình *</label>
                 <input
@@ -1267,30 +1282,28 @@ export function ProjectsView() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
+                disabled={saving}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs font-bold"
               >
-                Tạo dự án
+                {saving ? 'Đang tạo...' : 'Tạo dự án'}
               </button>
             </div>
           </form>
-        </div>
+        </SheetShell>
       )}
 
       {/* Edit Info Modal — sửa tên/chủ đầu tư/địa chỉ khi tạo sai (0066).
           Số tiền không sửa ở đây mà ở modal tài chính để tách trách nhiệm. */}
       {isEditInfoOpen && currentProject && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-label="Sửa thông tin công trình">
-          <form
-            onSubmit={handleSaveEditInfo}
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"
-          >
-            <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">Sửa thông tin {currentProject.code}</h3>
-              <button type="button" onClick={() => setIsEditInfoOpen(false)} className="p-1 text-slate-400 hover:text-white rounded">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3 text-xs">
+        <SheetShell
+          open
+          onClose={() => setIsEditInfoOpen(false)}
+          label="Sửa thông tin công trình"
+          title={`Sửa thông tin ${currentProject.code}`}
+          icon={<Pencil className="w-4 h-4 text-amber-400" />}
+        >
+          <form onSubmit={handleSaveEditInfo} className="flex flex-col min-h-0">
+            <div className="p-4 space-y-3 text-xs overflow-y-auto">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Tên công trình *</label>
                 <input
@@ -1342,13 +1355,14 @@ export function ProjectsView() {
               <button
                 type="submit"
                 id="btn-save-project-info"
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold"
+                disabled={saving}
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-xs font-bold"
               >
-                Lưu thay đổi
+                {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </div>
           </form>
-        </div>
+        </SheetShell>
       )}
     </div>
   );
