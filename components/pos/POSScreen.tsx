@@ -109,6 +109,10 @@ export function POSScreen() {
   const [discountType, setDiscountType] = useState<'vnd' | 'percent'>('percent');
   const [shippingType, setShippingType] = useState<'vnd' | 'percent'>('vnd');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  // Chốt chặn double-submit ĐỒNG BỘ: isProcessing là state nên 2 lần bấm F10 trong cùng
+  // một tick đều đọc được giá trị cũ (false) trước khi React re-render -> checkout 2 lần.
+  // Ref đổi giá trị tức thì nên ăn chắc cú spam phím / double-click khi mạng chậm.
+  const busyRef = useRef<boolean>(false);
   // Hydration guard: authReady=false ở cả server lẫn client lần đầu render,
   // nên cảnh báo "chưa đăng nhập" render giống nhau hai phía (không còn mismatch).
   // (supabaseReady/user đơn thuần khác nhau SSR vs CSR -> lỗi hydration, dev badge "1 Issue".)
@@ -316,6 +320,7 @@ export function POSScreen() {
   // Commit xuất vật tư -> exportProjectMaterialBatch (ghi project_materials + trừ kho +
   // thẻ kho). Không tạo đơn hàng, không đụng sổ quỹ.
   const handleProjectExportCommit = useCallback(async () => {
+    if (busyRef.current) return;
     if (projLines.length === 0) {
       notify('Phiếu xuất chưa có dòng hàng nào!', 'error');
       return;
@@ -325,6 +330,7 @@ export function POSScreen() {
       return;
     }
     setIsProcessing(true);
+    busyRef.current = true;
     try {
       const updated = await exportProjectMaterialBatch(
         selectedProject.id,
@@ -338,6 +344,7 @@ export function POSScreen() {
         );
       }
     } finally {
+      busyRef.current = false;
       setIsProcessing(false);
     }
   }, [projLines, selectedProject, exportProjectMaterialBatch]);
@@ -466,6 +473,7 @@ export function POSScreen() {
   );
 
   const handleCheckout = useCallback(async () => {
+    if (busyRef.current) return;
     if (activeCart.items.length === 0) {
       notify('Giỏ hàng chưa có sản phẩm nào!', 'error');
       return;
@@ -488,11 +496,13 @@ export function POSScreen() {
       return;
     }
     setIsProcessing(true);
+    busyRef.current = true;
     try {
       await checkoutActiveOrder();
     } catch (err: any) {
       notify(`Lỗi thanh toán: ${vietnamizeError(err)}`, 'error');
     } finally {
+      busyRef.current = false;
       setIsProcessing(false);
     }
   }, [activeCart.items.length, activeCart.customer_id, activeCart.payment_method, activeCart.tendered_amount, calculatedTotals.payable, checkoutActiveOrder]);

@@ -511,6 +511,7 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
                                 }}
                                 className="inline-flex h-7 w-7 items-center justify-center rounded text-blue-600 transition-colors hover:bg-blue-50"
                                 title="Sửa thông tin nhà cung cấp"
+                                aria-label="Sửa thông tin nhà cung cấp"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
@@ -521,6 +522,7 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
                                 }}
                                 className="inline-flex h-7 w-7 items-center justify-center rounded text-rose-600 transition-colors hover:bg-rose-50"
                                 title="Xóa nhà cung cấp"
+                                aria-label="Xóa nhà cung cấp"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>

@@ -480,7 +480,7 @@ export function CashbookView() {
 
       {/* New Voucher Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3" role="dialog" aria-modal="true" aria-label="Thêm phiếu thu chi">
           <form
             onSubmit={handleCreateVoucher}
             className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95"

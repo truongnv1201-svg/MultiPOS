@@ -40,6 +40,11 @@ export function SheetShell({ open, onClose, title, icon, label, children, size =
 
         const onKey = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
+                // Có ConfirmDialog (role="alertdialog", z-[70]) đang phủ trên sheet (vd xác
+                // nhận "Vẫn thu?", xóa dòng): ConfirmDialog tự xử lý Escape ở window listener
+                // của nó. Sheet phải BỎ QUA để một phím Escape không đóng cả hai rồi xóa mất
+                // dữ liệu form vừa nhập. Confirm đóng trước, người dùng Escape lần nữa mới tới sheet.
+                if (document.querySelector('[role="alertdialog"]')) return;
                 // Không stopPropagation: dropdown con (SearchableSelect...) tự đóng trước,
                 // sheet đóng theo sau cùng lượt phím.
                 onCloseRef.current();

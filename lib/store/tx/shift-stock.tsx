@@ -56,6 +56,12 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
   const { isOnline } = useNetwork();
   const [cashbook, setCashbook] = useState<CashbookEntry[]>([]);
   const [currentShift, setCurrentShift] = useState<Shift>(EMPTY_SHIFT);
+  // Bản sao currentShift để đọc trong callback đồng bộ mà KHÔNG đưa currentShift vào
+  // deps (đưa vào -> effect refresh chạy lại mỗi lần checkout -> vòng lặp pull server).
+  const currentShiftRef = useRef<Shift>(currentShift);
+  useEffect(() => {
+    currentShiftRef.current = currentShift;
+  }, [currentShift]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   // Đơn nhập (trang Quản lý Đơn nhập đọc từ đây — Dexie local là truth đầy đủ
   // dòng hàng; server chỉ lưu header). Nạp ở boot, thêm ngay khi lập phiếu.
@@ -500,8 +506,29 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         cash_difference: row.cash_difference != null ? Number(row.cash_difference) : undefined,
         order_count: Number(row.order_count ?? 0),
       };
-      setCurrentShift((prev) => stableNext(prev, serverShift));
-      await db.shifts.put(serverShift).catch(() => {});
+      // Server KHÔNG cộng dồn doanh thu trong ca: open_shift chỉ ghi starting/expected ban
+      // đầu, các cột cash_sales/transfer_sales/... luôn 0 tới lúc close. Nếu reconnect đúng
+      // ca đang mở trên cùng máy trạm (local.id === row.id) thì số liệu tích lũy CHỈ tồn tại
+      // ở local -> phải giữ lại, nếu không mỗi lần mất mạng/login lại là xóa sạch doanh thu
+      // ca và expected_cash, đối soát sai. Chỉ khi đây là ca KHÁC (máy trạm mới, local trống)
+      // mới lấy số 0 từ server vì máy này chưa phát sinh giao dịch cho ca đó.
+      const local = currentShiftRef.current;
+      const sameShift = local.id === serverShift.id;
+      const merged: Shift = sameShift
+        ? {
+            ...serverShift,
+            cash_sales: local.cash_sales,
+            transfer_sales: local.transfer_sales,
+            deposit_collected: local.deposit_collected,
+            cash_payouts: local.cash_payouts,
+            expected_cash: local.expected_cash,
+            counted_cash: local.counted_cash,
+            cash_difference: local.cash_difference,
+            order_count: local.order_count,
+          }
+        : serverShift;
+      setCurrentShift((prev) => stableNext(prev, merged));
+      await db.shifts.put(merged).catch(() => {});
       return true;
     } catch {
       return false;

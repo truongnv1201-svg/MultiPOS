@@ -89,18 +89,16 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       notify('Chỉ tài khoản Admin được đổi thông tin cửa hàng.', 'error');
       return;
     }
-    setShop((prev) => {
-      const next = { ...prev, ...patch };
-      if ((patch as any)?.printTemplate) next.printTemplate = normalizePrintTemplate((patch as any).printTemplate);
-      if ((patch as any)?.printerWidth) next.printerWidth = normalizePrinterWidth((patch as any).printerWidth);
-      try {
-        localStorage.setItem('multipos_shop_v1', JSON.stringify(next));
-      } catch {
-        /* best-effort */
-      }
-      return next;
-    });
-  }, [supa, profile]);
+    const next: ShopSettings = { ...shop, ...patch };
+    if ((patch as any)?.printTemplate) next.printTemplate = normalizePrintTemplate((patch as any).printTemplate);
+    if ((patch as any)?.printerWidth) next.printerWidth = normalizePrinterWidth((patch as any).printerWidth);
+    setShop(next);
+    try {
+      localStorage.setItem('multipos_shop_v1', JSON.stringify(next));
+    } catch {
+      /* best-effort */
+    }
+  }, [supa, profile, shop]);
 
   const saveShopSettings = useCallback(async (): Promise<string | null> => {
     if (!supa) return null;
@@ -117,23 +115,21 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supa.from('settings').select('value').eq('key', 'shop_profile').maybeSingle();
     if (error || !data?.value) return false;
     const serverShop = data.value as Partial<ShopSettings>;
-    setShop((prev) => {
-      const localSettings = Object.fromEntries(
-        LOCAL_SHOP_KEYS.map((key) => [key, prev[key]])
-      ) as Partial<ShopSettings>;
-      const next = {
-        ...DEFAULT_SHOP,
-        ...localSettings,
-        ...serverShop,
-        ...localSettings,
-        printTemplate: normalizePrintTemplate(serverShop.printTemplate ?? prev.printTemplate),
-        printerWidth: normalizePrinterWidth(serverShop.printerWidth ?? prev.printerWidth),
-      };
-      try { localStorage.setItem('multipos_shop_v1', JSON.stringify(next)); } catch {}
-      return next;
-    });
+    const localSettings = Object.fromEntries(
+      LOCAL_SHOP_KEYS.map((key) => [key, shop[key]])
+    ) as Partial<ShopSettings>;
+    const next: ShopSettings = {
+      ...DEFAULT_SHOP,
+      ...localSettings,
+      ...serverShop,
+      ...localSettings,
+      printTemplate: normalizePrintTemplate(serverShop.printTemplate ?? shop.printTemplate),
+      printerWidth: normalizePrinterWidth(serverShop.printerWidth ?? shop.printerWidth),
+    };
+    setShop(next);
+    try { localStorage.setItem('multipos_shop_v1', JSON.stringify(next)); } catch {}
     return true;
-  }, [supa]);
+  }, [supa, shop]);
 
   // Kéo cấu hình dùng chung từ server (effect tổng đặt cuối, sau mọi định nghĩa).
 
@@ -151,16 +147,14 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       notify('Chỉ tài khoản Admin được đổi VietQR.', 'error');
       return;
     }
-    setVietqr((prev) => {
-      const next = { ...prev, ...patch };
-      try {
-        localStorage.setItem('multipos_vietqr_v1', JSON.stringify(next));
-      } catch {
-        /* best-effort */
-      }
-      return next;
-    });
-  }, [supa, profile]);
+    const next: VietqrConfig = { ...vietqr, ...patch };
+    setVietqr(next);
+    try {
+      localStorage.setItem('multipos_vietqr_v1', JSON.stringify(next));
+    } catch {
+      /* best-effort */
+    }
+  }, [supa, profile, vietqr]);
 
   // VietQR theo từng máy trạm (localStorage only) — xem updateVietqr phía trên.
 

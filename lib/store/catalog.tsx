@@ -3,7 +3,7 @@
 // khi checkout/hủy/nhập kho. Phụ thuộc duy nhất: AuthSlice (supa/profile) cho RBAC + sync.
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './auth';
 import { useNetwork } from './network';
 import type { Product, Customer, Supplier } from '../types';
@@ -79,6 +79,17 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       return {};
     }
   });
+
+  // Persist tập trung: mọi setCustomerMap chỉ cần cập nhật state thuần nhất,
+  // effect này ghi localStorage mỗi lần map đổi -> không còn side-effect trong updater
+  // (StrictMode double-invoke updater sẽ không ghi trùng / ghi giá trị trung gian).
+  useEffect(() => {
+    try {
+      localStorage.setItem(CUSTOMER_MAP_KEY, JSON.stringify(customerMap));
+    } catch {
+      /* best-effort */
+    }
+  }, [customerMap]);
 
   const queueMasterData = useCallback(
     async (
@@ -219,15 +230,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
           const mapped = { ...(item.payload as unknown as Customer), id: mappedId, code: row.code, created_at: row.created_at };
           await db.customers.put(mapped);
           setCustomers((prev) => prev.map((c) => (c.id === item.local_id ? mapped : c)));
-          setCustomerMap((prev) => {
-            const next = { ...prev, [item.local_id]: mappedId };
-            try {
-              localStorage.setItem(CUSTOMER_MAP_KEY, JSON.stringify(next));
-            } catch {
-              /* best-effort */
-            }
-            return next;
-          });
+          setCustomerMap((prev) => ({ ...prev, [item.local_id]: mappedId }));
         } else {
           const localSupplier = await db.suppliers.get(item.local_id).catch(() => undefined);
           const mappedSupplier: Supplier = {
@@ -479,11 +482,6 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     }
     if (changed) {
       setCustomerMap(next);
-      try {
-        localStorage.setItem(CUSTOMER_MAP_KEY, JSON.stringify(next));
-      } catch {
-        /* best-effort */
-      }
     }
     return next;
   }, [supa, customers, customerMap, setCustomerMap]);
@@ -801,11 +799,6 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         if (!(localId in prev)) return prev;
         const next = { ...prev };
         delete next[localId];
-        try {
-          localStorage.setItem(CUSTOMER_MAP_KEY, JSON.stringify(next));
-        } catch {
-          /* best-effort */
-        }
         return next;
       });
     } else {

@@ -687,6 +687,9 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setReturnTarget(null)}>
           <div
             className="bg-white rounded-xl shadow-xl w-[560px] max-w-full max-h-[85vh] flex flex-col overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Trả hàng một phần"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">

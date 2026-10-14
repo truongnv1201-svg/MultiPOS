@@ -134,7 +134,7 @@ export function DateFilter({ value, onChange, className = '' }: DateFilterProps)
       {/* Modal Custom Date */}
       {showCustomModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-2xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-xs overflow-hidden p-4 space-y-3 animate-in fade-in-50 zoom-in-95">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-xs overflow-hidden p-4 space-y-3 animate-in fade-in-50 zoom-in-95" role="dialog" aria-modal="true" aria-label="Chọn khoảng ngày tùy chỉnh">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <span className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-blue-600" />

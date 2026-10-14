@@ -1293,16 +1293,23 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
             note: `Chi lương tháng ${run.month} — ${it.employee_name} (${it.days} công)`,
             created_at: new Date().toISOString(),
           };
-          const { error: itemErr } = await supa
+          // CAS: chỉ nhận cập nhật khi dòng VẪN chưa paid. Nếu máy trạm khác vừa chi trước
+          // thì 0 dòng đổi -> mình không được tạo phiếu chi trùng (kẻo trả lương 2 lần).
+          const { data: paidRows, error: itemErr } = await supa
             .from('payroll_items')
             .update({ paid: true, cashbook_code: code })
-            .eq('id', it.id);
+            .eq('id', it.id)
+            .eq('paid', false)
+            .select('id');
           if (itemErr) throw new Error(itemErr.message);
+          if (!paidRows || paidRows.length === 0) {
+            setPayrollItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, paid: true } : p)));
+            continue;
+          }
           setPayrollItems((prev) => prev.map((p) => (p.id === it.id ? { ...p, paid: true, cashbook_code: code } : p)));
           await stageCashbookVoucher(entry);
           setCashbook((prev) => [entry, ...prev]);
         }
-        void syncPendingOps();
         await supa.from('payroll_runs').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', runId);
         await refreshHrm();
         if (excluded.length > 0) {
@@ -1321,6 +1328,11 @@ export function HrmProvider({ children }: { children: React.ReactNode }) {
         notify(`Chi lương thất bại: ${vietnamizeError(err)}`, 'error');
         await refreshHrm();
         return false;
+      } finally {
+        // Đẩy phiếu chi đã stage lên server kể cả khi vòng lặp lỗi giữa chừng:
+        // dòng đã CAS thành công (paid=true trên server) phải có phiếu chi tương ứng,
+        // không để "đã đánh dấu chi mà sổ quỹ trống".
+        void syncPendingOps();
       }
     },
     [requireHrmManager, supa, payrollRuns, payrollItems, refreshHrm, setCashbook, syncPendingOps]

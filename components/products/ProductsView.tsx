@@ -746,6 +746,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                           onClick={() => openEditProduct(p)}
                           className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                           title="Sửa thông tin hàng hóa"
+                          aria-label="Sửa thông tin hàng hóa"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -754,6 +755,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                             onClick={() => handleToggleActive(p)}
                             className="p-1.5 text-slate-500 hover:bg-slate-100 rounded transition-colors"
                             title={p.is_active === false ? 'Mở bán lại' : 'Ngừng kinh doanh (ẩn khỏi POS, giữ lịch sử)'}
+                            aria-label={p.is_active === false ? 'Mở bán lại' : 'Ngừng kinh doanh'}
                           >
                             {p.is_active === false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                           </button>
@@ -762,6 +764,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                           onClick={() => handleDeleteProduct(p)}
                           className="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition-colors"
                           title="Xóa hàng hóa"
+                          aria-label="Xóa hàng hóa"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

@@ -135,8 +135,9 @@ export function SettingsView() {
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Tên cửa hàng</label>
+              <label htmlFor="settings-shop-name" className="font-semibold text-slate-700 block mb-1">Tên cửa hàng</label>
               <input
+                id="settings-shop-name"
                 type="text"
                 value={shop.name}
                 disabled={!isAdmin}
@@ -145,8 +146,9 @@ export function SettingsView() {
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Hotline / Zalo</label>
+              <label htmlFor="settings-shop-hotline" className="font-semibold text-slate-700 block mb-1">Hotline / Zalo</label>
               <input
+                id="settings-shop-hotline"
                 type="text"
                 value={shop.hotline}
                 disabled={!isAdmin}
@@ -155,8 +157,9 @@ export function SettingsView() {
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Địa chỉ</label>
+              <label htmlFor="settings-shop-address" className="font-semibold text-slate-700 block mb-1">Địa chỉ</label>
               <input
+                id="settings-shop-address"
                 type="text"
                 value={shop.address}
                 disabled={!isAdmin}
@@ -166,8 +169,9 @@ export function SettingsView() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Mã số thuế (A4)</label>
+                <label htmlFor="settings-shop-taxcode" className="font-semibold text-slate-700 block mb-1">Mã số thuế (A4)</label>
                 <input
+                  id="settings-shop-taxcode"
                   type="text"
                   value={shop.taxCode || ''}
                   disabled={!isAdmin}
@@ -177,8 +181,9 @@ export function SettingsView() {
                 />
               </div>
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Email</label>
+                <label htmlFor="settings-shop-email" className="font-semibold text-slate-700 block mb-1">Email</label>
                 <input
+                  id="settings-shop-email"
                   type="text"
                   value={shop.email || ''}
                   disabled={!isAdmin}
@@ -290,8 +295,9 @@ export function SettingsView() {
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Số tài khoản (chỉ số)</label>
+              <label htmlFor="settings-vietqr-account" className="font-semibold text-slate-700 block mb-1">Số tài khoản (chỉ số)</label>
               <input
+                id="settings-vietqr-account"
                 type="text"
                 inputMode="numeric"
                 value={vietqr.account}
@@ -302,8 +308,9 @@ export function SettingsView() {
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Tên chủ tài khoản</label>
+              <label htmlFor="settings-vietqr-name" className="font-semibold text-slate-700 block mb-1">Tên chủ tài khoản</label>
               <input
+                id="settings-vietqr-name"
                 type="text"
                 value={vietqr.name}
                 disabled={!isAdmin}
@@ -544,8 +551,9 @@ export function SettingsView() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Lời cảm ơn cuối phiếu</label>
+              <label htmlFor="settings-footer-thanks" className="font-semibold text-slate-700 block mb-1">Lời cảm ơn cuối phiếu</label>
               <input
+                id="settings-footer-thanks"
                 type="text"
                 value={shop.footerThanks || ''}
                 disabled={!isAdmin}
@@ -554,8 +562,9 @@ export function SettingsView() {
               />
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Chính sách đổi trả (in nhỏ cuối phiếu)</label>
+              <label htmlFor="settings-receipt-policy" className="font-semibold text-slate-700 block mb-1">Chính sách đổi trả (in nhỏ cuối phiếu)</label>
               <input
+                id="settings-receipt-policy"
                 type="text"
                 value={shop.receiptPolicy || ''}
                 disabled={!isAdmin}

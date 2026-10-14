@@ -99,13 +99,11 @@ export function useSearchTools(): SearchTools {
     });
   }, []);
   const toggleWedgeMode = useCallback(() => {
-    setWedgeMode((prev) => {
-      const next = !prev;
-      localStorage.setItem('multipos_wedge_mode', next ? '1' : '0');
-      if (next) window.setTimeout(() => document.getElementById('f1-search-input')?.focus(), 0);
-      return next;
-    });
-  }, []);
+    const next = !wedgeMode;
+    setWedgeMode(next);
+    localStorage.setItem('multipos_wedge_mode', next ? '1' : '0');
+    if (next) window.setTimeout(() => document.getElementById('f1-search-input')?.focus(), 0);
+  }, [wedgeMode]);
   return { scannerOpen, setScannerOpen, wedgeMode, toggleWedgeMode };
 }
 
