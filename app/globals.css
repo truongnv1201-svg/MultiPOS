@@ -42,6 +42,14 @@ body {
   }
 }
 
+@media (max-width: 767px) {
+  /* Thanh ghim mobile cao = 8px (pt) + 48px (nut h-12) + max(8px, safe-area):
+     dem vua khit, khong thua dai xam, noi dung cuoi khong chui sau thanh. */
+  .pos-mobile-bottom-space {
+    padding-bottom: max(4rem, calc(3.5rem + env(safe-area-inset-bottom)));
+  }
+}
+
 @media (max-width: 640px) {
   /* iOS tự zoom khi focus input chữ < 16px -> khóa ở 16px trên điện thoại */
   input, select, textarea {

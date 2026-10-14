@@ -109,6 +109,14 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(pos, /id="btn-new-tab"/);
     assert.match(read('lib/store/tx/cart.tsx'), /if \(cartTabs\.length >= 3\)/);
   });
+
+  it('vùng đệm đáy POS vừa khít thanh ghim điện thoại (không dải xám thừa)', () => {
+    const css = read('app/globals.css');
+    // Tablet giữ 5.5rem (còn chỗ cho dock cố định); điện thoại override vừa thanh ghim.
+    assert.match(css, /\.pos-mobile-bottom-space \{\s*\n\s*padding-bottom: calc\(5\.5rem \+ env\(safe-area-inset-bottom\)\);/);
+    assert.match(css, /@media \(max-width: 767px\)[\s\S]{0,300}\.pos-mobile-bottom-space/);
+    assert.match(css, /padding-bottom: max\(4rem, calc\(3\.5rem \+ env\(safe-area-inset-bottom\)\)\);/);
+  });
 });
 
 describe('POS: đã bỏ chế độ bán hàng dạng lưới thẻ', () => {
