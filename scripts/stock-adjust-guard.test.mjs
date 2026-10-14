@@ -169,6 +169,17 @@ describe('0064: điều chỉnh tồn / hao hụt', () => {
     assert.match(adjustTable, /unassigned/);
   });
 
+  it('seed ô tồn thực tế bằng chuỗi số round-trip, KHÔNG bằng formatQty (lệch 1.000->1 gây hao hụt ảo)', () => {
+    const modal = read('components/inventory/StockAdjustModal.tsx');
+    // Vòng formatQty->parseQtyInput hỏng với số nguyên 1.000..999.999 (dấu chấm nghìn bị
+    // đọc thành thập phân). Seed phải dùng chuỗi thô để mở modal không hiện chênh lệch ảo.
+    assert.match(modal, /seeded\[p\.id\] = String\(roundQty\(p\.stock_quantity\)\)/);
+    assert.ok(
+      !/seeded\[p\.id\] = formatQty\(/.test(modal),
+      'không seed ô nhập bằng formatQty (output locale không round-trip qua parseQtyInput)'
+    );
+  });
+
   it('client ghi server TRƯỚC rồi mới cập nhật local (không lặp lại lỗi mất dữ liệu của xuất vật tư)', () => {
     const body = projects.match(/const adjustStock = useCallback\([\s\S]*?\n  \);/);
     assert.ok(body);

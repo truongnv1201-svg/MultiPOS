@@ -16,7 +16,7 @@ import { useStore } from '@/lib/store';
 import { notify } from '@/components/common/Toast';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { formatVND } from '@/lib/format';
-import { formatQty, parseQtyInput } from '@/lib/quantity';
+import { formatQty, parseQtyInput, roundQty } from '@/lib/quantity';
 import { AlertTriangle, CheckCircle2, HardHat, Package, Scale, X } from 'lucide-react';
 import {
   STOCK_ADJUST_REASON_LABEL,
@@ -85,7 +85,11 @@ export function StockAdjustModal({ open, onClose }: { open: boolean; onClose: ()
       const seeded: Record<string, string> = {};
       for (const p of products) {
         if (p.product_type === 'service' || p.product_type === 'combo') continue;
-        seeded[p.id] = formatQty(p.stock_quantity, true);
+        // KHÔNG seed bằng formatQty: formatQty(1000) -> "1.000" (dấu chấm nghìn kiểu VN),
+        // nhưng parseQtyInput("1.000") -> 1 (một dấu chấm = thập phân). Vòng format->parse
+        // lệch khiến mọi tồn nguyên từ 1.000..999.999 hiện chênh lệch ảo (vd -999) ngay khi
+        // mở modal, bấm Ghi là trừ nhầm hàng. Seed bằng chuỗi số thô round-trip an toàn.
+        seeded[p.id] = String(roundQty(p.stock_quantity));
       }
       setCounted(seeded);
       setDeltas({});
