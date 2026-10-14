@@ -11,6 +11,7 @@ import { db, type PendingMasterData } from '../db';
 import { maxCodeNumber, maxSpNumber } from '../codes';
 import { stableNext } from './stable';
 import { cacheKeys, mirrorUpsert } from './tx/mirror';
+import { fetchAllProducts, IS_UUID_RE, remapPendingCatalogReferences, CUSTOMER_MAP_KEY } from './catalog-helpers';
 import { notify } from '@/components/common/Toast';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { formatVND } from '@/lib/format';
@@ -39,28 +40,6 @@ export interface CatalogSlice {
   deleteSupplier: (id: string) => Promise<void>;
 }
 
-// PostgREST mặc định chỉ trả 1000 dòng -> kéo phân trang cho đủ (danh mục
-// đã vượt 5000 món mà chỉ hiện 1000).
-async function fetchAllProducts(
-  supa: any,
-  table: string,
-  orderCol: string,
-  cols = '*'
-): Promise<{ data: any[] | null; error: any }> {
-  const all: any[] = [];
-  const PAGE = 1000;
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supa.from(table).select(cols).order(orderCol).range(from, from + PAGE - 1);
-    if (error) return { data: null, error };
-    all.push(...(data || []));
-    if (!data || data.length < PAGE) break;
-  }
-  return { data: all, error: null };
-}
-
-// P1 Sửa/Xóa: id uuid server (= đã đồng bộ), id local còn lại (= chưa lên server).
-const IS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export interface ImportBulkLine {
   sku?: string;
   name: string;
@@ -81,41 +60,7 @@ export interface ImportBulkResult {
   errors: { index: number; sku?: string; name?: string; error: string }[];
 }
 
-async function remapPendingCatalogReferences(
-  entity: PendingMasterData['entity'],
-  localId: string,
-  mappedId: string,
-  row: Record<string, unknown>,
-) {
-  const ops = await db.pendingOps.toArray();
-  for (const op of ops) {
-    const payload = { ...op.payload };
-    let changed = false;
-    if (entity === 'product' && op.kind === 'import' && Array.isArray(payload.lines)) {
-      payload.lines = (payload.lines as Record<string, unknown>[]).map((line) => {
-        if (line.productId !== localId) return line;
-        changed = true;
-        return { ...line, productId: mappedId, sku: typeof row.sku === 'string' ? row.sku : line.sku };
-      });
-    }
-    if (entity === 'supplier' && (op.kind === 'import' || op.kind === 'supplier_payment')) {
-      if (payload.supplierId === localId) {
-        payload.supplierId = mappedId;
-        payload.supplierName = row.name ?? payload.supplierName;
-        changed = true;
-      }
-    }
-    if (changed) await db.pendingOps.update(op.id, { payload });
-  }
-  if (entity === 'supplier') {
-    await db.purchaseOrders.where('supplier_id').equals(localId).modify({ supplier_id: mappedId }).catch(() => {});
-  }
-}
-
 const CatalogContext = createContext<CatalogSlice | null>(null);
-
-// 0009: map id KH local -> uuid server, persist localStorage (sống qua reload)
-const CUSTOMER_MAP_KEY = 'multipos_customer_map_v1';
 
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const { supa, user, profile } = useAuth();
