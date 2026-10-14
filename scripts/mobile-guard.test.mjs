@@ -34,6 +34,8 @@ describe('POS: giỏ hiện thẳng trong trang trên mobile (không sheet tách
   it('danh sách giỏ chạm sát thanh toán (không dải xám dư đáy mobile)', () => {
     assert.match(pos, /id="cart-table-container" className="[^"]*pb-0[^"]*lg:pb-2"/);
     assert.doesNotMatch(pos, /id="cart-record-list"[\s\S]{0,200}mb-2/);
+    // Giỏ ít dòng: khung list trắng kéo đầy chiều cao, phần thừa hiện trắng thay vì nền xám.
+    assert.match(pos, /id="cart-record-list"[\s\S]{0,200}className="lg:hidden min-h-full bg-white/);
   });
 
   it('không còn sheet giỏ tách rời (file đã xóa, không còn state mở sheet)', () => {

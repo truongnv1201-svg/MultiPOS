@@ -1164,7 +1164,7 @@ export function POSScreen() {
               {/* Mobile/tablet: record list giỏ hiện thẳng trong trang (không sheet tách rời) */}
               <div
                 id="cart-record-list"
-                className="lg:hidden divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden"
+                className="lg:hidden min-h-full bg-white divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden"
               >
                 {activeCart.items.map((item) => {
                   const isAreaItem = item.product_type === 'area';
