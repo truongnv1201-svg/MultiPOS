@@ -849,7 +849,7 @@ export function POSScreen() {
 
         {/* Middle: giỏ Xuất CT | giỏ Nhập | giỏ Bán */}
         {isProjectFlow ? (
-        <div id="project-table-container" className="flex-1 overflow-auto p-2">
+        <div id="project-table-container" className="flex-1 min-h-0 overflow-auto p-2 pb-0 lg:pb-2">
           {projLines.length === 0 ? (
             <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
               <HardHat className="w-10 h-10 sm:w-12 sm:h-12 text-amber-300 mb-2 stroke-1" />
@@ -861,7 +861,7 @@ export function POSScreen() {
           ) : (
             <>
               {/* Mobile: record list dòng xuất (bảng ngang chỉ dành cho desktop) */}
-              <div className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
+              <div className="lg:hidden min-h-full bg-white divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
                 {projLines.map((line, idx) => {
                   const prod = products.find((p) => p.id === line.productId);
                   if (!prod) return null;
@@ -991,7 +991,7 @@ export function POSScreen() {
           )}
         </div>
         ) : posFlow === 'import' ? (
-        <div id="import-table-container" className="flex-1 overflow-auto p-2">
+        <div id="import-table-container" className="flex-1 min-h-0 overflow-auto p-2 pb-0 lg:pb-2">
           {impLines.length === 0 ? (
             <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
               <Truck className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mb-2 stroke-1" />
@@ -1003,7 +1003,7 @@ export function POSScreen() {
           ) : (
             <>
               {/* Mobile: record list dòng nhập (bảng ngang chỉ dành cho desktop) */}
-              <div className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
+              <div className="lg:hidden min-h-full bg-white divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
                 {impLines.map((line, idx) => {
                   const prod = products.find((p) => p.id === line.productId);
                   if (!prod) return null;

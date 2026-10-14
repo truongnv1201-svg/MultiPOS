@@ -38,6 +38,16 @@ describe('POS: giỏ hiện thẳng trong trang trên mobile (không sheet tách
     assert.match(pos, /id="cart-record-list"[\s\S]{0,200}className="lg:hidden min-h-full bg-white/);
   });
 
+  it('3 luồng chung 1 khung mobile (bán/nhập/xuất CT không lệch)', () => {
+    // Khung chứa đều cuộn trong (min-h-0) + chạm sát thanh ghim dưới lg.
+    for (const id of ['cart-table-container', 'import-table-container', 'project-table-container']) {
+      assert.match(pos, new RegExp(`id="${id}" className="[^"]*min-h-0[^"]*pb-0[^"]*lg:pb-2"`));
+    }
+    // List mobile cùng pattern: trắng kéo đầy + bo xl (đếm đủ 3).
+    const lists = pos.match(/lg:hidden min-h-full bg-white divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden/g) || [];
+    assert.equal(lists.length, 3);
+  });
+
   it('không còn sheet giỏ tách rời (file đã xóa, không còn state mở sheet)', () => {
     assert.ok(!existsSync(join(ROOT, 'components/pos/MobileCartSheet.tsx')), 'file sheet phải bị xóa');
     assert.doesNotMatch(pos, /MobileCartSheet/);
