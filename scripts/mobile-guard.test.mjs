@@ -94,6 +94,14 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     const pos = read('components/pos/POSScreen.tsx');
     assert.match(pos, /max-md:flex-1 max-md:grid max-md:grid-cols-3/);
   });
+
+  it('điện thoại bán 1 đơn: dải tab hóa đơn + nút thêm tab ẩn dưới md', () => {
+    const pos = read('components/pos/POSScreen.tsx');
+    assert.match(pos, /id="order-tabs-group"[\s\S]{0,200}className="hidden md:flex/);
+    // Nút + và store đa tab vẫn giữ cho desktop (tối đa 3 tab).
+    assert.match(pos, /id="btn-new-tab"/);
+    assert.match(read('lib/store/tx/cart.tsx'), /if \(cartTabs\.length >= 3\)/);
+  });
 });
 
 describe('POS: đã bỏ chế độ bán hàng dạng lưới thẻ', () => {

@@ -742,11 +742,11 @@ export function POSScreen() {
             />
           </div>
 
-          {/* CỘT 2: Tabs hóa đơn (chỉ luồng bán; luồng nhập/xuất CT để trống cho gọn) */}
+          {/* CỘT 2: Tabs hóa đơn (chỉ luồng bán; luồng nhập/xuất CT để trống cho gọn). Điện thoại (<md) chỉ bán 1 đơn nên ẩn cả dải tab + nút + (desktop giữ tối đa 3 tab). */}
           {!isStockFlow && (
           <div
             id="order-tabs-group"
-            className="flex items-center gap-1 overflow-x-auto min-w-0"
+            className="hidden md:flex items-center gap-1 overflow-x-auto min-w-0"
             title="Chuyển Tab hóa đơn (F7)"
           >
             {cartTabs.map((tab) => {
