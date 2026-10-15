@@ -31,17 +31,26 @@ describe('POS: giỏ hiện thẳng trong trang trên mobile (không sheet tách
     assert.match(pos, /allowDecimal=\{allowsDecimalQty\(productById\(item\.product_id\)\)\}/);
   });
 
-  it('danh sách giỏ chạm sát thanh toán (không dải xám dư đáy mobile)', () => {
-    assert.match(pos, /id="cart-table-container" className="[^"]*pb-0[^"]*lg:pb-2"/);
+  it('list giỏ mobile có nhãn SL/CK nhìn thấy được (không chỉ aria-label)', () => {
+    // Bảng desktop có header "SL / Diện tích" + "CK (%)"; list mobile không có header
+    // nên ô nhập phải có nhãn chữ, nếu không người mới không biết gõ gì vào.
+    assert.match(pos, /uppercase text-slate-400">SL</);
+    assert.match(pos, /uppercase text-slate-400">CK</);
+  });
+
+  it('giỏ có lề dưới đều với lề hông, khung trắng vẫn kéo đầy chiều cao', () => {
+    assert.match(pos, /id="cart-table-container" className="flex-1 min-h-0 overflow-auto p-2"/);
+    // pb-0 từng làm đáy giỏ áp sát thanh ghim -> lề dưới lệch 3 cạnh còn lại.
+    assert.doesNotMatch(pos, /id="cart-table-container" className="[^"]*pb-0/);
     assert.doesNotMatch(pos, /id="cart-record-list"[\s\S]{0,200}mb-2/);
     // Giỏ ít dòng: khung list trắng kéo đầy chiều cao, phần thừa hiện trắng thay vì nền xám.
     assert.match(pos, /id="cart-record-list"[\s\S]{0,200}className="lg:hidden min-h-full bg-white/);
   });
 
   it('3 luồng chung 1 khung mobile (bán/nhập/xuất CT không lệch)', () => {
-    // Khung chứa đều cuộn trong (min-h-0) + chạm sát thanh ghim dưới lg.
+    // Khung chứa đều cuộn trong (min-h-0) + lề p-2 cả 4 cạnh như nhau.
     for (const id of ['cart-table-container', 'import-table-container', 'project-table-container']) {
-      assert.match(pos, new RegExp(`id="${id}" className="[^"]*min-h-0[^"]*pb-0[^"]*lg:pb-2"`));
+      assert.match(pos, new RegExp(`id="${id}" className="flex-1 min-h-0 overflow-auto p-2"`));
     }
     // List mobile cùng pattern: trắng kéo đầy + bo xl (đếm đủ 3).
     const lists = pos.match(/lg:hidden min-h-full bg-white divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden/g) || [];
@@ -92,14 +101,18 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(pos, /max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40/);
   });
 
-  it('nút nhập kho/xuất vật tư ghim đáy panel desktop và điện thoại', () => {
+  it('nhập kho / xuất vật tư chỉ còn trên tablet+desktop, điện thoại bỏ hẳn', () => {
     const pos = read('components/pos/POSScreen.tsx');
+    // Điện thoại (<768px) ép luồng về 'sale' ngay ở render; posFlow trong store vẫn nguyên
+    // để xoay sang tablet/desktop là quay lại đúng luồng đang làm.
+    assert.match(pos, /const flow = isPhone \? 'sale' : posFlow;/);
+    // Thanh ghim đáy "Nhập kho / Xuất vật tư" chỉ render dưới md = điện thoại -> đã bỏ.
+    assert.doesNotMatch(pos, /id="btn-pos-mobile-stock-action"/);
+    assert.doesNotMatch(pos, /md:hidden fixed inset-x-0 bottom-0 z-40/);
+    // Panel desktop (lg) vẫn giữ nút ghim đáy của 2 luồng nhập/xuất.
     assert.match(pos, /isStockFlow \? 'overflow-hidden' : 'overflow-y-auto'/);
     assert.match(pos, /className="flex-1 min-h-0 overflow-y-auto space-y-3"/);
     assert.match(pos, /className="shrink-0 pt-3 border-t border-slate-200 space-y-2"/);
-    assert.match(pos, /id="btn-pos-mobile-stock-action"/);
-    assert.match(pos, /isProjectFlow \? 'Xuất vật tư' : 'Nhập kho'/);
-    assert.match(pos, /md:hidden fixed inset-x-0 bottom-0 z-40/);
   });
 
   it('thanh nút bán hàng nằm trong luồng như nút nhập kho (không ghim sticky)', () => {
@@ -107,9 +120,12 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.doesNotMatch(css, /#pos-bottom-bar\s*\{/);
   });
 
-  it('cụm luồng Bán/Nhập/Xuất CT chia đều full-width trên điện thoại', () => {
+  it('cụm luồng Bán/Nhập/Xuất CT ẩn trên điện thoại, header mobile còn 1 dòng tìm hàng', () => {
     const pos = read('components/pos/POSScreen.tsx');
-    assert.match(pos, /max-md:flex-1 max-md:grid max-md:grid-cols-3/);
+    assert.match(pos, /\{canImport && !isPhone && \(/);
+    assert.doesNotMatch(pos, /max-md:flex-1 max-md:grid max-md:grid-cols-3/);
+    // 3 cột [search | tabs | controls] chỉ từ md; dưới md (điện thoại) ô tìm full-width.
+    assert.match(pos, /id="pos-goods-toolbar"[\s\S]{0,220}grid grid-cols-1 md:grid-cols-\[minmax\(0,50%\)_minmax\(0,1fr\)_auto\]/);
   });
 
   it('điện thoại bán 1 đơn: dải tab hóa đơn + nút thêm tab ẩn dưới md', () => {

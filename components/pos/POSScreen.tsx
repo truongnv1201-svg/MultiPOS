@@ -21,6 +21,7 @@ import { resolvePaidAmount, lineDiscountFromPercent, lineDiscountFromAmount, lin
 import { previewImportAvg } from '@/lib/costing';
 import { allowsDecimalQty, formatQty, parseQtyInput, snapQty } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
+import { useIsPhone } from '@/hooks/useIsPhone';
 import {
   Plus,
   X,
@@ -146,11 +147,16 @@ export function POSScreen() {
   // Chế độ Nhập hàng trong POS: giỏ nhập RIÊNG (không đụng giỏ bán cartTabs).
   // Chỉ Admin/Quản lý thấy nút chuyển (local-only thì ai cũng được, giống importStock).
   // posFlow sống ở store để màn khác (Kho) nhảy thẳng vào luồng nhập.
-  const isImportFlow = posFlow === 'import';
+  // Điện thoại (<768px) CHỈ bán hàng — thu ngân cầm máy không nhập kho/xuất vật tư, nên
+  // luồng bị ép về 'sale' ngay tại render. posFlow trong store vẫn giữ nguyên value để
+  // xoay sang tablet/desktop là quay lại đúng luồng đang làm.
+  const isPhone = useIsPhone();
+  const flow = isPhone ? 'sale' : posFlow;
+  const isImportFlow = flow === 'import';
   // Xuất vật tư công trình: dùng CHUNG bảng dòng hàng với luồng nhập kho (thêm/xoá/sửa SL
   // giống nhau) nhưng commit ghi vào project_materials thay vì phiếu nhập — nên gom 2 luồng
   // "dòng hàng" vào isStockFlow để bảng/panel/dock hiển thị giống nhau.
-  const isProjectFlow = posFlow === 'project';
+  const isProjectFlow = flow === 'project';
   const isStockFlow = isImportFlow || isProjectFlow;
   // Hydration guard: authReady=false ở cả server lẫn client lần đầu render,
   // nên nút Bán/Nhập render giống nhau hai phía (false -> ẩn), hiện sau khi auth resolve.
@@ -278,7 +284,7 @@ export function POSScreen() {
 
   const openStockAreaModal = useCallback(
     (product: Product, quantity: number, existingLine?: ImportLine) => {
-      const isImport = posFlow === 'import';
+      const isImport = flow === 'import';
       const unitPrice = existingLine?.price ?? (isImport ? product.import_price : product.avg_cost || 0);
       const areaQuantity = existingLine?.dimensionDetails?.reduce((sum, row) => sum + row.actual_m2, 0) ?? quantity;
       const item: OrderItem = createBlankAreaItem(product, areaQuantity, unitPrice).item;
@@ -314,7 +320,7 @@ export function POSScreen() {
         },
       });
     },
-    [posFlow, setDimensionModalItem]
+    [flow, setDimensionModalItem]
   );
 
   // Commit xuất vật tư -> exportProjectMaterialBatch (ghi project_materials + trừ kho +
@@ -520,7 +526,7 @@ export function POSScreen() {
       if (isOverlayOpen) return;
 
       // Chế độ Nhập hàng / Xuất CT dùng phím riêng, không chạy phím bán hàng để khỏi nhầm giỏ.
-      if (posFlow === 'import') {
+      if (flow === 'import') {
         if (e.key === 'F3') {
           e.preventDefault();
           const lastAreaLine = [...impLines].reverse().find((line) => products.find((p) => p.id === line.productId)?.product_type === 'area');
@@ -546,7 +552,7 @@ export function POSScreen() {
         }
         return;
       }
-      if (posFlow === 'project') {
+      if (flow === 'project') {
         if (e.key === 'F3') {
           e.preventDefault();
           const lastAreaLine = [...projLines].reverse().find((line) => products.find((p) => p.id === line.productId)?.product_type === 'area');
@@ -632,7 +638,7 @@ export function POSScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
     // Gỡ dimensionModalItem/receiptModalOrder/shiftModalOpen khỏi deps: guard giờ đọc DOM
     // lúc phím bấm nên không cần đăng ký lại listener khi các modal đó mở/đóng.
-  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, posFlow, impPaymentMethod, impTotal, handleImportCommit, handleProjectExportCommit, calculatedTotals.payable, updateActiveTab, impLines, projLines, products, openStockAreaModal]);
+  }, [cartTabs, activeTabId, activeCart.items, setActiveTabId, setDimensionModalItem, handleCheckout, flow, impPaymentMethod, impTotal, handleImportCommit, handleProjectExportCommit, calculatedTotals.payable, updateActiveTab, impLines, projLines, products, openStockAreaModal]);
 
   // Khách lẻ tại quầy: một mục CHỌN ĐƯỢC trong danh sách gợi ý (id sentinel riêng,
   // không phải bản ghi DB — tránh trùng lặp giữa các máy, nhiễu báo cáo "Phải thu KH"
@@ -695,10 +701,11 @@ export function POSScreen() {
     <div id="pos-screen" className="flex-1 flex flex-col lg:flex-row h-full min-h-0 bg-slate-100 overflow-hidden pos-mobile-bottom-space">
       {/* LEFT COLUMN: Order Tabs + Cart Items Table + Product Grid (if standard) */}
       <div className="flex-1 flex flex-col border-r border-slate-200 min-w-0 min-h-0 bg-white">
-        {/* Toolbar: CSS Grid 3 cột — [search+qty | tabs (1fr) | controls] */}
+        {/* Toolbar: CSS Grid — điện thoại 1 dòng tìm hàng full-width (không tab, không
+            switcher luồng); tablet/desktop 3 cột [search+qty | tabs (1fr) | controls] */}
         <div
           id="pos-goods-toolbar"
-          className="bg-white border-b border-slate-200 px-2 py-1.5 grid grid-cols-1 sm:grid-cols-[minmax(0,50%)_minmax(0,1fr)_auto] items-center gap-2 shrink-0"
+          className="bg-white border-b border-slate-200 px-2 py-1.5 grid grid-cols-1 md:grid-cols-[minmax(0,50%)_minmax(0,1fr)_auto] items-center gap-2 shrink-0"
         >
           {/* CỘT 1: Search + Ô SL — chiếm 1/2 header, không bị ảnh hưởng bởi tabs */}
           <div className="flex items-center gap-1.5 min-w-0 w-full">
@@ -817,16 +824,17 @@ export function POSScreen() {
           )}
           {isStockFlow && <div className="min-w-0" />}
 
-          {/* CỘT 3: Controls — kích thước cố định theo nội dung, neo phải (điện thoại full-width) */}
-          <div className="flex flex-wrap items-center gap-1.5 max-md:w-full">
-            {/* Chuyển luồng Bán / Nhập / Xuất CT (chỉ Admin/Quản lý) */}
-            {canImport && (
-              <div className="flex items-center h-9 bg-slate-100 p-0.5 rounded-md border border-slate-200 max-md:flex-1 max-md:grid max-md:grid-cols-3" title="Chuyển giữa bán hàng, nhập hàng và xuất vật tư công trình (giỏ bán được giữ nguyên)">
+          {/* CỘT 3: Controls — neo phải, tablet/desktop. Điện thoại không có cột này
+              (chỉ bán hàng, không cần chuyển luồng) nên header gọn còn 1 dòng tìm hàng. */}
+          {canImport && !isPhone && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* Chuyển luồng Bán / Nhập / Xuất CT (chỉ Admin/Quản lý) */}
+              <div className="flex items-center h-9 bg-slate-100 p-0.5 rounded-md border border-slate-200" title="Chuyển giữa bán hàng, nhập hàng và xuất vật tư công trình (giỏ bán được giữ nguyên)">
                 <button
                   type="button"
                   onClick={() => setPosFlow('sale')}
-                  className={`px-2.5 h-full rounded text-[11px] font-bold transition-all flex items-center gap-1 max-md:justify-center max-md:px-1 ${
-                    posFlow === 'sale' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                  className={`px-2.5 h-full rounded text-[11px] font-bold transition-all flex items-center gap-1 ${
+                    flow === 'sale' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
@@ -835,7 +843,7 @@ export function POSScreen() {
                 <button
                   type="button"
                   onClick={() => setPosFlow('import')}
-                  className={`px-2.5 h-full rounded text-[11px] font-bold transition-all flex items-center gap-1 max-md:justify-center max-md:px-1 ${
+                  className={`px-2.5 h-full rounded text-[11px] font-bold transition-all flex items-center gap-1 ${
                     isImportFlow ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -845,7 +853,7 @@ export function POSScreen() {
                 <button
                   type="button"
                   onClick={() => setPosFlow('project')}
-                  className={`px-2.5 h-full rounded text-[11px] font-bold transition-all flex items-center gap-1 max-md:justify-center max-md:px-1 ${
+                  className={`px-2.5 h-full rounded text-[11px] font-bold transition-all flex items-center gap-1 ${
                     isProjectFlow ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -853,13 +861,13 @@ export function POSScreen() {
                   Xuất CT
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Middle: giỏ Xuất CT | giỏ Nhập | giỏ Bán */}
         {isProjectFlow ? (
-        <div id="project-table-container" className="flex-1 min-h-0 overflow-auto p-2 pb-0 lg:pb-2">
+        <div id="project-table-container" className="flex-1 min-h-0 overflow-auto p-2">
           {projLines.length === 0 ? (
             <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
               <HardHat className="w-10 h-10 sm:w-12 sm:h-12 text-amber-300 mb-2 stroke-1" />
@@ -1000,8 +1008,8 @@ export function POSScreen() {
             </>
           )}
         </div>
-        ) : posFlow === 'import' ? (
-        <div id="import-table-container" className="flex-1 min-h-0 overflow-auto p-2 pb-0 lg:pb-2">
+        ) : flow === 'import' ? (
+        <div id="import-table-container" className="flex-1 min-h-0 overflow-auto p-2">
           {impLines.length === 0 ? (
             <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
               <Truck className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mb-2 stroke-1" />
@@ -1160,7 +1168,7 @@ export function POSScreen() {
           )}
         </div>
         ) : (
-        <div id="cart-table-container" className="flex-1 min-h-0 overflow-auto p-2 pb-0 lg:pb-2">
+        <div id="cart-table-container" className="flex-1 min-h-0 overflow-auto p-2">
           {activeCart.items.length === 0 ? (
             <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
               <ShoppingBag className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mb-2 stroke-1" />
@@ -1179,66 +1187,84 @@ export function POSScreen() {
                 {activeCart.items.map((item) => {
                   const isAreaItem = item.product_type === 'area';
                   return (
-                    <div key={item.id} className="px-3 py-2.5 flex items-start gap-2 bg-white">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-slate-800 leading-snug truncate">{item.name}</p>
-                        <p className="mt-0.5 text-[11px] text-slate-500 font-mono">
-                          {formatVND(item.unit_price)}/{item.unit}
-                          {item.processing_fee > 0 ? ` · phí +${formatVND(item.processing_fee)}` : ''}
-                          {item.discount_amount > 0 ? ` · giảm -${formatVND(item.discount_amount)}` : ''}
-                        </p>
-                        <div className="mt-1.5 flex items-center gap-2">
-                          {isAreaItem ? (
-                            <>
-                              <span className="px-2 py-1 rounded-md bg-slate-100 text-[11px] font-mono font-bold text-slate-700">
+                    <div key={item.id} className="px-3 py-3 bg-white">
+                      <div className="flex items-start gap-2.5">
+                        <p className="flex-1 min-w-0 text-[13px] font-semibold text-slate-800 leading-snug">{item.name}</p>
+                        <span className="shrink-0 text-sm font-mono font-bold text-slate-900">{formatVND(item.subtotal)}</span>
+                      </div>
+                      <p className="mt-1 flex flex-wrap items-center gap-1 text-[11px] font-mono text-slate-500">
+                        <span>{formatVND(item.unit_price)}/{item.unit}</span>
+                        {item.processing_fee > 0 && (
+                          <span className="px-1.5 py-px rounded bg-amber-50 border border-amber-200 font-sans font-semibold text-amber-700">
+                            phí +{formatVND(item.processing_fee)}
+                          </span>
+                        )}
+                        {item.discount_amount > 0 && (
+                          <span className="px-1.5 py-px rounded bg-rose-50 border border-rose-200 font-sans font-semibold text-rose-700">
+                            giảm -{formatVND(item.discount_amount)}
+                          </span>
+                        )}
+                      </p>
+                      {/* Nhãn "SL"/"CK" nhìn thấy được (list mobile không có header như bảng
+                          desktop) + viền nhạt bao nhóm để đọc là "ô gõ được". Chữ trong ô vẫn
+                          xanh theo ngôn ngữ EditableCell, không đổi hành vi nhập. */}
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {isAreaItem ? (
+                          <>
+                            <span className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2">
+                              <span className="text-[10px] font-bold uppercase text-slate-400">SL</span>
+                              <span className="font-mono text-sm font-semibold tabular-nums text-slate-700">
                                 {formatQty(item.quantity)} {item.unit}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => setDimensionModalItem({ item })}
-                                className="inline-flex h-9 px-2 items-center justify-center gap-1 rounded-lg border border-blue-200 text-blue-600 bg-blue-50 active:bg-blue-100 text-[11px] font-bold"
-                                aria-label={`Sửa kích thước ${item.name}`}
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                                <span>Sửa (F3)</span>
-                              </button>
-                            </>
-                          ) : (
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setDimensionModalItem({ item })}
+                              className="inline-flex h-9 px-2 items-center justify-center gap-1 rounded-lg border border-blue-200 text-blue-600 bg-blue-50 active:bg-blue-100 text-[11px] font-bold"
+                              aria-label={`Sửa kích thước ${item.name}`}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Sửa (F3)</span>
+                            </button>
+                          </>
+                        ) : (
+                          <span className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white pl-2 pr-1 focus-within:border-blue-400">
+                            <span className="text-[10px] font-bold uppercase text-slate-400">SL</span>
                             <QtyDraftInput
                               quantity={item.quantity}
                               allowDecimal={allowsDecimalQty(productById(item.product_id))}
                               onCommit={(value) => updateCartItem(item.id, { quantity: value })}
                               ariaLabel={`Số lượng ${item.name}`}
-                              width="w-20"
-                            />
-                          )}
-                          <span
-                            className="inline-flex items-center gap-0.5"
-                            title={
-                              item.discount_amount > 0
-                                ? `Giảm ${formatVND(item.discount_amount)} trên dòng này`
-                                : 'Chiết khấu riêng dòng này (% trên tiền dòng)'
-                            }
-                          >
-                            <LineDiscountInput
-                              percent={lineDiscountPercent(item)}
-                              active={item.discount_amount > 0}
-                              onCommit={(pct) =>
-                                updateCartItem(item.id, { discount_amount: lineDiscountFromPercent(item, pct) })
-                              }
-                              ariaLabel={`Chiết khấu dòng ${item.name}`}
                               width="w-14"
                             />
-                            <span className="text-[11px] font-bold text-slate-400">%</span>
                           </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className="text-[13px] font-mono font-bold text-slate-900">{formatVND(item.subtotal)}</span>
+                        )}
+                        <span
+                          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white pl-2 pr-2 focus-within:border-blue-400"
+                          title={
+                            item.discount_amount > 0
+                              ? `Giảm ${formatVND(item.discount_amount)} trên dòng này`
+                              : 'Chiết khấu riêng dòng này (% trên tiền dòng)'
+                          }
+                        >
+                          <span className="text-[10px] font-bold uppercase text-slate-400">CK</span>
+                          <LineDiscountInput
+                            percent={lineDiscountPercent(item)}
+                            active={item.discount_amount > 0}
+                            onCommit={(pct) =>
+                              updateCartItem(item.id, { discount_amount: lineDiscountFromPercent(item, pct) })
+                            }
+                            ariaLabel={`Chiết khấu dòng ${item.name}`}
+                            width="w-10"
+                          />
+                          <span className="text-[11px] font-bold text-slate-400">%</span>
+                        </span>
+                        {/* Nút xóa về cuối hàng điều khiển (cùng cao 36px với 2 ô): trước
+                            đây nó ở cột phải riêng nên đáy dòng trống, lệch với 3 hàng trái. */}
                         <button
                           type="button"
                           onClick={() => removeCartItem(item.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
+                          className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
                           aria-label={`Xóa ${item.name}`}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -2259,7 +2285,9 @@ export function POSScreen() {
       {!isStockFlow && (
         <div className="lg:hidden shrink-0 border-t border-slate-200 bg-white px-3 py-2 flex items-center justify-between gap-3 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40 max-md:shadow-[0_-8px_24px_rgba(15,23,42,0.12)] max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold text-slate-500">KHÁCH CẦN TRẢ</p>
+            <p className="text-[10px] font-semibold text-slate-500 truncate">
+              KHÁCH CẦN TRẢ{activeCart.items.length > 0 ? ` · ${activeCart.items.length} món` : ''}
+            </p>
             <p className="text-base font-black font-mono text-rose-600 leading-tight">
               {formatVND(calculatedTotals.payable)}
             </p>
@@ -2276,44 +2304,9 @@ export function POSScreen() {
           </button>
         </div>
       )}
-      {isStockFlow && (
-        <div className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-3 py-2 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-slate-500">
-                {isProjectFlow ? 'TỔNG GIÁ VỐN XUẤT' : 'TỔNG TIỀN NHẬP'}
-              </p>
-              <p className={`text-base font-black font-mono leading-tight ${isProjectFlow ? 'text-amber-700' : 'text-emerald-700'}`}>
-                {formatVND(isProjectFlow ? projTotal : impTotal)}
-              </p>
-            </div>
-            <button
-              type="button"
-              id="btn-pos-mobile-stock-action"
-              onClick={isProjectFlow ? handleProjectExportCommit : handleImportCommit}
-              disabled={
-                isProcessing ||
-                (isProjectFlow
-                  ? projLines.length === 0 ||
-                    !selectedProject ||
-                    projHasStockError ||
-                    currentShift.status !== 'open' ||
-                    needLogin
-                  : impLines.length === 0 || currentShift.status !== 'open' || needLogin)
-              }
-              className={`shrink-0 inline-flex h-12 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500 ${
-                isProjectFlow ? 'bg-amber-600 active:bg-amber-700' : 'bg-emerald-600 active:bg-emerald-700'
-              }`}
-            >
-              {isProjectFlow ? <HardHat className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
-              {isProjectFlow ? 'Xuất vật tư' : 'Nhập kho'}
-            </button>
-          </div>
-        </div>
-      )}
 
       <MobilePOSDock
-        flow={posFlow}
+        flow={flow}
         itemCount={isStockFlow ? (isProjectFlow ? projLines.length : impLines.length) : activeCart.items.length}
         total={isStockFlow ? (isProjectFlow ? projTotal : impTotal) : calculatedTotals.payable}
         disabled={
