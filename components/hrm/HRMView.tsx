@@ -75,6 +75,9 @@ import {
 import { OverviewTab } from './tabs/OverviewTab';
 import { StaffTab } from './tabs/StaffTab';
 import { AttendancePayrollTab } from './tabs/AttendancePayrollTab';
+import { AttendanceMobileManager } from './mobile/AttendanceMobileManager';
+import { MyAttendanceView } from './mobile/MyAttendanceView';
+import { useIsPhone } from '@/hooks/useIsPhone';
 
 type Tab = 'overview' | 'staff' | 'attendance';
 
@@ -117,6 +120,7 @@ export function HRMView() {
 
   const isManager = profile?.role === 'admin' || profile?.role === 'manager';
   const isAdmin = profile?.role === 'admin';
+  const isPhone = useIsPhone();
 
   const [subTab, setSubTab] = useState<Tab>('overview');
   // Đồng bộ subTab theo màn hình bằng pattern "adjust state during render" (tránh setState
@@ -147,6 +151,26 @@ export function HRMView() {
       );
     return null;
   };
+
+  // Nhân viên thường: chỉ "Công của mình" (RLS 0085 đã chặn đọc dữ liệu người khác ở server,
+  // nên mở đủ tab Nhân sự/Tổng quan/Lương cũng chỉ thấy bảng trống). Quản lý trên điện thoại:
+  // chấm theo NGÀY — không port lưới 31 cột sang màn nhỏ.
+  if (!isManager) {
+    return <MyAttendanceView employees={employees} attendanceDays={attendanceDays} hrmLoading={hrmLoading} hrmError={hrmError} />;
+  }
+  if (isPhone) {
+    return (
+      <AttendanceMobileManager
+        employees={employees}
+        attendanceDays={attendanceDays}
+        payrollLocks={payrollLocks}
+        hrmLoading={hrmLoading}
+        hrmError={hrmError}
+        onMark={markDay}
+        onClear={clearDay}
+      />
+    );
+  }
 
   return (
     <div id="hrm-view" className="flex-1 flex flex-col h-[calc(100dvh-56px)] min-h-0 bg-slate-100 overflow-hidden">

@@ -77,8 +77,8 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(read('hooks/useIsPhone.ts'), /max-width: 767px/);
   });
 
-  it('page ép màn POS trên điện thoại (kể cả restore màn cũ / ?screen=)', () => {
-    assert.match(page, /const effectiveScreen = isPhone \? 'pos' : currentScreen;/);
+  it('page ép màn POS trên điện thoại, chỉ chừa đường vào Chấm công', () => {
+    assert.match(page, /const effectiveScreen: ActiveScreen = isPhone \? \(currentScreen === 'attendance' \? 'attendance' : 'pos'\) : currentScreen;/);
     assert.ok(!/\{currentScreen === 'pos' && <POSScreen/.test(page), 'còn render theo currentScreen thô');
   });
 
@@ -563,5 +563,102 @@ describe('Giai đoạn 4: icon PWA + in điện thoại + bàn phím + record li
     assert.match(cus, /aria-label="Chi tiết khách hàng"/);
     assert.match(cus, /hidden md:flex w-full md:w-96/);
     assert.doesNotMatch(cus, /100dvh/);
+  });
+});
+
+describe('Chấm công trên điện thoại (0085): quản lý chấm theo NGÀY, NV chỉ xem công mình', () => {
+  const page = read('app/page.tsx');
+  const header = read('components/GlobalHeader.tsx');
+  const flyout = read('components/FlyoutMenu.tsx');
+  const hrm = read('components/hrm/HRMView.tsx');
+  const mgr = read('components/hrm/mobile/AttendanceMobileManager.tsx');
+  const sheet = read('components/hrm/mobile/AttendanceDaySheet.tsx');
+  const mine = read('components/hrm/mobile/MyAttendanceView.tsx');
+  const sql = read('supabase/migrations/0085_hrm_self_visibility.sql');
+  const desktopGrid = read('components/hrm/tabs/AttendanceTab.tsx');
+
+  it('điện thoại whitelist đúng 2 màn: POS + attendance (khớp test page ở trên)', () => {
+    // Không reserve đáy cho nav trên điện thoại (chấm công không có bottom bar)
+    assert.match(page, /effectiveScreen === 'pos' \|\| isPhone \? '' : 'mobile-main-bottom-space'/);
+  });
+
+  it('điểm vào là nút header riêng cho điện thoại + có đường về Bán hàng', () => {
+    assert.match(header, /id="header-attendance-btn"/);
+    assert.match(header, /id="header-attendance-btn"[\s\S]{0,160}md:hidden/);
+    assert.match(header, /onClick=\{\(\) => setCurrentScreen\('attendance'\)\}/);
+    assert.match(mgr, /id="btn-att-mobile-back"[\s\S]{0,200}setCurrentScreen\('pos'\)/);
+    assert.match(mine, /id="btn-att-mobile-back"/);
+  });
+
+  it('menu phân hệ ẩn "Quản lý nhân sự" với thu ngân/worker (khớp Alt+T blockRestricted)', () => {
+    assert.match(flyout, /\/\/ 0085: RLS chỉ cho nhân viên thường đọc dữ liệu của chính họ/);
+    assert.match(flyout, /\.\.\.\(!isRestricted\n\s*\? \[\{ screen: 'hr' as const, label: 'Quản lý nhân sự'/);
+  });
+
+  it('HRMView rẽ nhánh theo vai trò + khổ màn, giữ markDay/clearDay làm đường ghi', () => {
+    assert.match(hrm, /if \(!isManager\) \{\n\s*return <MyAttendanceView/);
+    assert.match(hrm, /if \(isPhone\) \{\n\s*return \(\n\s*<AttendanceMobileManager/);
+    assert.match(hrm, /onMark=\{markDay\}/);
+    assert.match(hrm, /onClear=\{clearDay\}/);
+    // Desktop/tablet vẫn còn lưới 31 cột (mobile không thay thế bàn làm việc)
+    assert.match(desktopGrid, /role="grid"/);
+  });
+
+  it('màn quản lý: dải ngày + record list + chấm nhanh cả ngày, không có lưới ngang', () => {
+    assert.match(mgr, /id="att-mobile-day-strip"/);
+    assert.match(mgr, /id="att-mobile-record-list"[\s\S]{0,80}bg-white divide-y divide-slate-100/);
+    assert.match(mgr, /id="btn-att-fill-day"/);
+    assert.match(mgr, /await confirmDialog\(`Chấm "Đi làm" cho \$\{missing\.length\} người/);
+    assert.match(mgr, /attendanceModeOf\(e\) === 'normal'/, 'diện miễn chấm công không lên danh sách');
+    assert.doesNotMatch(mgr, /role="grid"/);
+    // Lề dưới đều lề hông như các list mobile khác (p-2, không pb-0)
+    assert.match(mgr, /className="flex-1 min-h-0 overflow-auto p-2"/);
+  });
+
+  it('sheet chấm 1 ngày: 5 trạng thái >=44px, 1 nút Lưu, có OT + ghi chú', () => {
+    assert.match(sheet, /ATTENDANCE_STATUS_ORDER\.map/);
+    assert.match(sheet, /className=\{`flex h-14 flex-col/);
+    assert.match(sheet, /id="btn-att-mark-submit"/);
+    assert.match(sheet, /onMark\(\{ employee_id: employee\.id, work_date: iso, status, ot_hours: ot, note/);
+    assert.match(sheet, /SheetShell open onClose=\{onClose\}/);
+    assert.match(sheet, /disabled=\{busy \|\| locked\}/, 'tháng đã chốt thì không ghi được');
+    assert.doesNotMatch(sheet, /supa\./, 'sheet không tự ghi server, đi qua markDay');
+  });
+
+  it('màn nhân viên thường: chỉ xem — không callback ghi, không lộ lương người khác', () => {
+    const mineCode = mine
+      .split('\n')
+      .filter((l) => !/^\s*\/\//.test(l))
+      .join('\n');
+    assert.match(mine, /id="my-attendance-view"/);
+    assert.match(mine, /employees\.find\(\(e\) => e\.user_id && e\.user_id === user\?\.id\)/);
+    for (const forbidden of ['markDay', 'clearDay', 'onMark', 'onClear', 'supa.', 'daily_wage', 'monthly_salary', 'net', 'advance']) {
+      assert.ok(!mineCode.includes(forbidden), `MyAttendanceView không được chạm quyền ghi / số lương: ${forbidden}`);
+    }
+    assert.match(mine, /grid grid-cols-7/);
+    assert.match(mine, /nhờ Quản lý bổ sung/);
+  });
+
+  it('migration 0085: SELECT HRM lọc theo auth.uid()/my_employee_id(), giữ nguyên policy ghi', () => {
+    assert.ok(existsSync(join(ROOT, 'supabase/migrations/0085_hrm_self_visibility.sql')), 'thiếu 0085');
+    const code = sql
+      .split('\n')
+      .filter((l) => !/^\s*--/.test(l))
+      .join('\n');
+    assert.match(code, /create or replace function public\.my_employee_id\(\)/);
+    assert.match(code, /language sql stable security definer set search_path = public/);
+    assert.match(code, /revoke all on function public\.my_employee_id\(\) from public, anon;/);
+    assert.match(code, /grant execute on function public\.my_employee_id\(\) to authenticated;/);
+    assert.match(code, /create policy "employees_select"[\s\S]{0,120}using \(public\.is_manager\(\) or user_id = auth\.uid\(\)\)/);
+    for (const [tbl, re] of [
+      ['attendance_days', /create policy "attendance_select" on public\.attendance_days[\s\S]{0,140}using \(public\.is_manager\(\) or employee_id = public\.my_employee_id\(\)\)/],
+      ['payroll_items', /create policy "payroll_items_select" on public\.payroll_items[\s\S]{0,140}using \(public\.is_manager\(\) or employee_id = public\.my_employee_id\(\)\)/],
+      ['salary_advances', /create policy "advances_select" on public\.salary_advances[\s\S]{0,140}using \(public\.is_manager\(\) or employee_id = public\.my_employee_id\(\)\)/],
+    ]) {
+      assert.match(code, re, `policy SELECT của ${tbl} phải lọc theo my_employee_id()`);
+    }
+    assert.match(code, /create policy "payroll_runs_select"[\s\S]{0,120}using \(public\.is_manager\(\)\)/);
+    assert.ok(!/for all to authenticated/.test(code), '0085 chỉ đổi SELECT, không đụng policy ghi đang chạy');
+    assert.ok(!/delete from|update public\./i.test(code), '0085 không sửa dữ liệu');
   });
 });

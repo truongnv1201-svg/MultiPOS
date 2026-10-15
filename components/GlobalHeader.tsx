@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   Clock,
   CloudCog,
+  UserCheck,
 } from 'lucide-react';
 import SyncCenterSheet from '@/components/common/SyncCenterSheet';
 
@@ -101,6 +102,7 @@ export function GlobalHeader() {
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [syncCenterOpen, setSyncCenterOpen] = useState(false);
+  const isManagerRole = profile?.role === 'admin' || profile?.role === 'manager';
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -365,6 +367,21 @@ export function GlobalHeader() {
         )}
 
         {/* If on POS screen: không còn nút Quản lý riêng — dùng Menu (Alt+M) để chuyển phân hệ */}
+
+        {/* Điện thoại: chấm công là phân hệ duy nhất vào được ngoài POS (quản lý chấm ngày,
+            NV thường xem công của mình) — menu phân hệ vẫn ẩn nên cần nút vào riêng. */}
+        <button
+          id="header-attendance-btn"
+          onClick={() => setCurrentScreen('attendance')}
+          className={`flex md:hidden h-8 w-8 items-center justify-center border rounded-md transition-colors ${
+            currentScreen === 'attendance'
+              ? 'bg-blue-600 border-blue-500 text-white'
+              : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+          }`}
+          title={isManagerRole ? 'Chấm công cho nhân viên' : 'Xem công của tôi'}
+        >
+          <UserCheck className="w-3.5 h-3.5" />
+        </button>
 
         {/* Trung tâm đồng bộ — kiểm tra & kéo số liệu mới nhất, xem hàng đợi chờ/lỗi,
             gửi lại thao tác offline. Thay cho nút "Làm mới" rời (đã gộp vào đây).

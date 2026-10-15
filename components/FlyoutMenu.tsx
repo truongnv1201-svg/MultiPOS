@@ -52,7 +52,11 @@ export function FlyoutMenu() {
     // tab Đơn nhập/Xuất CT/Điều chỉnh trong trang ẩn theo vai trò ở từng shell.
     { screen: 'debts' as const, label: 'Quản lý Công nợ', icon: Users, shortcut: 'Alt + C' },
     { screen: 'projects', label: 'Dự án & Thi công Công trình', icon: Building2, shortcut: 'Alt + J' },
-    { screen: 'hr', label: 'Quản lý nhân sự', icon: UserCheck, shortcut: 'Alt + T' },
+    // 0085: RLS chỉ cho nhân viên thường đọc dữ liệu của chính họ — vào "Quản lý nhân sự" bằng
+    // menu sẽ thấy bảng trống, nên ẩn khỏi menu (xem công của mình: nút trên header điện thoại).
+    ...(!isRestricted
+      ? [{ screen: 'hr' as const, label: 'Quản lý nhân sự', icon: UserCheck, shortcut: 'Alt + T' }]
+      : []),
     { screen: 'cashbook', label: 'Sổ quỹ Thu - Chi', icon: Wallet, shortcut: 'Alt + Q' },
     ...(!isRestricted
       ? [{ screen: 'reports' as const, label: 'Báo cáo Doanh thu & Lãi-Lỗ', icon: BarChart3, shortcut: 'Alt + R' }]

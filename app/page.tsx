@@ -57,10 +57,10 @@ function AppContent() {
   // Chế độ local-only (chưa cấu hình env) không có backend tài khoản nên vào thẳng demo.
   const needGate = supabaseReady && authReady && !user;
 
-  // Điện thoại (< 768px) chỉ dùng màn POS: không bottom nav, không menu phân hệ,
+  // Điện thoại (< 768px) chỉ 2 màn: POS và Chấm công. Không bottom nav, không menu phân hệ,
   // mở app (kể cả restore màn hình cũ / shortcut ?screen=) cũng hạ cánh về POS.
   const isPhone = useIsPhone();
-  const effectiveScreen = isPhone ? 'pos' : currentScreen;
+  const effectiveScreen: ActiveScreen = isPhone ? (currentScreen === 'attendance' ? 'attendance' : 'pos') : currentScreen;
 
   // Cổng hiện thì form login phải mở (defer microtask để khỏi set-state-in-effect)
   useEffect(() => {
@@ -113,7 +113,7 @@ function AppContent() {
       <FlyoutMenu />
 
       {/* Dynamic Screen View (điện thoại khóa về POS) */}
-      <main className={`flex-1 flex flex-col min-h-0 overflow-hidden ${effectiveScreen === 'pos' ? '' : 'mobile-main-bottom-space'}`}>
+      <main className={`flex-1 flex flex-col min-h-0 overflow-hidden ${effectiveScreen === 'pos' || isPhone ? '' : 'mobile-main-bottom-space'}`}>
         {effectiveScreen === 'pos' && <POSScreen />}
         {effectiveScreen === 'vouchers' && <VouchersView />}
         {/* Key cũ (menu lưu localStorage, shortcut Alt+H/D): mở Chứng từ đúng tab */}
