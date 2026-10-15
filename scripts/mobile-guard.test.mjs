@@ -615,6 +615,24 @@ describe('Chấm công trên điện thoại (0085): quản lý chấm theo NGÀ
     assert.match(mgr, /className="flex-1 min-h-0 overflow-auto p-2"/);
   });
 
+  it('bar trên điện thoại không được cuộn ngang (nút "Hôm nay" phải luôn bấm được ở 390px)', () => {
+    const barStart = mgr.indexOf('shrink-0 h-12 px-2');
+    const bar = mgr.slice(barStart, mgr.indexOf('att-mobile-day-strip', barStart));
+    assert.ok(bar.length > 0 && bar.length < 4000, 'không tìm thấy bar tiêu đề màn chấm công');
+    assert.doesNotMatch(bar, /overflow-x-auto/, 'bar để cuộn ngang là nút cuối bị đẩy tràn màn hình');
+    assert.match(bar, /<h2 className="flex min-w-0/, 'tiêu đề phải co bằng truncate, không đẩy nút ra ngoài');
+    assert.match(bar, /ml-auto flex shrink-0 items-center/, 'cụm tháng + Hôm nay luôn shrink-0');
+  });
+
+  it('dải ngày tự cuộn tới ngày đang chọn (bấm "Hôm nay" / chuyển tháng là ô đó vào giữa)', () => {
+    assert.match(mgr, /const stripRef = useRef<HTMLDivElement>\(null\);/);
+    assert.match(mgr, /dayRefs = useRef\(new Map<string, HTMLButtonElement>\(\)\)/);
+    assert.match(mgr, /strip\.scrollTo\(\{ left: btn\.offsetLeft - \(strip\.clientWidth - btn\.offsetWidth\) \/ 2, behavior: 'smooth' \}\)/);
+    assert.match(mgr, /\}, \[iso, monthKey\]\);/, 'effect phải chạy khi đổi ngày lẫn đổi tháng');
+    assert.match(mgr, /ref=\{stripRef\}/);
+    assert.match(mgr, /dayRefs\.current\.set\(d\.iso, el\)/);
+  });
+
   it('sheet chấm 1 ngày: 5 trạng thái >=44px, 1 nút Lưu, có OT + ghi chú', () => {
     assert.match(sheet, /ATTENDANCE_STATUS_ORDER\.map/);
     assert.match(sheet, /className=\{`flex h-14 flex-col/);

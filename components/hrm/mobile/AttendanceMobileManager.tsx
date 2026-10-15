@@ -3,7 +3,7 @@
 // Chấm công trên điện thoại — trục NGÀY (quản lý cầm máy chấm cho nhân viên mỗi ngày).
 // Không port ma trận 31 cột: dải ngày cuộn ngang + danh sách bản ghi kiểu record-list
 // giống giỏ hàng POS, mỗi dòng mở bottom sheet chọn trạng thái.
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardCheck, Lock, Users } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { ATTENDANCE_STATUS_META, HR_POLICY, attendanceModeOf, monthDays, todayIso } from '@/lib/hrm';
@@ -45,6 +45,17 @@ export function AttendanceMobileManager({
   const monthKey = `${year}-${String(month).padStart(2, '0')}`;
   const locked = payrollLocks.includes(monthKey);
   const days = useMemo(() => monthDays(year, month), [year, month]);
+
+  // Dải ngày cuộn ngang: mỗi lần đổi ngày (kể cả bấm "Hôm nay" hay chuyển tháng) phải tự đưa
+  // ô đang chọn vào giữa, nếu không ngày hôm nay nằm cuối dải là ngoài màn hình.
+  const stripRef = useRef<HTMLDivElement>(null);
+  const dayRefs = useRef(new Map<string, HTMLButtonElement>());
+  useEffect(() => {
+    const strip = stripRef.current;
+    const btn = dayRefs.current.get(iso);
+    if (!strip || !btn) return;
+    strip.scrollTo({ left: btn.offsetLeft - (strip.clientWidth - btn.offsetWidth) / 2, behavior: 'smooth' });
+  }, [iso, monthKey]);
 
   const roster = useMemo(
     () =>
@@ -99,34 +110,38 @@ export function AttendanceMobileManager({
 
   return (
     <div id="hrm-view" className="flex-1 min-h-0 flex flex-col bg-slate-100 overflow-hidden">
-      {/* Bar co giãn ngang ([&>*]:shrink-0) — 390px không đủ chỗ cho back + tiêu đề + tháng + Hôm nay */}
-      <div className="shrink-0 h-12 px-2 bg-white border-b border-slate-200 flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
+      {/* Bar KHÔNG cuộn ngang: trên 390px mà để overflow thì nút "Hôm nay" bị đẩy ra ngoài màn,
+          phải kéo mới bấm được. Nhãn "Bán hàng" bỏ thành icon, tiêu đề co bằng truncate,
+          cả cụm tháng + Hôm nay luôn shrink-0 để không bao giờ biến mất. */}
+      <div className="shrink-0 h-12 px-2 bg-white border-b border-slate-200 flex items-center gap-2">
         <button
           id="btn-att-mobile-back"
           type="button"
           onClick={() => setCurrentScreen('pos')}
-          className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold text-slate-600 active:bg-slate-100"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 active:bg-slate-100"
           aria-label="Về màn hình Bán hàng"
+          title="Về màn hình Bán hàng"
         >
-          <ArrowLeft className="w-4 h-4" /> Bán hàng
+          <ArrowLeft className="w-4 h-4" />
         </button>
-        <h2 className="flex items-center gap-1.5 text-sm font-extrabold text-slate-800 whitespace-nowrap">
-          <ClipboardCheck className="w-4 h-4 text-blue-600" /> Chấm công
+        <h2 className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-slate-800">
+          <ClipboardCheck className="w-4 h-4 shrink-0 text-blue-600" />
+          <span className="truncate">Chấm công</span>
         </h2>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           {locked && (
             <span className="inline-flex items-center gap-1 h-8 px-2 rounded-md text-[10px] font-bold bg-slate-800 text-amber-300" title={`Đã chốt lương ${monthKey} — mở ở máy tính để sửa`}>
               <Lock className="w-3 h-3" /> Chốt
             </span>
           )}
           <div className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white overflow-hidden">
-            <button type="button" onClick={() => moveMonth(-1)} className="h-8 w-8 flex items-center justify-center text-slate-600 active:bg-slate-100" aria-label="Tháng trước">
+            <button type="button" onClick={() => moveMonth(-1)} className="h-8 w-7 flex items-center justify-center text-slate-600 active:bg-slate-100" aria-label="Tháng trước">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="inline-flex h-8 items-center border-x border-slate-200 px-1.5 text-xs font-bold tabular-nums text-slate-800">
+            <span className="inline-flex h-8 items-center border-x border-slate-200 px-1 text-xs font-bold tabular-nums text-slate-800">
               T{month}/{year}
             </span>
-            <button type="button" onClick={() => moveMonth(1)} className="h-8 w-8 flex items-center justify-center text-slate-600 active:bg-slate-100" aria-label="Tháng sau">
+            <button type="button" onClick={() => moveMonth(1)} className="h-8 w-7 flex items-center justify-center text-slate-600 active:bg-slate-100" aria-label="Tháng sau">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -138,7 +153,7 @@ export function AttendanceMobileManager({
               setMonth(t.getMonth() + 1);
               setIso(todayIso());
             }}
-            className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600 active:bg-slate-100"
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 text-[11px] font-semibold text-slate-600 active:bg-slate-100"
             title="Về hôm nay"
           >
             <CalendarDays className="w-3.5 h-3.5" /> Hôm nay
@@ -146,7 +161,11 @@ export function AttendanceMobileManager({
         </div>
       </div>
 
-      <div id="att-mobile-day-strip" className="shrink-0 flex gap-1.5 overflow-x-auto border-b border-slate-200 bg-white px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div
+        id="att-mobile-day-strip"
+        ref={stripRef}
+        className="relative shrink-0 flex gap-1.5 overflow-x-auto border-b border-slate-200 bg-white px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {days.map((d) => {
           const n = dayCounts.get(d.iso) || 0;
           const isSel = d.iso === iso;
@@ -155,6 +174,10 @@ export function AttendanceMobileManager({
             <button
               key={d.iso}
               type="button"
+              ref={(el) => {
+                if (el) dayRefs.current.set(d.iso, el);
+                else dayRefs.current.delete(d.iso);
+              }}
               onClick={() => setIso(d.iso)}
               aria-pressed={isSel}
               className={`inline-flex h-14 w-[52px] shrink-0 flex-col items-center justify-center rounded-lg border text-center transition ${
