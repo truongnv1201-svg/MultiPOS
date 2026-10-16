@@ -303,7 +303,7 @@ export function CashbookView() {
       <div className="flex-1 min-h-0 flex flex-col p-4 overflow-hidden">
         <DataTableShell>
         {/* Filters */}
-        <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+        <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-2">
           <SearchInput
             value={search}
             onChange={(val) => {
@@ -314,8 +314,7 @@ export function CashbookView() {
             minWidthClass="min-w-[200px]"
           />
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Date Filter */}
+          {/* Date Filter */}
             <DateFilter
               value={dateFilter}
               onChange={(val) => {
@@ -367,7 +366,6 @@ export function CashbookView() {
                 { value: 'other', label: 'Thu/Chi khác' },
               ]}
             />
-          </div>
         </div>
 
         {/* Filtered Metrics Strip */}

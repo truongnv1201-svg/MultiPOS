@@ -132,6 +132,11 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
       assert.match(src, /<FilterSelect/, `${f} phải dùng FilterSelect`);
       assert.ok(!/w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-300 rounded-md/.test(src), `${f} còn ô tìm hardcode`);
     }
+    // Hàng lọc chung 1 flex-wrap (ô tìm + select cùng hàng, wrap tự nhiên), cấm
+    // justify-between + cụm con riêng làm select rớt hàng lẻ loi trên màn rộng.
+    const cash = read('components/cashbook/CashbookView.tsx');
+    assert.match(cash, /p-2\.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-2/);
+    assert.doesNotMatch(cash, /justify-between gap-2">\s*\n\s*<SearchInput/);
   });
 
   it('FilterSelect tự vẽ (popup hệ điều hành không style được): nút + listbox + portal', () => {
