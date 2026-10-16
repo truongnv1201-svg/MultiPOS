@@ -193,6 +193,10 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const internalQuantityRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = externalQuantityRef ?? internalQuantityRef;
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Dong dang chon: ref chi giu element; viec cuon vao khung nam o effect duoi,
+  // chay dung khi selectedIndex doi (ban phim), render khac khong duoc keo list.
+  const selectedRowRef = useRef<HTMLDivElement | null>(null);
+  const prevSelectedRef = useRef(selectedIndex);
   // Vùng bao ô tìm + dropdown: bấm ra ngoài thì đóng dropdown (trước đây bị kẹt).
   const searchWrapRef = useRef<HTMLDivElement>(null);
   // Chế độ bàn phím: máy quét Wedge/USB-BT gõ nhanh rồi không bấm Enter.
@@ -207,6 +211,13 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const closeDropdown = useCallback(() => {
     setIsDropdownOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (prevSelectedRef.current !== selectedIndex) {
+      prevSelectedRef.current = selectedIndex;
+      selectedRowRef.current?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedIndex]);
 
   useClickOutside(searchWrapRef, isDropdownOpen, closeDropdown);
 
@@ -517,7 +528,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
                   ref={
                     isSelected
                       ? (el) => {
-                          el?.scrollIntoView({ block: 'nearest' });
+                          selectedRowRef.current = el;
                         }
                       : undefined
                   }

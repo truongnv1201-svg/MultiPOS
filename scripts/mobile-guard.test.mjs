@@ -227,7 +227,14 @@ describe('POS: bàn phím phải cuộn theo dòng đang chọn trong dropdown',
   const select = read('components/common/SearchableSelect.tsx');
 
   it('dropdown tìm hàng cuộn dòng đang chọn vào khung (block: nearest)', () => {
-    assert.match(search, /ref=\{\s*isSelected[\s\S]{0,220}scrollIntoView\(\{ block: 'nearest' \}\)/);
+    // Cuộn qua effect theo selectedIndex, CẤM gọi trong ref callback: React gọi lại
+    // ref mỗi render (poll/realtime/sync) sẽ giật list về dòng focus khi user lăn chuột.
+    assert.doesNotMatch(search, /ref=\{\s*isSelected[\s\S]{0,120}scrollIntoView/);
+    assert.match(search, /selectedRowRef\.current\?\.scrollIntoView\(\{ block: 'nearest' \}\)/);
+  });
+
+  it('render lại không kéo list về dòng focus (chỉ đổi dòng mới cuộn)', () => {
+    assert.match(search, /prevSelectedRef\.current !== selectedIndex/);
   });
 
   it('SearchableSelect cũng cuộn dòng active vào khung (trần max-h-52)', () => {
