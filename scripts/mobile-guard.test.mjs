@@ -588,19 +588,26 @@ describe('Modal kính F3 trên điện thoại: thẻ dòng thay bảng ngang', 
     assert.ok(dim.indexOf('<table') < dim.indexOf('dimension-mobile-cards'));
   });
 
-  it('thẻ dòng đủ 4 ô nhập có nhãn, ô cao chạm được, chung handler + thứ tự ô với bảng', () => {
+  it('thẻ dòng gọn để nhập nhanh: Dài/Rộng/SL chung 1 hàng, phụ phí + số liệu gộp 1 hàng', () => {
+    assert.match(dim, /grid grid-cols-3 gap-1\.5/);
     assert.match(dim, /data-dim-col="length"[\s\S]{0,1500}data-dim-col="width"[\s\S]{0,1500}data-dim-col="quantity"[\s\S]{0,1500}data-dim-col="extra"/);
     assert.match(dim, /onKeyDown=\{handleCellEnter\}/);
-    assert.match(dim, /h-11 px-2\.5/);
+    assert.match(dim, /CV \{formatQty\(row\.perimeter_md\)\}/);
+    assert.match(dim, /h-11 px-2/);
   });
 
   it('Enter nhảy ô chỉ tính ô đang hiện (layout ẩn display:none không focus được)', () => {
     assert.match(dim, /getClientRects\(\)\.length > 0/);
   });
 
-  it('header gọn trên điện thoại (tiêu đề truncate, thông tin phụ wrap)', () => {
+  it('header + toolbar + nút xác nhận gọn trên điện thoại', () => {
+    assert.match(dim, /KÍCH THƯỚC & DIỆN TÍCH \(F3\)/);
     assert.match(dim, /text-\[13px\] sm:text-base font-bold text-white truncate/);
     assert.match(dim, /flex flex-wrap items-center gap-x-2/);
+    // Gợi ý phím Enter là cho bàn phím cứng -> ẩn trên điện thoại.
+    assert.match(dim, /text-\[11px\] text-amber-800 italic hidden sm:flex/);
+    // Nút xác nhận chỉ hiện chữ dài từ sm trở lên.
+    assert.match(dim, /XÁC NHẬN<span className="hidden sm:inline"> CẬP NHẬT \(Ctrl\+Enter\)<\/span>/);
   });
 });
 

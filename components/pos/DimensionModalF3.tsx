@@ -270,8 +270,8 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
               F3
             </span>
             <div className="min-w-0 flex-1">
-              <h2 className="text-[13px] sm:text-base font-bold text-white truncate" title={`Chi tiết kích thước & diện tích (F3) — ${item.name}`}>
-                CHI TIẾT KÍCH THƯỚC & DIỆN TÍCH (F3) <span className="text-amber-400 font-normal">— {item.name}</span>
+              <h2 className="text-[13px] sm:text-base font-bold text-white truncate" title={`Kích thước & diện tích (F3) — ${item.name}`}>
+                KÍCH THƯỚC & DIỆN TÍCH (F3) <span className="text-amber-400 font-normal">— {item.name}</span>
               </h2>
               <div className="text-[10px] sm:text-[11px] text-slate-300 flex flex-wrap items-center gap-x-2">
                 <span>Đơn giá phôi: {formatVND(unitPrice)}/m2</span>
@@ -317,7 +317,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
             </button>
           </div>
 
-          <div className="text-[11px] text-amber-800 italic flex items-center gap-1">
+          <div className="text-[11px] text-amber-800 italic hidden sm:flex items-center gap-1">
             <HelpCircle className="w-3.5 h-3.5" />
             <span>Phím Enter ở dòng trống cuối để tự tổng kết • dòng mới luôn trống</span>
           </div>
@@ -448,23 +448,18 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
           {/* Mobile: the tung tam (o nhap co cham 44px+, khong chen nhu bang ngang) */}
           <div id="dimension-mobile-cards" className="lg:hidden space-y-2">
             {rows.map((row, index) => (
-              <div key={row.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+              <div key={row.id} className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-bold text-slate-700">Tấm {index + 1}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono text-slate-500">
-                      {formatQty(row.actual_m2)} m2 · {formatNumber(row.processing_fee)} đ
-                    </span>
-                    <button
-                      onClick={() => handleRemoveRow(row.id)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
-                      aria-label={`Xóa tấm ${index + 1}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleRemoveRow(row.id)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
+                    aria-label={`Xóa tấm ${index + 1}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-1.5 grid grid-cols-3 gap-1.5">
                   <div>
                     <span className="mb-0.5 block text-[10px] font-bold uppercase text-slate-400">Dài (mm)</span>
                     <NumberInput
@@ -475,7 +470,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
                       onFocus={(e) => e.target.select()}
                       onKeyDown={handleCellEnter}
                       placeholder="0"
-                      className="w-full h-11 px-2.5 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
+                      className="w-full h-11 px-2 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
                     />
                   </div>
                   <div>
@@ -487,7 +482,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
                       onFocus={(e) => e.target.select()}
                       onKeyDown={handleCellEnter}
                       placeholder="0"
-                      className="w-full h-11 px-2.5 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
+                      className="w-full h-11 px-2 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
                     />
                   </div>
                   <div>
@@ -499,10 +494,12 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
                       onFocus={(e) => e.target.select()}
                       onKeyDown={handleCellEnter}
                       placeholder="1"
-                      className="w-full h-11 px-2.5 text-center font-bold text-sm text-blue-700 bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
+                      className="w-full h-11 px-2 text-center font-bold text-sm text-blue-700 bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
                     />
                   </div>
-                  <div>
+                </div>
+                <div className="mt-1.5 flex items-end gap-2">
+                  <div className="flex-1">
                     <span className="mb-0.5 block text-[10px] font-bold uppercase text-slate-400">Phụ phí (đ)</span>
                     <input
                       type="text"
@@ -519,10 +516,11 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
                       className="w-full h-11 px-2.5 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
                     />
                   </div>
+                  <p className="pb-1 text-right font-mono leading-tight">
+                    <span className="block text-[11px] font-bold text-slate-700">{formatQty(row.actual_m2)} m2 · {formatNumber(row.processing_fee)} đ</span>
+                    <span className="block text-[10px] text-slate-400">CV {formatQty(row.perimeter_md)} md</span>
+                  </p>
                 </div>
-                <p className="mt-1.5 text-[10px] font-mono text-slate-500">
-                  Chu vi {formatQty(row.perimeter_md)} md · Công mài {formatNumber(grindingFeeOf(row))} đ
-                </p>
               </div>
             ))}
           </div>
@@ -603,7 +601,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
               className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-colors"
             >
               <Check className="w-4 h-4" />
-              <span>XÁC NHẬN CẬP NHẬT (Ctrl+Enter)</span>
+              <span>XÁC NHẬN<span className="hidden sm:inline"> CẬP NHẬT (Ctrl+Enter)</span></span>
             </button>
           </div>
         </div>
