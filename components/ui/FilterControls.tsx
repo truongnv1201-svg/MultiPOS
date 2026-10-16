@@ -42,6 +42,8 @@ interface FilterSelectProps {
   options: { value: string; label: string }[];
   title?: string;
   className?: string;
+  /** Bỏ min-width đo theo nhãn dài nhất: chỗ chật (toolbar mobile) thì co theo khung, nhãn dài tự truncate. */
+  noAutoWidth?: boolean;
   disabled?: boolean;
 }
 
@@ -71,7 +73,7 @@ function contentWidthPx(options: { value: string; label: string }[]): number {
   return Math.ceil(max) + 20 + 22 + 8;
 }
 
-export function FilterSelect({ id, value, onChange, options, title, className = '', disabled = false }: FilterSelectProps) {
+export function FilterSelect({ id, value, onChange, options, title, className = '', disabled = false, noAutoWidth = false }: FilterSelectProps) {
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
@@ -149,7 +151,7 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
   return (
     <div
       className={`min-w-0 ${className}`}
-      style={contentMin > 0 ? { minWidth: `min(${contentMin}px, 100%)` } : undefined}
+      style={contentMin > 0 && !noAutoWidth ? { minWidth: `min(${contentMin}px, 100%)` } : undefined}
     >
       <button
         ref={btnRef}

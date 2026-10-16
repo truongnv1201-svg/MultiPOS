@@ -612,7 +612,11 @@ describe('Modal kính F3 trên điện thoại: thẻ dòng thay bảng ngang', 
     assert.match(dim, /XÁC NHẬN<span className="hidden sm:inline"> CẬP NHẬT \(Ctrl\+Enter\)<\/span>/);
     // Thanh mài gọn 1 hàng: nhãn rút gọn trên mobile, select giãn hết cỡ.
     assert.match(dim, /Mài:[\s\S]{0,20}<\/span>/);
-    assert.match(dim, /id="batch-grinding-select"\s*\n\s*className="flex-1 min-w-0"/);
+    assert.match(dim, /id="batch-grinding-select"[\s\S]{0,200}className="flex-1 min-w-0"/);
+    // Ô chọn không ép min-width theo nhãn dài nhất -> hết tràn màn hình hẹp.
+    const fc = read('components/ui/FilterControls.tsx');
+    assert.match(fc, /noAutoWidth\?: boolean/);
+    assert.match(dim, /id="batch-grinding-select"[\s\S]{0,200}noAutoWidth/);
   });
 });
 

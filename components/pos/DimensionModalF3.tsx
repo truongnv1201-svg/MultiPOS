@@ -304,6 +304,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
             </span>
             <FilterSelect
               id="batch-grinding-select"
+              noAutoWidth
               className="flex-1 min-w-0"
               value={batchGrindingType}
               onChange={(v) => setBatchGrindingType(v)}
