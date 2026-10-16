@@ -77,14 +77,15 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / menu phân h
     assert.ok(!/\{currentScreen === 'pos' && <POSScreen/.test(page), 'còn render theo currentScreen thô');
   });
 
-  it('bottom nav chỉ hiện trên tablet (md -> lg), ẩn trên điện thoại', () => {
-    const nav = read('components/MobileBottomNav.tsx');
-    assert.match(nav, /hidden md:block lg:hidden fixed inset-x-0 bottom-0/);
-    // Dock POS tablet đã bỏ (thanh toán ghim + header đủ, 2 luồng kho có thanh riêng
-    // trong luồng) — không còn file/component, POS không được nhắc tới nó.
-    const pos = read('components/pos/POSScreen.tsx');
-    assert.ok(!existsSync(join(ROOT, 'components/pos/MobilePOSDock.tsx')), 'file dock phải bị xóa');
-    assert.doesNotMatch(pos, /MobilePOSDock/);
+  it('không còn thanh điều hướng đáy (tablet dùng nút Menu header + FlyoutMenu)', () => {
+    // MobileBottomNav + đệm đáy của nó đã gỡ sạch: tablet điều hướng bằng Menu như desktop.
+    assert.ok(!existsSync(join(ROOT, 'components/MobileBottomNav.tsx')), 'file nav phải bị xóa');
+    assert.doesNotMatch(page, /MobileBottomNav/);
+    assert.doesNotMatch(page, /mobile-main-bottom-space/);
+    const css = read('app/globals.css');
+    assert.doesNotMatch(css, /mobile-main-bottom-space/);
+    // safe-bottom giữ lại cho sheet menu trượt từ đáy.
+    assert.match(css, /\.safe-bottom \{/);
   });
 
   it('menu phân hệ không mở trên điện thoại + nút menu/header ẩn', () => {
@@ -671,9 +672,9 @@ describe('Chấm công trên điện thoại (0085): quản lý chấm theo NGÀ
   const sql = read('supabase/migrations/0085_hrm_self_visibility.sql');
   const desktopGrid = read('components/hrm/tabs/AttendanceTab.tsx');
 
-  it('điện thoại whitelist đúng 2 màn: POS + attendance (khớp test page ở trên)', () => {
-    // Không reserve đáy cho nav trên điện thoại (chấm công không có bottom bar)
-    assert.match(page, /effectiveScreen === 'pos' \|\| isPhone \? '' : 'mobile-main-bottom-space'/);
+  it('main không còn rẽ nhánh đệm đáy (bottom nav + spacer đã gỡ)', () => {
+    // Bottom nav + đệm đáy đã gỡ nên main không còn rẽ nhánh class theo màn.
+    assert.match(page, /<main className="flex-1 flex flex-col min-h-0 overflow-hidden">/);
   });
 
   it('điểm vào là nút header riêng cho điện thoại + có đường về Bán hàng', () => {

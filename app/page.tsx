@@ -4,7 +4,6 @@ import React, { useEffect, useRef } from 'react';
 import { StoreProvider, useStore } from '@/lib/store';
 import type { ActiveScreen } from '@/lib/types';
 import { GlobalHeader } from '@/components/GlobalHeader';
-import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { FlyoutMenu } from '@/components/FlyoutMenu';
 import { POSScreen } from '@/components/pos/POSScreen';
 import { DimensionModalF3 } from '@/components/pos/DimensionModalF3';
@@ -113,7 +112,7 @@ function AppContent() {
       <FlyoutMenu />
 
       {/* Dynamic Screen View (điện thoại khóa về POS) */}
-      <main className={`flex-1 flex flex-col min-h-0 overflow-hidden ${effectiveScreen === 'pos' || isPhone ? '' : 'mobile-main-bottom-space'}`}>
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {effectiveScreen === 'pos' && <POSScreen />}
         {effectiveScreen === 'vouchers' && <VouchersView />}
         {/* Key cũ (menu lưu localStorage, shortcut Alt+H/D): mở Chứng từ đúng tab */}
@@ -134,7 +133,6 @@ function AppContent() {
         {effectiveScreen === 'settings' && <SettingsView />}
       </main>
 
-      {!isPhone && <MobileBottomNav />}
 
       {/* Global Modals */}
       <DimensionModalF3 />
