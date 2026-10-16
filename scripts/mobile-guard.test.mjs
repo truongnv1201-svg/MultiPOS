@@ -465,6 +465,14 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     assert.match(pos, /onClearCustomer=\{\(\) => pickCustomer\(/);
   });
 
+  it('thu tiền xong tự đóng sheet mobile về POS bán tiếp (lỗi thì giữ sheet để sửa)', () => {
+    assert.match(pos, /const order = await checkoutActiveOrder\(\);[\s\S]{0,120}if \(order\) setIsMobilePaymentOpen\(false\);/);
+  });
+
+  it('không còn id bottom-bar chết (CSS đã gỡ, không test/e2e nào dùng)', () => {
+    assert.doesNotMatch(pos, /id="pos-bottom-bar"/);
+  });
+
   it('SheetShell là bottom sheet trên mobile, hộp thoại trên desktop', () => {
     assert.match(shell, /fixed inset-0 z-50 flex items-end sm:items-center/);
     assert.match(shell, /sm:rounded-xl rounded-t-2xl/);

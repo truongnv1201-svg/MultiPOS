@@ -504,7 +504,8 @@ export function POSScreen() {
     setIsProcessing(true);
     busyRef.current = true;
     try {
-      await checkoutActiveOrder();
+      const order = await checkoutActiveOrder();
+      if (order) setIsMobilePaymentOpen(false);
     } catch (err: any) {
       notify(`Lỗi thanh toán: ${vietnamizeError(err)}`, 'error');
     } finally {
@@ -2239,7 +2240,7 @@ export function POSScreen() {
 
         {/* BOTTOM ACTION BUTTONS: ghim đáy panel (sticky) để màn lùn vẫn bấm được
             ĐẶT HÀNG/THANH TOÁN mà không cần cuộn */}
-        <div id="pos-bottom-bar" className="pt-3 border-t border-slate-200 space-y-2">
+        <div className="pt-3 border-t border-slate-200 space-y-2">
           {(currentShift.status !== 'open' || needLogin) && (
             <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-900 leading-relaxed">
               {needLogin ? (
