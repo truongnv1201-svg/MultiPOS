@@ -101,6 +101,12 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(pos, /max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40/);
   });
 
+  it('điện thoại không tự mở phiếu sau bán (coi như tắt in tự động)', () => {
+    const checkout = read('lib/store/tx/checkout.tsx');
+    assert.match(checkout, /const isPhone = useIsPhone\(\);/);
+    assert.match(checkout, /if \(shop\.autoPrint !== false && !isPhone\) \{/);
+  });
+
   it('nhập kho / xuất vật tư chỉ còn trên tablet+desktop, điện thoại bỏ hẳn', () => {
     const pos = read('components/pos/POSScreen.tsx');
     // Điện thoại (<768px) ép luồng về 'sale' ngay ở render; posFlow trong store vẫn nguyên

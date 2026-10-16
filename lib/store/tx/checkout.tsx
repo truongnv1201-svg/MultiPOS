@@ -15,6 +15,7 @@ import { db, generateOrderCode } from '../../db';
 import { resolvePaidAmount } from '../../pricing';
 import { vietnamizeError } from '../../error-vi';
 import { notify } from '@/components/common/Toast';
+import { useIsPhone } from '@/hooks/useIsPhone';
 
 export interface TxCheckoutDeps {
   activeCart: CartTab;
@@ -48,6 +49,7 @@ export function useTxCheckout({
   setPendingQueue,
 }: TxCheckoutDeps): TxCheckout {
   const { supa, user, profile, setLoginOpen } = useAuth();
+  const isPhone = useIsPhone();
   const { shop } = useCommerce();
   const { products, setProducts, customers, setCustomers, customerMap, syncCustomers } = useCatalog();
   const { isOnline } = useNetwork();
@@ -396,7 +398,9 @@ export function useTxCheckout({
       // In tự động (Cài đặt → Trung tâm in ấn): BẬT = tự mở phiếu sau bán để bấm In;
       // TẮT = về bán tiếp luôn, xem/in lại trong Đơn hàng. Mặc định BẬT (!== false
       // để máy cũ chưa có key này vẫn giữ hành vi cũ).
-      if (shop.autoPrint !== false) {
+      // Điện thoại luôn coi như TẮT: máy in cắm ở quầy (desktop), tự mở phiếu
+      // trên tay chỉ thêm bước đóng mà không in được gì.
+      if (shop.autoPrint !== false && !isPhone) {
         setReceiptModalOrder(newOrder);
       }
 
@@ -421,6 +425,7 @@ export function useTxCheckout({
       setCustomers,
       setProducts,
       shop.autoPrint,
+      isPhone,
       setCashbook,
       setCurrentShift,
       setReceiptModalOrder,
