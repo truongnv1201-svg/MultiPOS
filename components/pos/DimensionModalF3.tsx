@@ -60,9 +60,9 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     const target = e.target as HTMLInputElement;
-    const cells = Array.from(
-      document.querySelectorAll('#dimension-modal-container tbody input[data-dim-col]') || []
-    ) as HTMLInputElement[];
+    const cells = (Array.from(
+      document.querySelectorAll('#dimension-modal-container input[data-dim-col]') || []
+    ) as HTMLInputElement[]).filter((el) => el.getClientRects().length > 0);
     const i = cells.indexOf(target);
     if (i >= 0 && i < cells.length - 1) {
       cells[i + 1].focus();
@@ -85,10 +85,13 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
     handleAddRow();
     setTimeout(() => {
       (
-        document.querySelector(
-          '#dimension-modal-container tbody tr:last-child input[data-dim-col="length"]'
-        ) as HTMLElement | null
-      )?.focus();
+        Array.from(
+          document.querySelectorAll('#dimension-modal-container input[data-dim-col="length"]') || []
+        ) as HTMLElement[]
+      )
+        .filter((el) => el.getClientRects().length > 0)
+        .pop()
+        ?.focus();
     }, 60);
   };
 
@@ -258,30 +261,28 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
     >
       <div
         id="dimension-modal-container"
-        className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
       >
         {/* Modal Header */}
-        <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="px-2 py-0.5 text-xs font-mono font-bold bg-amber-400 text-slate-900 rounded">
+        <div className="px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-900 text-white flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+            <span className="px-2 py-0.5 text-xs font-mono font-bold bg-amber-400 text-slate-900 rounded shrink-0">
               F3
             </span>
-            <div>
-              <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                <span>CHI TIẾT KÍCH THƯỚC & DIỆN TÍCH (F3)</span>
-                <span className="text-amber-400 font-normal">— {item.name}</span>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[13px] sm:text-base font-bold text-white truncate" title={`Chi tiết kích thước & diện tích (F3) — ${item.name}`}>
+                CHI TIẾT KÍCH THƯỚC & DIỆN TÍCH (F3) <span className="text-amber-400 font-normal">— {item.name}</span>
               </h2>
-              <div className="text-[11px] text-slate-300 flex items-center gap-3">
+              <div className="text-[10px] sm:text-[11px] text-slate-300 flex flex-wrap items-center gap-x-2">
                 <span>Đơn giá phôi: {formatVND(unitPrice)}/m2</span>
-                <span>•</span>
-                <span>Hệ số hao hụt phôi (Waste factor): <strong className="text-amber-300">{wasteFactor}%</strong></span>
+                <span>Hao hụt phôi: <strong className="text-amber-300">{wasteFactor}%</strong></span>
               </div>
             </div>
           </div>
           <button
             id="btn-close-dimension-modal"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors"
+            className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors shrink-0"
             title="Đóng (Esc)"
           >
             <X className="w-5 h-5" />
@@ -322,8 +323,10 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
           </div>
         </div>
 
-        {/* Dimension Table */}
+        {/* Dimension Table (bang ngang chi danh cho desktop; mobile dung the dong ben duoi).
+            DOM bang dung truoc de e2e [data-dim-col].first() tren desktop van trung o dang hien. */}
         <div className="flex-1 overflow-y-auto p-4">
+          <div className="hidden lg:block">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
@@ -440,6 +443,89 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
               })}
             </tbody>
           </table>
+          </div>
+
+          {/* Mobile: the tung tam (o nhap co cham 44px+, khong chen nhu bang ngang) */}
+          <div id="dimension-mobile-cards" className="lg:hidden space-y-2">
+            {rows.map((row, index) => (
+              <div key={row.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-700">Tấm {index + 1}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {formatQty(row.actual_m2)} m2 · {formatNumber(row.processing_fee)} đ
+                    </span>
+                    <button
+                      onClick={() => handleRemoveRow(row.id)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
+                      aria-label={`Xóa tấm ${index + 1}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="mb-0.5 block text-[10px] font-bold uppercase text-slate-400">Dài (mm)</span>
+                    <NumberInput
+                      data-dim-col="length"
+                      autoFocus={index === 0}
+                      value={row.length > 0 ? Math.round(row.length * 1000) : ''}
+                      onChange={(mm) => handleUpdateRow(row.id, 'length', mm / 1000)}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={handleCellEnter}
+                      placeholder="0"
+                      className="w-full h-11 px-2.5 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <span className="mb-0.5 block text-[10px] font-bold uppercase text-slate-400">Rộng (mm)</span>
+                    <NumberInput
+                      data-dim-col="width"
+                      value={row.width > 0 ? Math.round(row.width * 1000) : ''}
+                      onChange={(mm) => handleUpdateRow(row.id, 'width', mm / 1000)}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={handleCellEnter}
+                      placeholder="0"
+                      className="w-full h-11 px-2.5 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <span className="mb-0.5 block text-[10px] font-bold uppercase text-slate-400">Số tấm</span>
+                    <NumberInput
+                      data-dim-col="quantity"
+                      value={row.quantity > 0 ? row.quantity : ''}
+                      onChange={(v) => handleUpdateRow(row.id, 'quantity', v)}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={handleCellEnter}
+                      placeholder="1"
+                      className="w-full h-11 px-2.5 text-center font-bold text-sm text-blue-700 bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <span className="mb-0.5 block text-[10px] font-bold uppercase text-slate-400">Phụ phí (đ)</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      data-dim-col="extra"
+                      value={extraFeeOf(row) ? new Intl.NumberFormat('vi-VN').format(extraFeeOf(row)) : ''}
+                      onChange={(e) => {
+                        handleMoneyInputChange(e, (num) => handleExtraFeeChange(row.id, num));
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      onKeyDown={handleCellEnter}
+                      placeholder="0"
+                      title="Phụ phí thêm mỗi tấm (khoét lỗ, bo góc đặc biệt...)"
+                      className="w-full h-11 px-2.5 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+                <p className="mt-1.5 text-[10px] font-mono text-slate-500">
+                  Chu vi {formatQty(row.perimeter_md)} md · Công mài {formatNumber(grindingFeeOf(row))} đ
+                </p>
+              </div>
+            ))}
+          </div>
 
           {/* Add Row Button */}
           <div className="mt-3 flex items-center justify-between">

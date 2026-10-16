@@ -578,6 +578,32 @@ describe('Giai đoạn 4: icon PWA + in điện thoại + bàn phím + record li
   });
 });
 
+describe('Modal kính F3 trên điện thoại: thẻ dòng thay bảng ngang', () => {
+  const dim = read('components/pos/DimensionModalF3.tsx');
+
+  it('bảng 10 cột chỉ dành cho desktop, mobile dùng thẻ dòng', () => {
+    assert.match(dim, /<div className="hidden lg:block">/);
+    assert.match(dim, /id="dimension-mobile-cards" className="lg:hidden/);
+    // DOM bảng đứng trước để e2e [data-dim-col].first() trên desktop vẫn trúng ô đang hiện.
+    assert.ok(dim.indexOf('<table') < dim.indexOf('dimension-mobile-cards'));
+  });
+
+  it('thẻ dòng đủ 4 ô nhập có nhãn, ô cao chạm được, chung handler + thứ tự ô với bảng', () => {
+    assert.match(dim, /data-dim-col="length"[\s\S]{0,1500}data-dim-col="width"[\s\S]{0,1500}data-dim-col="quantity"[\s\S]{0,1500}data-dim-col="extra"/);
+    assert.match(dim, /onKeyDown=\{handleCellEnter\}/);
+    assert.match(dim, /h-11 px-2\.5/);
+  });
+
+  it('Enter nhảy ô chỉ tính ô đang hiện (layout ẩn display:none không focus được)', () => {
+    assert.match(dim, /getClientRects\(\)\.length > 0/);
+  });
+
+  it('header gọn trên điện thoại (tiêu đề truncate, thông tin phụ wrap)', () => {
+    assert.match(dim, /text-\[13px\] sm:text-base font-bold text-white truncate/);
+    assert.match(dim, /flex flex-wrap items-center gap-x-2/);
+  });
+});
+
 describe('Chấm công trên điện thoại (0085): quản lý chấm theo NGÀY, NV chỉ xem công mình', () => {
   const page = read('app/page.tsx');
   const header = read('components/GlobalHeader.tsx');
