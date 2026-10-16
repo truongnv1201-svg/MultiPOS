@@ -489,7 +489,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           // danh sách cuộn và dải hướng dẫn phím ở chân khung luôn nhìn thấy (shrink-0).
           className="absolute top-11 left-0 right-0 max-h-72 flex flex-col bg-white text-slate-800 shadow-2xl rounded-lg border border-slate-200 overflow-hidden z-50"
         >
-          <div className="p-1.5 overflow-y-auto divide-y divide-slate-100">
+          <div className="p-1.5 flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100">
             {filteredProducts.length === 0 && (
               <div className="px-3 py-3 text-center text-xs text-slate-500">
                 Không tìm thấy <span className="font-semibold text-slate-700">&quot;{searchQuery.trim()}&quot;</span> trong danh mục.

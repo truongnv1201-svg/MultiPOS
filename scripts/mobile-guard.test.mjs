@@ -241,10 +241,13 @@ describe('POS: bàn phím phải cuộn theo dòng đang chọn trong dropdown',
     assert.match(search, /if \(e\.key === 'ArrowUp'\)[\s\S]{0,160}setSelectedIndex/);
   });
 
-  it('dropdown bám sát nội dung khi ít kết quả, có trần khi nhiều kết quả', () => {
-    // h-64 cố định -> chừa khối trống to khi chỉ có 0-1 kết quả.
-    assert.doesNotMatch(search, /id="search-results-dropdown"[\s\S]{0,400}className="[^"]*\bh-64\b/);
+  it('dropdown bám sát nội dung khi ít kết quả, có trần khi nhiều kết quả (và cuộn được)', () => {
+    // Hồi quy 09/2026: bỏ h-full ở khung list mà không bù flex-1 min-h-0 -> list cao
+    // bằng nội dung thật, tràn ra ngoài khung (bị overflow-hidden cắt), con lăn chuột
+    // rơi vào khung chứa đằng sau nên dropdown đứng yên.
     assert.match(search, /id="search-results-dropdown"[\s\S]{0,400}max-h-72 flex flex-col/);
+    assert.match(search, /p-1\.5 flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y/);
+    assert.doesNotMatch(search, /id="search-results-dropdown"[\s\S]{0,400}className="[^"]*\bh-64\b/);
     // Dải hướng dẫn phím không bị cắt khi khung chạm trần.
     assert.match(search, /text-\[10px\] text-slate-500 flex items-center justify-between shrink-0/);
   });
