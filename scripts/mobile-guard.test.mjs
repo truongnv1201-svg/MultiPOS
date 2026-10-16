@@ -588,11 +588,13 @@ describe('Modal kính F3 trên điện thoại: thẻ dòng thay bảng ngang', 
     assert.ok(dim.indexOf('<table') < dim.indexOf('dimension-mobile-cards'));
   });
 
-  it('thẻ dòng gọn để nhập nhanh: Dài/Rộng/SL chung 1 hàng, phụ phí + số liệu gộp 1 hàng', () => {
+  it('thẻ gọn: Dài/Rộng/SL chung 1 hàng, phụ phí full hàng, số liệu gộp lên đầu thẻ', () => {
     assert.match(dim, /grid grid-cols-3 gap-1\.5/);
+    assert.match(dim, /Tấm \{index \+ 1\}[\s\S]{0,400}actual_m2\)\} m2 · \{formatNumber\(row\.processing_fee\)\}/);
+    // Chu vi chi tiết dọn khỏi thẻ (vẫn còn ở ô tổng hợp) để thẻ lùn.
+    assert.doesNotMatch(dim, /CV \{formatQty\(row\.perimeter_md\)\}/);
     assert.match(dim, /data-dim-col="length"[\s\S]{0,1500}data-dim-col="width"[\s\S]{0,1500}data-dim-col="quantity"[\s\S]{0,1500}data-dim-col="extra"/);
     assert.match(dim, /onKeyDown=\{handleCellEnter\}/);
-    assert.match(dim, /CV \{formatQty\(row\.perimeter_md\)\}/);
     assert.match(dim, /h-11 px-2/);
   });
 
@@ -608,6 +610,9 @@ describe('Modal kính F3 trên điện thoại: thẻ dòng thay bảng ngang', 
     assert.match(dim, /text-\[11px\] text-amber-800 italic hidden sm:flex/);
     // Nút xác nhận chỉ hiện chữ dài từ sm trở lên.
     assert.match(dim, /XÁC NHẬN<span className="hidden sm:inline"> CẬP NHẬT \(Ctrl\+Enter\)<\/span>/);
+    // Thanh mài gọn 1 hàng: nhãn rút gọn trên mobile, select giãn hết cỡ.
+    assert.match(dim, /Mài:[\s\S]{0,20}<\/span>/);
+    assert.match(dim, /id="batch-grinding-select"\s*\n\s*className="flex-1 min-w-0"/);
   });
 });
 

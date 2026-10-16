@@ -292,15 +292,19 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
         {/* Toolbar: Batch Grinding Type Sync (SRS 4.5.1) */}
         <div
           id="dimension-toolbar-batch"
-          className="px-5 py-2.5 bg-amber-50/80 border-b border-amber-200 flex flex-wrap items-center justify-between gap-3 text-xs"
+          className="px-4 py-2 bg-amber-50/80 border-b border-amber-200 flex items-center gap-1.5 text-xs"
         >
-          <div className="flex items-center gap-2">
-            <Settings2 className="w-4 h-4 text-amber-700" />
-            <span className="font-semibold text-amber-900">
+          <div className="flex flex-1 items-center gap-1.5 min-w-0">
+            <Settings2 className="w-4 h-4 text-amber-700 shrink-0" />
+            <span className="font-semibold text-amber-900 shrink-0 max-sm:hidden">
               Đơn giá công mài:
+            </span>
+            <span className="font-semibold text-amber-900 shrink-0 sm:hidden">
+              Mài:
             </span>
             <FilterSelect
               id="batch-grinding-select"
+              className="flex-1 min-w-0"
               value={batchGrindingType}
               onChange={(v) => setBatchGrindingType(v)}
               title="Chọn đơn giá công mài áp cho mọi dòng"
@@ -310,7 +314,7 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
               id="btn-sync-all-rows"
               onClick={handleBatchSync}
               type="button"
-              className="h-8 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-medium text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+              className="h-8 shrink-0 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-medium text-xs flex items-center gap-1.5 transition-colors shadow-xs"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Áp dụng</span>
@@ -451,13 +455,16 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
               <div key={row.id} className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-bold text-slate-700">Tấm {index + 1}</span>
-                  <button
-                    onClick={() => handleRemoveRow(row.id)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
-                    aria-label={`Xóa tấm ${index + 1}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono font-bold text-slate-700">{formatQty(row.actual_m2)} m2 · {formatNumber(row.processing_fee)} đ</span>
+                    <button
+                      onClick={() => handleRemoveRow(row.id)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-600 bg-rose-50 active:bg-rose-100"
+                      aria-label={`Xóa tấm ${index + 1}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-1.5 grid grid-cols-3 gap-1.5">
                   <div>
@@ -498,28 +505,22 @@ function DimensionModalDialog({ item, isNew, onSave, onClose }: DialogProps) {
                     />
                   </div>
                 </div>
-                <div className="mt-1.5 flex items-end gap-2">
-                  <div className="flex-1">
-                    <span className="mb-0.5 block text-[10px] font-bold uppercase text-slate-400">Phụ phí (đ)</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      data-dim-col="extra"
-                      value={extraFeeOf(row) ? new Intl.NumberFormat('vi-VN').format(extraFeeOf(row)) : ''}
-                      onChange={(e) => {
-                        handleMoneyInputChange(e, (num) => handleExtraFeeChange(row.id, num));
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      onKeyDown={handleCellEnter}
-                      placeholder="0"
-                      title="Phụ phí thêm mỗi tấm (khoét lỗ, bo góc đặc biệt...)"
-                      className="w-full h-11 px-2.5 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
-                    />
-                  </div>
-                  <p className="pb-1 text-right font-mono leading-tight">
-                    <span className="block text-[11px] font-bold text-slate-700">{formatQty(row.actual_m2)} m2 · {formatNumber(row.processing_fee)} đ</span>
-                    <span className="block text-[10px] text-slate-400">CV {formatQty(row.perimeter_md)} md</span>
-                  </p>
+                <div className="mt-1.5">
+                  <span className="mb-0.5 block text-[10px] font-bold uppercase text-slate-400">Phụ phí (đ)</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    data-dim-col="extra"
+                    value={extraFeeOf(row) ? new Intl.NumberFormat('vi-VN').format(extraFeeOf(row)) : ''}
+                    onChange={(e) => {
+                      handleMoneyInputChange(e, (num) => handleExtraFeeChange(row.id, num));
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    onKeyDown={handleCellEnter}
+                    placeholder="0"
+                    title="Phụ phí thêm mỗi tấm (khoét lỗ, bo góc đặc biệt...)"
+                    className="w-full h-11 px-2.5 text-right font-mono text-sm bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-hidden"
+                  />
                 </div>
               </div>
             ))}
