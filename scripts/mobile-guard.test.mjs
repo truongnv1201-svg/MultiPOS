@@ -62,14 +62,9 @@ describe('POS: giỏ hiện thẳng trong trang trên mobile (không sheet tách
     assert.doesNotMatch(pos, /MobileCartSheet/);
     assert.doesNotMatch(pos, /isMobileCartOpen/);
   });
-
-  it('nút Giỏ trên dock (tablet) cuộn tới danh sách giỏ trong trang', () => {
-    assert.match(pos, /getElementById\(\s*isProjectFlow \? 'project-table-container' : isImportFlow \? 'import-table-container' : 'cart-record-list'\s*\)/);
-    assert.match(pos, /scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/);
-  });
 });
 
-describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu phân hệ', () => {
+describe('Điện thoại (< 768px): khóa POS, không bottom nav / menu phân hệ', () => {
   const page = read('app/page.tsx');
 
   it('có hook useIsPhone theo breakpoint md', () => {
@@ -82,11 +77,14 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.ok(!/\{currentScreen === 'pos' && <POSScreen/.test(page), 'còn render theo currentScreen thô');
   });
 
-  it('bottom nav + dock chỉ hiện trên tablet (md -> lg), ẩn trên điện thoại', () => {
+  it('bottom nav chỉ hiện trên tablet (md -> lg), ẩn trên điện thoại', () => {
     const nav = read('components/MobileBottomNav.tsx');
     assert.match(nav, /hidden md:block lg:hidden fixed inset-x-0 bottom-0/);
-    const dock = read('components/pos/MobilePOSDock.tsx');
-    assert.match(dock, /hidden md:block lg:hidden fixed inset-x-0 bottom-0/);
+    // Dock POS tablet đã bỏ (thanh toán ghim + header đủ, 2 luồng kho có thanh riêng
+    // trong luồng) — không còn file/component, POS không được nhắc tới nó.
+    const pos = read('components/pos/POSScreen.tsx');
+    assert.ok(!existsSync(join(ROOT, 'components/pos/MobilePOSDock.tsx')), 'file dock phải bị xóa');
+    assert.doesNotMatch(pos, /MobilePOSDock/);
   });
 
   it('menu phân hệ không mở trên điện thoại + nút menu/header ẩn', () => {
@@ -96,7 +94,7 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(header, /max-md:hidden flex h-9/);
   });
 
-  it('thanh toán ghim cố định đáy điện thoại thay dock', () => {
+  it('thanh toán ghim cố định đáy điện thoại', () => {
     const pos = read('components/pos/POSScreen.tsx');
     assert.match(pos, /max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40/);
   });
@@ -119,13 +117,14 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(orders, /hidden md:flex items-center gap-1\.5 shadow-2xs/);
   });
 
-  it('nhập kho / xuất vật tư chỉ còn trên tablet+desktop, điện thoại bỏ hẳn', () => {
+  it('nhập kho / xuất vật tư: điện thoại bỏ hẳn, tablet có thanh trong luồng', () => {
     const pos = read('components/pos/POSScreen.tsx');
     // Điện thoại (<768px) ép luồng về 'sale' ngay ở render; posFlow trong store vẫn nguyên
     // để xoay sang tablet/desktop là quay lại đúng luồng đang làm.
     assert.match(pos, /const flow = isPhone \? 'sale' : posFlow;/);
-    // Thanh ghim đáy "Nhập kho / Xuất vật tư" chỉ render dưới md = điện thoại -> đã bỏ.
-    assert.doesNotMatch(pos, /id="btn-pos-mobile-stock-action"/);
+    // Thanh tablet: hiện tới lg, nằm trong luồng (không fixed như dock cũ).
+    assert.match(pos, /<div className="hidden md:flex lg:hidden shrink-0 border-t/);
+    assert.match(pos, /id="btn-pos-mobile-stock-action"/);
     assert.doesNotMatch(pos, /md:hidden fixed inset-x-0 bottom-0 z-40/);
     // Panel desktop (lg) vẫn giữ nút ghim đáy của 2 luồng nhập/xuất.
     assert.match(pos, /isStockFlow \? 'overflow-hidden' : 'overflow-y-auto'/);
@@ -154,10 +153,10 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(read('lib/store/tx/cart.tsx'), /if \(cartTabs\.length >= 3\)/);
   });
 
-  it('vùng đệm đáy POS vừa khít thanh ghim điện thoại (không dải xám thừa)', () => {
+  it('vùng đệm đáy POS: tablet 0 (hết thanh fixed), điện thoại vừa thanh ghim', () => {
     const css = read('app/globals.css');
-    // Tablet giữ 5.5rem (còn chỗ cho dock cố định); điện thoại override vừa thanh ghim.
-    assert.match(css, /\.pos-mobile-bottom-space \{\s*\n\s*padding-bottom: calc\(5\.5rem \+ env\(safe-area-inset-bottom\)\);/);
+    // Dock đã bỏ nên tablet không còn thanh fixed nào -> không đệm.
+    assert.match(css, /\.pos-mobile-bottom-space \{[\s\S]{0,200}padding-bottom: 0;/);
     assert.match(css, /@media \(max-width: 767px\)[\s\S]{0,300}\.pos-mobile-bottom-space/);
     assert.match(css, /padding-bottom: max\(4rem, calc\(3\.5rem \+ env\(safe-area-inset-bottom\)\)\);/);
   });
@@ -425,13 +424,11 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     assert.match(pos, /id="pos-payment-panel"[\s\S]{0,100}?className=\{`hidden lg:flex/);
     assert.match(pos, /id="btn-pos-mobile-payment"/);
     assert.match(pos, /<MobilePaymentSheet/);
-    // 2026-09: dock có 3 nhánh — bán / nhập kho / xuất vật tư công trình (tab POS "Xuất CT").
-    assert.match(
-      pos,
-      /onPrimaryAction=\{\s*isImportFlow\s*\n?\s*\?\s*handleImportCommit\s*\n?\s*:\s*isProjectFlow\s*\n?\s*\?\s*handleProjectExportCommit\s*\n?\s*:\s*\(\) => setIsMobilePaymentOpen\(true\)/
-    );
-    // 2 luồng dòng hàng (nhập/xuất CT) đều mở bảng tương ứng, không mở sheet giỏ bán
-    assert.match(pos, /isStockFlow \? \(isProjectFlow \? projLines\.length : impLines\.length\)/);
+    // Nút Thanh toán của thanh ghim mở sheet (dock cũ đã bỏ, không còn onPrimaryAction).
+    assert.match(pos, /onClick=\{\(\) => setIsMobilePaymentOpen\(true\)\}/);
+    // Thanh tablet của 2 luồng dòng hàng (nhập/xuất CT): tổng + nút chốt đúng luồng.
+    assert.match(pos, /formatVND\(isProjectFlow \? projTotal : impTotal\)/);
+    assert.match(pos, /onClick=\{isProjectFlow \? handleProjectExportCommit : handleImportCommit\}/);
     assert.doesNotMatch(pos, /open=\{isMobileCartOpen/);
   });
 

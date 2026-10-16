@@ -38,7 +38,8 @@ body {
   }
 
   .pos-mobile-bottom-space {
-    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    /* Tablet POS het thanh fixed (dock da bo, cac thanh nam trong luong) -> khong dem; dien thoai override 4rem ben duoi. */
+    padding-bottom: 0;
   }
 }
 

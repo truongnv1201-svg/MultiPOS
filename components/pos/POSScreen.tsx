@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { Product, OrderItem, Customer, DimensionDetail } from '@/lib/types';
 import { createBlankAreaItem, ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
-import { MobilePOSDock } from '@/components/pos/MobilePOSDock';
 import { readOnlyCellClass, editCellClass } from '@/components/common/EditableCell';
 import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
 import { PriceDraftInput } from '@/components/pos/PriceDraftInput';
@@ -74,7 +73,6 @@ export function POSScreen() {
     setPosFlow,
     posProjectId,
     setPosProjectId,
-    setFlyoutMenuOpen,
     currentShift,
     user,
     profile,
@@ -2306,37 +2304,38 @@ export function POSScreen() {
         </div>
       )}
 
-      <MobilePOSDock
-        flow={flow}
-        itemCount={isStockFlow ? (isProjectFlow ? projLines.length : impLines.length) : activeCart.items.length}
-        total={isStockFlow ? (isProjectFlow ? projTotal : impTotal) : calculatedTotals.payable}
-        disabled={
-          isStockFlow
-            ? isImportFlow
-              ? isProcessing || impLines.length === 0 || currentShift.status !== 'open' || needLogin
-              : isProcessing ||
-                projLines.length === 0 ||
-                !selectedProject ||
-                projHasStockError ||
-                currentShift.status !== 'open' ||
-                needLogin
-            : isProcessing || activeCart.items.length === 0 || currentShift.status !== 'open' || needLogin
-        }
-        onOpenMenu={() => setFlyoutMenuOpen(true)}
-        onOpenCart={() => {
-          const target = document.getElementById(
-            isProjectFlow ? 'project-table-container' : isImportFlow ? 'import-table-container' : 'cart-record-list'
-          );
-          target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }}
-        onPrimaryAction={
-          isImportFlow
-            ? handleImportCommit
-            : isProjectFlow
-              ? handleProjectExportCommit
-              : () => setIsMobilePaymentOpen(true)
-        }
-      />
+      {/* Tablet: thanh Nhap kho / Xuat vat tu trong luong (dock da bo).
+          Dien thoai khong co 2 luong nay; desktop dung panel phai. */}
+      {isStockFlow && (
+        <div className="hidden md:flex lg:hidden shrink-0 border-t border-slate-200 bg-white px-3 py-2 items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold text-slate-500">
+              {isProjectFlow ? 'TỔNG GIÁ VỐN XUẤT' : 'TỔNG TIỀN NHẬP'}
+            </p>
+            <p className={`text-base font-black font-mono leading-tight ${isProjectFlow ? 'text-amber-700' : 'text-emerald-700'}`}>
+              {formatVND(isProjectFlow ? projTotal : impTotal)}
+            </p>
+          </div>
+          <button
+            type="button"
+            id="btn-pos-mobile-stock-action"
+            onClick={isProjectFlow ? handleProjectExportCommit : handleImportCommit}
+            disabled={
+              isImportFlow
+                ? isProcessing || impLines.length === 0 || currentShift.status !== 'open' || needLogin
+                : isProcessing ||
+                  projLines.length === 0 ||
+                  !selectedProject ||
+                  projHasStockError ||
+                  currentShift.status !== 'open' ||
+                  needLogin
+            }
+            className={`shrink-0 inline-flex h-12 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-black text-white disabled:bg-slate-300 disabled:text-slate-500 ${isProjectFlow ? 'bg-amber-600 active:bg-amber-700' : 'bg-emerald-600 active:bg-emerald-700'}`}
+          >
+            {isProjectFlow ? 'Xuất vật tư' : 'Nhập kho'}
+          </button>
+        </div>
+      )}
 
       <MobilePaymentSheet
         open={isMobilePaymentOpen && !isStockFlow}
