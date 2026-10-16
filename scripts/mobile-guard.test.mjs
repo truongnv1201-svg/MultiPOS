@@ -244,8 +244,15 @@ describe('POS: bàn phím phải cuộn theo dòng đang chọn trong dropdown',
   });
 
   it('điều hướng mũi tên vẫn giữ nguyên (đổi chỉ cuộn, không đổi hành vi chọn)', () => {
-    assert.match(search, /if \(e\.key === 'ArrowDown'\)[\s\S]{0,120}setSelectedIndex/);
+    assert.match(search, /if \(e\.key === 'ArrowDown'\)[\s\S]{0,220}setSelectedIndex/);
     assert.match(search, /if \(e\.key === 'ArrowUp'\)[\s\S]{0,160}setSelectedIndex/);
+  });
+
+  it('mũi tên đi tới được ô tạo nhanh cuối danh sách (không chỉ chuột)', () => {
+    assert.match(search, /\(prev \+ 1\) % \(filteredProducts\.length \+ 1\)/);
+    assert.match(search, /if \(selectedIndex >= filteredProducts\.length\) \{[\s\S]{0,100}openQuickCreate\(searchQuery\)/);
+    // Ô tạo nhanh sáng khi được chọn + neo ref để effect cuộn tới.
+    assert.match(search, /selectedIndex >= filteredProducts\.length \? \(el\) => \{[\s\S]{0,60}selectedRowRef\.current = el/);
   });
 
   it('dropdown bám sát nội dung khi ít kết quả, có trần khi nhiều kết quả (và cuộn được)', () => {

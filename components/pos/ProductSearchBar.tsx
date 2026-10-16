@@ -195,7 +195,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   const dropdownRef = useRef<HTMLDivElement>(null);
   // Dong dang chon: ref chi giu element; viec cuon vao khung nam o effect duoi,
   // chay dung khi selectedIndex doi (ban phim), render khac khong duoc keo list.
-  const selectedRowRef = useRef<HTMLDivElement | null>(null);
+  const selectedRowRef = useRef<HTMLElement | null>(null);
   const prevSelectedRef = useRef(selectedIndex);
   // Vùng bao ô tìm + dropdown: bấm ra ngoài thì đóng dropdown (trước đây bị kẹt).
   const searchWrapRef = useRef<HTMLDivElement>(null);
@@ -260,16 +260,22 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev + 1) % filteredProducts.length);
+      // +1 o tao nhanh cuoi danh sach: mui ten xuong toi day duoc (khong chi chuot).
+      setSelectedIndex((prev) => (prev + 1) % (filteredProducts.length + 1));
       return;
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev - 1 + filteredProducts.length) % filteredProducts.length);
+      setSelectedIndex((prev) => (prev - 1 + filteredProducts.length + 1) % (filteredProducts.length + 1));
       return;
     }
     if (e.key === 'Enter') {
       e.preventDefault();
+      // Dang dung o tao nhanh cuoi danh sach -> mo form tao hang nhu khi khong co ket qua.
+      if (selectedIndex >= filteredProducts.length) {
+        if (searchQuery.trim()) openQuickCreate(searchQuery);
+        return;
+      }
       const selectedProduct = filteredProducts[selectedIndex] || filteredProducts[0];
       if (!selectedProduct) return;
       if (selectedProduct.product_type === 'area' && onPickArea) {
@@ -584,7 +590,8 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
             <div
               id="btn-quick-create-product"
               onClick={() => openQuickCreate(searchQuery)}
-              className="mt-1 p-2 rounded-md flex items-center gap-2.5 cursor-pointer bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
+              ref={selectedIndex >= filteredProducts.length ? (el) => { selectedRowRef.current = el; } : undefined}
+              className={`mt-1 p-2 rounded-md flex items-center gap-2.5 cursor-pointer border transition-colors ${selectedIndex >= filteredProducts.length ? 'bg-blue-50 hover:bg-blue-100 border-blue-400' : 'bg-amber-50 hover:bg-amber-100 border-amber-200'}`}
               title="Tạo hàng hóa mới từ chuỗi đang tìm"
             >
               <div className="w-7 h-7 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center">
