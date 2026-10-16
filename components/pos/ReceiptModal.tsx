@@ -395,12 +395,12 @@ export function ReceiptModal() {
             <button
               id="btn-print-receipt-mobile"
               onClick={handlePrintMobile}
-              className="lg:hidden px-4 h-10 border border-blue-200 bg-blue-50 text-blue-700 font-bold text-xs rounded-lg flex items-center gap-1.5"
+              className="hidden md:flex lg:hidden px-4 h-10 border border-blue-200 bg-blue-50 text-blue-700 font-bold text-xs rounded-lg items-center gap-1.5"
             >
               <Share2 className="w-4 h-4" />
               <span>In / Lưu PDF</span>
             </button>
-            <button id="btn-print-receipt" onClick={handlePrint} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5">
+            <button id="btn-print-receipt" onClick={handlePrint} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm hidden lg:flex items-center gap-1.5">
               <Printer className="w-4 h-4" /><span>In {paperLabel} × {copies}</span>
             </button>
           </div>

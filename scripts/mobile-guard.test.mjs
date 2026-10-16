@@ -107,6 +107,18 @@ describe('Điện thoại (< 768px): khóa POS, không bottom nav / dock / menu 
     assert.match(checkout, /if \(shop\.autoPrint !== false && !isPhone\) \{/);
   });
 
+  it('điện thoại tắt hẳn in: mọi nút in ẩn dưới md, tablet/desktop giữ', () => {
+    const receipt = read('components/pos/ReceiptModal.tsx');
+    assert.match(receipt, /id="btn-print-receipt-mobile"[\s\S]{0,400}hidden md:flex lg:hidden/);
+    assert.match(receipt, /id="btn-print-receipt"[\s\S]{0,300}hidden lg:flex/);
+    const tools = read('components/common/TableTools.tsx');
+    assert.match(tools, /text-slate-600 hover:bg-slate-100 font-medium hidden md:flex items-center/);
+    // Xuất Excel không phải in -> giữ nguyên trên mọi khổ màn.
+    assert.match(tools, /text-emerald-700 hover:bg-emerald-50 font-medium flex items-center/);
+    const orders = read('components/orders/OrdersView.tsx');
+    assert.match(orders, /hidden md:flex items-center gap-1\.5 shadow-2xs/);
+  });
+
   it('nhập kho / xuất vật tư chỉ còn trên tablet+desktop, điện thoại bỏ hẳn', () => {
     const pos = read('components/pos/POSScreen.tsx');
     // Điện thoại (<768px) ép luồng về 'sale' ngay ở render; posFlow trong store vẫn nguyên

@@ -541,7 +541,7 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
                 </div>
                   <button
                   onClick={() => setReceiptModalOrder(selectedOrder)}
-                  className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-md font-medium text-slate-700 flex items-center gap-1.5 shadow-2xs"
+                  className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-md font-medium text-slate-700 hidden md:flex items-center gap-1.5 shadow-2xs"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>In lại</span>

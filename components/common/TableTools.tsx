@@ -66,7 +66,7 @@ export function TableTools({
       <button
         type="button"
         onClick={onPrint}
-        className="h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-md text-slate-600 hover:bg-slate-100 font-medium flex items-center gap-1 transition-colors"
+        className="h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-md text-slate-600 hover:bg-slate-100 font-medium hidden md:flex items-center gap-1 transition-colors"
         title="In bảng đang xem"
       >
         <Printer className="w-3.5 h-3.5" />
