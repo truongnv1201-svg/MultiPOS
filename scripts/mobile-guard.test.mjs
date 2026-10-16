@@ -363,14 +363,14 @@ describe('POS: tạo mới nhanh từ ô tìm kiếm (khách hàng / NCC)', () =
   });
 });
 
-describe('Kho + NCC: mobile record list', () => {
+describe('Kho (bảng từ tablet) + NCC (record list mobile)', () => {
   const inv = read('components/inventory/InventoryView.tsx');
   const sup = read('components/suppliers/SuppliersView.tsx');
 
-  it('kho chỉ còn record list thẻ kho, bảng ẩn trên mobile', () => {
+  it('kho: thẻ kho dùng bảng từ tablet (record list chỉ còn trên điện thoại)', () => {
     assert.ok(!/id="stock-record-list"/.test(inv), 'còn record list tồn đã bỏ');
-    assert.match(inv, /id="movement-record-list" className="lg:hidden/);
-    assert.match(inv, /hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto/);
+    assert.match(inv, /id="movement-record-list" className="md:hidden/);
+    assert.match(inv, /hidden md:block flex-1 min-h-0 overflow-y-auto overflow-x-auto/);
   });
 
   it('kho không bị bottom nav cắt (bỏ chiều cao 100dvh cứng)', () => {
@@ -608,8 +608,8 @@ describe('Giai đoạn 4: icon PWA + in điện thoại + bàn phím + record li
     assert.match(search, /wedgeTimerRef\.current = window\.setTimeout/);
   });
 
-  it('bảng giá + khách hàng có record list mobile, bảng ngang ẩn trên mobile', () => {
-    assert.match(pro, /id="product-record-list" className="lg:hidden/);
+  it('bảng giá dùng bảng từ tablet (record list chỉ còn trên điện thoại)', () => {
+    assert.match(pro, /id="product-record-list" className="md:hidden/);
     assert.match(pro, /id="products-view" className="[^"]*h-full[^"]*min-h-0/);
     assert.doesNotMatch(pro, /100dvh/);
     assert.match(cus, /id="customer-record-list" className="lg:hidden/);

@@ -553,8 +553,8 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
         </div>
       </SummaryStrip>
 
-      {/* Products record list (mobile) — bảng ngang chỉ dành cho desktop */}
-      <div id="product-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
+      {/* Products record list (chỉ điện thoại) — bảng ngang từ tablet (md) như desktop */}
+      <div id="product-record-list" className="md:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
         {paginatedProducts.length === 0 ? (
           <ListEmpty>Không tìm thấy sản phẩm nào phù hợp với bộ lọc.</ListEmpty>
         ) : (
@@ -628,7 +628,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
 
       {/* Products Table */}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className="hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+        <div className="hidden md:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">

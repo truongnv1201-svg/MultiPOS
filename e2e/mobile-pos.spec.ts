@@ -102,14 +102,16 @@ test.describe('POS mobile (live backend)', () => {
     });
   }
 
-  test('kho + NCC dùng record list, mở sheet chi tiết NCC @ tablet 768x1024 (điện thoại khóa POS)', async ({ page }) => {
+  test('kho dùng bảng + NCC dùng record list, mở sheet chi tiết NCC @ tablet 768x1024 (điện thoại khóa POS)', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await loginAsAdmin(page);
 
     // Kho: Alt+N là phân hệ bị chặn với cashier, admin đi qua menu phân hệ
     await page.keyboard.press('Alt+n');
     await expect(page.locator('#inventory-view')).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator('#movement-record-list')).toBeVisible();
+    // Tablet (md) dùng bảng ngang như desktop, record list chỉ còn trên điện thoại.
+    await expect(page.locator('#movement-record-list')).toBeHidden();
+    await expect(page.locator('#inventory-view table')).toBeVisible();
 
     // NCC: Alt+K
     await page.keyboard.press('Alt+k');
@@ -152,15 +154,15 @@ test.describe('POS mobile (live backend)', () => {
     await expect(page.getByText('Hàng hóa đã cache')).toBeVisible();
   });
 
-  test('bảng giá + khách hàng dùng record list, mở sheet chi tiết KH @ tablet 768x1024 (điện thoại khóa POS)', async ({ page }) => {
+  test('bảng giá dùng bảng + khách hàng dùng record list, mở sheet chi tiết KH @ tablet 768x1024 (điện thoại khóa POS)', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await loginAsAdmin(page);
 
-    // Bảng giá (Alt+P)
+    // Bảng giá (Alt+P): tablet (md) dùng bảng ngang như desktop.
     await page.keyboard.press('Alt+p');
     await expect(page.locator('#products-view')).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator('#product-record-list')).toBeVisible();
-    await expect(page.locator('#product-record-list table')).toHaveCount(0);
+    await expect(page.locator('#product-record-list')).toBeHidden();
+    await expect(page.locator('#products-view table')).toBeVisible();
 
     // Khách hàng: qua menu phân hệ
     await page.keyboard.press('Alt+c');

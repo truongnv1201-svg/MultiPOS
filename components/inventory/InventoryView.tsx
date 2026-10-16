@@ -274,8 +274,8 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
                 </span>
               </SummaryStrip>
 
-            {/* Mobile record list — bảng ngang chỉ dành cho desktop */}
-            <div id="movement-record-list" className="lg:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
+            {/* Mobile record list (chỉ điện thoại) — bảng ngang từ tablet (md) như desktop */}
+            <div id="movement-record-list" className="md:hidden flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
               {paginatedMovements.length === 0 ? (
                 <ListEmpty>Không tìm thấy bút toán thẻ kho nào phù hợp với bộ lọc.</ListEmpty>
               ) : (
@@ -304,7 +304,7 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
               )}
             </div>
 
-            <div className="hidden lg:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+            <div className="hidden md:block flex-1 min-h-0 overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
