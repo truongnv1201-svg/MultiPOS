@@ -435,6 +435,18 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     assert.match(pay, /pb-\[env\(safe-area-inset-bottom\)\]/);
   });
 
+  it('sheet mobile đổi được khách hàng (bỏ chọn về khách lẻ, không đơ)', () => {
+    // Bug: nút Đổi chỉ setCustomerQuery('') trong khi selectedCustomer còn set ->
+    // hộp xanh đứng yên, bấm mãi không chọn lại được.
+    assert.match(pay, /onClearCustomer: \(\) => void/);
+    assert.doesNotMatch(pay, /onClick=\{\(\) => setCustomerQuery\(''\)\}/);
+    assert.match(pay, /focusSearchRef\.current = true;[\s\S]{0,80}onClearCustomer\(\)/);
+    // Danh sách hiện ngay cả khi chưa gõ (top 20) + luôn có mục khách lẻ đầu danh sách.
+    assert.doesNotMatch(pay, /customerQuery\.trim\(\) !== '' && \(\s*\n\s*<div id="mobile-payment-customer-list"/);
+    assert.match(pay, /id="mobile-payment-customer-list"[\s\S]{0,900}Không lưu hồ sơ · không cộng nợ/);
+    assert.match(pos, /onClearCustomer=\{\(\) => pickCustomer\(/);
+  });
+
   it('SheetShell là bottom sheet trên mobile, hộp thoại trên desktop', () => {
     assert.match(shell, /fixed inset-0 z-50 flex items-end sm:items-center/);
     assert.match(shell, /sm:rounded-xl rounded-t-2xl/);

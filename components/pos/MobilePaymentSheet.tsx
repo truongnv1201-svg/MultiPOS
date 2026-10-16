@@ -25,6 +25,7 @@ interface MobilePaymentSheetProps {
     selectedCustomer: Customer | null;
     customerName: string;
     onSelectCustomer: (customer: Customer) => void;
+    onClearCustomer: () => void;
     onQuickAddCustomer: () => void;
     note: string;
     onNoteChange: (note: string) => void;
@@ -62,6 +63,7 @@ export default function MobilePaymentSheet({
     selectedCustomer,
     customerName,
     onSelectCustomer,
+    onClearCustomer,
     onQuickAddCustomer,
     note,
     onNoteChange,
@@ -75,6 +77,8 @@ export default function MobilePaymentSheet({
 }: MobilePaymentSheetProps) {
     const [customerQuery, setCustomerQuery] = useState('');
     const customerWrapRef = useRef<HTMLDivElement>(null);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    const focusSearchRef = useRef(false);
     // Bấm ra ngoài thì đóng danh sách gợi ý khách hàng
     const closeCustomerList = useCallback(() => setCustomerQuery(''), []);
     useClickOutside(customerWrapRef, customerQuery.trim() !== '', closeCustomerList);
@@ -84,6 +88,13 @@ export default function MobilePaymentSheet({
       if (open && !prevOpenRef.current) setCustomerQuery('');
       prevOpenRef.current = open;
     }, [open]);
+    // Bấm Đổi -> đã bỏ chọn về khách lẻ -> focus ô tìm để gõ ngay.
+    useEffect(() => {
+      if (!selectedCustomer && focusSearchRef.current) {
+        focusSearchRef.current = false;
+        searchInputRef.current?.focus();
+      }
+    }, [selectedCustomer]);
 
     const matches = useMemo(() => {
         const q = customerQuery.trim().toLowerCase();
@@ -159,7 +170,10 @@ export default function MobilePaymentSheet({
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setCustomerQuery('')}
+                                    onClick={() => {
+                                        focusSearchRef.current = true;
+                                        onClearCustomer();
+                                    }}
                                     className="shrink-0 text-[11px] font-bold text-blue-700 underline"
                                 >
                                     Đổi
@@ -169,6 +183,7 @@ export default function MobilePaymentSheet({
                             <>
                                 <div className="flex items-center gap-1.5">
                                     <input
+                                        ref={searchInputRef}
                                         id="mobile-payment-customer-input"
                                         type="text"
                                         value={customerQuery}
@@ -185,8 +200,17 @@ export default function MobilePaymentSheet({
                                         <Plus className="w-4 h-4" />
                                     </button>
                                 </div>
-                                {customerQuery.trim() !== '' && (
-                                    <div id="mobile-payment-customer-list" className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+                                <div id="mobile-payment-customer-list" className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+                                    <button
+                                        type="button"
+                                        onClick={() => onClearCustomer()}
+                                        className="w-full px-3 py-2 text-left active:bg-blue-50"
+                                    >
+                                        <span className="block text-xs font-semibold text-slate-800">Khách lẻ mua tại quầy</span>
+                                        <span className="block text-[10px] text-slate-500 font-mono">
+                                            Không lưu hồ sơ · không cộng nợ
+                                        </span>
+                                    </button>
                                         {matches.length === 0 ? (
                                             <p className="px-3 py-3 text-[11px] text-slate-400">Không tìm thấy khách hàng.</p>
                                         ) : (
@@ -205,7 +229,6 @@ export default function MobilePaymentSheet({
                                             ))
                                         )}
                                     </div>
-                                )}
                             </>
                         )}
                     </div>

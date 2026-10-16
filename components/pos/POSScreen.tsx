@@ -2356,6 +2356,7 @@ export function POSScreen() {
         onSelectCustomer={(customer) =>
           updateActiveTab({ customer_id: customer.id, customer_name: customer.name, customer_phone: customer.phone })
         }
+        onClearCustomer={() => pickCustomer({ id: WALK_IN_CUSTOMER_ID, name: WALK_IN_CUSTOMER_NAME, isWalkIn: true })}
         onQuickAddCustomer={() => {
           setIsMobilePaymentOpen(false);
           setIsQuickCustomerModalOpen(true);
