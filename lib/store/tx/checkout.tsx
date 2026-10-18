@@ -14,6 +14,7 @@ import { toRpcItems } from '../rpc';
 import { db, generateOrderCode } from '../../db';
 import { resolvePaidAmount } from '../../pricing';
 import { vietnamizeError } from '../../error-vi';
+import { collectStockDeductions, findStockShortages, formatShortageLine } from '../../stock-shortage';
 import { notify } from '@/components/common/Toast';
 import { useIsPhone } from '@/hooks/useIsPhone';
 
@@ -250,49 +251,21 @@ export function useTxCheckout({
       };
 
       // 1. Inventory Invariant: GROUP BY variant & deduct stock
-      // Skip service & combo parents (INV-ERR-02)
-      // Combo parents deduct child items
-      const stockDeductions: Record<string, number> = {};
-
-      for (const item of activeCart.items) {
-        if (item.product_type === 'service') continue;
-
-        if (item.product_type === 'combo') {
-          const comboProduct = products.find((p) => p.id === item.product_id);
-          if (comboProduct?.combo_items) {
-            for (const child of comboProduct.combo_items) {
-              const needed = child.quantity * item.quantity;
-              stockDeductions[child.product_id] = (stockDeductions[child.product_id] || 0) + needed;
-            }
-          }
-          continue;
-        }
-
-        // Regular item hoặc area: area tính theo m2 thực x waste hiện tại (mirror server 0028),
-        // không tin material_consumed cũ trong giỏ
-        if (item.product_type === 'area' && item.dimension_details && item.dimension_details.length > 0) {
-          const prod = products.find((p) => p.id === item.product_id);
-          const waste = prod?.waste_factor ?? item.waste_factor ?? 0;
-          const m2 = item.dimension_details.reduce((s, d) => s + (d.actual_m2 || 0), 0);
-          const need = Math.round(m2 * (1 + waste / 100) * 1000) / 1000;
-          stockDeductions[item.product_id] = (stockDeductions[item.product_id] || 0) + need;
-        } else {
-          const qtyToDeduct = item.quantity;
-          stockDeductions[item.product_id] = (stockDeductions[item.product_id] || 0) + qtyToDeduct;
-        }
-      }
+      // Bỏ dịch vụ (INV-ERR-02); combo cha -> trừ kho con; area theo m2*waste.
+      // Công thức gộp nhu cầu trừ kho nằm ở lib/stock-shortage — dùng CHUNG với modal
+      // cân tồn nhanh ở POS (không nhân bản), nên sửa 1 chỗ là cả 2 khớp nhau.
+      const stockDeductions = collectStockDeductions(activeCart.items, products);
 
       // P0-3: chặn bán lố kho ngay cả offline (server sẽ RAISE + rollback,
       // đơn offline replay fail sẽ kẹt queue câm). Kiểm tra trước khi trừ.
-      const insufficient: string[] = [];
-      for (const [pid, need] of Object.entries(stockDeductions)) {
-        const p = products.find((x) => x.id === pid);
-        if (p && p.stock_quantity < need) insufficient.push(`${p.sku} (tồn ${p.stock_quantity}, cần ${need})`);
-        // Combo con thiếu cũng đã gộp trong stockDeductions qua child.product_id nên check chung.
-      }
-      // Kiểm tra linh kiện combo con thiếu theo tên để báo rõ
-      if (insufficient.length > 0) {
-        notify(`Tồn kho không đủ, không thể bán:\n${insufficient.join('\n')}\nHãy giảm SL hoặc nhập kho thêm.`, 'error');
+      // (POS chặn trước bằng modal cân tồn; guard này là chốt chặn cuối — ví dụ máy
+      // khác vừa bán hết kho trong lúc modal đang mở.)
+      const shortages = findStockShortages(activeCart.items, products);
+      if (shortages.length > 0) {
+        notify(
+          `Tồn kho không đủ, không thể bán:\n${shortages.map(formatShortageLine).join('\n')}\nHãy giảm SL hoặc nhập kho thêm.`,
+          'error'
+        );
         return null;
       }
 

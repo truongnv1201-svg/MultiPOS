@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useStore } from '@/lib/store';
-import { Product, OrderItem, Customer, DimensionDetail } from '@/lib/types';
+import { Product, OrderItem, Customer, DimensionDetail, StockAdjustReason } from '@/lib/types';
 import { createBlankAreaItem, ProductSearchBar, ProductSearchBarHandle } from '@/components/pos/ProductSearchBar';
 import { readOnlyCellClass, editCellClass } from '@/components/common/EditableCell';
 import { QtyDraftInput } from '@/components/pos/QtyDraftInput';
 import { PriceDraftInput } from '@/components/pos/PriceDraftInput';
 import { LineDiscountInput } from '@/components/pos/LineDiscountInput';
 import MobilePaymentSheet, { type MobilePaymentMethod } from '@/components/pos/MobilePaymentSheet';
+import StockShortageModal from '@/components/pos/StockShortageModal';
+import { findStockShortages, type StockShortage } from '@/lib/stock-shortage';
 import { POSQuickCustomerModal } from '@/components/pos/POSQuickCustomerModal';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
 import { NumberInput } from '@/components/common/NumberInput';
@@ -40,6 +42,7 @@ import {
   HardHat,
   CheckCircle2,
   Check,
+  AlertTriangle,
 } from 'lucide-react';
 
 // Khách mua lẻ tại quầy — mục chọn mặc định của đơn mới, KHÔNG phải bản ghi DB.
@@ -84,6 +87,8 @@ export function POSScreen() {
     addSupplier,
     projects,
     exportProjectMaterialBatch,
+    adjustStock,
+    isOnline,
   } = useStore();
 
   const [customerSearch, setCustomerSearch] = useState<string>('');
@@ -118,6 +123,11 @@ export function POSScreen() {
   const needLogin = authReady && supabaseReady && !user;
   // Mobile payment sheet — thanh toán ghim dạng sheet, không bị bóp còn 52dvh
   const [isMobilePaymentOpen, setIsMobilePaymentOpen] = useState<boolean>(false);
+
+  // Cân tồn nhanh khi bán vượt tồn: danh sách mặt hàng thiếu (null = đóng modal) +
+  // token chạy lại thanh toán SAU khi tồn đã cập nhật (xem effect bên dưới).
+  const [stockShortages, setStockShortages] = useState<StockShortage[] | null>(null);
+  const [checkoutRetryToken, setCheckoutRetryToken] = useState<number>(0);
 
   // Ô số lượng nhanh được lift lên đây để render ở vị trí cố định trong toolbar
   // (tránh bị đẩy khi thêm/xóa tab hóa đơn)
@@ -162,6 +172,20 @@ export function POSScreen() {
   // 0059: sửa đơn giá cho riêng đơn đang bán — chỉ Quản lý/Admin (server cũng gate lần 2
   // bằng is_manager() nên thu ngân sửa trên UI cũng không lọt lên DB).
   const canOverridePrice = authReady && (!supabaseReady || profile?.role === 'admin' || profile?.role === 'manager');
+
+  // Cân tồn nhanh (0064): cùng điều kiện quyền với điều chỉnh tồn — server cũng chặn
+  // is_manager() nên đây chỉ là chặn sớm + báo rõ cho thu nhân.
+  const canAdjustStock = authReady && (!supabaseReady || profile?.role === 'admin' || profile?.role === 'manager');
+  // adjustStock đòi có máy chủ (migration 0064) — chế độ local-only không cân được, rơi
+  // về guard checkout cũ (nhắc giảm SL / nhập kho).
+  const canOfferStockAdjust = supabaseReady && canAdjustStock;
+
+  // Giỏ bán đang vượt tồn (dùng CHUNG công thức trừ kho với guard checkout). Hiện cảnh
+  // báo trong giỏ để user biết TRƯỚC khi bấm thanh toán, không phải chờ tới bước cuối.
+  const cartShortages = useMemo(
+    () => (flow === 'sale' ? findStockShortages(activeCart.items, products) : []),
+    [flow, activeCart.items, products]
+  );
 
   // Chặn bảo vệ: Nhập hàng / Xuất CT chỉ dành cho Admin/Quản lý. posFlow nằm trong store
   // nên mở POS từ màn khác (nút ở màn Công trình, màn Kho) hoặc đổi tài khoản có thể
@@ -499,6 +523,24 @@ export function POSScreen() {
       customerInputRef.current?.select();
       return;
     }
+    // Bán vượt tồn: trước đây là ngõ cụt "giảm SL hoặc nhập kho thêm" — phải thoát POS.
+    // Giờ Quản lý/Admin cân tồn ngay tại quầy (phiếu điều chỉnh 0064) rồi chạy lại thanh
+    // toán. Thu nhân (cashier/worker) không có quyền điều chỉnh tồn -> báo rõ để nhờ quản lý.
+    if (cartShortages.length > 0 && canOfferStockAdjust) {
+      if (!canAdjustStock) {
+        notify(
+          'Có mặt hàng bán vượt tồn kho. Việc cân tồn chỉ Admin/Quản lý làm được — hãy báo quản lý, hoặc giảm số lượng.',
+          'error'
+        );
+        return;
+      }
+      if (!isOnline) {
+        notify('Đang offline — không cân tồn kho được. Hãy giảm số lượng hoặc nhập kho khi có mạng.', 'error');
+        return;
+      }
+      setStockShortages(cartShortages);
+      return;
+    }
     setIsProcessing(true);
     busyRef.current = true;
     try {
@@ -510,7 +552,38 @@ export function POSScreen() {
       busyRef.current = false;
       setIsProcessing(false);
     }
-  }, [activeCart.items.length, activeCart.customer_id, activeCart.payment_method, activeCart.tendered_amount, calculatedTotals.payable, checkoutActiveOrder]);
+  }, [activeCart.items.length, activeCart.customer_id, activeCart.payment_method, activeCart.tendered_amount, calculatedTotals.payable, checkoutActiveOrder, cartShortages, canAdjustStock, canOfferStockAdjust, isOnline]);
+
+  // Giữ bản mới nhất của handleCheckout để chạy lại SAU khi cân tồn xong (lúc đó phiên
+  // bản trong closure cũ vẫn thấy tồn cũ -> lại bị chặn). Ref đổi tức thì nên không lệch.
+  const handleCheckoutRef = useRef(handleCheckout);
+  useEffect(() => {
+    handleCheckoutRef.current = handleCheckout;
+  }, [handleCheckout]);
+
+  // Chạy lại thanh toán theo token thay vì gọi ngay trong handler cân tồn: effect chỉ nổ
+  // SAU khi React commit (products từ adjustStock đã cập nhật) -> guard tồn đọc số mới.
+  useEffect(() => {
+    if (checkoutRetryToken === 0) return;
+    handleCheckoutRef.current();
+  }, [checkoutRetryToken]);
+
+  // Cân tồn: ghi phiếu điều chỉnh TĂNG đúng phần thiếu rồi mở khoá chạy lại thanh toán.
+  // Lỗi (offline/quyền/server) do adjustStock tự notify -> modal giữ nguyên để thử lại.
+  const handleStockShortageConfirm = useCallback(
+    async (reason: StockAdjustReason, note: string) => {
+      if (!stockShortages) return;
+      const res = await adjustStock(
+        stockShortages.map((s) => ({ productId: s.productId, delta: s.short })),
+        reason,
+        { note: note || undefined }
+      );
+      if (!res) return;
+      setStockShortages(null);
+      setCheckoutRetryToken((t) => t + 1);
+    },
+    [stockShortages, adjustStock]
+  );
 
   // Keyboard shortcut listener for POS (ma trận SRS §4.4: F3–F10)
   // F2 là phím toàn cục về màn Bán hàng (xử lý ở GlobalHeader, chung với nút BÁN HÀNG),
@@ -1168,6 +1241,19 @@ export function POSScreen() {
         </div>
         ) : (
         <div id="cart-table-container" className="flex-1 min-h-0 overflow-auto p-2">
+          {cartShortages.length > 0 && activeCart.items.length > 0 && (
+            <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+              <span>
+                <strong>{cartShortages.length}</strong> mặt hàng trong giỏ vượt tồn kho
+                {canOfferStockAdjust
+                  ? ' — bấm THANH TOÁN để cân tồn ngay.'
+                  : canAdjustStock
+                    ? ' — cần kết nối máy chủ để cân tồn.'
+                    : ' — cần Admin/Quản lý cân tồn.'}
+              </span>
+            </div>
+          )}
           {activeCart.items.length === 0 ? (
             <div className="h-full min-h-[150px] sm:min-h-[220px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-lg p-4 sm:p-6">
               <ShoppingBag className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mb-2 stroke-1" />
@@ -2336,6 +2422,13 @@ export function POSScreen() {
           </button>
         </div>
       )}
+
+      <StockShortageModal
+        open={stockShortages !== null}
+        shortages={stockShortages ?? []}
+        onClose={() => setStockShortages(null)}
+        onConfirm={handleStockShortageConfirm}
+      />
 
       <MobilePaymentSheet
         open={isMobilePaymentOpen && !isStockFlow}
