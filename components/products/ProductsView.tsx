@@ -40,10 +40,21 @@ import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
 
+// Hiệu ứng "pick chọn dòng" dùng chung của các bảng (Đơn hàng/KH/NCC/Nhập kho/Chứng từ):
+// dòng đang chọn đổi nền xanh. Bảng Hàng hóa để ĐẬM HƠN 1 nấc + vạch màu bên trái vì bảng
+// 11 cột, nền blue-50/80 nhạt rất dễ lạc mắt khi đang sửa dòng nào.
+const ROW_SELECTED = 'bg-blue-100 font-medium';
+const ROW_IDLE = 'hover:bg-slate-50';
+/** Vạch trái đánh dấu dòng đang chọn — luôn có 4px (trong suốt khi không chọn) nên đổi dòng không nhảy cột. */
+const rowAccent = (selected: boolean) => `border-l-4 ${selected ? 'border-l-blue-500' : 'border-l-transparent'}`;
+
 export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
   const { products, orders, addProduct, updateProduct, deleteProduct, profile, stockMovements, importProductsBulk, isOnline, supabaseReady } = useStore();
 
   const [search, setSearch] = useState('');
+  // Dòng đang được chọn (bấm vào dòng / mở form sửa) — chỉ để nhìn rõ đang làm việc với
+  // hàng nào, không đổi logic lọc/sửa/xóa.
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [stockStatusFilter, setStockStatusFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
@@ -95,6 +106,8 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
   const [editMinStock, setEditMinStock] = useState<number | ''>('');
 
   const openEditProduct = (p: Product) => {
+    // Mở form sửa thì ghim luôn dòng đang sửa vào hiệu ứng chọn — khỏi lạc mắt.
+    setSelectedProductId(p.id);
     setEditingProduct(p);
     setEditName(p.name);
     setEditUnit(p.unit);
@@ -562,7 +575,13 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
             const typeLabel =
               p.product_type === 'area' ? 'Diện tích' : p.product_type === 'combo' ? 'Combo' : p.product_type === 'service' ? 'Dịch vụ' : 'Thường';
             return (
-              <div key={p.id} className="px-3 py-2.5 flex items-start gap-2">
+              <div
+                key={p.id}
+                onClick={() => setSelectedProductId(p.id)}
+                className={`px-3 py-2.5 flex items-start gap-2 transition-colors cursor-pointer ${rowAccent(
+                  selectedProductId === p.id
+                )} ${selectedProductId === p.id ? ROW_SELECTED : ROW_IDLE}`}
+              >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-xs font-bold text-slate-800 leading-snug">{p.name}</p>
@@ -651,9 +670,16 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                 paginatedProducts.map((p) => {
                   const isArea = p.product_type === 'area';
                   const isInactive = p.is_active === false;
+                  const isSelected = selectedProductId === p.id;
                   return (
-                    <tr key={p.id} className={`hover:bg-slate-50 transition-colors ${isInactive ? 'opacity-55' : ''}`}>
-                      <td className="py-2.5 px-3 font-mono font-bold text-blue-700">
+                    <tr
+                      key={p.id}
+                      onClick={() => setSelectedProductId(p.id)}
+                      className={`transition-colors cursor-pointer ${isSelected ? ROW_SELECTED : ROW_IDLE} ${
+                        isInactive ? 'opacity-55' : ''
+                      }`}
+                    >
+                      <td className={`py-2.5 px-3 font-mono font-bold text-blue-700 ${rowAccent(isSelected)}`}>
                         {p.sku}
                       </td>
                       <td className="py-2.5 px-3">
