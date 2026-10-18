@@ -301,6 +301,42 @@ describe('cài đặt theo máy trạm (local-only, không đồng bộ server)'
     const settings = read('components/settings/SettingsView.tsx');
     assert.match(settings, /Dữ liệu tự động sao lưu mỗi đêm/);
   });
+
+  it('kéo cấu hình server đúng 1 lần, không tự gọi lại thành vòng lặp', () => {
+    // Lỗi gốc: refreshShopSettings phụ thuộc `shop` và luôn setShop object mới -> effect
+    // tự gọi lại chính nó (~9 request/giây, cả app render lại liên tục), đồng thời request
+    // về muộn gộp theo bản chụp `shop` cũ nên ghi đè lựa chọn người dùng vừa bấm — nhãn
+    // "In N liên • khổ" trong phiếu in nhảy ngược về khổ cũ ngay sau khi chọn.
+    const commerce = read('lib/store/commerce.tsx');
+    const at = commerce.indexOf('const refreshShopSettings = useCallback');
+    assert.ok(at > 0, 'phải còn refreshShopSettings');
+    const deps = commerce.slice(at).match(/\}, \[([^\]]*)\]\);/);
+    assert.ok(deps, 'không đọc được dep của refreshShopSettings');
+    assert.ok(!/\bshop\b/.test(deps[1]), `refreshShopSettings không được phụ thuộc shop (đang: ${deps[1]})`);
+  });
+
+  it('gộp cấu hình theo giá trị mới nhất, không dùng bản chụp cũ', () => {
+    const commerce = read('lib/store/commerce.tsx');
+    assert.match(commerce, /const shopRef = useRef\(shop\);/);
+    assert.match(commerce, /mergeShopSettings\(shopRef\.current, /);
+    assert.match(commerce, /if \(!sameShop\(shopRef\.current, next\)\) applyShop\(next\);/);
+  });
+
+  it('mẫu in / khổ giấy là việc của máy trạm: không phải Admin vẫn đổi được', () => {
+    const commerce = read('lib/store/commerce.tsx');
+    assert.match(commerce, /const touchesShared = Object\.keys\(patch\)\.some\(\(key\) => !isLocalShopKey\(key\)\);/);
+    assert.match(commerce, /if \(supa && profile\?\.role !== 'admin' && touchesShared\) \{/);
+  });
+
+  it('nhãn "In N liên • khổ" theo mẫu in đang xem, không đọc shop.printerWidth', () => {
+    const receipt = read('components/pos/ReceiptModal.tsx');
+    assert.match(receipt, /In \{copies\} liên • \{paperWidth\}/);
+    assert.ok(!/liên • \{shop\.printerWidth\}/.test(receipt), 'nhãn còn đọc shop.printerWidth');
+    assert.match(
+      receipt,
+      /const paperWidth = PRINT_TEMPLATES\.find\(\(t\) => t\.id === template\)\?\.paper \?\? shop\.printerWidth;/
+    );
+  });
 });
 
 describe('đợt fixbug rà soát vòng 2 (không trùng đơn, đúng kênh tiền, đúng số)', () => {

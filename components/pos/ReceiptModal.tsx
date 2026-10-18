@@ -91,6 +91,9 @@ export function ReceiptModal() {
   const isA5 = template === 'a5-invoice';
   const isSheet = isA4 || isA5;
   const paperLabel = template === 'a4-invoice' ? 'A4 HĐ' : isA5 ? 'A5 HĐ' : 'K80';
+  // Khổ giấy IN THEO MẪU ĐANG XEM (pageCss + preview đều theo `template`) — nhãn phải khớp
+  // đúng thứ sẽ ra giấy. Không đọc shop.printerWidth (khoá theo máy, có thể lệch mẫu in).
+  const paperWidth = PRINT_TEMPLATES.find((t) => t.id === template)?.paper ?? shop.printerWidth;
   // @page theo đúng mẫu đang xem — khớp preview với hộp thoại in hệ thống
   const pageCss = isA5
     ? '@page { size: A5 landscape; margin: 8mm; } @media print { .a4-receipt-container { max-width: 100% !important; width: 100% !important; padding: 0 !important; } .break-inside-avoid { break-inside: avoid !important; page-break-inside: avoid !important; } }'
@@ -371,11 +374,11 @@ export function ReceiptModal() {
             options={PRINT_TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
           />
           <span className="text-[11px] text-slate-500">{PRINT_TEMPLATES.find((t) => t.id === template)?.desc}</span>
-          <span className="ml-auto text-[11px] font-mono text-slate-500">In {copies} liên • {shop.printerWidth}</span>
+          <span className="ml-auto text-[11px] font-mono text-slate-500">In {copies} liên • {paperWidth}</span>
         </div>
 
         <div className="print-preview-wrap flex-1 overflow-y-auto p-4 bg-slate-100 flex justify-center">
-          <div id="print-area" data-template={template} data-paper={shop.printerWidth} className={`shadow-sm border border-slate-200 ${isSheet ? '' : 'rounded'}`}>
+          <div id="print-area" data-template={template} data-paper={paperWidth} className={`shadow-sm border border-slate-200 ${isSheet ? '' : 'rounded'}`}>
             {Array.from({ length: copies }).map((_, i) => (
               <div key={i} className={i > 0 ? (isSheet ? 'print-page-break' : 'print-cut-line') : ''}>
                 {i > 0 && !isSheet && <div className="print-only text-center text-[10px] font-mono text-slate-500 py-2">✂ - - LIÊN {i + 1} - - ✂</div>}
