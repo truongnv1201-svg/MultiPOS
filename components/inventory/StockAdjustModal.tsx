@@ -15,6 +15,7 @@ import React, { useMemo, useState } from 'react';
 import { useStore } from '@/lib/store';
 import { notify } from '@/components/common/Toast';
 import { SearchableSelect } from '@/components/common/SearchableSelect';
+import { matchesQuery } from '@/lib/search';
 import { formatVND } from '@/lib/format';
 import { formatQty, parseQtyInput, roundQty } from '@/lib/quantity';
 import { AlertTriangle, CheckCircle2, HardHat, Package, Scale, X } from 'lucide-react';
@@ -108,9 +109,8 @@ export function StockAdjustModal({ open, onClose }: { open: boolean; onClose: ()
   );
 
   const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const base = q
-      ? stockable.filter((p) => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.barcode || '').includes(q))
+    const base = search.trim()
+      ? stockable.filter((p) => matchesQuery([p.name, p.sku, p.barcode], search))
       : stockable;
     return base.slice(0, 200);
   }, [stockable, search]);

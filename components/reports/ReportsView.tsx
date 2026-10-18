@@ -26,6 +26,7 @@ import { notify } from '@/components/common/Toast';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { historicalUnitCost } from '@/lib/costing';
 import { sortRows } from '@/lib/sort';
+import { matchesQuery } from '@/lib/search';
 
 type ReportTab = 'overview' | 'vat' | 'margin';
 
@@ -314,11 +315,8 @@ const totalSupplierDebt = suppliers.reduce((sum, s) => sum + (s.current_debt || 
   }, [rangedOrders, products]);
 
   const marginFiltered = useMemo(() => {
-    const q = marginSearch.trim().toLowerCase();
-    if (!q) return marginByProduct;
-    return marginByProduct.filter(
-      (r) => r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q),
-    );
+    if (!marginSearch.trim()) return marginByProduct;
+    return marginByProduct.filter((r) => matchesQuery([r.name, r.sku], marginSearch));
   }, [marginByProduct, marginSearch]);
 
   const sortedMargin = useMemo(() => {

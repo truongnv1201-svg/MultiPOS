@@ -51,6 +51,7 @@ import { TableTools } from '@/components/common/TableTools';
 import { FilterSelect } from '@/components/ui/FilterControls';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
+import { matchesQuery } from '@/lib/search';
 // P3: atoms/tokens/helpers thuần dùng chung các tab (tách ra ui.tsx).
 import {
   CARD,
@@ -115,7 +116,7 @@ export function StaffTab({
       .filter((e) => (showInactive ? true : e.status === 'active'))
       .filter((e) => (typeFilter === 'all' ? true : e.salary_type === typeFilter))
       .filter((e) => (modeFilter === 'all' ? true : attendanceModeOf(e) === modeFilter))
-      .filter((e) => !q || e.full_name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || (e.phone || '').includes(q))
+      .filter((e) => matchesQuery([e.full_name, e.code, e.phone], q))
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [employees, search, typeFilter, modeFilter, showInactive]);
 

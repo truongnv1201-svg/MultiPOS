@@ -26,6 +26,7 @@ import { STOCK_ADJUST_REASON_LABEL } from '@/lib/types';
 import { TableTools } from '@/components/common/TableTools';
 import { FilterSelect } from '@/components/ui/FilterControls';
 import { exportToExcel, printTable } from '@/lib/excel';
+import { matchesQuery } from '@/lib/search';
 
 export function StockAdjustTable() {
   const { stockAdjustments, projects, assignAdjustProject, profile } = useStore();
@@ -46,22 +47,22 @@ export function StockAdjustTable() {
   const unassigned = useMemo(() => rows.filter((r) => r.delta < 0 && !r.project_id), [rows]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (kindFilter === 'loss' && !(r.delta < 0)) return false;
       if (kindFilter === 'gain' && !(r.delta >= 0)) return false;
       if (kindFilter === 'unassigned' && !(r.delta < 0 && !r.project_id)) return false;
-      if (!q) return true;
-      const reason = (STOCK_ADJUST_REASON_LABEL[r.reason] || r.reason || '').toLowerCase();
-      return (
-        r.code.toLowerCase().includes(q) ||
-        r.product_name.toLowerCase().includes(q) ||
-        r.sku.toLowerCase().includes(q) ||
-        reason.includes(q) ||
-        (r.note && r.note.toLowerCase().includes(q)) ||
-        (r.project_code && r.project_code.toLowerCase().includes(q)) ||
-        (r.project_name && r.project_name.toLowerCase().includes(q)) ||
-        (r.adjusted_by_name && r.adjusted_by_name.toLowerCase().includes(q))
+      return matchesQuery(
+        [
+          r.code,
+          r.product_name,
+          r.sku,
+          STOCK_ADJUST_REASON_LABEL[r.reason] || r.reason,
+          r.note,
+          r.project_code,
+          r.project_name,
+          r.adjusted_by_name,
+        ],
+        search
       );
     });
   }, [rows, search, kindFilter]);

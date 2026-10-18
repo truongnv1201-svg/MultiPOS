@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Banknote, CheckCircle2, FileSpreadsheet, Plus, QrCode, User, X } from 'lucide-react';
 import { formatVND } from '@/lib/format';
 import { useClickOutside } from '@/lib/useClickOutside';
+import { matchesQuery } from '@/lib/search';
 import type { Customer } from '@/lib/types';
 
 export type MobilePaymentMethod = 'cash' | 'transfer' | 'card' | 'debt';
@@ -97,10 +98,9 @@ export default function MobilePaymentSheet({
     }, [selectedCustomer]);
 
     const matches = useMemo(() => {
-        const q = customerQuery.trim().toLowerCase();
-        if (!q) return customers.slice(0, 20);
+        if (!customerQuery.trim()) return customers.slice(0, 20);
         return customers
-            .filter((c) => c.name.toLowerCase().includes(q) || (c.phone || '').includes(q) || (c.code || '').toLowerCase().includes(q))
+            .filter((c) => matchesQuery([c.name, c.phone, c.code], customerQuery))
             .slice(0, 20);
     }, [customers, customerQuery]);
 

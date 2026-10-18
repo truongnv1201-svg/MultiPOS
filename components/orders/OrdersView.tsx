@@ -33,6 +33,7 @@ import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
+import { matchesQuery } from '@/lib/search';
 
 export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
   const {
@@ -80,12 +81,10 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
-      const q = search.toLowerCase();
-      const matchesSearch =
-        o.order_code.toLowerCase().includes(q) ||
-        o.customer_name.toLowerCase().includes(q) ||
-        (o.customer_phone && o.customer_phone.includes(search)) ||
-        (o.cashier_name && o.cashier_name.toLowerCase().includes(q));
+      const matchesSearch = matchesQuery(
+        [o.order_code, o.customer_name, o.customer_phone, o.cashier_name],
+        search
+      );
       const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
       const matchesCashier = cashierFilter === 'all' || (o.cashier_name || '') === cashierFilter;
       const matchesDate = matchesDateFilter(o.created_at, dateFilter);

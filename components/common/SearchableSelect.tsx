@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, Check, X } from 'lucide-react';
 import { useClickOutside } from '@/lib/useClickOutside';
+import { matchesQuery } from '@/lib/search';
 
 export interface SearchOption {
   value: string;
@@ -51,11 +52,8 @@ export function SearchableSelect({
   const selected = options.find((o) => o.value === value);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter(
-      (o) => o.label.toLowerCase().includes(q) || (o.sub || '').toLowerCase().includes(q)
-    );
+    if (!query.trim()) return options;
+    return options.filter((o) => matchesQuery([o.label, o.sub], query));
   }, [options, query]);
 
   // Reset highlight về đầu danh sách mỗi khi từ khóa đổi (làm trong handler thay vì

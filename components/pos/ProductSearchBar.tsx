@@ -6,6 +6,7 @@ import { Product } from '@/lib/types';
 import { useClickOutside } from '@/lib/useClickOutside';
 import { allowsDecimalQty, formatQty, parseQtyInput, roundQty, snapQty } from '@/lib/quantity';
 import { rankProducts } from '@/lib/product-search';
+import { fold } from '@/lib/search';
 import { notify } from '@/components/common/Toast';
 import { Search, PackagePlus, ScanLine, Keyboard } from 'lucide-react';
 import { AddProductFormModal } from '@/components/products/AddProductFormModal';
@@ -223,13 +224,16 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
 
   // Lọc thô + xếp tầng liên quan (lib/product-search, có unit test):
   // trúng MỌI từ gõ, mã/tên/đầu từ lên trước, không dấu chỉ là fallback.
-  const filteredProducts = React.useMemo(() => {
+  // Xếp hạng TRƯỚC rồi mới cắt top 8, và đếm cả phần dư để báo "còn N kết quả khác".
+  const rankedProducts = React.useMemo(() => {
     if (!searchQuery.trim()) return [];
     return rankProducts(
       products.filter((p) => p.is_active !== false),
       searchQuery
-    ).slice(0, 8);
+    );
   }, [products, searchQuery]);
+  const filteredProducts = React.useMemo(() => rankedProducts.slice(0, 8), [rankedProducts]);
+  const moreCount = Math.max(0, rankedProducts.length - filteredProducts.length);
 
   const resetSearch = () => {
     setSearchQuery('');
@@ -395,9 +399,10 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
   // không khớp thì đổ mã vào ô tìm kiếm để thủ công chọn / tạo nhanh.
   const handleScannedCode = (code: string) => {
     tools.setScannerOpen(false);
-    const normalized = code.trim().toLowerCase();
+    const normalized = fold(code);
+    // fold() thường hoá cả 2 phía (mã có chữ hoa vẫn khớp) — nhất quán với ô tìm.
     const matched = products.find(
-      (p) => (p.barcode || '').trim().toLowerCase() === normalized || p.sku.trim().toLowerCase() === normalized
+      (p) => fold(p.barcode) === normalized || fold(p.sku) === normalized
     );
     if (matched) {
       handleSelectProductClick(matched);
@@ -587,6 +592,11 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
                 </div>
               );
             })}
+            {moreCount > 0 && (
+              <div className="px-3 py-1.5 text-[11px] text-slate-500 text-center">
+                Còn <strong className="font-mono text-slate-700">{moreCount}</strong> kết quả khác — gõ thêm để thu hẹp.
+              </div>
+            )}
             <div
               id="btn-quick-create-product"
               onClick={() => openQuickCreate(searchQuery)}

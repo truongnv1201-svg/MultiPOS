@@ -29,6 +29,7 @@ import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { notify } from '@/components/common/Toast';
 import { includeInPayroll } from '@/lib/hrm';
 import { sortRows } from '@/lib/sort';
+import { matchesQuery } from '@/lib/search';
 import { DataTableShell } from '@/components/common/DataTableShell';
 
 export function CashbookView() {
@@ -80,10 +81,7 @@ export function CashbookView() {
 
   const filteredEntries = useMemo(() => {
     return cashbook.filter((e) => {
-      const matchesSearch =
-        e.code.toLowerCase().includes(search.toLowerCase()) ||
-        (e.partner_name && e.partner_name.toLowerCase().includes(search.toLowerCase())) ||
-        e.note.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = matchesQuery([e.code, e.partner_name, e.note], search);
       const matchesFund = fundFilter === 'all' || e.fund_type === fundFilter;
       const matchesType = typeFilter === 'all' || e.type === typeFilter;
       const matchesCategory = categoryFilter === 'all' || e.category === categoryFilter;

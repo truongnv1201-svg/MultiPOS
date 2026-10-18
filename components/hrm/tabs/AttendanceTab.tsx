@@ -49,6 +49,7 @@ import {
 import { TableTools } from '@/components/common/TableTools';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
+import { matchesQuery } from '@/lib/search';
 // P3: atoms/tokens/helpers thuần dùng chung các tab (tách ra ui.tsx).
 import {
   CARD,
@@ -128,7 +129,7 @@ export function AttendanceTab({
       .filter((e) => e.status === 'active')
       // 0082: ẩn diện miễn chấm công (admin bật toggle để kiểm tra, chỉ xem).
       .filter((e) => showExempt || attendanceModeOf(e) === 'normal')
-      .filter((e) => !q || e.full_name.toLowerCase().includes(q) || e.code.toLowerCase().includes(q))
+      .filter((e) => matchesQuery([e.full_name, e.code], q))
       .filter((e) => {
         if (!hideMarked) return true;
         return workIsos.some((iso) => !cellMap.get(`${e.id}:${iso}`));

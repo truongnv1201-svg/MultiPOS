@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty } from '@/components/ui/ListStates';
+import { matchesQuery } from '@/lib/search';
 import { AppButton } from '@/components/ui/AppButton';
 import { rowSelectClass } from '@/components/ui/RowSelect';
 import { PaginationBar } from '@/components/common/PaginationBar';
@@ -73,10 +74,7 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
 
   const filteredPos = useMemo(() => {
     return purchaseOrders.filter((p) => {
-      const q = search.toLowerCase();
-      const matchesSearch =
-        p.code.toLowerCase().includes(q) ||
-        p.supplier_name.toLowerCase().includes(q);
+      const matchesSearch = matchesQuery([p.code, p.supplier_name], search);
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
       const matchesSupplier = supplierFilter === 'all' || p.supplier_name === supplierFilter;
       const matchesDate = matchesDateFilter(p.created_at, dateFilter);

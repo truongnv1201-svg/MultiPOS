@@ -37,6 +37,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { rowSelectClass } from '@/components/ui/RowSelect';
 import { AddProductFormModal, UNIT_FLAT_OPTIONS } from '@/components/products/AddProductFormModal';
 import { MarginHint, MarkupPctInput } from '@/components/products/MarginCalcField';
+import { matchesQuery } from '@/lib/search';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
@@ -205,9 +206,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const matchesSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.sku.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = matchesQuery([p.name, p.sku, p.barcode], search);
       const matchesType = typeFilter === 'all' || p.product_type === typeFilter;
 
       let matchesStock = true;

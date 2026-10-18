@@ -22,6 +22,7 @@ import { resolvePaidAmount, lineDiscountFromPercent, lineDiscountFromAmount, lin
 import { previewImportAvg } from '@/lib/costing';
 import { allowsDecimalQty, formatQty, parseQtyInput, snapQty } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
+import { matchesQuery } from '@/lib/search';
 import { useIsPhone } from '@/hooks/useIsPhone';
 import {
   Plus,
@@ -739,10 +740,7 @@ export function POSScreen() {
   // Filtered customers (khách lẻ luôn là mục đầu tiên nên vẫn chọn được khi gõ trùng)
   const filteredCustomers = React.useMemo<CustomerOption[]>(() => {
     if (!customerSearch.trim()) return customerOptions;
-    const q = customerSearch.toLowerCase().trim();
-    return customerOptions.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q) || (c.code || '').toLowerCase().includes(q)
-    );
+    return customerOptions.filter((c) => matchesQuery([c.name, c.phone, c.code], customerSearch));
   }, [customerOptions, customerSearch]);
 
   // Tra nhanh mặt hàng theo id (kiểm tra cờ số lượng thập phân khi sửa giỏ)

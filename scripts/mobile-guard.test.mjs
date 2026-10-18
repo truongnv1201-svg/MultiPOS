@@ -510,7 +510,10 @@ describe('Giai đoạn 3: thanh toán ghim + sheet dùng chung + quét mã + PWA
     assert.match(scanner, /getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
     assert.match(scanner, /id="barcode-manual-input"/);
     assert.match(search, /id="btn-pos-scan-barcode"/);
-    assert.match(search, /p\.barcode \|\| ''\)\.trim\(\)\.toLowerCase\(\) === normalized/);
+    // Sau khi gom helper tìm kiếm chung: so khớp mã quét dùng fold() cho cả 2 phía
+    // (nhất quán với ô tìm — mã chữ hoa vẫn khớp).
+    assert.match(search, /fold\(p\.barcode\) === normalized/);
+    assert.match(search, /fold\(p\.sku\) === normalized/);
   });
 
   it('PWA: service worker cache shell + manifest có icon maskable & shortcut', () => {

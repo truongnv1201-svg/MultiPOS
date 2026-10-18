@@ -11,6 +11,7 @@ import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
+import { matchesQuery } from '@/lib/search';
 import { formatQty } from '@/lib/quantity';
 
 interface ExportGroup {
@@ -55,13 +56,7 @@ export function ExportsTab() {
       if (m.movement_type !== 'export_project') continue;
       if (!matchesDateFilter(m.created_at, dateFilter)) continue;
       const itemName = productNameOf(m.product_id, m.product_name);
-      const q = search.toLowerCase();
-      if (
-        q &&
-        !m.reference_code.toLowerCase().includes(q) &&
-        !itemName.toLowerCase().includes(q) &&
-        !projectNameOf(m.reference_code).toLowerCase().includes(q)
-      ) {
+      if (!matchesQuery([m.reference_code, itemName, projectNameOf(m.reference_code)], search)) {
         continue;
       }
       if (projectFilter !== 'all' && m.reference_code !== projectFilter) continue;

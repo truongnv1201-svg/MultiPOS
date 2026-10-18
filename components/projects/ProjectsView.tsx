@@ -34,6 +34,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { SummaryStrip } from '@/components/ui/ListStates';
 import { rowSelectClass } from '@/components/ui/RowSelect';
 import { exportToExcel, printTable } from '@/lib/excel';
+import { matchesQuery } from '@/lib/search';
 import { sortRows } from '@/lib/sort';
 
 const EMPTY_PROJECT_MATERIALS: ProjectMaterial[] = [];
@@ -363,10 +364,9 @@ export function ProjectsView() {
 
   // Danh sách đã lọc theo ô tìm kiếm của cột trái
   const visibleProjects = (() => {
-    const q = projectQuery.trim().toLowerCase();
-    if (!q) return projects;
+    if (!projectQuery.trim()) return projects;
     return projects.filter((p) =>
-      [p.name, p.code, p.customer_name, p.address].some((v) => (v || '').toLowerCase().includes(q))
+      matchesQuery([p.name, p.code, p.customer_name, p.address], projectQuery)
     );
   })();
 

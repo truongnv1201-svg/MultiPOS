@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
+import { matchesQuery } from '@/lib/search';
 import { AppButton } from '@/components/ui/AppButton';
 import { rowSelectClass } from '@/components/ui/RowSelect';
 import { PaginationBar } from '@/components/common/PaginationBar';
@@ -137,10 +138,7 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
-      const matchesSearch =
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.phone.includes(search) ||
-        c.code.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = matchesQuery([c.name, c.phone, c.code], search);
       const matchesGroup = groupFilter === 'all' || c.group === groupFilter;
       let matchesDebt = true;
       if (debtFilter === 'has_debt') matchesDebt = c.current_debt > 0;

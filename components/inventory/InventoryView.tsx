@@ -29,6 +29,7 @@ import { exportToExcel, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { notify } from '@/components/common/Toast';
 import { sortRows } from '@/lib/sort';
+import { matchesQuery } from '@/lib/search';
 import { StockAdjustModal } from '@/components/inventory/StockAdjustModal';
 import { type StockMovement } from '@/lib/types';
 
@@ -144,10 +145,7 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
 
   // Filtered movements
   const filteredMovements = movements.filter((m) => {
-    const matchesSearch =
-      m.reference_code.toLowerCase().includes(movementSearch.toLowerCase()) ||
-      m.product_name.toLowerCase().includes(movementSearch.toLowerCase()) ||
-      (m.note && m.note.toLowerCase().includes(movementSearch.toLowerCase()));
+    const matchesSearch = matchesQuery([m.reference_code, m.product_name, m.note], movementSearch);
     const matchesType = movementTypeFilter === 'all' || m.movement_type === movementTypeFilter;
     const matchesDate = matchesDateFilter(m.created_at, movementDateFilter);
     return matchesSearch && matchesType && matchesDate;

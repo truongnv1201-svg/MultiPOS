@@ -28,6 +28,7 @@ import { PaginationBar } from '@/components/common/PaginationBar';
 import { exportToExcel, downloadExcelTemplate, readExcelFile, parseExcelNum, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
+import { matchesQuery } from '@/lib/search';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
@@ -134,10 +135,7 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
   };
 
   const filteredSuppliers = suppliers.filter((s) => {
-    const matchesSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.code.toLowerCase().includes(search.toLowerCase()) ||
-      s.phone.includes(search);
+    const matchesSearch = matchesQuery([s.name, s.code, s.phone], search);
     const matchesDebt =
       debtFilter === 'all'
         ? true
