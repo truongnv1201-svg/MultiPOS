@@ -24,6 +24,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty } from '@/components/ui/ListStates';
 import { AppButton } from '@/components/ui/AppButton';
+import { rowSelectClass } from '@/components/ui/RowSelect';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { notify } from '@/components/common/Toast';
@@ -453,9 +454,7 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
                       <tr
                         key={ord.id}
                         onClick={() => pickOrder(ord.id, ord.order_code)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected ? 'bg-blue-50/80 font-medium' : 'hover:bg-slate-50'
-                        }`}
+                        className={`cursor-pointer transition-colors ${rowSelectClass(isSelected)}`}
                       >
                         <td className="py-2.5 px-3 font-mono font-bold text-blue-700">
                           {ord.order_code}

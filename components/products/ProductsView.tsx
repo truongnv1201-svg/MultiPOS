@@ -34,19 +34,12 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
 import { AppButton } from '@/components/ui/AppButton';
+import { rowSelectClass } from '@/components/ui/RowSelect';
 import { AddProductFormModal, UNIT_FLAT_OPTIONS } from '@/components/products/AddProductFormModal';
 import { MarginHint, MarkupPctInput } from '@/components/products/MarginCalcField';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
-
-// Hiệu ứng "pick chọn dòng" dùng chung của các bảng (Đơn hàng/KH/NCC/Nhập kho/Chứng từ):
-// dòng đang chọn đổi nền xanh. Bảng Hàng hóa để ĐẬM HƠN 1 nấc + vạch màu bên trái vì bảng
-// 11 cột, nền blue-50/80 nhạt rất dễ lạc mắt khi đang sửa dòng nào.
-const ROW_SELECTED = 'bg-blue-100 font-medium';
-const ROW_IDLE = 'hover:bg-slate-50';
-/** Vạch trái đánh dấu dòng đang chọn — luôn có 4px (trong suốt khi không chọn) nên đổi dòng không nhảy cột. */
-const rowAccent = (selected: boolean) => `border-l-4 ${selected ? 'border-l-blue-500' : 'border-l-transparent'}`;
 
 export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?: boolean; addOpen?: boolean; onAddOpenChange?: (open: boolean) => void } = {}) {
   const { products, orders, addProduct, updateProduct, deleteProduct, profile, stockMovements, importProductsBulk, isOnline, supabaseReady } = useStore();
@@ -578,9 +571,9 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
               <div
                 key={p.id}
                 onClick={() => setSelectedProductId(p.id)}
-                className={`px-3 py-2.5 flex items-start gap-2 transition-colors cursor-pointer ${rowAccent(
+                className={`px-3 py-2.5 flex items-start gap-2 transition-colors cursor-pointer ${rowSelectClass(
                   selectedProductId === p.id
-                )} ${selectedProductId === p.id ? ROW_SELECTED : ROW_IDLE}`}
+                )}`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
@@ -675,11 +668,11 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
                     <tr
                       key={p.id}
                       onClick={() => setSelectedProductId(p.id)}
-                      className={`transition-colors cursor-pointer ${isSelected ? ROW_SELECTED : ROW_IDLE} ${
+                      className={`transition-colors cursor-pointer ${rowSelectClass(isSelected)} ${
                         isInactive ? 'opacity-55' : ''
                       }`}
                     >
-                      <td className={`py-2.5 px-3 font-mono font-bold text-blue-700 ${rowAccent(isSelected)}`}>
+                      <td className="py-2.5 px-3 font-mono font-bold text-blue-700">
                         {p.sku}
                       </td>
                       <td className="py-2.5 px-3">

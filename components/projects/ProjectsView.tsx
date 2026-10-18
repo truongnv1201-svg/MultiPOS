@@ -32,6 +32,7 @@ import { TableTools } from '@/components/common/TableTools';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { AppButton } from '@/components/ui/AppButton';
 import { SummaryStrip } from '@/components/ui/ListStates';
+import { rowSelectClass } from '@/components/ui/RowSelect';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { sortRows } from '@/lib/sort';
 
@@ -588,9 +589,7 @@ export function ProjectsView() {
                   key={p.id}
                   onClick={() => setSelectedProject(p)}
                   aria-current={isSelected}
-                  className={`w-full text-left p-3 cursor-pointer transition-colors border-l-[3px] ${
-                    isSelected ? 'bg-blue-50 border-l-blue-600' : 'border-l-transparent hover:bg-slate-50'
-                  }`}
+                  className={`w-full text-left p-3 cursor-pointer transition-colors ${rowSelectClass(isSelected)}`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-[11px] font-bold text-blue-700">{p.code}</span>

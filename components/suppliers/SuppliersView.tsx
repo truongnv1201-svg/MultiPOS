@@ -20,6 +20,7 @@ import {
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
 import { AppButton } from '@/components/ui/AppButton';
+import { rowSelectClass } from '@/components/ui/RowSelect';
 import { NumberInput } from '@/components/common/NumberInput';
 import { TableTools } from '@/components/common/TableTools';
 import { DataTableShell } from '@/components/common/DataTableShell';
@@ -430,9 +431,9 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
                         setSelectedSupplier(sup);
                         setIsMobileDetailOpen(true);
                       }}
-                      className={`w-full px-3 py-3 flex items-start justify-between gap-3 text-left active:bg-slate-50 ${
-                        visibleSupplier?.id === sup.id ? 'bg-blue-50/70' : ''
-                      }`}
+                      className={`w-full px-3 py-3 flex items-start justify-between gap-3 text-left active:bg-slate-50 ${rowSelectClass(
+                        visibleSupplier?.id === sup.id
+                      )}`}
                     >
                       <span className="min-w-0">
                         <span className="block text-xs font-bold text-slate-800 leading-snug">{sup.name}</span>
@@ -479,9 +480,7 @@ export function SuppliersView({ bare = false, addOpen, onAddOpenChange }: { bare
                         <tr
                           key={sup.id}
                           onClick={() => setSelectedSupplier(sup)}
-                          className={`cursor-pointer transition-colors ${
-                            visibleSupplier?.id === sup.id ? 'bg-blue-50/80 font-medium' : 'hover:bg-slate-50'
-                          }`}
+                          className={`cursor-pointer transition-colors ${rowSelectClass(visibleSupplier?.id === sup.id)}`}
                         >
                           <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{sup.code}</td>
                           <td className="py-2.5 px-3 font-semibold text-slate-800">{sup.name}</td>

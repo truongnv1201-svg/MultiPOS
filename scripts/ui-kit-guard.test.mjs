@@ -28,7 +28,7 @@ const VIEWS = [
 const HEADER_VIEWS = VIEWS.filter((f) => f !== 'components/suppliers/SuppliersView.tsx');
 
 describe('ui kit: file + export đầy đủ', () => {
-  it('đủ 6 module kit', () => {
+  it('đủ 7 module kit', () => {
     for (const f of [
       'components/ui/PageHeader.tsx',
       'components/ui/StatusBadge.tsx',
@@ -36,6 +36,7 @@ describe('ui kit: file + export đầy đủ', () => {
       'components/ui/ListStates.tsx',
       'components/ui/AppButton.tsx',
       'components/ui/TabSwitcher.tsx',
+      'components/ui/RowSelect.ts',
     ]) {
       assert.ok(existsSync(join(ROOT, f)), `thiếu ${f}`);
     }
@@ -306,26 +307,35 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     assert.match(inv, /paginatedMovements/);
   });
 
-  it('bảng Hàng hóa có hiệu ứng pick chọn dòng như các bảng khác (và đậm hơn 1 nấc)', () => {
-    const pro = read('components/products/ProductsView.tsx');
-    // Cùng cơ chế chọn dòng của Đơn hàng/KH/NCC/Nhập kho: dòng đang chọn đổi nền xanh,
-    // dòng thường chỉ hover xám. Nền ở đây đậm hơn blue-50/80 của các bảng kia.
-    assert.ok(pro.includes("const ROW_SELECTED = 'bg-blue-100 font-medium';"), 'thiếu hằng nền dòng đang chọn');
-    assert.ok(pro.includes("const ROW_IDLE = 'hover:bg-slate-50';"), 'thiếu hằng nền dòng thường');
-    assert.ok(!/bg-blue-50\/(70|80)/.test(pro), 'nền chọn phải đậm hơn blue-50/80 của bảng khác');
-    // Vạch trái đánh dấu dòng đang chọn (nền xanh nhạt dễ lẫn trong bảng 11 cột);
-    // luôn 4px nên đổi dòng không nhảy cột.
-    assert.ok(pro.includes('border-l-4 ${selected ? '), 'thiếu vạch đánh dấu dòng đang chọn');
-    assert.match(pro, /const rowAccent = \(selected: boolean\)/);
-    // Bảng desktop: chọn thì đổi nền + đậm chữ.
-    assert.ok(pro.includes('${isSelected ? ROW_SELECTED : ROW_IDLE}'), 'bảng desktop chưa áp hiệu ứng chọn dòng');
-    assert.match(pro, /rowAccent\(isSelected\)/);
-    // Record list điện thoại: cùng id dòng, cùng hiệu ứng.
-    assert.ok(
-      pro.includes('selectedProductId === p.id ? ROW_SELECTED : ROW_IDLE'),
-      'record list điện thoại chưa áp hiệu ứng chọn dòng'
+  it('hiệu ứng pick chọn dòng dùng CHUNG 1 nguồn (components/ui/RowSelect)', () => {
+    const kit = read('components/ui/RowSelect.ts');
+    // Nền chọn đậm hơn bản cũ (blue-50/70, blue-50/80) + chữ đậm.
+    assert.ok(kit.includes('bg-blue-100 font-medium'), 'nền dòng chọn phải là blue-100 + đậm chữ');
+    // Vạch trái vẽ bằng background-image: border trên <tr> ở `border-collapse` vừa đẩy
+    // bảng 2px vừa không vẽ ổn định, còn border trên ô đầu thì lệch 4px so với header.
+    assert.match(
+      kit,
+      /ROW_BAR = '\[background-image:linear-gradient\(to_right,#3b82f6_0_4px,transparent_4px\)\]'/
     );
-    // Bấm dòng hoặc mở form sửa đều ghim dòng đang thao tác.
+    assert.match(kit, /export const rowSelectClass = \(selected: boolean\) =>/);
+    // Mọi bảng/danh sách master-detail dùng đúng nguồn này, không tự viết class lẻ nữa.
+    for (const f of [
+      'components/orders/OrdersView.tsx',
+      'components/imports/ImportsView.tsx',
+      'components/customers/CustomersView.tsx',
+      'components/suppliers/SuppliersView.tsx',
+      'components/vouchers/ExportsTab.tsx',
+      'components/projects/ProjectsView.tsx',
+      'components/products/ProductsView.tsx',
+    ]) {
+      const src = read(f);
+      assert.match(src, /rowSelectClass\(/, `${f} chưa dùng rowSelectClass dùng chung`);
+      assert.ok(!/bg-blue-50\/(70|80)/.test(src), `${f} còn nền chọn cũ blue-50/7x-8x`);
+    }
+  });
+
+  it('bảng Hàng hóa: bấm dòng hoặc mở form sửa đều ghim dòng đang thao tác', () => {
+    const pro = read('components/products/ProductsView.tsx');
     assert.match(pro, /onClick=\{\(\) => setSelectedProductId\(p\.id\)\}/);
     assert.match(pro, /setSelectedProductId\(p\.id\);\n\s+setEditingProduct\(p\);/);
   });

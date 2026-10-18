@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty } from '@/components/ui/ListStates';
 import { AppButton } from '@/components/ui/AppButton';
+import { rowSelectClass } from '@/components/ui/RowSelect';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { notify } from '@/components/common/Toast';
 import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/common/DateFilter';
@@ -318,9 +319,7 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
                           <tr
                             key={po.id}
                             onClick={() => pickPo(po.id, po.code)}
-                            className={`cursor-pointer transition-colors ${
-                              isSelected ? 'bg-blue-50/80 font-medium' : 'hover:bg-slate-50'
-                            }`}
+                            className={`cursor-pointer transition-colors ${rowSelectClass(isSelected)}`}
                           >
                             <td className="py-2.5 px-3 font-mono font-bold text-blue-700">
                               {po.code}

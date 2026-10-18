@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty, ListEmpty } from '@/components/ui/ListStates';
 import { AppButton } from '@/components/ui/AppButton';
+import { rowSelectClass } from '@/components/ui/RowSelect';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { NumberInput } from '@/components/common/NumberInput';
 import { TableTools } from '@/components/common/TableTools';
@@ -451,9 +452,9 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
                       setSelectedCustomer(c);
                       setIsMobileDetailOpen(true);
                     }}
-                    className={`w-full px-3 py-3 flex items-start justify-between gap-3 text-left active:bg-slate-50 ${
-                      visibleCustomer?.id === c.id ? 'bg-blue-50/70' : ''
-                    }`}
+                    className={`w-full px-3 py-3 flex items-start justify-between gap-3 text-left active:bg-slate-50 ${rowSelectClass(
+                      visibleCustomer?.id === c.id
+                    )}`}
                   >
                     <span className="min-w-0">
                       <span className="block text-xs font-bold text-slate-800 leading-snug">{c.name}</span>
@@ -504,9 +505,7 @@ export function CustomersView({ bare = false, addOpen, onAddOpenChange }: { bare
                       <tr
                         key={c.id}
                         onClick={() => setSelectedCustomer(c)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected ? 'bg-blue-50/70 font-medium' : 'hover:bg-slate-50'
-                        }`}
+                        className={`cursor-pointer transition-colors ${rowSelectClass(isSelected)}`}
                       >
                         <td className="py-2.5 px-3 font-mono font-bold text-blue-700">{c.code}</td>
                         <td className="py-2.5 px-3 font-semibold text-slate-800">{c.name}</td>

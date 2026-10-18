@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
 import { SummaryStrip, TableEmpty } from '@/components/ui/ListStates';
+import { rowSelectClass } from '@/components/ui/RowSelect';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { DateFilter, DateFilterState, matchesDateFilter } from '@/components/common/DateFilter';
 import { TableTools } from '@/components/common/TableTools';
@@ -228,9 +229,7 @@ export function ExportsTab() {
                       <tr
                         key={g.key}
                         onClick={() => setSelectedGroupKey(g.key)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected ? 'bg-blue-50/80 font-medium' : 'hover:bg-slate-50'
-                        }`}
+                        className={`cursor-pointer transition-colors ${rowSelectClass(isSelected)}`}
                       >
                         <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
                           {g.day}
