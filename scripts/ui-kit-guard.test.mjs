@@ -313,9 +313,11 @@ describe('ui kit: các trang dùng chung, cấm class lẻ', () => {
     assert.ok(kit.includes('bg-blue-100 font-medium'), 'nền dòng chọn phải là blue-100 + đậm chữ');
     // Vạch trái vẽ bằng background-image: border trên <tr> ở `border-collapse` vừa đẩy
     // bảng 2px vừa không vẽ ổn định, còn border trên ô đầu thì lệch 4px so với header.
+    // Kèm `bg-no-repeat`: thiếu nó thì ảnh gradient lặp ~1px ở mép PHẢI dòng -> "vệt xanh
+    // ở cuối dòng" (chỉ hiện ở dòng không phải dòng cuối). Xem comment ở RowSelect.ts.
     assert.match(
       kit,
-      /ROW_BAR = '\[background-image:linear-gradient\(to_right,#3b82f6_0_4px,transparent_4px\)\]'/
+      /ROW_BAR =\s*'\[background-image:linear-gradient\(to_right,#3b82f6_0_4px,transparent_4px\)\] bg-no-repeat'/
     );
     assert.match(kit, /export const rowSelectClass = \(selected: boolean\) =>/);
     // Mọi bảng/danh sách master-detail dùng đúng nguồn này, không tự viết class lẻ nữa.
