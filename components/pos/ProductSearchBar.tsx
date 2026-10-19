@@ -232,7 +232,9 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
       searchQuery
     );
   }, [products, searchQuery]);
-  const filteredProducts = React.useMemo(() => rankedProducts.slice(0, 8), [rankedProducts]);
+  // Cắt hiển thị 30 dòng (trước là 8): 8 quá ít, món đúng dễ rơi khỏi khung dù
+  // thuật toán đã xếp đúng hạng. Danh sách cuộn trong khung, chân khung vẫn thấy.
+  const filteredProducts = React.useMemo(() => rankedProducts.slice(0, 30), [rankedProducts]);
   const moreCount = Math.max(0, rankedProducts.length - filteredProducts.length);
 
   const resetSearch = () => {
@@ -509,7 +511,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           // Cao tối đa chứ không cố định: ít kết quả thì khung bám sát nội dung (hụt 1-2
           // dòng mà vẫn chừa khối trống to trông thiếu chuyên nghiệp), nhiều kết quả thì
           // danh sách cuộn và dải hướng dẫn phím ở chân khung luôn nhìn thấy (shrink-0).
-          className="absolute top-11 left-0 right-0 max-h-72 flex flex-col bg-white text-slate-800 shadow-2xl rounded-lg border border-slate-200 overflow-hidden z-50"
+          className="absolute top-11 left-0 right-0 max-h-[min(60vh,30rem)] flex flex-col bg-white text-slate-800 shadow-2xl rounded-lg border border-slate-200 overflow-hidden z-50"
         >
           <div className="p-1.5 flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100">
             {filteredProducts.length === 0 && (

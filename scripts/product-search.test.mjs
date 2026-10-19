@@ -98,16 +98,24 @@ describe('rankProducts', () => {
       assert.deepEqual(got.slice(0, 3), ['MẶT S 2 Ổ 1 LỖ', 'MẶT S 2 Ổ 2 LỖ', 'MẶT S 2 Ổ']);
     });
 
+    it('gõ tắt "mặt 2" (hai từ cách quãng) vẫn ra đúng nhóm S 2', () => {
+      const got = names(rankProducts(list, 'mặt 2'));
+      assert.deepEqual(got.slice(0, 3), ['MẶT S 2 Ổ 1 LỖ', 'MẶT S 2 Ổ 2 LỖ', 'MẶT S 2 Ổ']);
+      // Món chỉ tình cờ có "mặt" ... "2" (cách xa, không bắt đầu tên) phải nằm sau.
+      const noise = got.indexOf('BĂNG DÁN MẶT TRẮNG XỊN 2 1CM');
+      assert.ok(noise === -1 || noise > 2);
+    });
+
     it('từ 1 ký tự không khớp vào mã SP... của mọi món', () => {
       // "s" từng khớp mọi SKU vì đều bắt đầu bằng "SP" -> kết quả loãng.
       assert.deepEqual(rankProducts([P('KEO 502', 'SP005014')], 'mặt s 2'), []);
     });
   });
 
-  it('POS cắm rankProducts + cắt 8 (wiring)', () => {
+  it('POS cắm rankProducts + cắt 30 dòng (wiring)', () => {
     const src = read('components/pos/ProductSearchBar.tsx');
     assert.match(src, /rankProducts\(/);
     assert.match(src, /from '@\/lib\/product-search'/);
-    assert.match(src, /\.slice\(0, 8\)/);
+    assert.match(src, /\.slice\(0, 30\)/);
   });
 });

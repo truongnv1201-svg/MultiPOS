@@ -116,7 +116,7 @@ describe('wiring POS: xếp hạng + báo còn kết quả + quét mã bỏ dấ
 
   it('xếp hạng TRƯỚC khi cắt top 8, và đếm phần dư', () => {
     assert.match(pos, /rankProducts\(/);
-    assert.match(pos, /\.slice\(0, 8\)/);
+    assert.match(pos, /\.slice\(0, 30\)/);
     assert.match(pos, /moreCount/);
     assert.match(pos, /kết quả khác/);
   });
