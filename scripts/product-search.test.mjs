@@ -68,6 +68,42 @@ describe('rankProducts', () => {
     assert.deepEqual(names(rankProducts(list, '34')), ['A 34 X', 'B 34 Y']);
   });
 
+  // Ca thật 10/2026: gõ "mặt S 2" không ra "MẶT S 2 Ổ 1 LỖ".
+  // Trước khi sửa: món đó hạng 13/61 (bị 12 món chỉ tình cờ có chữ "mặt" + số "2"
+  // đè lên), nên bị top 8 cắt mất.
+  describe('cả cụm từ liền mạch: "mặt S 2"', () => {
+    const list = [
+      P('BĂNG DÁN MẶT TRẮNG XỊN 2 1CM', 'SP000366'),
+      P('BĂNG DÁN 2 MẶT XANH', 'SP000370'),
+      P('MÀI VÁT 12LY 2 MẶT', 'SP002898'),
+      P('MẶT S 1 Ổ 2 LỖ', 'SP002920'),
+      P('MẶT S 2 Ổ 1 LỖ', 'SP002923'),
+      P('MẶT S 2 Ổ 2 LỖ', 'SP002924'),
+      P('MẶT S 2 Ổ', 'SP002925'),
+      P('MẶT S 3 Ổ', 'SP002926'),
+    ];
+
+    it('món đúng lên top, đám khớp rời rạc bị loại hẳn', () => {
+      const got = names(rankProducts(list, 'mặt S 2'));
+      assert.deepEqual(got.slice(0, 3), ['MẶT S 2 Ổ 1 LỖ', 'MẶT S 2 Ổ 2 LỖ', 'MẶT S 2 Ổ']);
+      assert.ok(!got.includes('BĂNG DÁN MẶT TRẮNG XỊN 2 1CM'));
+      assert.ok(!got.includes('BĂNG DÁN 2 MẶT XANH'));
+      assert.ok(!got.includes('MẶT S 3 Ổ'));
+      // "MẶT S 1 Ổ 2 LỖ" vẫn khớp (có số 2) nhưng phải nằm dưới nhóm đúng cụm.
+      assert.ok(got.indexOf('MẶT S 1 Ổ 2 LỖ') > 2);
+    });
+
+    it('gõ không dấu cho cùng thứ tự', () => {
+      const got = names(rankProducts(list, 'mat s 2'));
+      assert.deepEqual(got.slice(0, 3), ['MẶT S 2 Ổ 1 LỖ', 'MẶT S 2 Ổ 2 LỖ', 'MẶT S 2 Ổ']);
+    });
+
+    it('từ 1 ký tự không khớp vào mã SP... của mọi món', () => {
+      // "s" từng khớp mọi SKU vì đều bắt đầu bằng "SP" -> kết quả loãng.
+      assert.deepEqual(rankProducts([P('KEO 502', 'SP005014')], 'mặt s 2'), []);
+    });
+  });
+
   it('POS cắm rankProducts + cắt 8 (wiring)', () => {
     const src = read('components/pos/ProductSearchBar.tsx');
     assert.match(src, /rankProducts\(/);
