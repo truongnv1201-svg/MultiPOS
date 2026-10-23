@@ -125,22 +125,35 @@ export function FilterSelect({ id, value, onChange, options, title, className = 
         btnRef.current?.focus();
       }
     };
+    // Cuộn trang thì đóng; cuộn BÊN TRONG listbox thì bỏ qua (nếu không, vừa lăn
+    // chuột trong danh sách là dropdown tự đóng, không xem được các mục phía dưới).
     const onScrollResize = () => setOpen(false);
+    const onScroll = (e: Event) => {
+      const target = e.target;
+      if (target instanceof Node && listRef.current?.contains(target)) return;
+      setOpen(false);
+    };
     document.addEventListener('keydown', onKey);
     window.addEventListener('resize', onScrollResize);
-    document.addEventListener('scroll', onScrollResize, true);
+    document.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', onScrollResize);
-      document.removeEventListener('scroll', onScrollResize, true);
+      document.removeEventListener('scroll', onScroll, true);
     };
   }, [open ]);
 
   useEffect(() => {
     if (!open) return;
-    listRef.current
-      ?.querySelector(`[data-idx="${activeIdx}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
+    // Chỉ cuộn trong listbox, KHÔNG dùng scrollIntoView (nó cuộn cả trang → bị coi là
+    // cuộn ngoài và đóng dropdown, đồng thời làm trang nhảy).
+    const list = listRef.current;
+    const item = list?.querySelector<HTMLElement>(`[data-idx="${activeIdx}"]`);
+    if (!list || !item) return;
+    const top = item.offsetTop;
+    const bottom = top + item.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
   }, [open, activeIdx]);
 
   const move = (delta: 1 | -1) => {

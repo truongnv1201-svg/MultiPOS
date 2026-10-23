@@ -271,10 +271,10 @@ export function ReceiptModal() {
                   {it.processing_fee > 0 && <div className={`${compact ? 'text-[9px]' : 'text-[11px]'} text-amber-700`}>Phí gia công: {formatVND(it.processing_fee)}</div>}
                 </td>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center`}>{it.unit}</td>
-                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatQty(it.quantity)}</td>
+                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center font-mono`}>{formatQty(it.quantity)}</td>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono`}>{formatNumber(it.unit_price)}</td>
-                <td className={`border-x border-black ${compact ? 'px-1 py-0.5' : 'px-1.5 py-1'} text-center font-mono`}>{lineDiscountPercent(it) > 0 ? `${lineDiscountPercent(it)}%` : '—'}</td>
-                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono ${it.discount_amount > 0 ? 'text-rose-600' : ''}`}>{it.discount_amount > 0 ? `-${formatNumber(it.discount_amount)}` : '—'}</td>
+                <td className={`border-x border-black ${compact ? 'px-1 py-0.5' : 'px-1.5 py-1'} text-center font-mono`}>{lineDiscountPercent(it) > 0 ? `${lineDiscountPercent(it)}%` : ''}</td>
+                <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono ${it.discount_amount > 0 ? 'text-rose-600' : ''}`}>{it.discount_amount > 0 ? `-${formatNumber(it.discount_amount)}` : ''}</td>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-right font-mono font-bold`}>{formatNumber(it.subtotal)}</td>
               </tr>
             ))}
