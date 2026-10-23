@@ -322,10 +322,10 @@ export function ReceiptModal() {
         {order.note && <p><strong>Ghi chú:</strong> {order.note}</p>}
         {/* Ký tên (QR đã dời lên header) + footer — break-inside-avoid */}
         <div className="break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-          {/* Chữ ký 2 bên */}
+          {/* Chữ ký 2 bên: chừa vùng trống để ký tay */}
           <div className="flex items-stretch gap-3">
             {/* Khối ký tên */}
-            <div className="flex-1 grid grid-cols-2 text-center">
+            <div className={`flex-1 grid grid-cols-2 text-center ${compact ? 'min-h-[88px]' : 'min-h-[110px]'}`}>
               <div className={`flex flex-col items-center justify-start ${compact ? 'p-2' : 'p-3'}`}>
                 <p className="font-bold">Khách hàng</p>
                 <p className={`text-slate-400 ${compact ? 'text-[10px]' : 'text-[11px]'}`}>(Ký, ghi rõ họ tên)</p>
@@ -338,7 +338,7 @@ export function ReceiptModal() {
               </div>
             </div>
           </div>
-          <p className={`text-center text-slate-500 ${compact ? 'text-[10px] pt-1' : 'text-[11px] pt-1'}`}>{shop.footerThanks} {shop.receiptPolicy && `• ${shop.receiptPolicy}`}</p>
+          <p className={`text-center text-slate-500 ${compact ? 'text-[10px] mt-4' : 'text-[11px] mt-6'}`}>{shop.footerThanks} {shop.receiptPolicy && `• ${shop.receiptPolicy}`}</p>
         </div>
       </div>
     );
