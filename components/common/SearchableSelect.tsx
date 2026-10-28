@@ -11,6 +11,9 @@ export interface SearchOption {
   sub?: string;
 }
 
+// Trần số dòng render trong listbox (danh sách rất dài vẫn cuộn mượt).
+const MAX_VISIBLE_OPTIONS = 100;
+
 // Combobox tìm kiếm gõ-lọc: click mở, gõ để lọc, phím ↑↓ + Enter chọn, Esc đóng.
 // allowCustom: cho phép giữ lại chữ tự gõ không có trong danh sách (VD: tên NCC mới).
 // onQuickCreate: thêm dòng "Tạo ... mới" ở chân danh sách + Enter khi không có kết quả
@@ -51,9 +54,14 @@ export function SearchableSelect({
 
   const selected = options.find((o) => o.value === value);
 
+  // Cắt ngay trong `filtered` (không cắt lúc render) để mũi tên/Enter chỉ đi trong
+  // đúng những dòng đang thấy. Trước đây render slice(0,100) nhưng phím đi trên toàn
+  // bộ -> quá 100 lựa chọn thì Enter có thể chọn dòng không hiển thị.
   const filtered = useMemo(() => {
-    if (!query.trim()) return options;
-    return options.filter((o) => matchesQuery([o.label, o.sub], query));
+    if (!query.trim()) return options.slice(0, MAX_VISIBLE_OPTIONS);
+    return options
+      .filter((o) => matchesQuery([o.label, o.sub], query))
+      .slice(0, MAX_VISIBLE_OPTIONS);
   }, [options, query]);
 
   // Reset highlight về đầu danh sách mỗi khi từ khóa đổi (làm trong handler thay vì
@@ -200,7 +208,7 @@ export function SearchableSelect({
               )}
             </li>
           ) : (
-            filtered.slice(0, 100).map((opt, idx) => {
+            filtered.map((opt, idx) => {
               const isSel = opt.value === value;
               const isActive = idx === activeIdx;
               return (

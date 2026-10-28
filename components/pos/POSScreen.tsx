@@ -22,7 +22,7 @@ import { resolvePaidAmount, lineDiscountFromPercent, lineDiscountFromAmount, lin
 import { previewImportAvg } from '@/lib/costing';
 import { allowsDecimalQty, formatQty, parseQtyInput, snapQty } from '@/lib/quantity';
 import { useClickOutside } from '@/lib/useClickOutside';
-import { matchesQuery } from '@/lib/search';
+import { rankContacts } from '@/lib/search';
 import { useIsPhone } from '@/hooks/useIsPhone';
 import {
   Plus,
@@ -737,11 +737,14 @@ export function POSScreen() {
     [walkInOption, customers]
   );
 
-  // Filtered customers (khách lẻ luôn là mục đầu tiên nên vẫn chọn được khi gõ trùng)
-  const filteredCustomers = React.useMemo<CustomerOption[]>(() => {
-    if (!customerSearch.trim()) return customerOptions;
-    return customerOptions.filter((c) => matchesQuery([c.name, c.phone, c.code], customerSearch));
-  }, [customerOptions, customerSearch]);
+  // Lọc + xếp hạng: SĐT/mã khớp tuyệt đối hoặc bắt đầu lên trước, rồi mới tới tên.
+  // Cắt top 20 như sheet thanh toán mobile — trước đây trả về TOÀN BỘ khách khớp nên
+  // gõ 1 ký tự ("a", "09") là render cả nghìn dòng và không có thứ tự ưu tiên.
+  // Khách lẻ luôn nằm trong danh sách đầu vào nên vẫn chọn được khi gõ trùng.
+  const filteredCustomers = React.useMemo<CustomerOption[]>(
+    () => rankContacts(customerOptions, customerSearch, 20),
+    [customerOptions, customerSearch]
+  );
 
   // Tra nhanh mặt hàng theo id (kiểm tra cờ số lượng thập phân khi sửa giỏ)
   const productById = React.useCallback(

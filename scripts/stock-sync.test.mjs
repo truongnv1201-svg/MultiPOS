@@ -72,7 +72,9 @@ describe('pull biến động kho: nhẹ payload + đúng tên sản phẩm', ()
   it('mọi chỗ hiển thị/lọc/sắp xếp biến động đều dùng mảng đã tra tên', () => {
     // Lọc + sắp xếp + đếm đều phải xuất phát từ `movements` (đã tra tên), không phải
     // `stockMovements` thô — nếu không thì tên sản phẩm hiển thị rỗng sau khi bỏ JOIN.
-    assert.match(inventory, /const filteredMovements = movements\.filter\(/);
+    // Lọc bọc trong useMemo (deps có `movements`) nhưng vẫn phải lọc từ mảng đã tra tên.
+    assert.match(inventory, /const filteredMovements = useMemo\(/);
+    assert.match(inventory, /movements\.filter\(/);
     // Số đếm nằm ở dòng tổng hợp dưới filter (chuẩn các bảng chính), không còn trên nhãn tab
     // (Kho giờ là thuần thẻ kho trong trang Hàng hóa, không còn TabSwitcher nội bộ).
     assert.match(inventory, /title="Thẻ kho"/);

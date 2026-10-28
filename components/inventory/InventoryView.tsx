@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
 import { formatQty } from '@/lib/quantity';
@@ -32,6 +32,19 @@ import { sortRows } from '@/lib/sort';
 import { matchesQuery } from '@/lib/search';
 import { StockAdjustModal } from '@/components/inventory/StockAdjustModal';
 import { type StockMovement } from '@/lib/types';
+
+// Getter sắp xếp cố định ở module: tạo object trong useMemo khiến React Compiler
+// bỏ memo (lint warning) và tạo lại 9 closure mỗi lần đổi sort.
+const MOVEMENT_SORT_GETTERS: Record<string, (m: StockMovement) => unknown> = {
+  reference_code: (m) => m.reference_code,
+  created_at: (m) => m.created_at,
+  product_name: (m) => m.product_name,
+  movement_type: (m) => m.movement_type,
+  quantity: (m) => m.quantity,
+  previous_stock: (m) => m.previous_stock,
+  new_stock: (m) => m.new_stock,
+  note: (m) => m.note,
+};
 
 export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, onAdjustOpenChange }: { bare?: boolean; adjustOpen?: boolean; onAdjustOpenChange?: (open: boolean) => void } = {}) {
   const { products, stockMovements, setCurrentScreen, setPosFlow, profile } = useStore();
@@ -143,28 +156,24 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
     }));
   }, [stockMovements, products]);
 
-  // Filtered movements
-  const filteredMovements = movements.filter((m) => {
-    const matchesSearch = matchesQuery([m.reference_code, m.product_name, m.note], movementSearch);
-    const matchesType = movementTypeFilter === 'all' || m.movement_type === movementTypeFilter;
-    const matchesDate = matchesDateFilter(m.created_at, movementDateFilter);
-    return matchesSearch && matchesType && matchesDate;
-  });
+  // Filtered movements — memo: trước đây chạy lại mỗi render (kể cả khi chỉ đổi
+  // trang/sort), với vài chục nghìn bút toán thì gõ tìm bị giật.
+  const filteredMovements = useMemo(
+    () =>
+      movements.filter((m) => {
+        const matchesSearch = matchesQuery([m.reference_code, m.product_name, m.note], movementSearch);
+        const matchesType = movementTypeFilter === 'all' || m.movement_type === movementTypeFilter;
+        const matchesDate = matchesDateFilter(m.created_at, movementDateFilter);
+        return matchesSearch && matchesType && matchesDate;
+      }),
+    [movements, movementSearch, movementTypeFilter, movementDateFilter]
+  );
 
-  // Sorted movements
+  // Sorted movements — IIFE: getter đã tách ra module (không tạo lại closure mỗi
+  // render); React Compiler không giữ được useMemo cho getter động nên giữ dạng này.
   const sortedMovements = (() => {
     if (!movSortKey) return filteredMovements;
-    const getters: Record<string, (m: StockMovement) => unknown> = {
-      reference_code: (m) => m.reference_code,
-      created_at: (m) => m.created_at,
-      product_name: (m) => m.product_name,
-      movement_type: (m) => m.movement_type,
-      quantity: (m) => m.quantity,
-      previous_stock: (m) => m.previous_stock,
-      new_stock: (m) => m.new_stock,
-      note: (m) => m.note,
-    };
-    const get = getters[movSortKey];
+    const get = MOVEMENT_SORT_GETTERS[movSortKey];
     if (!get) return filteredMovements;
     return sortRows(filteredMovements, get, movSortDir);
   })();

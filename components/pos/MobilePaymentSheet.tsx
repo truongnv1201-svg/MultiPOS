@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Banknote, CheckCircle2, FileSpreadsheet, Plus, QrCode, User, X } from 'lucide-react';
 import { formatVND } from '@/lib/format';
 import { useClickOutside } from '@/lib/useClickOutside';
-import { matchesQuery } from '@/lib/search';
+import { rankContacts } from '@/lib/search';
 import type { Customer } from '@/lib/types';
 
 export type MobilePaymentMethod = 'cash' | 'transfer' | 'card' | 'debt';
@@ -98,10 +98,9 @@ export default function MobilePaymentSheet({
     }, [selectedCustomer]);
 
     const matches = useMemo(() => {
+        // Cùng thuật toán với ô F4 ở POS: SĐT/mã khớp trước, tên sau, cắt top 20.
         if (!customerQuery.trim()) return customers.slice(0, 20);
-        return customers
-            .filter((c) => matchesQuery([c.name, c.phone, c.code], customerQuery))
-            .slice(0, 20);
+        return rankContacts(customers, customerQuery, 20);
     }, [customers, customerQuery]);
 
     if (!open) return null;

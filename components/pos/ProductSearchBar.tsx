@@ -5,7 +5,7 @@ import { useStore } from '@/lib/store';
 import { Product } from '@/lib/types';
 import { useClickOutside } from '@/lib/useClickOutside';
 import { allowsDecimalQty, formatQty, parseQtyInput, roundQty, snapQty } from '@/lib/quantity';
-import { rankProducts } from '@/lib/product-search';
+import { buildProductIndex, rankProductIndex } from '@/lib/product-search';
 import { fold } from '@/lib/search';
 import { notify } from '@/components/common/Toast';
 import { Search, PackagePlus, ScanLine, Keyboard } from 'lucide-react';
@@ -224,14 +224,15 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
 
   // Lọc thô + xếp tầng liên quan (lib/product-search, có unit test):
   // trúng MỌI từ gõ, mã/tên/đầu từ lên trước, không dấu chỉ là fallback.
-  // Xếp hạng TRƯỚC rồi mới cắt top 8, và đếm cả phần dư để báo "còn N kết quả khác".
+  // Index (bỏ dấu + tách từ) build 1 lần khi danh mục đổi — trước đây mỗi phím gõ
+  // phải bỏ dấu lại toàn bộ ~5.000 món. Xếp hạng TRƯỚC rồi mới cắt top 30, và đếm
+  // cả phần dư để báo "còn N kết quả khác".
+  const activeProducts = React.useMemo(() => products.filter((p) => p.is_active !== false), [products]);
+  const productIndex = React.useMemo(() => buildProductIndex(activeProducts), [activeProducts]);
   const rankedProducts = React.useMemo(() => {
     if (!searchQuery.trim()) return [];
-    return rankProducts(
-      products.filter((p) => p.is_active !== false),
-      searchQuery
-    );
-  }, [products, searchQuery]);
+    return rankProductIndex(productIndex, searchQuery);
+  }, [productIndex, searchQuery]);
   // Cắt hiển thị 30 dòng (trước là 8): 8 quá ít, món đúng dễ rơi khỏi khung dù
   // thuật toán đã xếp đúng hạng. Danh sách cuộn trong khung, chân khung vẫn thấy.
   const filteredProducts = React.useMemo(() => rankedProducts.slice(0, 30), [rankedProducts]);

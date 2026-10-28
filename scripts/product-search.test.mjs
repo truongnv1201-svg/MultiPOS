@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { foldAccents, rankProducts } from '../lib/product-search.ts';
+import { buildProductIndex, foldAccents, rankProductIndex, rankProducts } from '../lib/product-search.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
@@ -63,9 +63,36 @@ describe('rankProducts', () => {
     assert.deepEqual(rankProducts(items, '   '), []);
   });
 
-  it('đồng điểm giữ thứ tự danh mục cũ (ổn định)', () => {
+  it('đồng điểm xếp theo SKU TĂNG DẦN, không phụ thuộc thứ tự mảng', () => {
     const list = [P('A 34 X', 'SP000001'), P('B 34 Y', 'SP000002')];
+    // Cùng tầng 60 (đầu từ) -> giữ đúng thứ tự server trả (sku tăng dần).
     assert.deepEqual(names(rankProducts(list, '34')), ['A 34 X', 'B 34 Y']);
+    // Đảo mảng đầu vào vẫn ra đúng thứ tự đó (offline Dexie trả theo id trước đây
+    // cho kết quả khác ở các dòng đồng điểm).
+    assert.deepEqual(names(rankProducts([...list].reverse(), '34')), ['A 34 X', 'B 34 Y']);
+  });
+
+  it('SKU đồng điểm so theo số tự nhiên (SP9 trước SP10)', () => {
+    const list = [P('B 34 Y', 'SP10'), P('A 34 X', 'SP9')];
+    assert.deepEqual(names(rankProducts(list, '34')), ['A 34 X', 'B 34 Y']);
+  });
+
+  it('buildProductIndex + rankProductIndex cho cùng kết quả rankProducts', () => {
+    const index = buildProductIndex(items);
+    assert.deepEqual(names(rankProductIndex(index, '34 c2')), names(rankProducts(items, '34 c2')));
+    assert.deepEqual(names(rankProductIndex(index, 'mặt 2')), names(rankProducts(items, 'mặt 2')));
+    // Index dựng lại nhiều lần không đổi kết quả (dữ liệu đã bỏ dấu sẵn).
+    assert.deepEqual(names(rankProductIndex(buildProductIndex(items), '34')), names(rankProducts(items, '34')));
+  });
+
+  it('POS cắm index + xếp hạng + cắt 30 dòng (wiring)', () => {
+    const src = read('components/pos/ProductSearchBar.tsx');
+    assert.match(src, /buildProductIndex\(/);
+    assert.match(src, /rankProductIndex\(/);
+    assert.match(src, /from '@\/lib\/product-search'/);
+    assert.match(src, /\.slice\(0, 30\)/);
+    // Index build 1 lần theo danh mục, không build lại mỗi phím gõ.
+    assert.match(src, /buildProductIndex\(activeProducts\)/);
   });
 
   // Ca thật 10/2026: gõ "mặt S 2" không ra "MẶT S 2 Ổ 1 LỖ".
@@ -110,12 +137,5 @@ describe('rankProducts', () => {
       // "s" từng khớp mọi SKU vì đều bắt đầu bằng "SP" -> kết quả loãng.
       assert.deepEqual(rankProducts([P('KEO 502', 'SP005014')], 'mặt s 2'), []);
     });
-  });
-
-  it('POS cắm rankProducts + cắt 30 dòng (wiring)', () => {
-    const src = read('components/pos/ProductSearchBar.tsx');
-    assert.match(src, /rankProducts\(/);
-    assert.match(src, /from '@\/lib\/product-search'/);
-    assert.match(src, /\.slice\(0, 30\)/);
   });
 });

@@ -10,7 +10,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fold, tokenize, matchesQuery } from '../lib/search.ts';
+import { fold, tokenize, matchesQuery, rankContacts } from '../lib/search.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
@@ -66,6 +66,48 @@ describe('tokenize + matchesQuery', () => {
   });
 });
 
+const C = (name, phone, code) => ({ name, phone, code });
+
+describe('rankContacts: xếp hạng khách/NCC cho ô chọn ở POS', () => {
+  const list = [
+    C('Nguyễn Văn An', '0901234567', 'KH0001'),
+    C('Trần Bình', '0912345678', 'KH0002'),
+    C('Công ty Nhôm Kính An Phát', '0283456789', 'KH0003'),
+  ];
+
+  it('SĐT/mã khớp tuyệt đối lên đầu, gõ liền vẫn khớp khi lưu có khoảng trắng', () => {
+    assert.equal(rankContacts(list, 'KH0002')[0].name, 'Trần Bình');
+    assert.equal(rankContacts(list, '0901234567')[0].name, 'Nguyễn Văn An');
+    const spaced = [C('A', '0901 234 567', 'KH0001'), C('B', '0909999999', 'KH0002')];
+    assert.equal(rankContacts(spaced, '0901234567')[0].name, 'A');
+  });
+
+  it('gõ không dấu vẫn ra, AND giữa các từ', () => {
+    assert.equal(rankContacts(list, 'nguyen an')[0].name, 'Nguyễn Văn An');
+    assert.equal(rankContacts(list, 'an 0283')[0].name, 'Công ty Nhôm Kính An Phát');
+    assert.deepEqual(rankContacts(list, 'nguyen 0912'), []);
+  });
+
+  it('query rỗng trả limit dòng đầu (không render cả danh sách)', () => {
+    assert.equal(rankContacts(list, '').length, 3);
+    assert.equal(rankContacts(list, '   ', 2).length, 2);
+  });
+
+  it('cắt top N sau khi xếp hạng', () => {
+    assert.equal(rankContacts(list, 'a', 1).length, 1);
+  });
+
+  it('đồng điểm xếp theo tên A→Z, không phụ thuộc thứ tự mảng', () => {
+    const same = [C('Bình', '090', 'KH2'), C('An', '090', 'KH1')];
+    assert.deepEqual(rankContacts(same, '090').map((c) => c.name), ['An', 'Bình']);
+    assert.deepEqual(rankContacts([...same].reverse(), '090').map((c) => c.name), ['An', 'Bình']);
+  });
+
+  it('từ 1 ký tự không so SĐT/mã (tránh khớp mọi dòng)', () => {
+    assert.deepEqual(rankContacts(list, '0'), []);
+  });
+});
+
 describe('wiring UI: mọi ô tìm dùng helper dùng chung, cấm includes() thô', () => {
   const FILES = [
     'components/pos/ProductSearchBar.tsx',
@@ -103,19 +145,31 @@ describe('wiring UI: mọi ô tìm dùng helper dùng chung, cấm includes() th
     }
   });
 
-  it('foldAccents của POS bỏ dấu + đ/Đ (khớp fold của helper chung)', () => {
+  it('foldAccents của POS dùng chung fold() của lib/search (một công thức bỏ dấu)', () => {
     const ps = read('lib/product-search.ts');
-    assert.match(ps, /replace\(\/đ\/g, 'd'\)/);
-    // Cùng công thức với lib/search.ts — có test chéo ở scripts/product-search.test.mjs.
+    // Import đuôi .ts để Node test chạy trực tiếp (tsconfig bật allowImportingTsExtensions).
+    assert.match(ps, /import \{ fold \} from '\.\/search\.ts'/);
+    assert.match(ps, /export const foldAccents = fold/);
     assert.match(read('lib/search.ts'), /replace\(\/đ\/g, 'd'\)/);
+  });
+
+  it('ô khách POS / sheet mobile dùng rankContacts và cắt top 20', () => {
+    assert.match(read('components/pos/POSScreen.tsx'), /rankContacts\(customerOptions, customerSearch, 20\)/);
+    assert.match(read('components/pos/MobilePaymentSheet.tsx'), /rankContacts\(customers, customerQuery, 20\)/);
+  });
+
+  it('SearchableSelect cắt 100 lựa chọn ngay trong filtered (phím không đi quá dòng đang thấy)', () => {
+    const src = read('components/common/SearchableSelect.tsx');
+    assert.match(src, /MAX_VISIBLE_OPTIONS/);
+    assert.ok(!/filtered\.slice\(0, 100\)/.test(src), 'phải cắt trong filtered, không cắt lúc render');
   });
 });
 
 describe('wiring POS: xếp hạng + báo còn kết quả + quét mã bỏ dấu', () => {
   const pos = read('components/pos/ProductSearchBar.tsx');
 
-  it('xếp hạng TRƯỚC khi cắt top 8, và đếm phần dư', () => {
-    assert.match(pos, /rankProducts\(/);
+  it('xếp hạng TRƯỚC khi cắt top 30, và đếm phần dư', () => {
+    assert.match(pos, /rankProductIndex\(/);
     assert.match(pos, /\.slice\(0, 30\)/);
     assert.match(pos, /moreCount/);
     assert.match(pos, /kết quả khác/);
