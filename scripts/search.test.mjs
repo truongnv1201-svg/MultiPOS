@@ -130,9 +130,13 @@ describe('wiring UI: mọi ô tìm dùng helper dùng chung, cấm includes() th
     'components/hrm/tabs/StaffTab.tsx',
   ];
 
-  it('đều import từ @/lib/search', () => {
+  it('đều import từ @/lib/search (hoặc @/lib/product-search — module xếp hạng dùng chung fold)', () => {
     for (const f of FILES) {
-      assert.match(read(f), /from '@\/lib\/search'/, `${f} phải dùng helper tìm kiếm chung`);
+      assert.match(
+        read(f),
+        /from '@\/lib\/(search|product-search)'/,
+        `${f} phải dùng helper tìm kiếm chung`
+      );
     }
   });
 

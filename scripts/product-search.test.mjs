@@ -95,6 +95,37 @@ describe('rankProducts', () => {
     assert.match(src, /buildProductIndex\(activeProducts\)/);
   });
 
+  it('ca thật: "dây 1" đưa DÂY 1*1 TP TRAPHACO lên đầu, không lẫn "dày"/"đẩy"/SKU', () => {
+    const list = [
+      // Nhiễu thật trong danh mục 5.000 món: "đẩy"/"dày" bỏ dấu cũng thành "day", và
+      // số 1 nằm trong SKU — trước đây matchesQuery + sort SKU đẩy nhóm DÂY 1 xuống hạng 433.
+      P('XỊT SÀN CHATO CÓ DÂY', 'SP005061'),
+      P('XE ĐẨY HÀNG TRẮNG', 'SP005012'),
+      P('TÔN LỖ 1M DÀY(46KG)', 'SP004442'),
+      P('THƯỚC NHÔM CÓ DÂY 1,5M', 'SP004706'),
+      P('DÂY BƠM 14 LƯỚI TRẮNG', 'SP001366'),
+      P('DÂY 1*1,5 TP TRAPHACO', 'SP000067'),
+      P('DÂY 1*1 TP TRAPHACO', 'SP000066'),
+    ];
+    const got = names(rankProducts(list, 'dây 1'));
+    assert.equal(got[0], 'DÂY 1*1 TP TRAPHACO');
+    assert.equal(got[1], 'DÂY 1*1,5 TP TRAPHACO');
+    // Chỉ khớp nhờ "đẩy"->"day" + số trong SKU -> phải bị loại (1 ký tự không so mã).
+    assert.ok(!got.includes('XE ĐẨY HÀNG TRẮNG'), 'không được lẫn XE ĐẨY HÀNG TRẮNG');
+    // Đổi thứ tự mảng đầu vào không đổi kết quả.
+    assert.deepEqual(names(rankProducts([...list].reverse(), 'dây 1')), got);
+  });
+
+  it('danh mục Hàng hóa tìm y như POS (wiring)', () => {
+    const src = read('components/products/ProductsView.tsx');
+    assert.match(src, /buildProductIndex\(products\)/);
+    assert.match(src, /rankProductIndex\(productIndex, search\)/);
+    // Khi đang tìm: giữ thứ tự liên quan; bấm header cột thì xếp theo cột.
+    assert.match(src, /relevanceOrderActive/);
+    assert.match(src, /columnSortQuery/);
+    assert.match(src, /from '@\/lib\/product-search'/);
+  });
+
   // Ca thật 10/2026: gõ "mặt S 2" không ra "MẶT S 2 Ổ 1 LỖ".
   // Trước khi sửa: món đó hạng 13/61 (bị 12 món chỉ tình cờ có chữ "mặt" + số "2"
   // đè lên), nên bị top 8 cắt mất.

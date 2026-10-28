@@ -37,7 +37,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { rowSelectClass } from '@/components/ui/RowSelect';
 import { AddProductFormModal, UNIT_FLAT_OPTIONS } from '@/components/products/AddProductFormModal';
 import { MarginHint, MarkupPctInput } from '@/components/products/MarginCalcField';
-import { matchesQuery } from '@/lib/search';
+import { buildProductIndex, rankProductIndex } from '@/lib/product-search';
 import { confirmDialog } from '@/components/common/ConfirmDialog';
 import { SheetShell } from '@/components/common/SheetShell';
 import { notify } from '@/components/common/Toast';
@@ -198,15 +198,38 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
   // đầu — thứ tự xác định nên không còn hiện tượng nháy/đảo dòng khi dữ liệu
   // server về thay dữ liệu local.
   const { sortKey, sortDir, toggleSort } = useSortState('sku', 'desc');
+  // Đang tìm kiếm thì mặc định xếp theo ĐỘ LIÊN QUAN (giống ô tìm ở POS), không xếp
+  // theo cột: gõ "dây 1" trước đây ra 438 dòng xếp SKU giảm dần nên "DÂY 1*1 TP
+  // TRAPHACO" nằm hạng 433/438, còn POS ra đúng ngay dòng đầu. Bấm header cột vẫn
+  // đổi sang xếp theo cột đó (lưu theo từ khóa hiện tại) — đổi từ khóa là quay lại
+  // xếp theo độ liên quan.
+  const [columnSortQuery, setColumnSortQuery] = useState<string | null>(null);
+  const searchActive = search.trim() !== '';
+  const columnSortWhileSearching = searchActive && columnSortQuery === search;
   const handleSort = (key: string) => {
+    if (searchActive) setColumnSortQuery(search);
     toggleSort(key);
     setPage(1);
   };
 
+  // Index bỏ dấu + tách từ build 1 lần khi danh mục đổi; xếp hạng mỗi lần gõ.
+  const productIndex = useMemo(() => buildProductIndex(products), [products]);
+  const rankedSearch = useMemo(
+    () => (searchActive ? rankProductIndex(productIndex, search) : null),
+    [productIndex, search, searchActive]
+  );
+  const rankedIdSet = useMemo(
+    () => (rankedSearch ? new Set(rankedSearch.map((p) => p.id)) : null),
+    [rankedSearch]
+  );
+  // Đang xếp theo độ liên quan (không phải theo cột) -> header không sáng mũi tên nào.
+  const relevanceOrderActive = rankedSearch !== null && !columnSortWhileSearching;
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const matchesSearch = matchesQuery([p.name, p.sku, p.barcode], search);
+      // Tìm kiếm dùng CHUNG thuật toán với POS: cùng bỏ dấu, cùng tầng ưu tiên và
+      // từ 1 ký tự không so với mã — nhờ vậy danh mục và POS ra cùng một kết quả.
+      const matchesSearch = !rankedIdSet || rankedIdSet.has(p.id);
       const matchesType = typeFilter === 'all' || p.product_type === typeFilter;
 
       let matchesStock = true;
@@ -220,7 +243,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
 
       return matchesSearch && matchesType && matchesStock && matchesActive;
     });
-  }, [products, search, typeFilter, stockStatusFilter, activeFilter]);
+  }, [products, rankedIdSet, typeFilter, stockStatusFilter, activeFilter]);
 
   const handleToggleActive = async (p: Product) => {
     const toActive = p.is_active === false;
@@ -240,6 +263,12 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
   };
 
   const sortedProducts = useMemo(() => {
+    // Đang tìm kiếm và chưa bấm header cột -> giữ đúng thứ tự liên quan của POS
+    // (chỉ bỏ những dòng bị lọc loại hàng / mức tồn / trạng thái).
+    if (rankedSearch && !columnSortWhileSearching) {
+      const ids = new Set(filteredProducts.map((p) => p.id));
+      return rankedSearch.filter((p) => ids.has(p.id));
+    }
     if (!sortKey) return filteredProducts;
     const getters: Record<string, (p: Product) => unknown> = {
       sku: (p) => p.sku,
@@ -260,7 +289,7 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
     const get = getters[sortKey];
     if (!get) return filteredProducts;
     return sortRows(filteredProducts, get, sortDir);
-  }, [filteredProducts, sortKey, sortDir]);
+  }, [filteredProducts, sortKey, sortDir, rankedSearch, columnSortWhileSearching]);
 
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -541,6 +570,11 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
       <SummaryStrip>
         <span>
           Tìm thấy <strong className="text-slate-900 font-mono">{filteredProducts.length}</strong> mặt hàng phù hợp
+          {relevanceOrderActive && (
+            <span className="text-slate-500" title="Bấm tiêu đề cột để xếp theo cột đó">
+              {' '}· xếp theo độ liên quan
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-4">
           <span>
@@ -643,15 +677,15 @@ export function ProductsView({ bare = false, addOpen, onAddOpenChange }: { bare?
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                <SortableTh className="py-2.5 px-3" label="Mã SKU" sortKey="sku" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3" label="Tên sản phẩm" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3 text-center" label="Loại hàng" sortKey="product_type" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3 text-center" label="ĐVT" sortKey="unit" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3 text-right" label="Giá bán" sortKey="retail_price" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3 text-right" label="Giá vốn (Bình quân)" sortKey="avg_cost" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3 text-right" label="Nhập gần nhất" sortKey="import_price" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3 text-center" label="Hao hụt phôi" sortKey="waste_factor" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableTh className="py-2.5 px-3 text-right" label="Tồn kho" sortKey="stock_quantity" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3" label="Mã SKU" sortKey="sku" activeKey={relevanceOrderActive ? '' : sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3" label="Tên sản phẩm" sortKey="name" activeKey={relevanceOrderActive ? '' : sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3 text-center" label="Loại hàng" sortKey="product_type" activeKey={relevanceOrderActive ? '' : sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3 text-center" label="ĐVT" sortKey="unit" activeKey={relevanceOrderActive ? '' : sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3 text-right" label="Giá bán" sortKey="retail_price" activeKey={relevanceOrderActive ? '' : sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3 text-right" label="Giá vốn (Bình quân)" sortKey="avg_cost" activeKey={relevanceOrderActive ? '' : sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3 text-right" label="Nhập gần nhất" sortKey="import_price" activeKey={relevanceOrderActive ? '' : sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3 text-center" label="Hao hụt phôi" sortKey="waste_factor" activeKey={relevanceOrderActive ? '' : sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableTh className="py-2.5 px-3 text-right" label="Tồn kho" sortKey="stock_quantity" activeKey={relevanceOrderActive ? '' : sortKey} dir={sortDir} onSort={handleSort} />
                 <th className="py-2.5 px-3 text-center">Thao tác</th>
               </tr>
             </thead>
