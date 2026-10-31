@@ -89,10 +89,15 @@ describe('lineMargin: biên lãi gộp', () => {
 describe('costing: không còn công thức lẻ trong view/store', () => {
   it('POSScreen preview + shift-stock offline dùng previewImportAvg', () => {
     const pos = read('components/pos/POSScreen.tsx');
-    assert.match(pos, /previewImportAvg\(cur\.stock, cur\.avg, line\.qty, line\.price\)/);
+    // 0086: giá nhập dùng để chạy MAC là giá NET sau khi trừ CK dòng + phần CK toàn
+    // phiếu phân bổ theo tỉ lệ (netPrice), không còn line.price thô.
+    assert.match(pos, /previewImportAvg\(cur\.stock, cur\.avg, line\.qty, netPrice\)/);
+    assert.match(pos, /const netPrice = line\.qty > 0\s*\?\s*Math\.round\(\(lineGross - totalLineDiscountAmount\) \/ line\.qty \* 100\) \/ 100\s*:\s*line\.price;/);
     assert.ok(!/oldStock \* oldAvg \+ qty \* price/.test(pos), 'POSScreen còn công thức MAC inline');
     const shift = read('lib/store/tx/shift-stock.tsx');
-    assert.match(shift, /previewImportAvg\(cur\.stock_quantity, cur\.avg_cost, l\.quantity, l\.importPrice\)/);
+    // 0086: cùng lý do — MAC chạy trên giá net sau CK dòng + phần CK phiếu đã phân bổ.
+    assert.match(shift, /previewImportAvg\(cur\.stock_quantity, cur\.avg_cost, l\.quantity, netPrice\)/);
+    assert.match(shift, /const netPrice = l\.quantity > 0\s*\?\s*roundMoney\(\(lineGross - totalLineDiscountAmount\) \/ l\.quantity\)\s*:\s*l\.importPrice;/);
     assert.ok(!/prevStock \* prevCost \+ l\.quantity \* l\.importPrice/.test(shift), 'shift-stock còn công thức MAC inline');
   });
 

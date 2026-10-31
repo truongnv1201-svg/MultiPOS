@@ -149,7 +149,9 @@ describe('sửa đơn giá thì thành tiền + tổng chạy theo', () => {
     // Ô "20.000 đ" lặp đơn vị từng dòng gây nhiễu; tiêu đề đã ghi (đ) như Phí GC (đ).
     // Áp dụng cho cả 3 bảng POS: giỏ bán, phiếu nhập, xuất vật tư công trình.
     const pos = read('components/pos/POSScreen.tsx');
-    for (const h of ['Đơn giá \\(đ\\)<\\/th>', 'Thành tiền \\(đ\\)<\\/th>', 'Đơn giá nhập \\(đ\\)<\\/th>', 'Giá vốn mới \\(đ\\)<\\/th>', 'Giá vốn \\(đ\\)<\\/th>']) {
+    // Bảng nhập kho dùng chung tiêu đề "Đơn giá (đ)" (bản CK dòng đã đổi tên từ
+    // "Đơn giá nhập (đ)"); bảng xuất công trình là "Giá vốn (đ)".
+    for (const h of ['Đơn giá \\(đ\\)<\\/th>', 'Thành tiền \\(đ\\)<\\/th>', 'Giá vốn mới \\(đ\\)<\\/th>', 'Giá vốn \\(đ\\)<\\/th>']) {
       assert.match(pos, new RegExp(h), `thiếu tiêu đề ${h}`);
     }
     assert.match(pos, /\{formatNumber\(item\.subtotal\)\}/);

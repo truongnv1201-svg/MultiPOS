@@ -26,6 +26,7 @@ export function SearchableSelect({
   disabled = false,
   allowCustom = false,
   className = '',
+  inputId,
   onQuickCreate,
   quickCreateLabel = 'Thêm mới',
 }: {
@@ -36,6 +37,8 @@ export function SearchableSelect({
   disabled?: boolean;
   allowCustom?: boolean;
   className?: string;
+  /** id cho <input> bên trong — để phím tắt (F4…) focus được ô mà không cần forward ref. */
+  inputId?: string;
   /** Mở form tạo nhanh với chuỗi đang gõ (chỉ gọi khi không có lựa chọn nào khớp chính xác). */
   onQuickCreate?: (query: string) => void;
   /** Nhãn hiển thị ở dòng tạo nhanh. */
@@ -112,6 +115,7 @@ export function SearchableSelect({
         <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         <input
           ref={inputRef}
+          id={inputId}
           type="text"
           value={display}
           disabled={disabled}

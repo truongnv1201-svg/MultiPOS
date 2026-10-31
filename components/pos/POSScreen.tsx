@@ -40,6 +40,7 @@ import {
   ShoppingBag,
   Percent,
   Truck,
+  Warehouse,
   HardHat,
   CheckCircle2,
   Check,
@@ -51,55 +52,6 @@ const WALK_IN_CUSTOMER_ID = 'walk-in-customer';
 const WALK_IN_CUSTOMER_NAME = 'Khách Lẻ Mua Tại Quầy';
 // Mục trong danh sách gợi ý: khách lẻ (isWalkIn) hoặc khách hàng thật.
 type CustomerOption = Customer & { isWalkIn?: boolean };
-
-/**
- * Ô nhập số có nút đơn vị bên phải — giống bên bán hàng (Khách hàng).
- * Ví dụ: "% Giảm giá đơn: [ 0 ] %", "Phí vận chuyển: [ 0 ] đ"
- */
-function MoneyInputWithUnit({
-  label,
-  value,
-  onChange,
-  unit,
-  min,
-  max,
-  hotkey,
-  className = '',
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  unit: '%' | 'đ';
-  min?: number;
-  max?: number;
-  hotkey?: string;
-  className?: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
-      <span>{label}{hotkey ? ` <kbd className="px-1 rounded bg-slate-100 text-[9px] font-mono text-slate-500">{hotkey}</kbd>` : ''}</span>
-      <NumberInput
-        min={min}
-        max={max}
-        value={value}
-        onChange={onChange}
-        className={`w-20 text-right text-xs font-bold ${className}`}
-        onFocus={(e) => e.currentTarget.select()}
-      />
-      <button
-        type="button"
-        className={`px-2 py-1 text-xs font-bold rounded border transition-colors ${
-          unit === '%'
-            ? 'bg-blue-600 text-white border-blue-600'
-            : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-        }`}
-        onClick={() => {}}
-      >
-        {unit}
-      </button>
-    </div>
-  );
-}
 
 export function POSScreen() {
   const {
@@ -259,12 +211,15 @@ export function POSScreen() {
   const [impLines, setImpLines] = useState<ImportLine[]>([]);
   const [impSupplier, setImpSupplier] = useState<string>('');
   const [impNote, setImpNote] = useState<string>('');
-  const [impPaymentMethod, setImpPaymentMethod] = useState<'cash' | 'transfer' | 'debt'>('cash');
+  // Mặc định GHI NỢ: nhập hàng thực tế trả NCC sau, nên phiếu mới mở là ghi công nợ.
+  const [impPaymentMethod, setImpPaymentMethod] = useState<'cash' | 'transfer' | 'debt'>('debt');
   // Tiền trả NCC (y hệt Tiền khách đưa bên bán): thiếu bao nhiêu tự ghi nợ NCC.
   const [impTendered, setImpTendered] = useState<number>(0);
   // Giảm giá toàn phiếu (tiền và %) — được phân bổ tỉ lệ xuống từng dòng khi tính MAC.
+  // Hai giá trị luôn mirror nhau; ô nhập chỉ hiện một giá trị tùy chế độ (như Giảm giá đơn bên bán).
   const [impOrderDiscount, setImpOrderDiscount] = useState<number>(0);
   const [impOrderDiscountPercent, setImpOrderDiscountPercent] = useState<number>(0);
+  const [impDiscountMode, setImpDiscountMode] = useState<'vnd' | 'percent'>('percent');
   // Phí vận chuyển — cộng vào tổng tiền nhập.
   const [impShippingFee, setImpShippingFee] = useState<number>(0);
 
@@ -540,16 +495,23 @@ export function POSScreen() {
         }
       );
       if (ok) {
+        // Dọn sạch phiếu: mọi số tiền (CK toàn phiếu, phí vận chuyển) phải về 0, nếu không
+        // phiếu kế tiếp sẽ kế thừa chiết khấu/phí của phiếu trước mà người dùng không thấy.
         setImpLines([]);
         setImpSupplier('');
         setImpNote('');
         setImpTendered(0);
+        setImpOrderDiscount(0);
+        setImpOrderDiscountPercent(0);
+        setImpShippingFee(0);
+        // Trả về mặc định ghi nợ để phiếu kế tiếp không dính lựa chọn tiền mặt của phiếu trước.
+        setImpPaymentMethod('debt');
         notify('Nhập kho thành công! Tồn kho, MAC, công nợ và sổ quỹ đã cập nhật.', 'success');
       }
     } finally {
       setIsProcessing(false);
     }
-  }, [impLines, impSupplier, impNote, impPaymentMethod, impTendered, impTotal, impOrderDiscount, impOrderDiscountPercent, impShippingFee, matchedSupplier, importStockBatch]);
+  }, [impLines, impSupplier, impNote, impPaymentMethod, impTendered, impTotal, impOrderDiscount, impShippingFee, matchedSupplier, importStockBatch]);
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -582,6 +544,8 @@ export function POSScreen() {
   const discountInputRef = useRef<HTMLInputElement>(null);
   const tenderedInputRef = useRef<HTMLInputElement>(null);
   const impTenderedInputRef = useRef<HTMLInputElement>(null);
+  const impShippingInputRef = useRef<HTMLInputElement>(null);
+  const impDiscountInputRef = useRef<HTMLInputElement>(null);
 
   // Bấm ra ngoài thì đóng dropdown khách hàng (trước đây kẹt mở, che giỏ hàng)
   const closeCustomerDropdown = useCallback(() => {
@@ -713,6 +677,8 @@ export function POSScreen() {
       if (isOverlayOpen) return;
 
       // Chế độ Nhập hàng / Xuất CT dùng phím riêng, không chạy phím bán hàng để khỏi nhầm giỏ.
+      // F4/F6/F8 mang cùng nghĩa bên bán (chọn đối tượng / phí / chiết khấu) — ô nhập của
+      // phiếu nhập giờ dùng đúng mẫu ô của luồng bán nên thao tác quen tay được luôn.
       if (flow === 'import') {
         if (e.key === 'F3') {
           e.preventDefault();
@@ -720,6 +686,24 @@ export function POSScreen() {
           const product = lastAreaLine && products.find((p) => p.id === lastAreaLine.productId);
           if (lastAreaLine && product) openStockAreaModal(product, lastAreaLine.qty, lastAreaLine);
           else document.getElementById('f1-search-input')?.focus();
+          return;
+        }
+        if (e.key === 'F4') {
+          e.preventDefault();
+          const input = document.getElementById('f4-supplier-input');
+          input?.focus();
+          return;
+        }
+        if (e.key === 'F6') {
+          e.preventDefault();
+          impShippingInputRef.current?.focus();
+          impShippingInputRef.current?.select();
+          return;
+        }
+        if (e.key === 'F8') {
+          e.preventDefault();
+          impDiscountInputRef.current?.focus();
+          impDiscountInputRef.current?.select();
           return;
         }
         if (e.key === 'F9' && !e.ctrlKey && impPaymentMethod !== 'debt') {
@@ -1787,148 +1771,255 @@ export function POSScreen() {
       ) : isImportFlow ? (
         <div className="flex flex-1 min-h-0 flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-2.5">
-            <div className="text-[11px] font-bold text-emerald-800 uppercase flex items-center gap-1.5">
-              <Truck className="w-3.5 h-3.5" />
-              Phiếu nhập kho
-            </div>
-            <div>
-              <label className="text-[11px] font-semibold text-slate-600">Nhà cung cấp *</label>
-              <div className="flex items-center gap-1.5 mt-1">
-                <div className="flex-1">
-                  <SearchableSelect
-                    value={impSupplier}
-                    allowCustom
-                    placeholder="Gõ để tìm NCC hoặc nhập tên mới..."
-                    options={suppliers.map((s) => ({
-                      value: s.name,
-                      label: s.name,
-                      sub: [s.phone, s.address].filter(Boolean).join(' • ') || s.code,
-                    }))}
-                    onChange={(v) => setImpSupplier(v)}
-                    // Dòng "Thêm nhà cung cấp mới" + Enter khi không có kết quả -> mở form
-                    // thêm nhanh, tên điền sẵn từ chuỗi đang gõ (giống ô tìm hàng hóa).
-                    onQuickCreate={(q) => {
-                      setImpSupplier(q);
-                      setSupName(q);
-                      setIsQuickSupplierModalOpen(true);
-                    }}
-                    quickCreateLabel="Tạo nhà cung cấp mới"
-                  />
-                </div>
-                <button
-                  type="button"
-                  id="btn-quick-supplier-modal"
-                  onClick={() => setIsQuickSupplierModalOpen(true)}
-                  className="h-8 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md text-xs font-bold flex items-center justify-center transition-colors shrink-0"
-                  title="Thêm nhanh nhà cung cấp mới (+)"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+          {/* Nhà cung cấp [F4] — cùng khối "Khách hàng" bên bán: nhãn + icon + phím,
+              ô tìm + nút thêm nhanh, một dòng công nợ font-mono phía dưới (không hộp màu). */}
+          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+            <label htmlFor="f4-supplier-input" className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5 mb-1">
+              <Warehouse className="w-3.5 h-3.5 text-blue-600" />
+              Nhà cung cấp *
+              <kbd className="hidden sm:inline-flex px-1 text-[9px] font-mono bg-slate-200 rounded text-slate-600">F4</kbd>
+            </label>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1">
+                <SearchableSelect
+                  inputId="f4-supplier-input"
+                  value={impSupplier}
+                  allowCustom
+                  placeholder="Gõ để tìm NCC hoặc nhập tên mới..."
+                  options={suppliers.map((s) => ({
+                    value: s.name,
+                    label: s.name,
+                    sub: [s.phone, s.address].filter(Boolean).join(' • ') || s.code,
+                  }))}
+                  onChange={(v) => setImpSupplier(v)}
+                  // Dòng "Thêm nhà cung cấp mới" + Enter khi không có kết quả -> mở form
+                  // thêm nhanh, tên điền sẵn từ chuỗi đang gõ (giống ô tìm hàng hóa).
+                  onQuickCreate={(q) => {
+                    setImpSupplier(q);
+                    setSupName(q);
+                    setIsQuickSupplierModalOpen(true);
+                  }}
+                  quickCreateLabel="Tạo nhà cung cấp mới"
+                />
               </div>
-              {matchedSupplier && (
-                <div className="mt-1.5 text-[11px] flex items-center justify-between text-amber-800 bg-amber-50 px-2 py-1 rounded border border-amber-200 font-medium">
-                  <span>Nợ NCC hiện tại:</span>
-                  <span className="font-bold font-mono text-rose-600">{formatVND(matchedSupplier.current_debt || 0)}</span>
-                </div>
-              )}
+              <button
+                type="button"
+                id="btn-quick-supplier-modal"
+                onClick={() => setIsQuickSupplierModalOpen(true)}
+                className="h-8 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md text-xs font-bold flex items-center justify-center transition-colors shrink-0"
+                title="Thêm nhanh nhà cung cấp mới (+)"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
             </div>
+            {matchedSupplier && (
+              <div className="mt-1 flex items-center justify-between text-[11px] px-1 font-mono">
+                <span className="text-slate-500">
+                  Nợ hiện tại: <strong className="text-rose-600">{formatVND(matchedSupplier.current_debt || 0)}</strong>
+                </span>
+                <span className="text-slate-400">Hạn mức: {formatVND(matchedSupplier.credit_limit || 0)}</span>
+              </div>
+            )}
           </div>
+
+          {/* Dòng meta — gộp "số dòng" + "tổng SL" từng chiếm 2 hàng thành 1 hàng phụ,
+              chỉ hiện khi phiếu đã có dòng hàng (phiếu trống khỏi ồn). */}
+          {impLines.length > 0 && (
+            <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-slate-500 px-1">
+              <span className="truncate">
+                {impLines.length} dòng hàng · {formatQty(impLines.reduce((s, l) => s + (l.qty || 0), 0))} SL
+              </span>
+              {impLineDiscountTotal > 0 && <span className="shrink-0 text-rose-600">giảm các dòng -{formatVND(impLineDiscountTotal)}</span>}
+            </div>
+          )}
 
           <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-1.5 text-xs">
             <div className="flex items-center justify-between text-slate-600">
-              <span>Số dòng hàng:</span>
-              <span className="font-mono font-bold text-slate-800">{impLines.length}</span>
+              <span>Tiền hàng:</span>
+              <span className="font-mono font-semibold text-slate-800">{formatVND(impGrossTotal)}</span>
             </div>
-            <div className="flex items-center justify-between text-slate-600">
-              <span>Tổng số lượng:</span>
-              <span className="font-mono font-bold text-slate-800">
-                {formatQty(impLines.reduce((s, l) => s + (l.qty || 0), 0))}
-              </span>
+
+            {/* CK toàn phiếu [F8] — một ô + nút đổi đ/% đúng mẫu "Giảm giá đơn" bên bán.
+                % và tiền luôn mirror nhau nên đổi chế độ không mất số đã gõ. */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-slate-600">
+                <Percent className="w-3.5 h-3.5 text-blue-600" />
+                <span>CK toàn phiếu:</span>
+                <kbd className="hidden sm:inline-flex px-1 text-[9px] font-mono bg-slate-100 rounded text-slate-500">F8</kbd>
+              </div>
+              <div className="flex items-center gap-1 w-36">
+                <input
+                  ref={impDiscountInputRef}
+                  id="f8-imp-discount-input"
+                  type="text"
+                  value={
+                    impDiscountMode === 'percent'
+                      ? impOrderDiscountPercent || ''
+                      : impOrderDiscount
+                        ? new Intl.NumberFormat('vi-VN').format(impOrderDiscount)
+                        : ''
+                  }
+                  onChange={(e) => {
+                    const net = Math.max(0, impGrossTotal - impLineDiscountTotal);
+                    if (impDiscountMode === 'percent') {
+                      const pct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                      setImpOrderDiscountPercent(pct);
+                      setImpOrderDiscount(net > 0 ? Math.round((net * pct) / 100 * 100) / 100 : 0);
+                    } else {
+                      handleMoneyInputChange(e, (num) => {
+                        const amount = Math.min(num, net);
+                        setImpOrderDiscount(amount);
+                        setImpOrderDiscountPercent(net > 0 ? Math.round((amount / net) * 100 * 100) / 100 : 0);
+                      });
+                    }
+                  }}
+                  placeholder="0"
+                  className="w-full h-7 px-2 text-right font-mono text-xs bg-white border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                />
+                <button
+                  type="button"
+                  id="btn-imp-discount-type"
+                  onClick={() => setImpDiscountMode((prev) => (prev === 'vnd' ? 'percent' : 'vnd'))}
+                  className="h-7 w-8 shrink-0 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-[10px] font-bold text-slate-700 flex items-center justify-center"
+                >
+                  {impDiscountMode === 'vnd' ? 'đ' : '%'}
+                </button>
+              </div>
             </div>
-            {/* Divider */}
-            <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
-              <span className="text-slate-600">Tiền hàng (gross):</span>
-              <span className="font-mono text-slate-500">{formatVND(impGrossTotal)}</span>
+
+            {/* Phí vận chuyển [F6] — cùng hàng mẫu; chỉ có đơn vị đ nên chốt "đ" là nhãn tĩnh */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-slate-600">
+                <Truck className="w-3.5 h-3.5 text-blue-600" />
+                <span>Phí vận chuyển:</span>
+                <kbd className="hidden sm:inline-flex px-1 text-[9px] font-mono bg-slate-100 rounded text-slate-500">F6</kbd>
+              </div>
+              <div className="flex items-center gap-1 w-36">
+                <input
+                  ref={impShippingInputRef}
+                  id="f6-imp-shipping-input"
+                  type="text"
+                  value={impShippingFee ? new Intl.NumberFormat('vi-VN').format(impShippingFee) : ''}
+                  onChange={(e) => handleMoneyInputChange(e, setImpShippingFee)}
+                  placeholder="0"
+                  className="w-full h-7 px-2 text-right font-mono text-xs bg-white border border-slate-300 rounded focus:border-blue-500 focus:outline-hidden"
+                />
+                <span className="h-7 w-8 shrink-0 bg-slate-100 border border-slate-300 rounded text-[10px] font-bold text-slate-700 flex items-center justify-center">
+                  đ
+                </span>
+              </div>
             </div>
-            {impLineDiscountTotal > 0 && (
+
+            {(impOrderDiscount > 0 || impOrderDiscountPercent > 0) && (
               <div className="flex items-center justify-between text-[11px] text-rose-600">
-                <span>Giảm các dòng:</span>
-                <span className="font-mono font-bold">-{formatVND(impLineDiscountTotal)}</span>
+                <span>Chiết khấu:</span>
+                <span className="font-mono font-bold">
+                  -{formatVND(impOrderDiscount)}
+                  {impOrderDiscountPercent > 0 && ` (${impOrderDiscountPercent}%)`}
+                </span>
               </div>
             )}
-            {impOrderDiscountPercent > 0 || impOrderDiscount > 0 ? (
-              <div className="flex items-center justify-between text-[11px] text-rose-600">
-                <span>CK toàn phiếu:</span>
-                <span className="font-mono font-bold">-{formatVND(impOrderDiscount)}</span>
-                {impOrderDiscountPercent > 0 && <span className="text-rose-600"> ({impOrderDiscountPercent}%)</span>}
-              </div>
-            ) : null}
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
-              <span>% CK toàn phiếu:</span>
-              <MoneyInputWithUnit
-                label=""
-                value={impOrderDiscountPercent}
-                onChange={v => {
-                  setImpOrderDiscountPercent(v);
-                  // Tính ngược từ % sang tiền
-                  const gross = impGrossTotal - impLineDiscountTotal;
-                  const amount = gross > 0 ? Math.round((gross * v) / 100 * 100) / 100 : 0;
-                  setImpOrderDiscount(amount);
-                }}
-                unit="%"
-                min={0}
-                max={100}
-                className="font-bold text-rose-600"
-              />
-            </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
-              <span>CK toàn phiếu (đ):</span>
-              <MoneyInputWithUnit
-                label=""
-                value={impOrderDiscount}
-                onChange={v => {
-                  setImpOrderDiscount(v);
-                  // Tính ngược từ tiền sang %
-                  const gross = impGrossTotal - impLineDiscountTotal;
-                  const pct = gross > 0 ? Math.round((v / gross) * 100 * 100) / 100 : 0;
-                  setImpOrderDiscountPercent(pct);
-                }}
-                unit="đ"
-                min={0}
-                max={impGrossTotal - impLineDiscountTotal}
-                className="font-bold text-rose-600"
-              />
-            </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
-              <span>Phí vận chuyển:</span>
-              <MoneyInputWithUnit
-                label=""
-                value={impShippingFee}
-                onChange={setImpShippingFee}
-                unit="đ"
-                min={0}
-                className="font-bold text-blue-600"
-              />
-            </div>
-            <div className="border-t border-slate-200 pt-1 flex items-center justify-between">
+
+            <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
               <span className="font-bold text-sm text-slate-900">TỔNG TIỀN NHẬP:</span>
-              <span className="font-bold text-base text-blue-700 font-mono">{formatVND(impTotal)}</span>
+              <span id="imp-total-display" className="font-bold text-base text-emerald-700 font-mono">
+                {formatVND(impTotal)}
+              </span>
             </div>
-            <div className="pt-2 flex items-center justify-between text-xs font-semibold">
+          </div>
+
+          {/* Khối thanh toán với NCC — gộp vào MỘT thẻ như bên bán: phương thức → tiền trả →
+              dòng công nợ → ghi chú, thay vì 3 khối trần trên nền xám. */}
+          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs space-y-2 text-xs">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-slate-600">Phương thức thanh toán:</label>
+              <div id="imp-payment-methods" className="grid grid-cols-3 gap-1">
+                <button
+                  type="button"
+                  id="imp-payment-cash"
+                  onClick={() => setImpPaymentMethod('cash')}
+                  className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
+                    impPaymentMethod === 'cash'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <Banknote className="w-3.5 h-3.5" />
+                  <span>Tiền mặt</span>
+                </button>
+                <button
+                  type="button"
+                  id="imp-payment-transfer"
+                  onClick={() => setImpPaymentMethod('transfer')}
+                  className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
+                    impPaymentMethod === 'transfer'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Chuyển khoản</span>
+                </button>
+                <button
+                  type="button"
+                  id="imp-payment-debt"
+                  onClick={() => setImpPaymentMethod('debt')}
+                  className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
+                    impPaymentMethod === 'debt'
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Ghi nợ</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tendered Amount — y hệt Tiền khách đưa bên bán: thiếu tự ghi nợ */}
+            {impPaymentMethod !== 'debt' && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                  <span>Tiền trả NCC:</span>
+                  <kbd className="px-1 rounded bg-slate-100 text-[9px] font-mono text-slate-500">F9</kbd>
+                </div>
+                <input
+                  id="imp-tendered-input"
+                  ref={impTenderedInputRef}
+                  type="text"
+                  value={
+                    impTendered
+                      ? new Intl.NumberFormat('vi-VN').format(impTendered)
+                      : ''
+                  }
+                  onChange={(e) => {
+                    handleMoneyInputChange(e, (num) => setImpTendered(num));
+                  }}
+                  onKeyDown={(e) => {
+                    // Nhấn "=" tự điền đủ tiền cả phiếu (thay nút Đủ tiền)
+                    if (e.key === '=') {
+                      e.preventDefault();
+                      setImpTendered(impTotal);
+                    }
+                  }}
+                  placeholder="0"
+                  title="Nhập số tiền trả NCC — nhấn = để điền đủ cả phiếu"
+                  className="w-full h-9 px-3 text-right font-mono font-bold text-base text-blue-700 bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+                />
+              </div>
+            )}
+
+            {/* Dòng công nợ ngay dưới ô tiền như "Tiền thừa/Còn thiếu" bên bán */}
+            <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-xs font-semibold">
               {impPaymentMethod === 'debt' ? (
                 <>
                   <span className="text-rose-600">Ghi nợ NCC:</span>
-                  <span className="font-mono text-rose-600 text-sm font-bold">
-                    {formatVND(impTotal)}
-                  </span>
+                  <span className="font-mono text-rose-600 text-sm font-bold">{formatVND(impTotal)}</span>
                 </>
               ) : Math.max(0, Math.min(impTotal, impTendered || impTotal)) >= impTotal || impTotal <= 0 ? (
                 <>
                   <span className="text-emerald-700">Đã trả đủ:</span>
-                  <span className="font-mono text-emerald-700 text-sm font-bold">
-                    {formatVND(impTotal)}
-                  </span>
+                  <span className="font-mono text-emerald-700 text-sm font-bold">{formatVND(impTotal)}</span>
                 </>
               ) : (
                 <>
@@ -1939,93 +2030,18 @@ export function POSScreen() {
                 </>
               )}
             </div>
-          </div>
 
-          {/* Phương thức thanh toán cho NCC — cùng UI với luồng bán để thao tác quen tay */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold text-slate-600">Phương thức thanh toán:</label>
-            <div className="grid grid-cols-3 gap-1">
-              <button
-                type="button"
-                onClick={() => setImpPaymentMethod('cash')}
-                className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
-                  impPaymentMethod === 'cash'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <Banknote className="w-3.5 h-3.5" />
-                <span>Tiền mặt</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setImpPaymentMethod('transfer')}
-                className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
-                  impPaymentMethod === 'transfer'
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <QrCode className="w-3.5 h-3.5" />
-                <span>Chuyển khoản</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setImpPaymentMethod('debt')}
-                className={`py-1.5 px-1 rounded-md text-[11px] font-semibold flex flex-col items-center gap-1 border transition-all ${
-                  impPaymentMethod === 'debt'
-                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Ghi nợ</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Tendered Amount — y hệt Tiền khách đưa bên bán: thiếu tự ghi nợ */}
-          {impPaymentMethod !== 'debt' && (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                <span>Tiền trả NCC:</span>
-                <kbd className="px-1 rounded bg-slate-100 text-[9px] font-mono text-slate-500">F9</kbd>
-              </div>
-              <input
-                id="imp-tendered-input"
-                ref={impTenderedInputRef}
-                type="text"
-                value={
-                  impTendered
-                    ? new Intl.NumberFormat('vi-VN').format(impTendered)
-                    : ''
-                }
-                onChange={(e) => {
-                  handleMoneyInputChange(e, (num) => setImpTendered(num));
-                }}
-                onKeyDown={(e) => {
-                  // Nhấn "=" tự điền đủ tiền cả phiếu (thay nút Đủ tiền)
-                  if (e.key === '=') {
-                    e.preventDefault();
-                    setImpTendered(impTotal);
-                  }
-                }}
-                placeholder="0"
-                title="Nhập số tiền trả NCC — nhấn = để điền đủ cả phiếu"
-                className="w-full h-9 px-3 text-right font-mono font-bold text-base text-blue-700 bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
+            {/* Note Input */}
+            <div>
+              <textarea
+                id="imp-note-input"
+                value={impNote}
+                onChange={(e) => setImpNote(e.target.value)}
+                placeholder="Ghi chú phiếu nhập (số hóa đơn đỏ, xe giao)..."
+                rows={2}
+                className="w-full p-2 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
               />
             </div>
-          )}
-
-          {/* Note Input */}
-          <div>
-            <textarea
-              value={impNote}
-              onChange={(e) => setImpNote(e.target.value)}
-              placeholder="Số hóa đơn đỏ, xe giao..."
-              rows={2}
-              className="w-full p-2 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
-            />
           </div>
         </div>
         <div className="shrink-0 pt-3 border-t border-slate-200 space-y-2">

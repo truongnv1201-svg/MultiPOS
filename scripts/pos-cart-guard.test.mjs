@@ -93,7 +93,9 @@ describe('POS: hàng diện tích mở F3 trong luồng nhập/xuất kho', () =
     assert.match(pos, /createBlankAreaItem\(product, areaQuantity, unitPrice\)/);
     assert.match(pos, /dimensionDetails\?: DimensionDetail\[\]/);
     assert.match(pos, /item\.dimension_details = existingLine\.dimensionDetails/);
-    assert.match(pos, /onSave: \(areaItem\) => \{[\s\S]{0,240}dimensionDetails: areaItem\.dimension_details[\s\S]{0,500}current\.key === existingLine\.key \? \{ \.\.\.current, \.\.\.line \}/);
+    // Cửa sổ nới lên 600: khối `line` nay có thêm discount_amount/percent (CK dòng nhập)
+    // trước dimensionDetails, nên 240 ký tự cũ không còn đủ.
+    assert.match(pos, /onSave: \(areaItem\) => \{[\s\S]{0,600}dimensionDetails: areaItem\.dimension_details[\s\S]{0,400}current\.key === existingLine\.key \? \{ \.\.\.current, \.\.\.line \}/);
     assert.match(pos, /openStockAreaModal\(prod, line\.qty, line\)/);
     assert.match(pos, /if \(e\.key === 'F3'\)[\s\S]{0,450}lastAreaLine[\s\S]{0,220}openStockAreaModal\(product, lastAreaLine\.qty, lastAreaLine\)/);
     assert.match(dimension, /onSave\(\{[\s\S]{0,240}material_consumed: waste/);
@@ -470,5 +472,81 @@ describe('CK theo dong POS: thu ngan nhap % truc tiep tren gio', () => {
     assert.match(input, /editCellClass\(/);
     assert.match(input, /allowDecimals/);
     assert.match(input, /Math\.min\(100, Math\.round\(value \* 10\) \/ 10\)/);
+  });
+});
+
+describe('panel nhập kho: đồng bộ style với luồng bán (1 ô CK + toggle, phím F4/F6/F8)', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+  const panel = pos.slice(pos.indexOf(') : isImportFlow ? ('), pos.indexOf(') : (\n        <>\n        {activeCart.items.length === 0'));
+
+  it('bỏ ô tự chế MoneyInputWithUnit (nút %/đ bấm không có tác dụng)', () => {
+    assert.doesNotMatch(pos, /MoneyInputWithUnit/);
+    assert.doesNotMatch(panel, /bg-emerald-50/);
+    assert.doesNotMatch(panel, /Phiếu nhập kho\s*<\/div>/);
+  });
+
+  it('ô NCC / CK / phí dùng đúng mẫu khối bên bán', () => {
+    // cùng một mẫu hàng "nhãn trái + ô w-36 phải": 2 hàng bên bán + 2 hàng bên nhập
+    assert.equal((pos.match(/className="flex items-center gap-1 w-36"/g) || []).length, 4);
+    assert.match(panel, /htmlFor="f4-supplier-input"/);
+    assert.match(panel, /inputId="f4-supplier-input"/);
+    assert.match(panel, /id="f8-imp-discount-input"/);
+    assert.match(panel, /id="f6-imp-shipping-input"/);
+    // toggle đ/% thật (không còn nút chết onClick={() => {}})
+    assert.match(panel, /id="btn-imp-discount-type"\s+onClick=\{\(\) => setImpDiscountMode\(\(prev\) => \(prev === 'vnd' \? 'percent' : 'vnd'\)\)\}/);
+    assert.ok(!/onClick=\{\(\) => \{\}\}/.test(panel), 'panel nhập còn nút bấm rỗng');
+  });
+
+  it('một ô CK duy nhất nhưng % và tiền vẫn mirror, công thức tiền giữ nguyên', () => {
+    assert.match(panel, /setImpOrderDiscountPercent\(pct\);\s*setImpOrderDiscount\(net > 0 \? Math\.round\(\(net \* pct\) \/ 100 \* 100\) \/ 100 : 0\);/);
+    assert.match(panel, /setImpOrderDiscount\(amount\);\s*setImpOrderDiscountPercent\(net > 0 \? Math\.round\(\(amount \/ net\) \* 100 \* 100\) \/ 100 : 0\);/);
+    assert.match(pos, /Math\.max\(0, impGrossTotal - impLineDiscountTotal - \(impOrderDiscount \|\| 0\) \+ \(impShippingFee \|\| 0\)\)/);
+    assert.match(pos, /orderDiscountAmount: impOrderDiscount \|\| 0,\s*shippingFee: impShippingFee \|\| 0,/);
+  });
+
+  it('TỔNG TIỀN NHẬP màu emerald như thanh ghim + nút F10 (không còn xanh dương)', () => {
+    assert.match(panel, /id="imp-total-display" className="font-bold text-base text-emerald-700 font-mono"/);
+    assert.doesNotMatch(panel, /TỔNG TIỀN NHẬP:<\/span>[\s\S]{0,80}text-blue-700/);
+  });
+
+  it('phím F4/F6/F8 trong luồng nhập trỏ đúng ô (F2 đã là phím toàn cục)', () => {
+    const branch = pos.slice(pos.indexOf("if (flow === 'import') {"), pos.indexOf("if (flow === 'project') {"));
+    assert.match(branch, /if \(e\.key === 'F4'\)[\s\S]{0,160}document\.getElementById\('f4-supplier-input'\)/);
+    assert.match(branch, /if \(e\.key === 'F6'\)[\s\S]{0,160}impShippingInputRef\.current\?\.focus\(\)/);
+    assert.match(branch, /if \(e\.key === 'F8'\)[\s\S]{0,160}impDiscountInputRef\.current\?\.focus\(\)/);
+    assert.doesNotMatch(branch, /e\.key === 'F2'/);
+    const ss = read('components/common/SearchableSelect.tsx');
+    assert.match(ss, /inputId\?: string;/);
+    assert.match(ss, /<input\s+ref=\{inputRef\}\s+id=\{inputId\}/);
+  });
+});
+
+describe('phiếu nhập: mặc định thanh toán là ghi nợ NCC', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+
+  it("state mặc định là 'debt' và trả về 'debt' sau khi nhập kho xong", () => {
+    assert.match(pos, /const \[impPaymentMethod, setImpPaymentMethod\] = useState<'cash' \| 'transfer' \| 'debt'>\('debt'\)/);
+    const reset = pos.slice(pos.indexOf('if (ok) {'), pos.indexOf("notify('Nhập kho thành công"));
+    assert.match(reset, /setImpPaymentMethod\('debt'\);/);
+  });
+
+  it('phiếu sau không kế thừa tiền của phiếu trước (dòng, NCC, ghi chú, tiền trả, CK, phí)', () => {
+    const reset = pos.slice(pos.indexOf('if (ok) {'), pos.indexOf("notify('Nhập kho thành công"));
+    for (const setter of [
+      'setImpLines([]);',
+      "setImpSupplier('');",
+      "setImpNote('');",
+      'setImpTendered(0);',
+      'setImpOrderDiscount(0);',
+      'setImpOrderDiscountPercent(0);',
+      'setImpShippingFee(0);',
+    ]) {
+      assert.ok(reset.includes(setter), `thiếu ${setter} khi dọn phiếu nhập`);
+    }
+  });
+
+  it('ghi nợ vẫn bắt buộc chọn NCC (không ghi nợ vô chủ)', () => {
+    assert.match(pos, /const effectiveTendered = impPaymentMethod === 'debt' \? 0 : impTendered \|\| impTotal;/);
+    assert.match(pos, /if \(paid < impTotal && !impSupplier\.trim\(\)\) \{/);
   });
 });
