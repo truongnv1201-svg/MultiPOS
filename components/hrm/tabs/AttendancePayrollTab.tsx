@@ -44,6 +44,7 @@ import {
   Keyboard,
   ArrowRight,
   Filter,
+  Printer,
 } from 'lucide-react';
 import { TableTools } from '@/components/common/TableTools';
 import { FilterSelect } from '@/components/ui/FilterControls';
@@ -75,6 +76,7 @@ import {
 } from '@/components/hrm/ui';
 import { AttendanceTab } from './AttendanceTab';
 import { PayrollTab } from './PayrollTab';
+import { EmployeeSlipModal } from '@/components/hrm/EmployeeSlipModal';
 // ---------- Tab Chấm công & Lương (chung 1 tháng) ----------
 export function AttendancePayrollTab({
   employees,
@@ -123,11 +125,17 @@ export function AttendancePayrollTab({
   const [lockBusy, setLockBusy] = useState(false);
   const [fund, setFund] = useState<'cash' | 'bank'>('cash');
   const [advOpen, setAdvOpen] = useState(false);
+  const [slipOpen, setSlipOpen] = useState(false);
   const staleRun = payrollRuns.find((r) => r.month === monthKey);
   const isStale = !!staleRun && staleRun.status === 'draft' && payrollStaleMonths.includes(monthKey);
   const run = staleRun;
   const isDraft = run?.status === 'draft';
   const items = useMemo(() => payrollItems.filter((i) => i.run_id === run?.id), [payrollItems, run]);
+  // Dữ liệu công chỉ tải 2.000 dòng gần nhất — phiếu cảnh báo khi in tháng cũ hơn cửa sổ này.
+  const attendanceWindowStart = useMemo(
+    () => attendanceDays.reduce<string | undefined>((min, d) => (!min || d.work_date < min ? d.work_date : min), undefined),
+    [attendanceDays]
+  );
 
   // ---- Xuất Excel / In bảng lương ----
   const payrollToRow = (it: PayrollItem): Record<string, unknown> => ({
@@ -252,6 +260,17 @@ export function AttendancePayrollTab({
               >
                 <Wallet className="w-4 h-4" /> Tạm ứng
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAdvOpen(false);
+                  setSlipOpen(true);
+                }}
+                className={BTN_GHOST}
+                title="In phiếu công & lương riêng cho 1 nhân viên (A4 dọc)"
+              >
+                <Printer className="w-4 h-4" /> In phiếu cá nhân
+              </button>
               {(!run || isDraft) && (
                 <button
                   disabled={lockBusy}
@@ -307,6 +326,19 @@ export function AttendancePayrollTab({
         />
         </div>
       </section>
+      {slipOpen && (
+        <EmployeeSlipModal
+          month={monthKey}
+          employees={employees}
+          attendanceDays={attendanceDays}
+          run={run}
+          items={items}
+          advances={advances}
+          stale={isStale}
+          attendanceWindowStart={attendanceWindowStart}
+          onClose={() => setSlipOpen(false)}
+        />
+      )}
     </div>
   );
 }
