@@ -39,7 +39,7 @@ export interface TxShiftStock {
   refreshShiftFromServer: () => Promise<boolean>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
   importStockBatch: (
-    lines: { productId: string; quantity: number; importPrice: number; discount_amount?: number }[],
+    lines: { productId: string; quantity: number; importPrice: number; discount_amount?: number; discount_percent?: number }[],
     supplierName?: string,
     note?: string,
     paymentOptions?: {
@@ -47,6 +47,7 @@ export interface TxShiftStock {
       paidAmount?: number;
       supplierId?: string;
       orderDiscountAmount?: number;
+      shippingFee?: number;
     }
   ) => Promise<boolean>;
 }
@@ -591,7 +592,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
   // Dòng trùng 1 mặt hàng được cộng dồn (MAC tính nối tiếp theo thứ tự dòng).
   const importStockBatch = useCallback(
     async (
-      lines: { productId: string; quantity: number; importPrice: number; discount_amount?: number }[],
+      lines: { productId: string; quantity: number; importPrice: number; discount_amount?: number; discount_percent?: number }[],
       supplierName: string = 'Nhà Cung Cấp',
       note: string = 'Nhập kho hàng hóa',
       paymentOptions?: {
@@ -599,6 +600,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         paidAmount?: number;
         supplierId?: string;
         orderDiscountAmount?: number;
+        shippingFee?: number;
       }
     ): Promise<boolean> => {
       // P2: thu ngân/worker không được nhập kho (khi có Supabase).
@@ -613,8 +615,9 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       }
       const clean = lines.filter((l) => {
         const p = products.find((x) => x.id === l.productId);
-        const discount = l.discount_amount || 0;
-        return p && Number.isFinite(l.quantity) && Number.isFinite(l.importPrice) && l.quantity > 0 && l.importPrice > 0 && discount >= 0 && discount <= l.quantity * l.importPrice;
+        const discountAmt = l.discount_amount || 0;
+        const discountPct = l.discount_percent || 0;
+        return p && Number.isFinite(l.quantity) && Number.isFinite(l.importPrice) && l.quantity > 0 && l.importPrice > 0 && discountAmt >= 0 && discountAmt <= l.quantity * l.importPrice && discountPct >= 0 && discountPct <= 100;
       });
       if (clean.length === 0) {
         notify('Phiếu nhập chưa có dòng hàng hợp lệ (chọn hàng, SL và đơn giá > 0)!', 'error');
@@ -686,7 +689,8 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       }
       if (movements.length === 0) return false;
 
-      const totalAmountNet = roundMoney(totalAmount - totalDiscount); // thành tiền thực sau giảm
+      const shippingFee = roundMoney(paymentOptions?.shippingFee || 0);
+      const totalAmountNet = roundMoney(totalAmount - totalDiscount + shippingFee); // thành tiền thực sau giảm + phí vận chuyển
       let paidAmount = 0;
       if (paymentMethod === 'cash' || paymentMethod === 'transfer') {
         paidAmount = roundMoney(totalAmountNet);
@@ -719,6 +723,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
             quantity: l.quantity,
             unit_price: l.importPrice,
             discount_amount: roundMoney(l.discount_amount || 0),
+            discount_percent: roundMoney(l.discount_percent || 0),
             subtotal: roundMoney(l.quantity * l.importPrice),
           };
         }),
@@ -757,7 +762,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         note: note.trim() || undefined,
         lines: clean.map((l) => {
           const p = products.find((x) => x.id === l.productId);
-          return { productId: l.productId, sku: p?.sku || '', quantity: l.quantity, importPrice: l.importPrice, discount_amount: l.discount_amount || 0 };
+          return { productId: l.productId, sku: p?.sku || '', quantity: l.quantity, importPrice: l.importPrice, discount_amount: l.discount_amount || 0, discount_percent: l.discount_percent || 0 };
         }),
       };
       const voucherPayload = expenseEntry

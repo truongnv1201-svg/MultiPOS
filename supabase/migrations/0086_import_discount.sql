@@ -3,14 +3,17 @@
 -- MAC và nợ NCC tính sai khi NCC giảm giá.
 -- Thay đổi:
 -- 1) Tham số p_order_discount: giảm toàn phiếu (tiền).
--- 2) Mỗi phần tử trong p_lines có thêm discount_amount (giảm trực tiếp trên dòng).
--- 3) Tính giá nhập net = (qty × import_price - line_discount - order_discount_alloc) / qty.
+-- 2) Tham số p_shipping_fee: phí vận chuyển (cộng vào tổng tiền nhập).
+-- 3) Mỗi phần tử trong p_lines có thêm discount_amount (giảm trực tiếp trên dòng)
+--    và discount_percent (giảm theo %). Hai giá trị này tính ngược nhau ở client.
+-- 4) Tính giá nhập net = (qty × import_price - line_discount - order_discount_alloc) / qty.
 --    Dùng giá net cho MAC và cập nhật products.import_price.
--- 4) Header purchase_orders: discount_amount = tổng giảm, total_amount = subtotal - discount_amount.
--- 5) Validation: discount_amount mỗi dòng không vượt quá qty × import_price;
+-- 5) Header purchase_orders: discount_amount = tổng giảm, total_amount = subtotal - discount_amount + shipping_fee.
+-- 6) Validation: discount_amount mỗi dòng không vượt quá qty × import_price;
+--    discount_percent từ 0 đến 100;
 --    tổng giảm (dòng + phiếu) không vượt quá tiền hàng gross.
 
-drop function if exists public.sync_stock_import(text, text, uuid, text, jsonb, numeric, numeric, numeric, text, numeric);
+drop function if exists public.sync_stock_import(text, text, uuid, text, jsonb, numeric, numeric, numeric, text, numeric, numeric);
 
 create or replace function public.sync_stock_import(
   p_client_ref text,
@@ -22,7 +25,8 @@ create or replace function public.sync_stock_import(
   p_paid numeric default null,
   p_debt numeric default null,
   p_note text default null,
-  p_order_discount numeric default 0
+  p_order_discount numeric default 0,
+  p_shipping_fee numeric default 0
 ) returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   l jsonb;
@@ -35,6 +39,7 @@ declare
   v_qty numeric;
   v_price numeric;
   v_line_discount numeric;
+  v_line_discount_percent numeric;
   v_order_discount_alloc numeric;
   v_total_line_discount numeric;
   v_net_price numeric;
@@ -46,6 +51,7 @@ declare
   v_actual_paid numeric;
   v_actual_debt numeric;
   v_actual_discount numeric;
+  v_actual_shipping_fee numeric;
   v_status text;
   v_sup_id uuid;
   v_sup_name text;
@@ -67,6 +73,11 @@ begin
   v_order_discount := coalesce(p_order_discount, 0);
   if v_order_discount < 0 then
     raise exception 'Giảm giá toàn phiếu không được âm';
+  end if;
+
+  v_actual_shipping_fee := coalesce(p_shipping_fee, 0);
+  if v_actual_shipping_fee < 0 then
+    raise exception 'Phí vận chuyển không được âm';
   end if;
 
   -- 0073: server đánh số phiếu (như HD). Client mới gửi p_code null/''; server sinh
@@ -102,6 +113,7 @@ begin
     v_qty := nullif(l->>'quantity', '')::numeric;
     v_price := nullif(l->>'import_price', '')::numeric;
     v_line_discount := nullif(l->>'discount_amount', '')::numeric;
+    v_line_discount_percent := nullif(l->>'discount_percent', '')::numeric;
     if v_qty is null or v_price is null or v_qty <= 0 or v_price <= 0
       or v_qty::text in ('NaN', 'Infinity', '-Infinity')
       or v_price::text in ('NaN', 'Infinity', '-Infinity') then
@@ -110,8 +122,14 @@ begin
     if v_line_discount is null then
       v_line_discount := 0;
     end if;
+    if v_line_discount_percent is null then
+      v_line_discount_percent := 0;
+    end if;
     if v_line_discount < 0 or v_line_discount > v_qty * v_price then
       raise exception 'Chiết khấu dòng không hợp lệ: phải từ 0 đến thành tiền dòng';
+    end if;
+    if v_line_discount_percent < 0 or v_line_discount_percent > 100 then
+      raise exception 'Chiết khấu phần trăm không hợp lệ: phải từ 0 đến 100';
     end if;
 
     v_sku := nullif(btrim(l->>'sku'), '');
@@ -151,9 +169,9 @@ begin
     raise exception 'Giảm giá toàn phiếu vượt quá tiền hàng sau khi trừ giảm các dòng';
   end if;
 
-  -- Thành tiền thực sau tất cả giảm (cần có trước khi validate paid)
+  -- Thành tiền thực sau tất cả giảm + phí vận chuyển (cần có trước khi validate paid)
   v_actual_discount := round(v_actual_discount + v_order_discount, 2);
-  v_actual_total_net := round(v_actual_total - v_actual_discount, 2);
+  v_actual_total_net := round(v_actual_total - v_actual_discount + v_actual_shipping_fee, 2);
 
   if p_total is not null and (p_total::text in ('NaN', 'Infinity', '-Infinity') or p_total < 0 or round(p_total, 2) <> v_actual_total) then
     raise exception 'Tổng tiền phiếu không khớp dòng hàng';
@@ -204,7 +222,7 @@ begin
     else 'partial'
   end;
 
-  -- Ghi phiếu: discount_amount = tổng giảm, total_amount = subtotal - discount_amount
+  -- Ghi phiếu: discount_amount = tổng giảm, total_amount = subtotal - discount_amount + shipping_fee
   for attempt in 1..3 loop
     begin
       insert into public.purchase_orders (code, supplier_id, subtotal, discount_amount, total_amount, paid_amount, debt_amount, status, client_ref, note, lines)
@@ -237,6 +255,7 @@ begin
     v_qty := (l->>'quantity')::numeric;
     v_price := (l->>'import_price')::numeric;
     v_line_discount := coalesce(nullif(l->>'discount_amount', '')::numeric, 0);
+    v_line_discount_percent := coalesce(nullif(l->>'discount_percent', '')::numeric, 0);
     v_sku := nullif(btrim(l->>'sku'), '');
     v_product_ref := nullif(btrim(l->>'product_id'), '')::uuid;
     v_pid := null;
@@ -289,11 +308,12 @@ begin
     'total_amount', v_actual_total_net,
     'paid_amount', v_actual_paid,
     'debt_amount', v_actual_debt,
-    'discount_amount', v_actual_discount
+    'discount_amount', v_actual_discount,
+    'shipping_fee', v_actual_shipping_fee
   );
 end; $$;
 
-revoke all on function public.sync_stock_import(text, text, uuid, text, jsonb, numeric, numeric, numeric, text, numeric) from public, anon;
-grant execute on function public.sync_stock_import(text, text, uuid, text, jsonb, numeric, numeric, numeric, text, numeric) to authenticated;
+revoke all on function public.sync_stock_import(text, text, uuid, text, jsonb, numeric, numeric, numeric, text, numeric, numeric) from public, anon;
+grant execute on function public.sync_stock_import(text, text, uuid, text, jsonb, numeric, numeric, numeric, text, numeric, numeric) to authenticated;
 
 NOTIFY pgrst, 'reload schema';

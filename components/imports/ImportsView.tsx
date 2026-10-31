@@ -422,7 +422,11 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
                         <div className="flex justify-between text-[11px] text-slate-500">
                           <span>
                             {it.sku} • SL: {formatQty(it.quantity)} x {formatVND(it.unit_price)}
-                            {it.discount_amount && it.discount_amount > 0 ? ` • Giảm: -${formatVND(it.discount_amount)}` : ''}
+                            {it.discount_amount > 0 || it.discount_percent > 0 ? (
+                              <span className="text-rose-600">
+                                • CK: {it.discount_percent > 0 ? `${it.discount_percent}%` : ''}{it.discount_amount > 0 ? ` ${formatVND(it.discount_amount)}` : ''}
+                              </span>
+                            ) : ''}
                           </span>
                         </div>
                       </div>

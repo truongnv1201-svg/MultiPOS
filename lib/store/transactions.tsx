@@ -132,7 +132,7 @@ export interface TransactionsSlice {
   refreshShiftFromServer: () => Promise<boolean>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
   importStockBatch: (
-    lines: { productId: string; quantity: number; importPrice: number; discount_amount?: number }[],
+    lines: { productId: string; quantity: number; importPrice: number; discount_amount?: number; discount_percent?: number }[],
     supplierName?: string,
     note?: string,
     paymentOptions?: {
@@ -140,6 +140,7 @@ export interface TransactionsSlice {
       paidAmount?: number;
       supplierId?: string;
       orderDiscountAmount?: number;
+      shippingFee?: number;
     }
   ) => Promise<boolean>;
 }

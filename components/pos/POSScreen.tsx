@@ -203,6 +203,7 @@ export function POSScreen() {
     qty: number;
     price: number;           // giá nhập gross (trước khi giảm)
     discount_amount: number; // giảm trực tiếp trên dòng (tiền)
+    discount_percent: number; // giảm trực tiếp trên dòng (%)
     dimensionDetails?: DimensionDetail[];
     wasteFactor?: number;
   }
@@ -214,6 +215,8 @@ export function POSScreen() {
   const [impTendered, setImpTendered] = useState<number>(0);
   // Giảm giá toàn phiếu (tiền) — được phân bổ tỉ lệ xuống từng dòng khi tính MAC.
   const [impOrderDiscount, setImpOrderDiscount] = useState<number>(0);
+  // Phí vận chuyển — cộng vào tổng tiền nhập.
+  const [impShippingFee, setImpShippingFee] = useState<number>(0);
 
   // ---- Luồng XUẤT VẬT TƯ CÔNG TRÌNH (thay modal cũ trong trang Dự án) ----
   // Dùng bảng dòng hàng giống luồng nhập kho nhưng TÁCH state riêng: giá là giá vốn
@@ -274,7 +277,7 @@ export function POSScreen() {
       setImpLines((prev) => {
         const found = prev.find((l) => l.productId === product.id);
         if (found) return prev.map((l) => (l.productId === product.id ? { ...l, qty: l.qty + q } : l));
-        return [...prev, { key: `imp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, productId: product.id, qty: q, price: product.import_price, discount_amount: 0 }];
+        return [...prev, { key: `imp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, productId: product.id, qty: q, price: product.import_price, discount_amount: 0, discount_percent: 0 }];
       });
     },
     []
@@ -288,10 +291,35 @@ export function POSScreen() {
     () => impLines.reduce((s, l) => s + (l.discount_amount || 0), 0),
     [impLines]
   );
-  // Thành tiền thực = tiền hàng gross − giảm các dòng − giảm toàn phiếu
+  // Thành tiền thực = tiền hàng gross − giảm các dòng − giảm toàn phiếu + phí vận chuyển
   const impTotal = React.useMemo(
-    () => Math.max(0, impGrossTotal - impLineDiscountTotal - (impOrderDiscount || 0)),
-    [impGrossTotal, impLineDiscountTotal, impOrderDiscount]
+    () => Math.max(0, impGrossTotal - impLineDiscountTotal - (impOrderDiscount || 0) + (impShippingFee || 0)),
+    [impGrossTotal, impLineDiscountTotal, impOrderDiscount, impShippingFee]
+  );
+
+  // Tính ngược giữa CK (%) và CK (đ) trên mỗi dòng nhập.
+  // Người dùng nhập vào một trong hai cột, cột kia tự tính theo.
+  const handleLineDiscountChange = useCallback(
+    (line: ImportLine, field: 'percent' | 'amount', value: number) => {
+      const price = line.price || 0;
+      const qty = line.qty || 0;
+      const gross = price * qty;
+      let newDiscountAmount = line.discount_amount || 0;
+      let newDiscountPercent = line.discount_percent || 0;
+      if (field === 'percent') {
+        newDiscountPercent = value;
+        newDiscountAmount = gross > 0 ? Math.round((gross * value) / 100 * 100) / 100 : 0;
+      } else {
+        newDiscountAmount = value;
+        newDiscountPercent = gross > 0 ? Math.round((value / gross) * 100 * 100) / 100 : 0;
+      }
+      setImpLines((prev) =>
+        prev.map((l) =>
+          l.key === line.key ? { ...l, discount_amount: newDiscountAmount, discount_percent: newDiscountPercent } : l
+        )
+      );
+    },
+    []
   );
 
   // Thêm dòng vào phiếu xuất công trình — giá lấy GIÁ VỐN (avg_cost) vì đó là giá ghi
@@ -313,6 +341,7 @@ export function POSScreen() {
           qty: q,
           price: product.avg_cost || 0,
           discount_amount: 0,
+          discount_percent: 0,
         },
       ];
     });
@@ -338,6 +367,7 @@ export function POSScreen() {
             qty: isImport ? areaItem.quantity : areaItem.material_consumed ?? areaItem.quantity,
             price: unitPrice,
             discount_amount: existingLine?.discount_amount ?? 0,
+            discount_percent: existingLine?.discount_percent ?? 0,
             dimensionDetails: areaItem.dimension_details,
             wasteFactor: areaItem.waste_factor,
           };
@@ -447,6 +477,7 @@ export function POSScreen() {
           quantity: l.qty,
           importPrice: l.price,
           discount_amount: l.discount_amount || 0,
+          discount_percent: l.discount_percent || 0,
         })),
         impSupplier.trim() || 'Nhà Cung Cấp',
         impNote.trim() || 'Nhập kho hàng hóa',
@@ -455,6 +486,7 @@ export function POSScreen() {
           paidAmount: paid,
           supplierId: matchedSupplier?.id,
           orderDiscountAmount: impOrderDiscount || 0,
+          shippingFee: impShippingFee || 0,
         }
       );
       if (ok) {
@@ -467,7 +499,7 @@ export function POSScreen() {
     } finally {
       setIsProcessing(false);
     }
-  }, [impLines, impSupplier, impNote, impPaymentMethod, impTendered, impTotal, impOrderDiscount, matchedSupplier, importStockBatch]);
+  }, [impLines, impSupplier, impNote, impPaymentMethod, impTendered, impTotal, impOrderDiscount, impShippingFee, matchedSupplier, importStockBatch]);
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1136,7 +1168,12 @@ export function POSScreen() {
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-800 truncate">{prod.name}</p>
                         <p className="text-[10px] text-slate-500 font-mono">
-                          {line.qty} {prod?.unit} × {formatVND(line.price)}{line.discount_amount > 0 ? ` • Giảm: ${formatVND(line.discount_amount)}` : ''}
+                          {line.qty} {prod?.unit} × {formatVND(line.price)}
+                          {line.discount_amount > 0 || line.discount_percent > 0 ? (
+                            <span className="text-rose-600">
+                              • CK: {line.discount_percent > 0 ? `${line.discount_percent}%` : ''}{line.discount_amount > 0 ? ` ${formatVND(line.discount_amount)}` : ''}
+                            </span>
+                          ) : ''}
                         </p>
                         {prod.product_type === 'area' && (
                           <span className="mt-1 inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
@@ -1175,7 +1212,8 @@ export function POSScreen() {
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Sản phẩm</th>
                     <th className="py-2.5 px-2.5 w-32 text-right">Đơn giá nhập (đ)</th>
-                    <th className="py-2.5 px-2.5 w-24 text-right">Giảm (đ)</th>
+                    <th className="py-2.5 px-2.5 w-24 text-right" title="Chiết khấu theo phần trăm (%)">CK (%)</th>
+                    <th className="py-2.5 px-2.5 w-24 text-right" title="Chiết khấu theo tiền (đ)">CK (đ)</th>
                     <th className="py-2.5 px-2.5 w-16 text-center">ĐVT</th>
                     <th className="py-2.5 px-2.5 w-24 text-center">SL nhập</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
@@ -1221,15 +1259,28 @@ export function POSScreen() {
                             value={line.price}
                             onChange={(v) => setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, price: v } : l)))}
                             className={editCellClass('w-full', 'text-right')}
+                            onFocus={(e) => e.currentTarget.select()}
+                          />
+                        </td>
+                        <td className="py-2.5 px-2.5">
+                          <NumberInput
+                            min={0}
+                            step={0.01}
+                            value={line.discount_percent}
+                            onChange={(v) => handleLineDiscountChange(line, 'percent', v)}
+                            className={editCellClass('w-full', 'text-right')}
+                            max={100}
+                            onFocus={(e) => e.currentTarget.select()}
                           />
                         </td>
                         <td className="py-2.5 px-2.5">
                           <NumberInput
                             min={0}
                             value={line.discount_amount}
-                            onChange={(v) => setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, discount_amount: v } : l)))}
+                            onChange={(v) => handleLineDiscountChange(line, 'amount', v)}
                             className={editCellClass('w-full', 'text-right')}
                             max={line.qty * line.price}
+                            onFocus={(e) => e.currentTarget.select()}
                           />
                         </td>
                         <td className="py-2.5 px-2.5 text-center text-slate-600 font-mono text-[11px]">{prod.unit || '-'}</td>
@@ -1757,13 +1808,24 @@ export function POSScreen() {
               </div>
             )}
             <div className="flex items-center justify-between text-[11px] text-slate-600">
-              <span>Giảm toàn phiếu (đ):</span>
+              <span>CK toàn phiếu (đ):</span>
               <NumberInput
                 min={0}
                 value={impOrderDiscount}
                 onChange={(v) => setImpOrderDiscount(v)}
                 max={impGrossTotal - impLineDiscountTotal}
-                className="w-24 text-right text-xs"
+                className="w-24 text-right text-xs font-bold text-rose-600"
+                onFocus={(e) => e.currentTarget.select()}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-600">
+              <span>Phí vận chuyển:</span>
+              <NumberInput
+                min={0}
+                value={impShippingFee}
+                onChange={(v) => setImpShippingFee(v)}
+                className="w-24 text-right text-xs font-bold text-blue-600"
+                onFocus={(e) => e.currentTarget.select()}
               />
             </div>
             <div className="border-t border-slate-200 pt-1 flex items-center justify-between">
