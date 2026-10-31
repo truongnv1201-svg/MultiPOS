@@ -1,6 +1,7 @@
 import type {Metadata, Viewport} from 'next';
 import './globals.css'; // Global styles
 import {PwaRegister} from '@/components/PwaRegister';
+import {NoBrowserAutofill} from '@/components/common/NoBrowserAutofill';
 
 export const metadata: Metadata = {
   title: 'MultiPOS - Quản trị Bán hàng & Thi công Đa ngành',
@@ -39,6 +40,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
     <html lang="vi">
       <body suppressHydrationWarning>
         <PwaRegister />
+        <NoBrowserAutofill />
         {children}
       </body>
     </html>

@@ -577,3 +577,50 @@ describe('panel khách hàng bên bán: đưa cả cụm vào card như NCC bên
     assert.match(pos, /id="customer-search-dropdown"\s+className="absolute top-\[68px\] inset-x-3 max-h-40/);
   });
 });
+
+describe('ô nhập POS: tắt autofill/form-history của trình duyệt', () => {
+  // Dropdown "Thông tin đã lưu" của Edge/Chrome đè lên danh sách gợi ý sản phẩm và nuốt
+  // phím mũi tên/Enter -> phải có autocomplete="off" trên từng ô nhập liệu của POS.
+  const INPUTS = {
+    'components/pos/ProductSearchBar.tsx': ['f1-search-input', 'quick-quantity-input'],
+    'components/pos/POSScreen.tsx': [
+      'quick-quantity-input',
+      'f4-customer-input',
+      'f8-discount-input',
+      'f6-shipping-input',
+      'f9-tendered-input',
+      'pos-note-input',
+      'f8-imp-discount-input',
+      'f6-imp-shipping-input',
+      'imp-tendered-input',
+      'imp-note-input',
+      'quick-sup-name-input',
+    ],
+    'components/pos/POSQuickCustomerModal.tsx': ['quick-cust-name', 'quick-cust-phone'],
+    'components/pos/MobilePaymentSheet.tsx': [
+      'mobile-payment-customer-input',
+      'mobile-payment-tendered-input',
+      'mobile-payment-note',
+    ],
+  };
+
+  for (const [file, ids] of Object.entries(INPUTS)) {
+    it(`${file}: mọi ô nhập đều autoComplete="off"`, () => {
+      const src = read(file);
+      for (const id of ids) {
+        const at = src.indexOf(`id="${id}"`);
+        assert.ok(at >= 0, `${file}: thiếu ô ${id}`);
+        assert.match(
+          src.slice(at, at + 400),
+          /autoComplete="off"/,
+          `${file}: ô ${id} chưa tắt autofill`,
+        );
+      }
+    });
+  }
+
+  it('NumberInput và SearchableSelect (ô tiền / ô tìm dùng chung) cũng tắt', () => {
+    assert.match(read('components/common/NumberInput.tsx'), /type="text"[\s\S]{0,120}autoComplete="off"/);
+    assert.match(read('components/common/SearchableSelect.tsx'), /autoComplete="off"/);
+  });
+});

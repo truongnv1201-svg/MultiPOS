@@ -206,6 +206,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
       ref={inputRef}
       type="text"
       inputMode={allowDecimals ? 'decimal' : 'numeric'}
+      autoComplete="off"
       value={displayValue}
       onChange={handleInputChange}
       onKeyDown={handleKeyDownInternal}

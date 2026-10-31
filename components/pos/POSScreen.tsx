@@ -903,6 +903,7 @@ export function POSScreen() {
                     id="quick-quantity-input"
                     type="text"
                     inputMode="decimal"
+                    autoComplete="off"
                     value={quickQtyText !== '' ? quickQtyText : formatQty(quickQuantity)}
                     onChange={(e) => {
                       const raw = e.target.value;
@@ -1852,6 +1853,7 @@ export function POSScreen() {
                   ref={impDiscountInputRef}
                   id="f8-imp-discount-input"
                   type="text"
+                  autoComplete="off"
                   value={
                     impDiscountMode === 'percent'
                       ? impOrderDiscountPercent || ''
@@ -1899,6 +1901,7 @@ export function POSScreen() {
                   ref={impShippingInputRef}
                   id="f6-imp-shipping-input"
                   type="text"
+                  autoComplete="off"
                   value={impShippingFee ? new Intl.NumberFormat('vi-VN').format(impShippingFee) : ''}
                   onChange={(e) => handleMoneyInputChange(e, setImpShippingFee)}
                   placeholder="0"
@@ -1987,6 +1990,7 @@ export function POSScreen() {
                   id="imp-tendered-input"
                   ref={impTenderedInputRef}
                   type="text"
+                  autoComplete="off"
                   value={
                     impTendered
                       ? new Intl.NumberFormat('vi-VN').format(impTendered)
@@ -2035,6 +2039,8 @@ export function POSScreen() {
             <div>
               <textarea
                 id="imp-note-input"
+                autoComplete="off"
+                spellCheck={false}
                 value={impNote}
                 onChange={(e) => setImpNote(e.target.value)}
                 placeholder="Ghi chú phiếu nhập (số hóa đơn đỏ, xe giao)..."
@@ -2099,6 +2105,8 @@ export function POSScreen() {
                   ref={customerInputRef}
                   id="f4-customer-input"
                   type="text"
+                  autoComplete="off"
+                  spellCheck={false}
                   value={customerEditing ? customerSearch : customerSearch || activeCart.customer_name}
                   onChange={(e) => {
                     setCustomerSearch(e.target.value);
@@ -2280,6 +2288,7 @@ export function POSScreen() {
                   ref={discountInputRef}
                   id="f8-discount-input"
                   type="text"
+                  autoComplete="off"
                   value={
                     discountType === 'percent'
                       ? activeCart.discount_percent
@@ -2325,6 +2334,7 @@ export function POSScreen() {
                   ref={shippingInputRef}
                   id="f6-shipping-input"
                   type="text"
+                  autoComplete="off"
                   value={
                     shippingType === 'percent'
                       ? activeCart.shipping_percent || ''
@@ -2457,6 +2467,7 @@ export function POSScreen() {
                 ref={tenderedInputRef}
                 id="f9-tendered-input"
                 type="text"
+                autoComplete="off"
                 value={
                   activeCart.tendered_amount
                     ? new Intl.NumberFormat('vi-VN').format(activeCart.tendered_amount)
@@ -2539,6 +2550,8 @@ export function POSScreen() {
           <div>
             <textarea
               id="pos-note-input"
+              autoComplete="off"
+              spellCheck={false}
               value={activeCart.note}
               onChange={(e) => updateActiveTab({ note: e.target.value })}
               placeholder="Ghi chú đơn hàng (hẹn giao, quy cách phụ)..."
@@ -2725,6 +2738,8 @@ export function POSScreen() {
                   type="text"
                   required
                   autoFocus
+                  autoComplete="off"
+                  spellCheck={false}
                   value={supName}
                   onChange={(e) => setSupName(e.target.value)}
                   placeholder="VD: Công ty TNHH Nhôm Kính Xingfa Hải Phòng"
@@ -2736,6 +2751,7 @@ export function POSScreen() {
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Số điện thoại</label>
                   <input
                     type="tel"
+                    autoComplete="off"
                     value={supPhone}
                     onChange={(e) => setSupPhone(e.target.value)}
                     placeholder="0912..."
@@ -2746,6 +2762,7 @@ export function POSScreen() {
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Mã số thuế</label>
                   <input
                     type="text"
+                    autoComplete="off"
                     value={supTaxCode}
                     onChange={(e) => setSupTaxCode(e.target.value)}
                     placeholder="010..."
@@ -2757,6 +2774,7 @@ export function POSScreen() {
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Địa chỉ kho / trụ sở</label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={supAddress}
                   onChange={(e) => setSupAddress(e.target.value)}
                   placeholder="Khu công nghiệp, Đường..."

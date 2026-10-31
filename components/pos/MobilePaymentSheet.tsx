@@ -185,6 +185,8 @@ export default function MobilePaymentSheet({
                                         ref={searchInputRef}
                                         id="mobile-payment-customer-input"
                                         type="text"
+                                        autoComplete="off"
+                                        spellCheck={false}
                                         value={customerQuery}
                                         onChange={(e) => setCustomerQuery(e.target.value)}
                                         placeholder={customerName || 'Tìm theo tên / SĐT / mã...'}
@@ -260,6 +262,7 @@ export default function MobilePaymentSheet({
                                 id="mobile-payment-tendered-input"
                                 type="text"
                                 inputMode="numeric"
+                                autoComplete="off"
                                 value={tenderedAmount ? new Intl.NumberFormat('vi-VN').format(tenderedAmount) : ''}
                                 onChange={(e) => {
                                     const digits = e.target.value.replace(/[^\d]/g, '');
@@ -319,6 +322,8 @@ export default function MobilePaymentSheet({
                         <label className="block text-[11px] font-semibold text-slate-600 mb-1">Ghi chú đơn hàng</label>
                         <textarea
                             id="mobile-payment-note"
+                            autoComplete="off"
+                            spellCheck={false}
                             value={note}
                             onChange={(e) => onNoteChange(e.target.value)}
                             placeholder="Hẹn giao, quy cách phụ..."

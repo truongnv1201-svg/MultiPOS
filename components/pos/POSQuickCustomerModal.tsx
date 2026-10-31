@@ -77,6 +77,8 @@ export function POSQuickCustomerModal({
               <input
                 id="quick-cust-name"
                 type="text"
+                autoComplete="off"
+                spellCheck={false}
                 value={newCustName}
                 onChange={(e) => setNewCustName(e.target.value)}
                 placeholder="Ví dụ: Anh Dũng Nhôm Kính"
@@ -93,6 +95,7 @@ export function POSQuickCustomerModal({
                 id="quick-cust-phone"
                 ref={phoneRef}
                 type="text"
+                autoComplete="off"
                 value={newCustPhone}
                 onChange={(e) => setNewCustPhone(e.target.value)}
                 placeholder="0988..."

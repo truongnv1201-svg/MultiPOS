@@ -453,6 +453,10 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
           ref={searchInputRef}
           id="f1-search-input"
           type="text"
+          // Tắt autofill/form-history của trình duyệt: dropdown "Thông tin đã lưu" đè lên
+          // danh sách gợi ý sản phẩm, che mất kết quả và nuốt phím mũi tên/Enter.
+          autoComplete="off"
+          spellCheck={false}
           value={searchQuery}
           onChange={(e) => handleQueryChange(e.target.value)}
           onFocus={() => {
@@ -477,6 +481,7 @@ export const ProductSearchBar = forwardRef<ProductSearchBarHandle, ProductSearch
             id="quick-quantity-input"
             type="text"
             inputMode="decimal"
+            autoComplete="off"
             value={qtyText !== '' ? qtyText : formatQty(quantity)}
             onChange={(e) => {
               setQtyText(e.target.value);
