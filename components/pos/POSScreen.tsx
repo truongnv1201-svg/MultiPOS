@@ -78,6 +78,8 @@ export function POSScreen() {
     setPosFlow,
     posProjectId,
     setPosProjectId,
+    importPrefill,
+    setImportPrefill,
     currentShift,
     user,
     profile,
@@ -222,6 +224,50 @@ export function POSScreen() {
   const [impDiscountMode, setImpDiscountMode] = useState<'vnd' | 'percent'>('percent');
   // Phí vận chuyển — cộng vào tổng tiền nhập.
   const [impShippingFee, setImpShippingFee] = useState<number>(0);
+
+  // 0087: màn Đơn nhập bấm "Sửa phiếu" -> nạp dữ liệu phiếu cũ vào panel nhập.
+  // Chờ products nạp xong mới map (id hàng local có thể vừa được đổi sang id server).
+  React.useEffect(() => {
+    if (!importPrefill || flow !== 'import' || products.length === 0) return;
+    const lines: ImportLine[] = [];
+    const missing: string[] = [];
+    for (const l of importPrefill.lines) {
+      const p =
+        products.find((x) => x.id === l.productId) ||
+        (l.sku ? products.find((x) => x.sku === l.sku) : undefined);
+      if (!p) {
+        missing.push(l.sku || l.productId);
+        continue;
+      }
+      lines.push({
+        key: `imp-fix-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        productId: p.id,
+        qty: l.quantity,
+        price: l.price,
+        discount_amount: l.discount_amount,
+        discount_percent: l.discount_percent,
+      });
+    }
+    const sourceCode = importPrefill.sourceCode;
+    // Defer microtask theo idiom chung của repo: setState ngay trong effect body bị
+    // eslint react-hooks/set-state-in-effect chặn (cascading render).
+    Promise.resolve().then(() => {
+      setImpLines(lines);
+      setImpSupplier(importPrefill.supplierName || '');
+      setImpNote(importPrefill.note || '');
+      setImpTendered(0);
+      setImpOrderDiscount(0);
+      setImpOrderDiscountPercent(0);
+      setImpShippingFee(0);
+      setImpPaymentMethod('debt');
+      setImportPrefill(null);
+      notify(
+        `Đã nạp ${lines.length} dòng từ phiếu ${sourceCode}. Kiểm tra lại rồi bấm Nhập kho.` +
+          (missing.length ? ` Bỏ qua ${missing.length} dòng hàng không còn trong danh mục.` : ''),
+        missing.length ? 'info' : 'success'
+      );
+    });
+  }, [importPrefill, flow, products, setImportPrefill]);
 
   // ---- Luồng XUẤT VẬT TƯ CÔNG TRÌNH (thay modal cũ trong trang Dự án) ----
   // Dùng bảng dòng hàng giống luồng nhập kho nhưng TÁCH state riêng: giá là giá vốn

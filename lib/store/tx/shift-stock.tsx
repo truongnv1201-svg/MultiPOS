@@ -11,8 +11,8 @@ import type { CashbookEntry, Order, PurchaseOrder, Shift, StockMovement } from '
 import { db, generateOrderCode } from '../../db';
 import { dailyCodeStamp, nextDailyCode } from '../../codes';
 import { cacheKeys, mirrorUpsert } from './mirror';
-import { enqueueOp, EMPTY_SHIFT, resolveSupplierReference, roundMoney } from './constants';
-import { previewImportAvg } from '../../costing';
+import { asUuidOrNull, enqueueOp, EMPTY_SHIFT, resolveSupplierReference, roundMoney } from './constants';
+import { orderDiscountFromHeader, previewImportAvg, previewVoidAvg, reversalImportNetPrices } from '../../costing';
 import { stableNext } from '../stable';
 import { vietnamizeError } from '../../error-vi';
 import { notify } from '@/components/common/Toast';
@@ -51,6 +51,8 @@ export interface TxShiftStock {
       shippingFee?: number;
     }
   ) => Promise<boolean>;
+  /** 0087: hủy phiếu nhập (đảo tồn/MAC/nợ NCC/hoàn tiền) — phiếu đã sync cần online. */
+  voidImportSlip: (po: PurchaseOrder, reason?: string) => Promise<{ ok: boolean; message: string }>;
 }
 
 export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftStockDeps): TxShiftStock {
@@ -115,6 +117,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         });
         return {
           serverId: String(row.id || ''),
+          client_ref: typeof row.client_ref === 'string' ? row.client_ref : undefined,
           code: String(row.code || ''),
           supplier_id: row.supplier_id ? String(row.supplier_id) : '',
           supplier_name: supplierName,
@@ -125,7 +128,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           total_amount: Number(row.total_amount) || 0,
           paid_amount: Number(row.paid_amount) || 0,
           debt_amount: Number(row.debt_amount) || 0,
-          status: (['completed', 'debt', 'partial'].includes(row.status) ? row.status : 'completed') as PurchaseOrder['status'],
+          status: (['completed', 'cancelled', 'debt', 'partial'].includes(row.status) ? row.status : 'completed') as PurchaseOrder['status'],
           note: typeof row.note === 'string' ? row.note : undefined,
           created_at: typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
         };
@@ -139,6 +142,8 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           localByKey.delete(keyOf(s.code, s.total_amount, s.supplier_id));
           return {
             ...local,
+            serverId: s.serverId,
+            client_ref: s.client_ref ?? local.client_ref,
             supplier_name: local.supplier_name || s.supplier_name,
             items: local.items.length > 0 ? local.items : s.items,
             subtotal: s.subtotal,
@@ -154,6 +159,8 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         }
         return {
           id: `srv-${s.serverId}`,
+          serverId: s.serverId,
+          client_ref: s.client_ref,
           code: s.code,
           supplier_id: s.supplier_id,
           supplier_name: s.supplier_name,
@@ -720,11 +727,15 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         return false;
       }
       const targetSupId = supplierRef?.id || '';
+      // 0087: giữ client_ref ngay trên bản ghi local để hủy phiếu chưa sync còn khóa
+      // (server dedupe bằng client_ref, không có công thức nào suy lại được từ mã phiếu).
+      const clientRef = `imp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
       const updatedList = products.map((p) => running.get(p.id) || p);
       const poStatus: PurchaseOrder['status'] = debtAmount <= 0 ? 'completed' : paidAmount <= 0 ? 'debt' : 'partial';
       const poRecord: PurchaseOrder = {
         id: `po-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        client_ref: clientRef,
         code: refCode,
         supplier_id: targetSupId,
         supplier_name: resolvedSupplierName,
@@ -767,7 +778,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         };
       }
       const importPayload = {
-        clientRef: `imp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        clientRef,
         code: refCode,
         supplierId: targetSupId,
         supplierName: resolvedSupplierName,
@@ -855,6 +866,267 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
     [products, suppliers, supa, profile, currentShift, setProducts, setSuppliers, setStockMovements, setCashbook, syncPendingOpsRef, refreshPurchaseOrders]
   );
 
+  // 0087: hủy phiếu nhập. Phiếu đã lên server -> RPC trước rồi mirror số tuyệt đối;
+  // phiếu còn nằm trong hàng đợi -> hoàn tác local (xóa op + phiếu chi chưa sync),
+  // không tạo PT hoàn tiền vì chưa có phiếu chi nào trên server.
+  const voidImportSlip = useCallback(
+    async (po: PurchaseOrder, reason?: string): Promise<{ ok: boolean; message: string }> => {
+      type VoidCashRow = {
+        id?: string; code?: string; type?: string; fund_type?: string; category?: string;
+        amount?: number | string; partner_name?: string | null; reference_order_code?: string | null;
+        note?: string | null; created_at?: string;
+      };
+      type VoidImportResult = {
+        ok?: boolean;
+        error?: 'not_found' | 'missing_lines' | 'no_products';
+        already_cancelled?: boolean;
+        code?: string;
+        supplier_id?: string | null;
+        supplier_debt?: number | string | null;
+        products?: { product_id: string; sku?: string | null; stock_quantity: number | string; avg_cost: number | string }[];
+        cash?: VoidCashRow | null;
+        clamped?: { sku?: string | null; missing: number | string }[];
+        skipped?: (string | null)[];
+        voided_at?: string;
+      };
+
+      if (supa && profile?.role !== 'admin' && profile?.role !== 'manager') {
+        return { ok: false, message: 'Chỉ Admin/Quản lý được hủy phiếu nhập!' };
+      }
+      if (currentShift.status !== 'open') {
+        return { ok: false, message: 'Ca làm việc chưa mở hoặc đã đóng! Vui lòng mở ca mới (F12) trước khi hủy phiếu.' };
+      }
+      if (po.status === 'cancelled') {
+        return { ok: false, message: `Phiếu ${po.code} đã hủy trước đó.` };
+      }
+      if (po.items.length === 0) {
+        return {
+          ok: false,
+          message: 'Phiếu nhập không có chi tiết dòng hàng (phiếu cũ) nên không thể hủy. Dùng Điều chỉnh tồn kho thay thế.',
+        };
+      }
+
+      if (supa && user && !isOnline) {
+        return { ok: false, message: 'Cần kết nối mạng để hủy phiếu nhập (tránh lệch tồn giữa máy và server).' };
+      }
+      // Đẩy nốt hàng đợi TRƯỚC khi phân loại: import đã sync mà phiếu chi còn chờ thì
+      // hoàn tiền sẽ không thấy dòng chi gốc (và có thể tạo 2 lần).
+      if (supa && user) {
+        await syncPendingOpsRef.current();
+        await refreshServerPurchaseOrders();
+      }
+
+      const allRows = await db.purchaseOrders.toArray().catch(() => [] as PurchaseOrder[]);
+      const latest = allRows.find((r) => r.code === po.code) || po;
+      const ops = await db.pendingOps.toArray().catch(() => []);
+      const mine = ops.filter((o) => String((o.payload as Record<string, unknown>)?.code || '') === po.code);
+      const serverId = asUuidOrNull(latest.serverId) || asUuidOrNull(po.serverId);
+      const clientRef = latest.client_ref || po.client_ref || null;
+      const reasonText = (reason || '').trim() || 'Hủy phiếu nhập';
+
+      if (serverId || clientRef) {
+        if (mine.length > 0) {
+          return { ok: false, message: 'Phiếu còn thao tác chờ đồng bộ (phiếu chi/phiếu nhập). Đợi đồng bộ xong rồi hủy lại.' };
+        }
+        if (!supa || !isOnline) {
+          return { ok: false, message: 'Phiếu đã lên máy chủ: cần kết nối mạng để hủy.' };
+        }
+        const { data, error } = await supa.rpc('void_stock_import', {
+          p_code: po.code,
+          p_order_id: serverId,
+          p_client_ref: clientRef,
+          p_reason: reasonText,
+        });
+        if (error) return { ok: false, message: `Hủy phiếu thất bại: ${vietnamizeError(error)}` };
+        const res = (data || {}) as VoidImportResult;
+        if (res.error === 'not_found') {
+          await refreshServerPurchaseOrders();
+          return { ok: false, message: `Không tìm thấy phiếu ${po.code} trên máy chủ. Bấm "Đồng bộ" rồi thử lại.` };
+        }
+        if (res.error === 'missing_lines') {
+          return { ok: false, message: 'Phiếu trên máy chủ không có chi tiết dòng hàng nên không thể hủy.' };
+        }
+        if (res.error === 'no_products') {
+          return { ok: false, message: 'Các mặt hàng của phiếu đã bị xóa khỏi danh mục — không thể hoàn tồn.' };
+        }
+        if (res.already_cancelled) {
+          await refreshServerPurchaseOrders();
+          return { ok: true, message: `Phiếu ${po.code} đã được hủy trước đó.` };
+        }
+
+        // Mirror đúng số server trả (server là truth, không tự tính lại ở client).
+        const byLocalId = new Map<string, { stock: number; avg: number }>();
+        for (const p of res.products || []) {
+          const local =
+            products.find((x) => x.id === String(p.product_id)) ||
+            (p.sku ? products.find((x) => x.sku === String(p.sku)) : undefined);
+          if (local) byLocalId.set(local.id, { stock: Number(p.stock_quantity) || 0, avg: Number(p.avg_cost) || 0 });
+        }
+        const nextProducts = products.map((p) => {
+          const u = byLocalId.get(p.id);
+          return u ? { ...p, stock_quantity: u.stock, avg_cost: u.avg } : p;
+        });
+        for (const [id, u] of byLocalId) {
+          await db.products.update(id, { stock_quantity: u.stock, avg_cost: u.avg }).catch(() => 0);
+        }
+
+        const supId = res.supplier_id ? String(res.supplier_id) : '';
+        const supDebt = Number(res.supplier_debt);
+        let nextSuppliers = suppliers;
+        if (supId && Number.isFinite(supDebt)) {
+          const localSup = suppliers.find((s) => s.id === supId) || suppliers.find((s) => s.name === po.supplier_name);
+          if (localSup) {
+            nextSuppliers = suppliers.map((s) => (s.id === localSup.id ? { ...s, current_debt: supDebt } : s));
+            await db.suppliers.update(localSup.id, { current_debt: supDebt }).catch(() => 0);
+          }
+        }
+
+        const rawCash = res.cash;
+        const cashEntry: CashbookEntry | null = rawCash && rawCash.id
+          ? {
+              id: String(rawCash.id),
+              code: String(rawCash.code || ''),
+              type: rawCash.type === 'receipt' ? 'receipt' : 'expense',
+              fund_type: rawCash.fund_type === 'bank' ? 'bank' : 'cash',
+              category: String(rawCash.category || 'material') as CashbookEntry['category'],
+              amount: Number(rawCash.amount) || 0,
+              reference_order_code: rawCash.reference_order_code ? String(rawCash.reference_order_code) : undefined,
+              partner_name: rawCash.partner_name ? String(rawCash.partner_name) : undefined,
+              note: String(rawCash.note || ''),
+              created_at: String(rawCash.created_at || new Date().toISOString()),
+              synced: true,
+            }
+          : null;
+        if (cashEntry) {
+          const exists = await db.cashbook.get(cashEntry.id).catch(() => undefined);
+          if (!exists) await db.cashbook.add(cashEntry).catch(() => undefined);
+        }
+
+        const voidedAt = String(res.voided_at || new Date().toISOString());
+        const cancelPatch = { status: 'cancelled' as const, cancelled_at: voidedAt, cancel_reason: reasonText };
+        const poTargets = allRows.filter((r) => r.code === po.code);
+        for (const r of poTargets) {
+          await db.purchaseOrders.update(r.id, cancelPatch).catch(() => 0);
+        }
+
+        setProducts(nextProducts);
+        setSuppliers(nextSuppliers);
+        if (cashEntry) {
+          setCashbook((prev) => (prev.some((e) => e.id === cashEntry.id) ? prev : [cashEntry, ...prev]));
+        }
+        setPurchaseOrders((prev) => prev.map((r) => (r.code === po.code ? { ...r, ...cancelPatch } : r)));
+
+        // Kéo lại để khớp các máy khác / dòng thẻ kho server vừa sinh.
+        void refreshServerPurchaseOrders();
+        void refreshServerCashbook();
+        void refreshServerStockMovements();
+
+        const warns: string[] = [];
+        if ((res.clamped || []).length > 0) warns.push(`${res.clamped!.length} dòng thiếu tồn (đã chặn ở 0)`);
+        if ((res.skipped || []).length > 0) warns.push(`bỏ qua ${res.skipped!.length} dòng hàng đã bị xóa`);
+        return {
+          ok: true,
+          message: `Đã hủy phiếu ${po.code}${cashEntry ? ' và hoàn tiền vào sổ quỹ' : ''}.${warns.length ? ` Cảnh báo: ${warns.join('; ')}.` : ''}`,
+        };
+      }
+
+      // ---- Local-only: phiếu chưa từng lên server (còn nguyên trong hàng đợi) ----
+      if (mine.length === 0) {
+        return { ok: false, message: 'Chưa xác định được phiếu (không thấy trên máy chủ lẫn hàng đợi). Bấm "Đồng bộ" rồi thử lại.' };
+      }
+
+      const orderDiscount = orderDiscountFromHeader(po.discount_amount, po.items);
+      const netPrices = reversalImportNetPrices(po.items, orderDiscount, po.subtotal);
+      const running = new Map(products.map((p) => [p.id, { ...p }]));
+      const movements: StockMovement[] = [];
+      const clampedSkus: string[] = [];
+      const skippedSkus: string[] = [];
+      const now = new Date().toISOString();
+      po.items.forEach((it, idx) => {
+        const p = running.get(it.product_id);
+        if (!p) {
+          skippedSkus.push(it.sku || it.name || it.product_id);
+          return;
+        }
+        const pv = previewVoidAvg(p.stock_quantity, p.avg_cost, it.quantity, netPrices[idx]);
+        if (pv.missing > 0) clampedSkus.push(it.sku || it.name);
+        p.stock_quantity = pv.newStock;
+        p.avg_cost = pv.newAvg;
+        movements.push({
+          id: `sm-void-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          reference_code: po.code,
+          product_id: p.id,
+          product_name: p.name,
+          movement_type: 'import_void',
+          quantity: -it.quantity,
+          previous_stock: pv.oldStock,
+          new_stock: pv.newStock,
+          note: `Hủy phiếu nhập (${reasonText}) - MAC: ${pv.oldAvg.toLocaleString('vi-VN')}đ -> ${pv.newAvg.toLocaleString('vi-VN')}đ`,
+          created_at: now,
+        });
+      });
+
+      const nextProductsLocal = products.map((p) => running.get(p.id) || p);
+      const localSup = po.supplier_id
+        ? suppliers.find((s) => s.id === po.supplier_id)
+        : suppliers.find((s) => s.name === po.supplier_name);
+      const nextDebt = localSup && po.debt_amount > 0
+        ? roundMoney(Math.max(0, localSup.current_debt - po.debt_amount))
+        : null;
+      const removedCash = cashbook.filter((e) => e.reference_order_code === po.code && e.type === 'expense');
+
+      try {
+        await db.transaction(
+          'rw',
+          [db.products, db.suppliers, db.cashbook, db.purchaseOrders, db.pendingOps],
+          async () => {
+            for (const p of running.values()) {
+              const orig = products.find((x) => x.id === p.id);
+              if (orig && (orig.stock_quantity !== p.stock_quantity || orig.avg_cost !== p.avg_cost)) {
+                await db.products.update(p.id, { stock_quantity: p.stock_quantity, avg_cost: p.avg_cost });
+              }
+            }
+            if (localSup && nextDebt !== null) {
+              await db.suppliers.update(localSup.id, { current_debt: nextDebt });
+            }
+            for (const e of removedCash) await db.cashbook.delete(e.id);
+            const poRows = await db.purchaseOrders.toArray();
+            for (const r of poRows) {
+              if (r.code === po.code) await db.purchaseOrders.delete(r.id);
+            }
+            for (const op of mine) await db.pendingOps.delete(op.id);
+          },
+        );
+      } catch (err) {
+        return { ok: false, message: `Không hủy được phiếu: ${vietnamizeError(err)}` };
+      }
+
+      setProducts(nextProductsLocal);
+      if (localSup && nextDebt !== null) {
+        setSuppliers((prev) => prev.map((s) => (s.id === localSup.id ? { ...s, current_debt: nextDebt } : s)));
+      }
+      if (removedCash.length > 0) {
+        const removedIds = new Set(removedCash.map((e) => e.id));
+        setCashbook((prev) => prev.filter((e) => !removedIds.has(e.id)));
+      }
+      setPurchaseOrders((prev) => prev.filter((r) => r.code !== po.code));
+      setStockMovements((prev) => [...movements].reverse().concat(prev));
+
+      const warns: string[] = [];
+      if (clampedSkus.length > 0) warns.push(`${clampedSkus.length} dòng thiếu tồn (đã chặn ở 0)`);
+      if (skippedSkus.length > 0) warns.push(`bỏ qua ${skippedSkus.length} dòng hàng đã bị xóa`);
+      return {
+        ok: true,
+        message: `Đã hủy phiếu ${po.code} (chưa gửi lên máy chủ).${warns.length ? ` Cảnh báo: ${warns.join('; ')}.` : ''}`,
+      };
+    },
+    [
+      products, suppliers, cashbook, supa, user, profile, currentShift, isOnline,
+      setProducts, setSuppliers, setCashbook, setPurchaseOrders, setStockMovements,
+      syncPendingOpsRef, refreshServerPurchaseOrders, refreshServerCashbook, refreshServerStockMovements,
+    ],
+  );
+
   return {
     cashbook,
     setCashbook,
@@ -872,5 +1144,6 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
     refreshShiftFromServer,
     addCashbookEntry,
     importStockBatch,
+    voidImportSlip,
   };
 }

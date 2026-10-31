@@ -45,6 +45,71 @@ export function previewImportAvg(
   };
 }
 
+// ── Hủy phiếu nhập (0087): tính ngược đúng số của 0086 ──
+// SQL round(numeric) làm tròn nửa-ra-xa-0; Math.round(-0.5) = -0 nên phải bù dấu
+// để client mirror khớp server ở mọi trường hợp.
+function roundHalfAwayFromZero(n: number): number {
+  return n < 0 ? -Math.round(-n) : Math.round(n);
+}
+function round2(n: number): number {
+  return roundHalfAwayFromZero(n * 100) / 100;
+}
+
+// 0086 ghi gộp giảm dòng + giảm toàn phiếu vào header.discount_amount, không lưu
+// cột order_discount_percent. Hủy phiếu phải suy lại giảm toàn phiếu để phân bổ
+// y hệt lúc nhập (không âm; dữ liệu cũ không giảm giá -> 0).
+export function orderDiscountFromHeader(
+  discountAmount: number | null | undefined,
+  items: { discount_amount?: number | null }[]
+): number {
+  const lineSum = items.reduce((s, it) => s + (Number(it.discount_amount) || 0), 0);
+  return Math.max(round2((Number(discountAmount) || 0) - lineSum), 0);
+}
+
+// Giá nhập net từng dòng đúng như 0086 Pass 2: phân bổ giảm toàn phiếu theo tỉ lệ
+// gross, guard bằng gross CỘNG DỒN (giữ nguyên thứ tự để khớp SQL).
+export function reversalImportNetPrices(
+  items: { quantity: number; unit_price: number; discount_amount?: number | null }[],
+  orderDiscount: number,
+  subtotal: number
+): number[] {
+  const od = Number(orderDiscount) || 0;
+  const sub = Number(subtotal) || 0;
+  let runningGross = 0;
+  return items.map((it) => {
+    const qty = Number(it.quantity) || 0;
+    const price = Number(it.unit_price) || 0;
+    const lineGross = round2(qty * price);
+    runningGross += lineGross;
+    const alloc = runningGross > 0 && sub > 0 ? round2(od * (lineGross / sub)) : 0;
+    const totalLineDiscount = round2((Number(it.discount_amount) || 0) + alloc);
+    return qty > 0 ? round2((lineGross - totalLineDiscount) / qty) : price;
+  });
+}
+
+// Hoàn MAC khi trả hàng: đảo đúng phép cộng của previewImportAvg.
+// Tồn không đủ (hàng đã bán) -> chặn ở 0 và báo thiếu; tồn về 0 thì giữ avg = net
+// (KHÔNG để 0: trigger trg_init_variant_avg_cost sẽ ghi đè bằng import_price).
+export function previewVoidAvg(
+  stock: number | null | undefined,
+  avg: number | null | undefined,
+  qty: number | null | undefined,
+  netPrice: number | null | undefined
+): { oldStock: number; oldAvg: number; newStock: number; newAvg: number; missing: number } {
+  const s = Number(stock) || 0;
+  const a = Number(avg) || 0;
+  const q = Number(qty) || 0;
+  const p = Number(netPrice) || 0;
+  const newStock = Math.max(s - q, 0);
+  return {
+    oldStock: s,
+    oldAvg: a,
+    newStock,
+    newAvg: newStock > 0 ? roundHalfAwayFromZero((s * a - q * p) / newStock) : p,
+    missing: Math.max(q - s, 0),
+  };
+}
+
 // Biên lãi gộp 1 mặt hàng (giá bán vs vốn MAC) — dùng cho bảng Mặt hàng,
 // xuất Excel, thẻ KPI. Trả số thô; làm tròn hiển thị (1 hay 2 thập phân) do
 // caller quyết vì mỗi nơi một chuẩn (bảng 1dp, Excel 2dp).

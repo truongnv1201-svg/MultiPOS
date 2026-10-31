@@ -154,9 +154,30 @@ export interface PurchaseOrder {
   paid_amount: number;
   debt_amount: number;
   status: 'completed' | 'cancelled' | 'debt' | 'partial';
+  /** 0087: khóa server để gọi void_stock_import (bản ghi local chưa sync thì không có). */
+  serverId?: string;
+  /** 0087: client_ref gửi lúc nhập — khóa dự phòng khi serverId chưa kịp kéo về. */
+  client_ref?: string;
+  cancelled_at?: string;
+  cancel_reason?: string;
   /** Ghi chú phiếu nhập (số hóa đơn đỏ, xe giao...) — server lưu cột note (0071). */
   note?: string;
   created_at: string;
+}
+
+/** 0087: dữ liệu điền sẵn khi bấm "Sửa phiếu" (hủy phiếu cũ rồi mở lại panel nhập). */
+export interface ImportPrefill {
+  sourceCode: string;
+  supplierName: string;
+  note?: string;
+  lines: {
+    productId: string;
+    sku: string;
+    quantity: number;
+    price: number;
+    discount_amount: number;
+    discount_percent: number;
+  }[];
 }
 
 /**
@@ -257,7 +278,7 @@ export interface StockMovement {
   product_name: string;
   // 0064: server đã có cột movement_type thật (trước đây client đoán bằng regex trên note).
   // adjust_loss = điều chỉnh giảm (hao hụt), adjust_gain = điều chỉnh tăng (đếm thừa).
-  movement_type: 'import' | 'export_sales' | 'export_project' | 'return' | 'adjust_loss' | 'adjust_gain';
+  movement_type: 'import' | 'import_void' | 'export_sales' | 'export_project' | 'return' | 'adjust_loss' | 'adjust_gain';
   quantity: number;
   previous_stock: number;
   new_stock: number;

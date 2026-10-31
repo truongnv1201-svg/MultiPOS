@@ -23,6 +23,7 @@ import type {
   StockAdjustReason,
   PosFlow,
   PurchaseOrder,
+  ImportPrefill,
 } from '../types';
 import type { CartTab, ReturnResult } from './types';
 
@@ -49,6 +50,8 @@ export interface TransactionsSlice {
   setPosFlow: (flow: PosFlow) => void;
   posProjectId: string | null;
   setPosProjectId: (id: string | null) => void;
+  importPrefill: ImportPrefill | null;
+  setImportPrefill: (prefill: ImportPrefill | null) => void;
   cartTabs: CartTab[];
   activeTabId: string;
   setActiveTabId: (tabId: string) => void;
@@ -144,6 +147,7 @@ export interface TransactionsSlice {
       shippingFee?: number;
     }
   ) => Promise<boolean>;
+  voidImportSlip: (po: PurchaseOrder, reason?: string) => Promise<{ ok: boolean; message: string }>;
 }
 
 const TransactionsContext = createContext<TransactionsSlice | null>(null);
@@ -212,6 +216,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     posFlow: cart.posFlow,
     setPosFlow: cart.setPosFlow,
     posProjectId: cart.posProjectId,
+    importPrefill: cart.importPrefill,
+    setImportPrefill: cart.setImportPrefill,
     setPosProjectId: cart.setPosProjectId,
     cartTabs: cart.cartTabs,
     activeTabId: cart.activeTabId,
@@ -264,6 +270,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     refreshShiftFromServer: shiftStock.refreshShiftFromServer,
     addCashbookEntry: shiftStock.addCashbookEntry,
     importStockBatch: shiftStock.importStockBatch,
+    voidImportSlip: shiftStock.voidImportSlip,
   };
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;
 }

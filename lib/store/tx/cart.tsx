@@ -6,7 +6,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useCommerce } from '../commerce';
 import { useCatalog } from '../catalog';
-import type { Product, Order, OrderItem, DimensionDetail, PosFlow } from '../../types';
+import type { Product, Order, OrderItem, DimensionDetail, ImportPrefill, PosFlow } from '../../types';
 import type { CartTab } from '../types';
 import { DEFAULT_TAB } from '../cart';
 import { recomputeOrderItem } from '../../db';
@@ -20,6 +20,10 @@ export interface TxCart {
    *  nhảy thẳng sang POS (Xuất CT) mà vẫn giữ đúng công trình đã bấm. */
   posProjectId: string | null;
   setPosProjectId: (id: string | null) => void;
+  /** 0087: dữ liệu điền sẵn khi bấm "Sửa phiếu" ở màn Đơn nhập — POSScreen tiêu thụ
+   *  (set null) ngay sau khi nạp vào panel nhập. */
+  importPrefill: ImportPrefill | null;
+  setImportPrefill: (prefill: ImportPrefill | null) => void;
   cartTabs: CartTab[];
   activeTabId: string;
   setActiveTabId: React.Dispatch<React.SetStateAction<string>>;
@@ -50,6 +54,10 @@ export function useTxCart(): TxCart {
   const [posProjectId, setPosProjectIdState] = useState<string | null>(null);
   const setPosProjectId = useCallback((id: string | null) => {
     setPosProjectIdState(id);
+  }, []);
+  const [importPrefill, setImportPrefillState] = useState<ImportPrefill | null>(null);
+  const setImportPrefill = useCallback((prefill: ImportPrefill | null) => {
+    setImportPrefillState(prefill);
   }, []);
   const [cartTabs, setCartTabs] = useState<CartTab[]>([DEFAULT_TAB]);
   const [activeTabId, setActiveTabId] = useState<string>('tab-1');
@@ -258,6 +266,8 @@ export function useTxCart(): TxCart {
     setPosFlow,
     posProjectId,
     setPosProjectId,
+    importPrefill,
+    setImportPrefill,
     cartTabs,
     activeTabId,
     setActiveTabId,

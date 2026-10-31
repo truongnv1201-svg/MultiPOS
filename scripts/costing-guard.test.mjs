@@ -10,7 +10,14 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { previewImportAvg, lineMargin, historicalUnitCost } from '../lib/costing.ts';
+import {
+  previewImportAvg,
+  lineMargin,
+  historicalUnitCost,
+  orderDiscountFromHeader,
+  previewVoidAvg,
+  reversalImportNetPrices,
+} from '../lib/costing.ts';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
@@ -83,6 +90,40 @@ describe('lineMargin: biên lãi gộp', () => {
 
   it('thiếu số coi như 0', () => {
     assert.deepEqual(lineMargin(null, undefined), { amount: 0, pct: 0 });
+  });
+});
+
+describe('hủy phiếu nhập (0087): đảo đúng hợp đồng 0086', () => {
+  it('suy giảm toàn phiếu từ header - tổng giảm dòng (không âm)', () => {
+    // 0086 ghi header.discount_amount = giảm dòng + giảm toàn phiếu
+    const items = [{ discount_amount: 5000 }, { discount_amount: 3000 }];
+    assert.equal(orderDiscountFromHeader(28000, items), 20000);
+    assert.equal(orderDiscountFromHeader(5000, items), 0, 'dữ liệu cũ không giảm -> 0, không âm');
+  });
+
+  it('giá net phân bổ theo tỉ lệ gross, khớp 0086 Pass 2', () => {
+    const items = [
+      { quantity: 6, unit_price: 10000, discount_amount: 0 },  // gross 60k
+      { quantity: 4, unit_price: 10000, discount_amount: 0 },  // gross 40k
+    ];
+    // Giảm toàn phiếu 10k -> 6k cho dòng 1, 4k cho dòng 2
+    assert.deepEqual(reversalImportNetPrices(items, 10000, 100000), [9000, 9000]);
+  });
+
+  it('đảo MAC trả lại vốn cũ khi không có bán xen giữa', () => {
+    const imported = previewImportAvg(10, 3000, 10, 5000);
+    assert.equal(imported.newAvg, 4000); // (30k + 50k)/20
+    const voided = previewVoidAvg(imported.newStock, imported.newAvg, 10, 5000);
+    assert.equal(voided.newStock, 10);
+    assert.equal(voided.newAvg, 3000);
+    assert.equal(voided.missing, 0);
+  });
+
+  it('tồn không đủ -> chặn ở 0, báo thiếu, vốn giữ theo giá net (không về 0)', () => {
+    const voided = previewVoidAvg(3, 4000, 10, 5000);
+    assert.equal(voided.newStock, 0);
+    assert.equal(voided.newAvg, 5000, 'vốn 0 sẽ bị trigger trg_init_variant_avg_cost ghi đè');
+    assert.equal(voided.missing, 7);
   });
 });
 

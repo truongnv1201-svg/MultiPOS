@@ -80,6 +80,8 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
     // 0064: điều chỉnh tồn có thật trên server (trước đây phải đoán bằng regex trên note)
     adjust_loss: 'Hao hụt / Giảm tồn',
     adjust_gain: 'Đếm thừa / Tăng tồn',
+    // 0087: hủy phiếu nhập (trả hàng về NCC) — quantity âm, tách khỏi "Nhập kho".
+    import_void: 'Hủy phiếu nhập',
   };
 
   // Badge phân loại dùng chung cho bảng thẻ kho (1 map duy nhất, nhãn khớp MOVEMENT_LABEL).
@@ -90,6 +92,7 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
     if (type === 'export_project') return { tone: 'amber', label: 'Vật tư công trình' };
     if (type === 'adjust_loss') return { tone: 'rose', label: 'Hao hụt' };
     if (type === 'adjust_gain') return { tone: 'slate', label: 'Đếm thừa' };
+    if (type === 'import_void') return { tone: 'rose', label: 'Hủy nhập kho' };
     return { tone: 'purple', label: 'Nhập lại / Trả hàng' };
   };
 
@@ -265,6 +268,7 @@ export function InventoryView({ bare = false, adjustOpen: controlledAdjustOpen, 
                   { value: 'return', label: 'Nhập lại / Trả hàng' },
                   { value: 'adjust_loss', label: 'Hao hụt / Điều chỉnh giảm' },
                   { value: 'adjust_gain', label: 'Đếm thừa / Điều chỉnh tăng' },
+                  { value: 'import_void', label: 'Hủy phiếu nhập' },
                 ]}
               />
               {bare && <TableTools onExportExcel={handleExportMovements} onPrint={handlePrintMovements} />}

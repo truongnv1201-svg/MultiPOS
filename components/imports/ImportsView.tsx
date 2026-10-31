@@ -5,7 +5,7 @@ import { useStore } from '@/lib/store';
 import { PurchaseOrder } from '@/lib/types';
 import { formatVND } from '@/lib/format';
 import { formatQty } from '@/lib/quantity';
-import { ScrollText, Plus } from 'lucide-react';
+import { ScrollText, Plus, Pencil, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SearchInput, FilterSelect } from '@/components/ui/FilterControls';
@@ -20,6 +20,7 @@ import { TableTools } from '@/components/common/TableTools';
 import { exportToExcel, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
+import { confirmDialog } from '@/components/common/ConfirmDialog';
 
 const IMPORT_STATUS_LABEL: Record<string, string> = {
   completed: 'Hoàn tất',
@@ -35,6 +36,8 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
     refreshServerPurchaseOrders,
     setCurrentScreen,
     setPosFlow,
+    voidImportSlip,
+    setImportPrefill,
   } = useStore();
 
   // Dexie local là truth dòng hàng của máy mình; mở trang thì nạp local + kéo server
@@ -72,6 +75,50 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
     setSelectedPoCode(null);
   };
 
+  // 0087: hủy phiếu (đảo tồn/MAC/nợ NCC/hoàn tiền). "Sửa phiếu" = hủy rồi mở lại
+  // panel nhập với dữ liệu phiếu cũ để user chỉnh dòng sai.
+  const [busyPoId, setBusyPoId] = useState<string | null>(null);
+  const handleVoidSlip = async (po: PurchaseOrder, opts: { fix?: boolean }) => {
+    if (po.items.length === 0) {
+      notify('Phiếu cũ không có chi tiết dòng hàng nên không thể hủy. Dùng Điều chỉnh tồn kho thay thế.', 'error');
+      return;
+    }
+    const ok = await confirmDialog(
+      opts.fix
+        ? `Hủy phiếu ${po.code} để lập lại phiếu đúng?\n\nTồn kho, giá vốn bình quân, công nợ NCC và phiếu chi sẽ được hoàn lại, sau đó panel nhập kho mở sẵn dữ liệu phiếu cũ để anh sửa.`
+        : `Hủy phiếu nhập ${po.code}?\n\nSẽ hoàn tồn kho + giá vốn bình quân, giảm công nợ NCC và tạo phiếu thu hoàn tiền. Không thể hoàn tác.`,
+      {
+        title: opts.fix ? 'Sửa phiếu nhập' : 'Hủy phiếu nhập',
+        confirmLabel: opts.fix ? 'Hủy & lập lại' : 'Hủy phiếu',
+        danger: true,
+      }
+    );
+    if (!ok) return;
+    setBusyPoId(po.id);
+    try {
+      const res = await voidImportSlip(po, opts.fix ? 'Sửa phiếu: chọn nhầm mặt hàng' : 'Hủy phiếu nhập');
+      notify(res.message, res.ok ? 'success' : 'error');
+      if (!res.ok || !opts.fix) return;
+      setImportPrefill({
+        sourceCode: po.code,
+        supplierName: po.supplier_name,
+        note: po.note,
+        lines: po.items.map((it) => ({
+          productId: it.product_id,
+          sku: it.sku,
+          quantity: it.quantity,
+          price: it.unit_price,
+          discount_amount: it.discount_amount,
+          discount_percent: it.discount_percent,
+        })),
+      });
+      setPosFlow('import');
+      setCurrentScreen('pos');
+    } finally {
+      setBusyPoId(null);
+    }
+  };
+
   const filteredPos = useMemo(() => {
     return purchaseOrders.filter((p) => {
       const matchesSearch = matchesQuery([p.code, p.supplier_name], search);
@@ -95,6 +142,7 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
   const supplierOptions = useMemo(() => {
     const set = new Map<string, number>();
     for (const p of purchaseOrders) {
+      if (p.status === 'cancelled') continue;
       const name = (p.supplier_name || '').trim();
       if (!name) continue;
       set.set(name, (set.get(name) || 0) + 1);
@@ -108,6 +156,8 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
   const stats = useMemo(() => {
     return filteredPos.reduce(
       (acc, cur) => {
+        // Phiếu đã hủy không còn là tiền nhập/nợ thật (0087).
+        if (cur.status === 'cancelled') return acc;
         acc.totalImport += cur.total_amount;
         acc.totalPaid += cur.paid_amount;
         acc.totalDebt += cur.debt_amount;
@@ -385,7 +435,7 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
           <div className="w-full md:w-96 bg-slate-100 flex flex-col min-h-0">
             <div className="flex-1 min-h-0 bg-white border border-slate-200 rounded-xl shadow-2xs p-3 flex flex-col overflow-y-auto">
               <div className="space-y-4 text-xs">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-200">
                   <div>
                     <h3 className="font-bold text-sm text-slate-900 font-mono">
                       {selectedPo.code}
@@ -394,7 +444,50 @@ export function ImportsView({ bare = false }: { bare?: boolean } = {}) {
                       {new Date(selectedPo.created_at).toLocaleString('vi-VN')}
                     </p>
                   </div>
+                  {selectedPo.status !== 'cancelled' && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <AppButton
+                        variant="secondary"
+                        className="hidden lg:inline-flex"
+                        disabled={busyPoId !== null}
+                        title={
+                          selectedPo.items.length === 0
+                            ? 'Phiếu cũ không có chi tiết dòng hàng — không thể lập lại'
+                            : 'Hủy phiếu rồi mở panel nhập với dữ liệu cũ để sửa'
+                        }
+                        onClick={() => void handleVoidSlip(selectedPo, { fix: true })}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Sửa phiếu</span>
+                      </AppButton>
+                      <AppButton
+                        tone="rose"
+                        disabled={busyPoId !== null}
+                        title={
+                          selectedPo.items.length === 0
+                            ? 'Phiếu cũ không có chi tiết dòng hàng — dùng Điều chỉnh tồn kho'
+                            : 'Hoàn tồn/MAC/nợ NCC và hoàn tiền'
+                        }
+                        onClick={() => void handleVoidSlip(selectedPo, {})}
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Hủy phiếu</span>
+                      </AppButton>
+                    </div>
+                  )}
                 </div>
+
+                {selectedPo.status === 'cancelled' && (
+                  <div className="bg-rose-50 p-2.5 rounded-lg border border-rose-200 text-xs space-y-0.5">
+                    <div className="font-semibold text-rose-700">Phiếu đã hủy</div>
+                    {selectedPo.cancelled_at && (
+                      <div className="text-slate-600">
+                        Lúc {new Date(selectedPo.cancelled_at).toLocaleString('vi-VN')}
+                      </div>
+                    )}
+                    {selectedPo.cancel_reason && <div className="text-slate-600">{selectedPo.cancel_reason}</div>}
+                  </div>
+                )}
 
                 {/* Supplier info */}
                 <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">

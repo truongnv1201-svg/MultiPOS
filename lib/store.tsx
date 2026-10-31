@@ -19,6 +19,7 @@ import {
   StockAdjustReason,
   MarkDayInput,
   PurchaseOrder,
+  ImportPrefill,
 } from './types';
 import {
   Employee,
@@ -165,6 +166,8 @@ interface StoreContextType {
   setPosFlow: (flow: PosFlow) => void;
   posProjectId: string | null; // Công trình đang chọn ở luồng xuất vật tư
   setPosProjectId: (id: string | null) => void;
+  importPrefill: ImportPrefill | null; // 0087: dữ liệu "Sửa phiếu" chờ panel nhập tiêu thụ
+  setImportPrefill: (prefill: ImportPrefill | null) => void;
   cartTabs: CartTab[];
   activeTabId: string;
   setActiveTabId: (tabId: string) => void;
@@ -274,6 +277,7 @@ interface StoreContextType {
       shippingFee?: number;
     }
   ) => Promise<boolean>;
+  voidImportSlip: (po: PurchaseOrder, reason?: string) => Promise<{ ok: boolean; message: string }>;
   // HRM rebuild (gọn): employees master + điểm danh ngày + phép + lương
   hrmLoading: boolean;
   hrmError: string | null;
@@ -435,6 +439,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     setPosFlow,
     posProjectId,
     setPosProjectId,
+    importPrefill,
+    setImportPrefill,
     cartTabs,
     activeTabId,
     setActiveTabId,
@@ -487,6 +493,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     refreshShiftFromServer,
     addCashbookEntry,
     importStockBatch,
+    voidImportSlip,
   } = useTransactions();
 
   // Trạng thái đồng bộ kéo (badge header + nút Làm mới tay). Ghi nhận cả nhịp
@@ -867,6 +874,8 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     setPosFlow,
     posProjectId,
     setPosProjectId,
+    importPrefill,
+    setImportPrefill,
     cartTabs,
     activeTabId,
     setActiveTabId,
@@ -925,6 +934,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     openNewShift,
     addCashbookEntry,
     importStockBatch,
+    voidImportSlip,
     resetData,
   };
 
