@@ -222,6 +222,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       debt?: number;
       note?: string;
       orderDiscountAmount?: number;
+      orderDiscountPercent?: number;
       shippingFee?: number;
       lines: { productId: string; sku: string; quantity: number; importPrice: number; discount_amount?: number; discount_percent?: number }[];
     };
@@ -330,6 +331,7 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
               discount_percent: l.discount_percent || 0,
             })),
             p_order_discount: roundMoney(p.orderDiscountAmount || 0),
+            p_order_discount_percent: roundMoney(p.orderDiscountPercent || 0),
             p_shipping_fee: roundMoney(p.shippingFee || 0),
             p_total: roundMoney(total),
             p_paid: roundMoney(paid),

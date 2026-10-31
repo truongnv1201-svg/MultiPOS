@@ -149,6 +149,7 @@ export interface PurchaseOrder {
   }[];
   subtotal: number;
   discount_amount: number;
+  order_discount_percent: number; // CK toàn phiếu (%)
   total_amount: number;
   paid_amount: number;
   debt_amount: number;

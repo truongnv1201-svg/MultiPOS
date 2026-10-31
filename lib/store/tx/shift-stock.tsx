@@ -47,6 +47,7 @@ export interface TxShiftStock {
       paidAmount?: number;
       supplierId?: string;
       orderDiscountAmount?: number;
+      orderDiscountPercent?: number;
       shippingFee?: number;
     }
   ) => Promise<boolean>;
@@ -108,6 +109,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
             quantity: qty,
             unit_price: price,
             discount_amount: Math.round(Number(l.discount_amount || 0) * 100) / 100,
+            discount_percent: Math.round(Number(l.discount_percent || 0) * 100) / 100,
             subtotal: Math.round(qty * price * 100) / 100,
           };
         });
@@ -119,6 +121,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           items,
           subtotal: Number(row.subtotal) || 0,
           discount_amount: Number(row.discount_amount) || 0,
+          order_discount_percent: Number(row.order_discount_percent || 0),
           total_amount: Number(row.total_amount) || 0,
           paid_amount: Number(row.paid_amount) || 0,
           debt_amount: Number(row.debt_amount) || 0,
@@ -140,6 +143,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
             items: local.items.length > 0 ? local.items : s.items,
             subtotal: s.subtotal,
             discount_amount: s.discount_amount,
+            order_discount_percent: s.order_discount_percent ?? 0,
             total_amount: s.total_amount,
             paid_amount: s.paid_amount,
             debt_amount: s.debt_amount,
@@ -156,6 +160,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           items: s.items,
           subtotal: s.subtotal,
           discount_amount: s.discount_amount,
+          order_discount_percent: s.order_discount_percent ?? 0,
           total_amount: s.total_amount,
           paid_amount: s.paid_amount,
           debt_amount: s.debt_amount,
@@ -600,6 +605,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         paidAmount?: number;
         supplierId?: string;
         orderDiscountAmount?: number;
+        orderDiscountPercent?: number;
         shippingFee?: number;
       }
     ): Promise<boolean> => {
@@ -637,10 +643,18 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
 
       // Tính tổng gross trước để phân bổ giảm toàn phiếu tỉ lệ theo giá trị từng dòng
       const totalGross = clean.reduce((s, l) => s + (l.quantity || 0) * (l.importPrice || 0), 0);
-      const orderDiscount = roundMoney(paymentOptions?.orderDiscountAmount || 0);
+      const orderDiscountPercent = roundMoney(paymentOptions?.orderDiscountPercent || 0);
+      const orderDiscountFromPct = totalGross > 0
+        ? roundMoney((totalGross * orderDiscountPercent) / 100)
+        : 0;
+      const orderDiscount = roundMoney(paymentOptions?.orderDiscountAmount || 0) || orderDiscountFromPct;
       const totalLineDiscount = clean.reduce((s, l) => s + (l.discount_amount || 0), 0);
       // Giảm toàn phiếu không thể làm tổng giảm vượt quá tiền hàng gross
       const clampedOrderDiscount = Math.max(0, Math.min(orderDiscount, Math.max(0, totalGross - totalLineDiscount)));
+      // Tính % tương ứng để lưu vào DB (nếu user nhập số tiền, tính ngược %)
+      const orderDiscountPercentFinal = totalGross > 0
+        ? roundMoney((clampedOrderDiscount / totalGross) * 100 * 100) / 100
+        : 0;
 
       // Tính MAC nối tiếp trên bản sao (đúng cả khi 1 hàng xuất hiện nhiều dòng)
       const running = new Map(products.map((p) => [p.id, { ...p }]));
@@ -729,6 +743,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         }),
         subtotal: roundMoney(totalAmount),
         discount_amount: roundMoney(totalDiscount),
+        order_discount_percent: orderDiscountPercentFinal,
         total_amount: totalAmountNet,
         paid_amount: paidAmount,
         debt_amount: debtAmount,
@@ -759,6 +774,9 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         total: roundMoney(totalAmount),
         paid: paidAmount,
         debt: debtAmount,
+        orderDiscountAmount: clampedOrderDiscount,
+        orderDiscountPercent: orderDiscountPercentFinal,
+        shippingFee,
         note: note.trim() || undefined,
         lines: clean.map((l) => {
           const p = products.find((x) => x.id === l.productId);

@@ -52,6 +52,55 @@ const WALK_IN_CUSTOMER_NAME = 'Khách Lẻ Mua Tại Quầy';
 // Mục trong danh sách gợi ý: khách lẻ (isWalkIn) hoặc khách hàng thật.
 type CustomerOption = Customer & { isWalkIn?: boolean };
 
+/**
+ * Ô nhập số có nút đơn vị bên phải — giống bên bán hàng (Khách hàng).
+ * Ví dụ: "% Giảm giá đơn: [ 0 ] %", "Phí vận chuyển: [ 0 ] đ"
+ */
+function MoneyInputWithUnit({
+  label,
+  value,
+  onChange,
+  unit,
+  min,
+  max,
+  hotkey,
+  className = '',
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  unit: '%' | 'đ';
+  min?: number;
+  max?: number;
+  hotkey?: string;
+  className?: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+      <span>{label}{hotkey ? ` <kbd className="px-1 rounded bg-slate-100 text-[9px] font-mono text-slate-500">{hotkey}</kbd>` : ''}</span>
+      <NumberInput
+        min={min}
+        max={max}
+        value={value}
+        onChange={onChange}
+        className={`w-20 text-right text-xs font-bold ${className}`}
+        onFocus={(e) => e.currentTarget.select()}
+      />
+      <button
+        type="button"
+        className={`px-2 py-1 text-xs font-bold rounded border transition-colors ${
+          unit === '%'
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+        }`}
+        onClick={() => {}}
+      >
+        {unit}
+      </button>
+    </div>
+  );
+}
+
 export function POSScreen() {
   const {
     products,
@@ -213,8 +262,9 @@ export function POSScreen() {
   const [impPaymentMethod, setImpPaymentMethod] = useState<'cash' | 'transfer' | 'debt'>('cash');
   // Tiền trả NCC (y hệt Tiền khách đưa bên bán): thiếu bao nhiêu tự ghi nợ NCC.
   const [impTendered, setImpTendered] = useState<number>(0);
-  // Giảm giá toàn phiếu (tiền) — được phân bổ tỉ lệ xuống từng dòng khi tính MAC.
+  // Giảm giá toàn phiếu (tiền và %) — được phân bổ tỉ lệ xuống từng dòng khi tính MAC.
   const [impOrderDiscount, setImpOrderDiscount] = useState<number>(0);
+  const [impOrderDiscountPercent, setImpOrderDiscountPercent] = useState<number>(0);
   // Phí vận chuyển — cộng vào tổng tiền nhập.
   const [impShippingFee, setImpShippingFee] = useState<number>(0);
 
@@ -499,7 +549,7 @@ export function POSScreen() {
     } finally {
       setIsProcessing(false);
     }
-  }, [impLines, impSupplier, impNote, impPaymentMethod, impTendered, impTotal, impOrderDiscount, impShippingFee, matchedSupplier, importStockBatch]);
+  }, [impLines, impSupplier, impNote, impPaymentMethod, impTendered, impTotal, impOrderDiscount, impOrderDiscountPercent, impShippingFee, matchedSupplier, importStockBatch]);
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1211,11 +1261,11 @@ export function POSScreen() {
                   <tr className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Sản phẩm</th>
-                    <th className="py-2.5 px-2.5 w-32 text-right">Đơn giá nhập (đ)</th>
+                    <th className="py-2.5 px-2.5 w-16 text-center">ĐVT</th>
+                    <th className="py-2.5 px-2.5 w-32 text-right">Đơn giá (đ)</th>
+                    <th className="py-2.5 px-2.5 w-24 text-center">SL nhập</th>
                     <th className="py-2.5 px-2.5 w-24 text-right" title="Chiết khấu theo phần trăm (%)">CK (%)</th>
                     <th className="py-2.5 px-2.5 w-24 text-right" title="Chiết khấu theo tiền (đ)">CK (đ)</th>
-                    <th className="py-2.5 px-2.5 w-16 text-center">ĐVT</th>
-                    <th className="py-2.5 px-2.5 w-24 text-center">SL nhập</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
                     <th className="py-2.5 px-2.5 w-36 text-right" title="Giá vốn bình quân (MAC) dự kiến sau khi nhập: (tồn cũ × vốn cũ + SL × đơn giá net) / tồn mới">Giá vốn mới (đ)</th>
                     <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
@@ -1253,6 +1303,7 @@ export function POSScreen() {
                             )}
                           </div>
                         </td>
+                        <td className="py-2.5 px-2.5 text-center text-slate-600 font-mono text-[11px]">{prod.unit || '-'}</td>
                         <td className="py-2.5 px-2.5">
                           <NumberInput
                             min={0}
@@ -1261,6 +1312,21 @@ export function POSScreen() {
                             className={editCellClass('w-full', 'text-right')}
                             onFocus={(e) => e.currentTarget.select()}
                           />
+                        </td>
+                        <td className="py-2.5 px-2.5">
+                          {prod.product_type === 'area' ? (
+                            <span className="block text-center font-mono text-slate-700">{formatQty(line.qty)}</span>
+                          ) : (
+                            <QtyDraftInput
+                              quantity={line.qty}
+                              allowDecimal={allowsDecimalQty(prod)}
+                              onCommit={(v) =>
+                                setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, qty: v } : l)))
+                              }
+                              ariaLabel={`Số lượng nhập ${prod.name}`}
+                              width="w-full"
+                            />
+                          )}
                         </td>
                         <td className="py-2.5 px-2.5">
                           <NumberInput
@@ -1282,22 +1348,6 @@ export function POSScreen() {
                             max={line.qty * line.price}
                             onFocus={(e) => e.currentTarget.select()}
                           />
-                        </td>
-                        <td className="py-2.5 px-2.5 text-center text-slate-600 font-mono text-[11px]">{prod.unit || '-'}</td>
-                        <td className="py-2.5 px-2.5">
-                          {prod.product_type === 'area' ? (
-                            <span className="block text-center font-mono text-slate-700">{formatQty(line.qty)}</span>
-                          ) : (
-                            <QtyDraftInput
-                              quantity={line.qty}
-                              allowDecimal={allowsDecimalQty(prod)}
-                              onCommit={(v) =>
-                                setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, qty: v } : l)))
-                              }
-                              ariaLabel={`Số lượng nhập ${prod.name}`}
-                              width="w-full"
-                            />
-                          )}
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
                           {formatNumber(Math.max(0, (line.qty || 0) * (line.price || 0) - (line.discount_amount || 0)))}
@@ -1807,25 +1857,58 @@ export function POSScreen() {
                 <span className="font-mono font-bold">-{formatVND(impLineDiscountTotal)}</span>
               </div>
             )}
-            <div className="flex items-center justify-between text-[11px] text-slate-600">
-              <span>CK toàn phiếu (đ):</span>
-              <NumberInput
+            {impOrderDiscountPercent > 0 || impOrderDiscount > 0 ? (
+              <div className="flex items-center justify-between text-[11px] text-rose-600">
+                <span>CK toàn phiếu:</span>
+                <span className="font-mono font-bold">-{formatVND(impOrderDiscount)}</span>
+                {impOrderDiscountPercent > 0 && <span className="text-rose-600"> ({impOrderDiscountPercent}%)</span>}
+              </div>
+            ) : null}
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+              <span>% CK toàn phiếu:</span>
+              <MoneyInputWithUnit
+                label=""
+                value={impOrderDiscountPercent}
+                onChange={v => {
+                  setImpOrderDiscountPercent(v);
+                  // Tính ngược từ % sang tiền
+                  const gross = impGrossTotal - impLineDiscountTotal;
+                  const amount = gross > 0 ? Math.round((gross * v) / 100 * 100) / 100 : 0;
+                  setImpOrderDiscount(amount);
+                }}
+                unit="%"
                 min={0}
-                value={impOrderDiscount}
-                onChange={(v) => setImpOrderDiscount(v)}
-                max={impGrossTotal - impLineDiscountTotal}
-                className="w-24 text-right text-xs font-bold text-rose-600"
-                onFocus={(e) => e.currentTarget.select()}
+                max={100}
+                className="font-bold text-rose-600"
               />
             </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-600">
-              <span>Phí vận chuyển:</span>
-              <NumberInput
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+              <span>CK toàn phiếu (đ):</span>
+              <MoneyInputWithUnit
+                label=""
+                value={impOrderDiscount}
+                onChange={v => {
+                  setImpOrderDiscount(v);
+                  // Tính ngược từ tiền sang %
+                  const gross = impGrossTotal - impLineDiscountTotal;
+                  const pct = gross > 0 ? Math.round((v / gross) * 100 * 100) / 100 : 0;
+                  setImpOrderDiscountPercent(pct);
+                }}
+                unit="đ"
                 min={0}
+                max={impGrossTotal - impLineDiscountTotal}
+                className="font-bold text-rose-600"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+              <span>Phí vận chuyển:</span>
+              <MoneyInputWithUnit
+                label=""
                 value={impShippingFee}
-                onChange={(v) => setImpShippingFee(v)}
-                className="w-24 text-right text-xs font-bold text-blue-600"
-                onFocus={(e) => e.currentTarget.select()}
+                onChange={setImpShippingFee}
+                unit="đ"
+                min={0}
+                className="font-bold text-blue-600"
               />
             </div>
             <div className="border-t border-slate-200 pt-1 flex items-center justify-between">

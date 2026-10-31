@@ -140,6 +140,7 @@ export interface TransactionsSlice {
       paidAmount?: number;
       supplierId?: string;
       orderDiscountAmount?: number;
+      orderDiscountPercent?: number;
       shippingFee?: number;
     }
   ) => Promise<boolean>;
