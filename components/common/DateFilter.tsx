@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Calendar, X } from 'lucide-react';
 import { FilterSelect } from '@/components/ui/FilterControls';
 
-export type DatePreset = 'all' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'custom';
+export type DatePreset = 'all' | 'today' | 'yesterday' | 'last_7_days' | 'this_month' | 'custom';
 
 export interface DateFilterState {
   preset: DatePreset;
@@ -41,12 +41,13 @@ export function matchesDateFilter(
     );
   }
 
-  if (filter.preset === 'this_week') {
-    // Tuần này: từ 00:00 Thứ 2 đến hiện tại (Thứ 2 = 0, ..., Chủ nhật = 6).
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    startOfWeek.setHours(0, 0, 0, 0);
-    return itemDate >= startOfWeek;
+  if (filter.preset === 'last_7_days') {
+    // 7 ngày qua: từ 00:00 của (hôm nay - 6 ngày) đến hiện tại — trượt theo ngày,
+    // không phụ thuộc thứ (khác "tuần này" kiểu lịch Thứ 2 → Chủ nhật).
+    const startOfRange = new Date(now);
+    startOfRange.setDate(now.getDate() - 6);
+    startOfRange.setHours(0, 0, 0, 0);
+    return itemDate >= startOfRange;
   }
 
   if (filter.preset === 'this_month') {
@@ -109,7 +110,7 @@ export function DateFilter({ value, onChange, className = '' }: DateFilterProps)
           { value: 'all', label: 'Toàn thời gian' },
           { value: 'today', label: 'Hôm nay' },
           { value: 'yesterday', label: 'Hôm qua' },
-          { value: 'this_week', label: 'Tuần này' },
+          { value: 'last_7_days', label: '7 ngày qua' },
           { value: 'this_month', label: 'Tháng này' },
           { value: 'custom', label: 'Tùy chỉnh ngày…' },
         ]}

@@ -64,7 +64,7 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [cashierFilter, setCashierFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'this_week' });
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'last_7_days' });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
   // Sắp xếp: bấm header để đảo chiều; đổi sort -> về trang 1

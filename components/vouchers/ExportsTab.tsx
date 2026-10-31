@@ -32,7 +32,7 @@ export function ExportsTab() {
   const { stockMovements, projects, products } = useStore();
   const [search, setSearch] = useState('');
   const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'this_week' });
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'last_7_days' });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);

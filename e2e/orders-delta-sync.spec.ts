@@ -117,7 +117,7 @@ test('delta đơn hàng: đổi trạng thái đơn cũ về nhanh + 1 lần bá
   await page.locator('#menu-item-vouchers').click();
   await expect(page.locator('#orders-view')).toBeVisible({ timeout: 15_000 });
   // Dropdown tự vẽ: bấm nút kỳ lọc rồi chọn "Toàn thời gian"
-  await page.getByRole('button', { name: /Tuần này/ }).first().click();
+  await page.getByRole('button', { name: /7 ngày qua/ }).first().click();
   await page.getByRole('listbox').getByRole('option', { name: 'Toàn thời gian' }).click();
   await page.locator('#orders-view input[placeholder="Mã đơn, tên khách, SĐT, thu ngân..."]').fill(code);
   const rowA = page.locator('#orders-view tbody tr', { hasText: code }).first();
