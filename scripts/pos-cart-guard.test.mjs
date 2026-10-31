@@ -467,6 +467,11 @@ describe('CK theo dong POS: thu ngan nhap % truc tiep tren gio', () => {
     assert.ok(!/<td colSpan=\{5\}/.test(receipt), 'còn colSpan cũ 6 cột');
   });
 
+  it('hoa don A4/A5: ten hang khong kem ma SKU trong ngoac', () => {
+    const receipt = read('components/pos/ReceiptModal.tsx');
+    assert.ok(!/\(\{it\.sku\}\)/.test(receipt), 'còn in mã hàng cạnh tên hàng');
+  });
+
   it('component o CK dung chung style o sua + cho so le + kep 0..100', () => {
     const input = read('components/pos/LineDiscountInput.tsx');
     assert.match(input, /editCellClass\(/);

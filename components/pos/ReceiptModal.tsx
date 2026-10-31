@@ -264,7 +264,7 @@ export function ReceiptModal() {
               <tr key={i} className="break-inside-avoid border-b border-dashed border-slate-300" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} text-center`}>{i + 1}</td>
                 <td className={`border-x border-black ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
-                  <div className="font-semibold">{it.name} <span className="font-normal text-slate-500">({it.sku})</span></div>
+                  <div className="font-semibold">{it.name}</div>
                   {shop.showDimensions && it.product_type === 'area' && it.dimension_details?.map((d, k) => (
                     <div key={k} className={`${compact ? 'text-[9px]' : 'text-[11px]'} text-slate-600`}>• {d.quantity} tấm {d.length.toFixed(2)}m × {d.width.toFixed(2)}m = {d.actual_m2.toFixed(2)}m2{d.grinding_type !== 'none' ? ' + mài' : ''}</div>
                   ))}
