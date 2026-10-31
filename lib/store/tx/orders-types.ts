@@ -22,6 +22,8 @@ export interface TxOrdersDeps {
   currentShift: Shift;
   setCurrentShift: React.Dispatch<React.SetStateAction<Shift>>;
   setCashbook: React.Dispatch<React.SetStateAction<CashbookEntry[]>>;
+  /** Kéo sổ quỹ server về sau khi hủy đơn server (local mirror có thể lệch quỹ gốc). */
+  refreshServerCashbook: () => Promise<boolean>;
 }
 
 export interface TxOrders {

@@ -19,6 +19,7 @@ export function useTxOrders({
   currentShift,
   setCurrentShift,
   setCashbook,
+  refreshServerCashbook,
 }: TxOrdersDeps): TxOrders {
   const sync = useTxOrdersSync({ setCashbook });
   const checkout = useTxCheckout({
@@ -39,8 +40,11 @@ export function useTxOrders({
     setOrders: sync.setOrders,
     setPendingQueue: sync.setPendingQueue,
     currentShift,
+    setCurrentShift,
     setCashbook,
     resolveServerOrderId: sync.resolveServerOrderId,
+    syncPendingOrders: sync.syncPendingOrders,
+    refreshServerCashbook,
   });
 
   return {

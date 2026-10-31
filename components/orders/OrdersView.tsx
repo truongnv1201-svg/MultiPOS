@@ -10,6 +10,7 @@ import {
   Printer,
   RotateCcw,
   Ban,
+  Pencil,
   CheckCircle2,
   Clock,
   FileText,
@@ -34,6 +35,7 @@ import { exportToExcel, printTable } from '@/lib/excel';
 import { SortableTh, useSortState } from '@/components/common/SortableTh';
 import { sortRows } from '@/lib/sort';
 import { matchesQuery } from '@/lib/search';
+import { buildSaleEditDraft } from '@/lib/sale-edit';
 
 export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
   const {
@@ -43,6 +45,13 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
     cancelOrder,
     returnOrder,
     setCurrentScreen,
+    products,
+    customers,
+    cashbook,
+    currentShift,
+    setPosFlow,
+    openSaleEditTab,
+    closeCartTab,
   } = useStore();
 
   // 0083: thợ không hủy/trả (khớp guard server is_counter_staff); !profile = local-only
@@ -50,6 +59,8 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
     !profile || profile.role === 'admin' || profile.role === 'manager' || profile.role === 'cashier';
 
   const [search, setSearch] = useState('');
+  // Chặn bấm Sửa 2 lần (mỗi lần mở 1 tab + hủy 1 đơn)
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [cashierFilter, setCashierFilter] = useState<string>('all');
@@ -205,6 +216,64 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
     if (okConfirm) {
       const ok = await cancelOrder(orderId);
       if (ok) notify('Đã hủy đơn hàng thành công và hạch toán hoàn quỹ tương ứng.', 'success');
+    }
+  };
+
+  // Sửa đơn = hủy đơn cũ (hoàn kho/nợ/quỹ) + mở tab bán mới điền sẵn.
+  // Mở tab TRƯỚC khi hủy: mở không được thì đơn cũ còn nguyên.
+  const handleEditOrder = async (order: Order) => {
+    if (editingId) return;
+    setEditingId(order.id);
+    try {
+      if (currentShift.status !== 'open') {
+        notify('Ca đã đóng! Không thể sửa đơn sau khi kết ca.', 'error');
+        return;
+      }
+      const built = buildSaleEditDraft(order, products, customers, cashbook);
+      if (!built.ok) {
+        notify('Đơn này không còn mặt hàng nào trong danh mục — không thể sửa. Hãy hủy đơn nếu cần.', 'error');
+        return;
+      }
+      const { draft } = built;
+      const notes: string[] = [];
+      if (draft.dropped.length > 0) {
+        const names = draft.dropped.slice(0, 3).map((d) => d.name).join(', ');
+        notes.push(`Bỏ ${draft.dropped.length} dòng vì sản phẩm không còn: ${names}${draft.dropped.length > 3 ? '…' : ''}`);
+      }
+      if (draft.repriced > 0) notes.push(`${draft.repriced} dòng lấy lại giá niêm yết hiện tại`);
+      if (draft.clampedDiscount) notes.push('Giảm giá được kẹp lại theo tiền hàng mới');
+      if (draft.customerFallback) notes.push('Khách hàng đã bị xóa — chuyển về Khách lẻ');
+      if (draft.vatDropped) notes.push('Đơn cũ gộp VAT vào tổng — đơn mới không có VAT, kiểm tra lại');
+
+      const okConfirm = await confirmDialog(
+        `Đơn ${order.order_code} sẽ bị HỦY ngay (hoàn kho, hoàn quỹ, giảm nợ).\n` +
+          `Tab bán mới chỉ là bản nháp — phải bấm THANH TOÁN mới tạo đơn thay thế.` +
+          (notes.length > 0 ? `\n\n${notes.join('\n')}` : '') +
+          `\n\nTiếp tục SỬA đơn?`,
+        { title: 'Sửa đơn hàng', confirmLabel: 'Hủy đơn cũ & mở tab sửa', danger: true },
+      );
+      if (!okConfirm) return;
+
+      const opened = openSaleEditTab(draft);
+      if (!opened.ok) {
+        notify(
+          opened.reason === 'tab_limit'
+            ? 'Đang mở 3 hóa đơn — đóng bớt 1 tab rồi thử lại (đơn cũ chưa bị hủy).'
+            : 'Không dựng được tab sửa (đơn không còn dòng hợp lệ) — đơn cũ chưa bị hủy.',
+          'error',
+        );
+        return;
+      }
+      const ok = await cancelOrder(order.id);
+      if (!ok) {
+        closeCartTab(opened.tabId);
+        return;
+      }
+      setPosFlow('sale');
+      setCurrentScreen('pos');
+      notify(`Đã hủy ${order.order_code} và mở tab sửa — kiểm tra rồi bấm Thanh toán.`, 'success');
+    } finally {
+      setEditingId(null);
     }
   };
 
@@ -650,6 +719,17 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
               <div className="mt-auto pt-3 border-t border-slate-200 space-y-2">
                 {selectedOrder.status === 'completed' && (
                   <button
+                    onClick={() => handleEditOrder(selectedOrder)}
+                    disabled={editingId !== null}
+                    className="w-full py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Sửa đơn (hủy & tạo lại)</span>
+                  </button>
+                )}
+
+                {selectedOrder.status === 'completed' && (
+                  <button
                     onClick={() => handleReturnOrder(selectedOrder)}
                     className="w-full py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                   >
@@ -658,7 +738,7 @@ export function OrdersView({ bare = false }: { bare?: boolean } = {}) {
                   </button>
                 )}
 
-                {selectedOrder.status !== 'cancelled' && (
+                {selectedOrder.status === 'completed' && (
                   <button
                     onClick={() => handleCancelOrder(selectedOrder.id)}
                     className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"

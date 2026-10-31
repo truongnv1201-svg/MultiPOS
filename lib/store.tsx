@@ -61,6 +61,7 @@ import { notify } from '@/components/common/Toast';
 // tab mặc định (./store/cart), payload RPC (./store/rpc), chuẩn hóa NV (./store/staff).
 // Re-export để import cũ từ '@/lib/store' không gãy.
 import type { CartTab, EmployeeInput, HrmAccount, RestockLine, ReturnSkipped, ReturnResult } from './store/types';
+import type { SaleEditDraft } from './sale-edit';
 import {
   DEFAULT_SHOP,
   PRINT_TEMPLATES,
@@ -173,6 +174,8 @@ interface StoreContextType {
   setActiveTabId: (tabId: string) => void;
   createCartTab: () => void;
   closeCartTab: (tabId: string) => void;
+  /** Sửa đơn bán: mở tab mới điền sẵn; gọi trước khi hủy đơn cũ. */
+  openSaleEditTab: (draft: SaleEditDraft) => { ok: true; tabId: string } | { ok: false; reason: 'tab_limit' | 'empty' };
   updateActiveTab: (updater: Partial<CartTab> | ((prev: CartTab) => CartTab)) => void;
   switchPriceBook: (priceBook: 'retail' | 'trade') => void;
 
@@ -446,6 +449,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     setActiveTabId,
     createCartTab,
     closeCartTab,
+    openSaleEditTab,
     updateActiveTab,
     switchPriceBook,
     activeCart,
@@ -881,6 +885,7 @@ function StoreInner({ children }: { children: React.ReactNode }) {
     setActiveTabId,
     createCartTab,
     closeCartTab,
+    openSaleEditTab,
     updateActiveTab,
     switchPriceBook,
     activeCart,

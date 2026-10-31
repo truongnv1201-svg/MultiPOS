@@ -26,6 +26,7 @@ import type {
   ImportPrefill,
 } from '../types';
 import type { CartTab, ReturnResult } from './types';
+import type { SaleEditDraft } from '../sale-edit';
 
 export interface TransactionsSlice {
   orders: Order[];
@@ -57,6 +58,7 @@ export interface TransactionsSlice {
   setActiveTabId: (tabId: string) => void;
   createCartTab: () => void;
   closeCartTab: (tabId: string) => void;
+  openSaleEditTab: (draft: SaleEditDraft) => { ok: true; tabId: string } | { ok: false; reason: 'tab_limit' | 'empty' };
   updateActiveTab: (updater: Partial<CartTab> | ((prev: CartTab) => CartTab)) => void;
   switchPriceBook: (priceBook: 'retail' | 'trade') => void;
   activeCart: CartTab;
@@ -178,6 +180,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     currentShift: shiftStock.currentShift,
     setCurrentShift: shiftStock.setCurrentShift,
     setCashbook: shiftStock.setCashbook,
+    refreshServerCashbook: shiftStock.refreshServerCashbook,
   });
   useEffect(() => {
     pendingQueueRef.current = orders.pendingQueue;
@@ -224,6 +227,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     setActiveTabId: cart.setActiveTabId,
     createCartTab: cart.createCartTab,
     closeCartTab: cart.closeCartTab,
+    openSaleEditTab: cart.openSaleEditTab,
     updateActiveTab: cart.updateActiveTab,
     switchPriceBook: cart.switchPriceBook,
     activeCart: cart.activeCart,

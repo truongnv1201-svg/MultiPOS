@@ -9,6 +9,7 @@ import { useCatalog } from '../catalog';
 import type { Product, Order, OrderItem, DimensionDetail, ImportPrefill, PosFlow } from '../../types';
 import type { CartTab } from '../types';
 import { DEFAULT_TAB } from '../cart';
+import type { SaleEditDraft } from '../../sale-edit';
 import { recomputeOrderItem } from '../../db';
 import { calcCartTotals } from '../../pricing';
 import { notify } from '@/components/common/Toast';
@@ -29,6 +30,9 @@ export interface TxCart {
   setActiveTabId: React.Dispatch<React.SetStateAction<string>>;
   createCartTab: () => void;
   closeCartTab: (tabId: string) => void;
+  /** Sửa đơn bán: mở tab mới điền sẵn từ draft. Đồng bộ — chỉ fail khi đủ 3 tab
+   *  hoặc draft rỗng, để màn Đơn hàng kiểm tra TRƯỚC khi hủy đơn cũ. */
+  openSaleEditTab: (draft: SaleEditDraft) => { ok: true; tabId: string } | { ok: false; reason: 'tab_limit' | 'empty' };
   updateActiveTab: (updater: Partial<CartTab> | ((prev: CartTab) => CartTab)) => void;
   switchPriceBook: (priceBook: 'retail' | 'trade') => void;
   activeCart: CartTab;
@@ -76,23 +80,26 @@ export function useTxCart(): TxCart {
   }, [cartTabs, activeTabId]);
 
   // Tab operations — tab mới ăn theo mặc định POS trong Cài đặt
+  // Tên tab lấy số lớn nhất đang có + 1 (không dùng length vì đóng tab giữa
+  // chừng sẽ làm length thụt lại và trùng tên, vd: HD 1, HD 3 -> HD 3 mới)
+  const nextTabName = useCallback((tabs: CartTab[]) => {
+    const maxNum = tabs.reduce((m, t) => {
+      const n = /^HD (\d+)$/.exec(t.name);
+      return n ? Math.max(m, parseInt(n[1], 10)) : m;
+    }, 0);
+    return `HD ${maxNum + 1}`;
+  }, []);
+
   const createCartTab = useCallback(() => {
     if (cartTabs.length >= 3) {
       notify('Chỉ được mở tối đa 3 hóa đơn cùng lúc! Hãy thanh toán hoặc đóng bớt tab.', 'error');
       return;
     }
     const newId = `tab-${Date.now()}`;
-    // Tên tab lấy số lớn nhất đang có + 1 (không dùng length vì đóng tab giữa
-    // chừng sẽ làm length thụt lại và trùng tên, vd: HD 1, HD 3 -> HD 3 mới)
-    const maxNum = cartTabs.reduce((m, t) => {
-      const n = /^HD (\d+)$/.exec(t.name);
-      return n ? Math.max(m, parseInt(n[1], 10)) : m;
-    }, 0);
-    const newName = `HD ${maxNum + 1}`;
     const newTab: CartTab = {
       ...DEFAULT_TAB,
       id: newId,
-      name: newName,
+      name: nextTabName(cartTabs),
       items: [],
       vat_percent: shop.defaultVat ?? 0,
       payment_method: shop.defaultPayment ?? 'cash',
@@ -100,7 +107,39 @@ export function useTxCart(): TxCart {
     };
     setCartTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
-  }, [cartTabs, shop.defaultVat, shop.defaultPayment]);
+  }, [cartTabs, nextTabName, shop.defaultVat, shop.defaultPayment]);
+
+  // Sửa đơn bán: dựng tab từ draft đã kiểm tra (xem lib/sale-edit.ts).
+  // Gọi TRƯỚC cancelOrder ở màn Đơn hàng — fail thì chưa hủy gì.
+  const openSaleEditTab = useCallback(
+    (draft: SaleEditDraft): { ok: true; tabId: string } | { ok: false; reason: 'tab_limit' | 'empty' } => {
+      if (cartTabs.length >= 3) return { ok: false, reason: 'tab_limit' };
+      if (draft.items.length === 0) return { ok: false, reason: 'empty' };
+      const newId = `tab-${Date.now()}`;
+      const newTab: CartTab = {
+        ...DEFAULT_TAB,
+        id: newId,
+        name: nextTabName(cartTabs),
+        customer_id: draft.customer_id,
+        customer_name: draft.customer_name,
+        customer_phone: draft.customer_phone,
+        items: draft.items,
+        discount_amount: draft.discount_amount,
+        discount_percent: draft.discount_percent,
+        shipping_fee: draft.shipping_fee,
+        vat_percent: draft.vat_percent,
+        payment_method: draft.payment_method,
+        tendered_amount: draft.tendered_amount,
+        note: draft.note,
+        price_book: 'retail',
+        client_ref: undefined,
+      };
+      setCartTabs((prev) => [...prev, newTab]);
+      setActiveTabId(newId);
+      return { ok: true, tabId: newId };
+    },
+    [cartTabs, nextTabName],
+  );
 
   const closeCartTab = useCallback((tabId: string) => {
     setCartTabs((prev) => {
@@ -273,6 +312,7 @@ export function useTxCart(): TxCart {
     setActiveTabId,
     createCartTab,
     closeCartTab,
+    openSaleEditTab,
     updateActiveTab,
     switchPriceBook,
     activeCart,

@@ -17,8 +17,13 @@ export interface TxOrderReturnsDeps {
   setOrders: React.Dispatch<React.SetStateAction<Order[]>>;
   setPendingQueue: React.Dispatch<React.SetStateAction<Order[]>>;
   currentShift: Shift;
+  setCurrentShift: React.Dispatch<React.SetStateAction<Shift>>;
   setCashbook: React.Dispatch<React.SetStateAction<CashbookEntry[]>>;
   resolveServerOrderId: (order: Order) => Promise<string | null>;
+  /** Đẩy đơn offline đang chờ lên server trước khi hủy — tránh hủy local trong lúc
+   *  replay đang bay (server tạo đơn xong local lại xóa khỏi hàng đợi). */
+  syncPendingOrders: () => Promise<void>;
+  refreshServerCashbook: () => Promise<boolean>;
 }
 
 export interface TxOrderReturns {
@@ -31,11 +36,14 @@ export function useTxOrderReturns({
   setOrders,
   setPendingQueue,
   currentShift,
+  setCurrentShift,
   setCashbook,
   resolveServerOrderId,
+  syncPendingOrders,
+  refreshServerCashbook,
 }: TxOrderReturnsDeps): TxOrderReturns {
   const { supa, user, setLoginOpen } = useAuth();
-  const { products, setProducts, customers, setCustomers } = useCatalog();
+  const { products, setProducts, customers, setCustomers, refreshCatalog } = useCatalog();
   const { isOnline } = useNetwork();
 
   // Cancel Order & Reverse (FIN-ERR-05)
@@ -62,7 +70,16 @@ export function useTxOrderReturns({
         return false;
       }
 
-      const serverId = await resolveServerOrderId(order);
+      // Đơn offline chưa có server_id: đẩy hàng đợi lên trước rồi đọc lại — replay có
+      // thể đang chạy hoặc vừa xong; hủy local trong lúc đó sẽ bỏ sót đơn đã tạo server.
+      let current = order;
+      if (isOnline && supa && !order.server_id) {
+        await syncPendingOrders();
+        const fresh = await db.orders.get(orderId).catch(() => undefined);
+        if (fresh) current = fresh;
+      }
+
+      const serverId = await resolveServerOrderId(current);
       if (serverId && !isOnline) {
         notify('Đơn này đã đồng bộ server nhưng đang ngoại tuyến — không thể hủy lúc này để tránh lệch kho/nợ. Hãy online rồi thử lại.', 'error');
         return false;
@@ -80,7 +97,7 @@ export function useTxOrderReturns({
       // 1. Restore stock (mirror server 0024+0028: hàng area theo m2 thực x waste server,
       // hàng thường theo quantity, combo con theo BOM — không tin material_consumed client cũ)
       const restoreQty: Record<string, number> = {};
-      for (const item of order.items) {
+      for (const item of current.items) {
         if (item.product_type === 'service' || item.product_type === 'combo') continue;
         if (item.product_type === 'area' && item.dimension_details && item.dimension_details.length > 0) {
           const prod = products.find((p) => p.id === item.product_id);
@@ -92,7 +109,7 @@ export function useTxOrderReturns({
           restoreQty[item.product_id] = (restoreQty[item.product_id] || 0) + item.quantity;
         }
       }
-      for (const item of order.items) {
+      for (const item of current.items) {
         if (item.product_type !== 'combo') continue;
         const combo = products.find((p) => p.id === item.product_id);
         for (const child of combo?.combo_items || []) {
@@ -117,10 +134,10 @@ export function useTxOrderReturns({
       }
 
       // 2. Clamp/reverse customer debt
-      if (order.debt_amount > 0 && order.customer_id) {
-        const cust = customers.find((c) => c.id === order.customer_id);
+      if (current.debt_amount > 0 && current.customer_id) {
+        const cust = customers.find((c) => c.id === current.customer_id);
         if (cust) {
-          const nextDebt = Math.max(0, cust.current_debt - order.debt_amount);
+          const nextDebt = Math.max(0, cust.current_debt - current.debt_amount);
           setCustomers((prev) => prev.map((c) => (c.id === cust.id ? { ...c, current_debt: nextDebt } : c)));
           db.customers.update(cust.id, { current_debt: nextDebt }).catch(console.warn);
         }
@@ -129,7 +146,7 @@ export function useTxOrderReturns({
       // 3. Refund payments to respective funds (FIN-ERR-05)
       // P1 sổ quỹ: RPC cancel_order đã ghi đảo server -> mirror đánh dấu synced.
       const cancelServerBacked = !!(serverId && supa && isOnline);
-      for (const pmt of order.payments) {
+      for (const pmt of current.payments) {
         if (pmt.amount > 0) {
           const expenseEntry: CashbookEntry = {
             id: `cb-${Date.now()}-${pmt.method}`,
@@ -138,9 +155,9 @@ export function useTxOrderReturns({
             fund_type: pmt.method === 'cash' ? 'cash' : 'bank',
             category: 'other',
             amount: pmt.amount,
-            reference_order_code: order.order_code,
-            partner_name: order.customer_name,
-            note: `Hoàn tiền hủy đơn hàng ${order.order_code} qua quỹ ${pmt.method === 'cash' ? 'Tiền mặt' : 'Ngân hàng'}`,
+            reference_order_code: current.order_code,
+            partner_name: current.customer_name,
+            note: `Hoàn tiền hủy đơn hàng ${current.order_code} qua quỹ ${pmt.method === 'cash' ? 'Tiền mặt' : 'Ngân hàng'}`,
             created_at: new Date().toISOString(),
             synced: cancelServerBacked || undefined,
           };
@@ -149,19 +166,54 @@ export function useTxOrderReturns({
         }
       }
 
+      // 4. Hoàn counter ca: chỉ khi đơn chắc chắn thuộc ca hiện tại (cùng thu ngân +
+      // tạo sau giờ mở ca). Order không có shift_id nên đơn ca trước/máy khác thì bỏ qua.
+      if (
+        current.paid_amount > 0 &&
+        current.cashier_name === currentShift.cashier_name &&
+        current.created_at >= currentShift.opened_at
+      ) {
+        const rows = await db.cashbook
+          .where('reference_order_code')
+          .equals(current.order_code)
+          .toArray()
+          .catch(() => [] as CashbookEntry[]);
+        const receipt = rows
+          .filter((e) => e.type === 'receipt')
+          .reduce<CashbookEntry | null>((top, e) => (!top || e.amount >= top.amount ? e : top), null);
+        const isCash = receipt
+          ? receipt.fund_type === 'cash'
+          : current.payments[0]?.method === 'cash';
+        const nextShift = {
+          ...currentShift,
+          cash_sales: isCash ? Math.max(0, currentShift.cash_sales - current.paid_amount) : currentShift.cash_sales,
+          transfer_sales: !isCash ? Math.max(0, currentShift.transfer_sales - current.paid_amount) : currentShift.transfer_sales,
+          expected_cash: isCash ? Math.max(0, currentShift.expected_cash - current.paid_amount) : currentShift.expected_cash,
+          order_count: Math.max(0, currentShift.order_count - 1),
+        };
+        setCurrentShift(nextShift);
+        db.shifts.put(nextShift).catch(console.warn);
+      }
+
       // Update order status
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: 'cancelled' } : o))
       );
       await db.orders.update(orderId, { status: 'cancelled' });
       // Đơn offline chưa lên server: gỡ khỏi hàng đợi để khỏi replay đơn đã hủy
-      if (order.is_offline) {
+      if (current.is_offline) {
         setPendingQueue((prev) => prev.filter((o) => o.id !== orderId));
         db.pendingOrders.delete(orderId).catch(() => {});
       }
+      // Đơn server: kéo lại tồn kho + sổ quỹ tuyệt đối (local mirror có thể lệch
+      // quỹ/đối tác hoặc cách tính m2 so với RPC) — fire-and-forget, không chặn UI.
+      if (cancelServerBacked) {
+        void refreshCatalog();
+        void refreshServerCashbook();
+      }
       return true;
     },
-    [orders, setOrders, setPendingQueue, products, customers, supa, user, currentShift, isOnline, resolveServerOrderId, setLoginOpen, setCustomers, setProducts, setCashbook]
+    [orders, setOrders, setPendingQueue, products, customers, supa, user, currentShift, setCurrentShift, isOnline, resolveServerOrderId, syncPendingOrders, refreshServerCashbook, refreshCatalog, setLoginOpen, setCustomers, setProducts, setCashbook]
   );
 
   // Return Order with Debt Clamping (FIN-ERR-03)
