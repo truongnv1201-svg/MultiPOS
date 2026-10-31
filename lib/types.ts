@@ -142,8 +142,9 @@ export interface PurchaseOrder {
     sku: string;
     name: string;
     quantity: number;
-    unit_price: number;
-    subtotal: number;
+    unit_price: number;        // giá nhập gross (trước khi giảm)
+    discount_amount: number;   // giảm trực tiếp trên dòng (tiền)
+    subtotal: number;          // quantity × unit_price (trước giảm)
   }[];
   subtotal: number;
   discount_amount: number;

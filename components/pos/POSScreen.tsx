@@ -201,7 +201,8 @@ export function POSScreen() {
     key: string;
     productId: string;
     qty: number;
-    price: number;
+    price: number;           // giá nhập gross (trước khi giảm)
+    discount_amount: number; // giảm trực tiếp trên dòng (tiền)
     dimensionDetails?: DimensionDetail[];
     wasteFactor?: number;
   }
@@ -211,6 +212,8 @@ export function POSScreen() {
   const [impPaymentMethod, setImpPaymentMethod] = useState<'cash' | 'transfer' | 'debt'>('cash');
   // Tiền trả NCC (y hệt Tiền khách đưa bên bán): thiếu bao nhiêu tự ghi nợ NCC.
   const [impTendered, setImpTendered] = useState<number>(0);
+  // Giảm giá toàn phiếu (tiền) — được phân bổ tỉ lệ xuống từng dòng khi tính MAC.
+  const [impOrderDiscount, setImpOrderDiscount] = useState<number>(0);
 
   // ---- Luồng XUẤT VẬT TƯ CÔNG TRÌNH (thay modal cũ trong trang Dự án) ----
   // Dùng bảng dòng hàng giống luồng nhập kho nhưng TÁCH state riêng: giá là giá vốn
@@ -271,15 +274,24 @@ export function POSScreen() {
       setImpLines((prev) => {
         const found = prev.find((l) => l.productId === product.id);
         if (found) return prev.map((l) => (l.productId === product.id ? { ...l, qty: l.qty + q } : l));
-        return [...prev, { key: `imp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, productId: product.id, qty: q, price: product.import_price }];
+        return [...prev, { key: `imp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, productId: product.id, qty: q, price: product.import_price, discount_amount: 0 }];
       });
     },
     []
   );
 
-  const impTotal = React.useMemo(
+  const impGrossTotal = React.useMemo(
     () => impLines.reduce((s, l) => s + (l.qty || 0) * (l.price || 0), 0),
     [impLines]
+  );
+  const impLineDiscountTotal = React.useMemo(
+    () => impLines.reduce((s, l) => s + (l.discount_amount || 0), 0),
+    [impLines]
+  );
+  // Thành tiền thực = tiền hàng gross − giảm các dòng − giảm toàn phiếu
+  const impTotal = React.useMemo(
+    () => Math.max(0, impGrossTotal - impLineDiscountTotal - (impOrderDiscount || 0)),
+    [impGrossTotal, impLineDiscountTotal, impOrderDiscount]
   );
 
   // Thêm dòng vào phiếu xuất công trình — giá lấy GIÁ VỐN (avg_cost) vì đó là giá ghi
@@ -300,6 +312,7 @@ export function POSScreen() {
           productId: product.id,
           qty: q,
           price: product.avg_cost || 0,
+          discount_amount: 0,
         },
       ];
     });
@@ -324,6 +337,7 @@ export function POSScreen() {
             productId: product.id,
             qty: isImport ? areaItem.quantity : areaItem.material_consumed ?? areaItem.quantity,
             price: unitPrice,
+            discount_amount: existingLine?.discount_amount ?? 0,
             dimensionDetails: areaItem.dimension_details,
             wasteFactor: areaItem.waste_factor,
           };
@@ -383,18 +397,30 @@ export function POSScreen() {
   // Để user thấy trước vốn cũ -> vốn mới trước khi bấm Nhập kho.
   // Công thức sống ở lib/costing.ts (previewImportAvg) — KHỚP SQL 0042/0048/0053.
   const impPreview = React.useMemo(() => {
+    const totalGross = impLines.reduce((s, l) => s + (l.qty || 0) * (l.price || 0), 0);
+    const totalLineDiscount = impLines.reduce((s, l) => s + (l.discount_amount || 0), 0);
+    const clampedOrderDiscount = Math.max(0, Math.min(impOrderDiscount || 0, Math.max(0, totalGross - totalLineDiscount)));
     const running = new Map(products.map((p) => [p.id, { stock: p.stock_quantity, avg: p.avg_cost }]));
     return impLines.map((line) => {
       const cur = running.get(line.productId);
       if (!cur) {
         const solo = previewImportAvg(0, 0, line.qty, line.price);
-        return { key: line.key, ...solo };
+        return { key: line.key, ...solo, netPrice: line.price };
       }
-      const pv = previewImportAvg(cur.stock, cur.avg, line.qty, line.price);
+      const lineGross = (line.qty || 0) * (line.price || 0);
+      const lineDiscount = line.discount_amount || 0;
+      const orderDiscountAlloc = totalGross > 0
+        ? Math.round(clampedOrderDiscount * (lineGross / totalGross) * 100) / 100
+        : 0;
+      const totalLineDiscountAmount = lineDiscount + orderDiscountAlloc;
+      const netPrice = line.qty > 0
+        ? Math.round((lineGross - totalLineDiscountAmount) / line.qty * 100) / 100
+        : line.price;
+      const pv = previewImportAvg(cur.stock, cur.avg, line.qty, netPrice);
       running.set(line.productId, { stock: pv.newStock, avg: pv.newAvg });
-      return { key: line.key, ...pv };
+      return { key: line.key, ...pv, netPrice };
     });
-  }, [impLines, products]);
+  }, [impLines, products, impOrderDiscount]);
 
   const handleImportCommit = useCallback(async () => {
     if (impLines.length === 0) {
@@ -416,13 +442,19 @@ export function POSScreen() {
     setIsProcessing(true);
     try {
       const ok = await importStockBatch(
-        impLines.map((l) => ({ productId: l.productId, quantity: l.qty, importPrice: l.price })),
+        impLines.map((l) => ({
+          productId: l.productId,
+          quantity: l.qty,
+          importPrice: l.price,
+          discount_amount: l.discount_amount || 0,
+        })),
         impSupplier.trim() || 'Nhà Cung Cấp',
         impNote.trim() || 'Nhập kho hàng hóa',
         {
           paymentMethod: impPaymentMethod,
           paidAmount: paid,
           supplierId: matchedSupplier?.id,
+          orderDiscountAmount: impOrderDiscount || 0,
         }
       );
       if (ok) {
@@ -435,7 +467,7 @@ export function POSScreen() {
     } finally {
       setIsProcessing(false);
     }
-  }, [impLines, impSupplier, impNote, impPaymentMethod, impTendered, impTotal, matchedSupplier, importStockBatch]);
+  }, [impLines, impSupplier, impNote, impPaymentMethod, impTendered, impTotal, impOrderDiscount, matchedSupplier, importStockBatch]);
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1104,7 +1136,7 @@ export function POSScreen() {
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-800 truncate">{prod.name}</p>
                         <p className="text-[10px] text-slate-500 font-mono">
-                          {line.qty} {prod?.unit} × {formatVND(line.price)}
+                          {line.qty} {prod?.unit} × {formatVND(line.price)}{line.discount_amount > 0 ? ` • Giảm: ${formatVND(line.discount_amount)}` : ''}
                         </p>
                         {prod.product_type === 'area' && (
                           <span className="mt-1 inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[10px] font-mono font-medium">
@@ -1113,7 +1145,7 @@ export function POSScreen() {
                         )}
                       </div>
                       <span className="shrink-0 text-xs font-mono font-bold text-slate-800">
-                        {formatVND(line.qty * line.price)}
+                        {formatVND(Math.max(0, line.qty * line.price - line.discount_amount))}
                       </span>
                       {prod.product_type === 'area' && (
                         <button
@@ -1143,10 +1175,11 @@ export function POSScreen() {
                     <th className="py-2.5 px-2.5 w-10 text-center">STT</th>
                     <th className="py-2.5 px-2.5">Sản phẩm</th>
                     <th className="py-2.5 px-2.5 w-32 text-right">Đơn giá nhập (đ)</th>
+                    <th className="py-2.5 px-2.5 w-24 text-right">Giảm (đ)</th>
                     <th className="py-2.5 px-2.5 w-16 text-center">ĐVT</th>
                     <th className="py-2.5 px-2.5 w-24 text-center">SL nhập</th>
                     <th className="py-2.5 px-2.5 w-28 text-right">Thành tiền (đ)</th>
-                    <th className="py-2.5 px-2.5 w-36 text-right" title="Giá vốn bình quân (MAC) dự kiến sau khi nhập: (tồn cũ × vốn cũ + SL × đơn giá) / tồn mới">Giá vốn mới (đ)</th>
+                    <th className="py-2.5 px-2.5 w-36 text-right" title="Giá vốn bình quân (MAC) dự kiến sau khi nhập: (tồn cũ × vốn cũ + SL × đơn giá net) / tồn mới">Giá vốn mới (đ)</th>
                     <th className="py-2.5 px-2 w-10 text-center">Xóa</th>
                   </tr>
                 </thead>
@@ -1190,6 +1223,15 @@ export function POSScreen() {
                             className={editCellClass('w-full', 'text-right')}
                           />
                         </td>
+                        <td className="py-2.5 px-2.5">
+                          <NumberInput
+                            min={0}
+                            value={line.discount_amount}
+                            onChange={(v) => setImpLines((prev) => prev.map((l) => (l.key === line.key ? { ...l, discount_amount: v } : l)))}
+                            className={editCellClass('w-full', 'text-right')}
+                            max={line.qty * line.price}
+                          />
+                        </td>
                         <td className="py-2.5 px-2.5 text-center text-slate-600 font-mono text-[11px]">{prod.unit || '-'}</td>
                         <td className="py-2.5 px-2.5">
                           {prod.product_type === 'area' ? (
@@ -1207,11 +1249,11 @@ export function POSScreen() {
                           )}
                         </td>
                         <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900 text-xs">
-                          {formatNumber((line.qty || 0) * (line.price || 0))}
+                          {formatNumber(Math.max(0, (line.qty || 0) * (line.price || 0) - (line.discount_amount || 0)))}
                         </td>
                         <td
                           className="py-2.5 px-2.5 text-right font-mono text-xs"
-                          title={`MAC: (${pv?.oldStock ?? prod.stock_quantity} × ${oldAvg.toLocaleString('vi-VN')} + ${(line.qty || 0)} × ${(line.price || 0).toLocaleString('vi-VN')}) / ${pv?.newStock ?? prod.stock_quantity}`}
+                          title={`MAC: (${pv?.oldStock ?? prod.stock_quantity} × ${oldAvg.toLocaleString('vi-VN')} + ${(line.qty || 0)} × ${(pv?.netPrice ?? line.price).toLocaleString('vi-VN')}) / ${pv?.newStock ?? prod.stock_quantity}`}
                         >
                           {changed ? (
                             <>
@@ -1705,6 +1747,26 @@ export function POSScreen() {
             </div>
             {/* Divider */}
             <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
+              <span className="text-slate-600">Tiền hàng (gross):</span>
+              <span className="font-mono text-slate-500">{formatVND(impGrossTotal)}</span>
+            </div>
+            {impLineDiscountTotal > 0 && (
+              <div className="flex items-center justify-between text-[11px] text-rose-600">
+                <span>Giảm các dòng:</span>
+                <span className="font-mono font-bold">-{formatVND(impLineDiscountTotal)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-[11px] text-slate-600">
+              <span>Giảm toàn phiếu (đ):</span>
+              <NumberInput
+                min={0}
+                value={impOrderDiscount}
+                onChange={(v) => setImpOrderDiscount(v)}
+                max={impGrossTotal - impLineDiscountTotal}
+                className="w-24 text-right text-xs"
+              />
+            </div>
+            <div className="border-t border-slate-200 pt-1 flex items-center justify-between">
               <span className="font-bold text-sm text-slate-900">TỔNG TIỀN NHẬP:</span>
               <span className="font-bold text-base text-blue-700 font-mono">{formatVND(impTotal)}</span>
             </div>

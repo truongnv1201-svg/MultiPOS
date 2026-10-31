@@ -39,13 +39,14 @@ export interface TxShiftStock {
   refreshShiftFromServer: () => Promise<boolean>;
   addCashbookEntry: (entry: Omit<CashbookEntry, 'id' | 'code' | 'created_at'>) => Promise<boolean>;
   importStockBatch: (
-    lines: { productId: string; quantity: number; importPrice: number }[],
+    lines: { productId: string; quantity: number; importPrice: number; discount_amount?: number }[],
     supplierName?: string,
     note?: string,
     paymentOptions?: {
       paymentMethod?: 'cash' | 'transfer' | 'debt' | 'partial';
       paidAmount?: number;
       supplierId?: string;
+      orderDiscountAmount?: number;
     }
   ) => Promise<boolean>;
 }
@@ -105,6 +106,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
             name: prod?.name || String(l.sku || ''),
             quantity: qty,
             unit_price: price,
+            discount_amount: Math.round(Number(l.discount_amount || 0) * 100) / 100,
             subtotal: Math.round(qty * price * 100) / 100,
           };
         });
@@ -589,13 +591,14 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
   // Dòng trùng 1 mặt hàng được cộng dồn (MAC tính nối tiếp theo thứ tự dòng).
   const importStockBatch = useCallback(
     async (
-      lines: { productId: string; quantity: number; importPrice: number }[],
+      lines: { productId: string; quantity: number; importPrice: number; discount_amount?: number }[],
       supplierName: string = 'Nhà Cung Cấp',
       note: string = 'Nhập kho hàng hóa',
       paymentOptions?: {
         paymentMethod?: 'cash' | 'transfer' | 'debt' | 'partial';
         paidAmount?: number;
         supplierId?: string;
+        orderDiscountAmount?: number;
       }
     ): Promise<boolean> => {
       // P2: thu ngân/worker không được nhập kho (khi có Supabase).
@@ -610,7 +613,8 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       }
       const clean = lines.filter((l) => {
         const p = products.find((x) => x.id === l.productId);
-        return p && Number.isFinite(l.quantity) && Number.isFinite(l.importPrice) && l.quantity > 0 && l.importPrice > 0;
+        const discount = l.discount_amount || 0;
+        return p && Number.isFinite(l.quantity) && Number.isFinite(l.importPrice) && l.quantity > 0 && l.importPrice > 0 && discount >= 0 && discount <= l.quantity * l.importPrice;
       });
       if (clean.length === 0) {
         notify('Phiếu nhập chưa có dòng hàng hợp lệ (chọn hàng, SL và đơn giá > 0)!', 'error');
@@ -628,23 +632,43 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
       const supplierRef = resolveSupplierReference(paymentOptions?.supplierId, supplierName, suppliers);
       const resolvedSupplierName = supplierRef?.name || supplierName.trim() || 'Nhà Cung Cấp';
 
+      // Tính tổng gross trước để phân bổ giảm toàn phiếu tỉ lệ theo giá trị từng dòng
+      const totalGross = clean.reduce((s, l) => s + (l.quantity || 0) * (l.importPrice || 0), 0);
+      const orderDiscount = roundMoney(paymentOptions?.orderDiscountAmount || 0);
+      const totalLineDiscount = clean.reduce((s, l) => s + (l.discount_amount || 0), 0);
+      // Giảm toàn phiếu không thể làm tổng giảm vượt quá tiền hàng gross
+      const clampedOrderDiscount = Math.max(0, Math.min(orderDiscount, Math.max(0, totalGross - totalLineDiscount)));
+
       // Tính MAC nối tiếp trên bản sao (đúng cả khi 1 hàng xuất hiện nhiều dòng)
       const running = new Map(products.map((p) => [p.id, { ...p }]));
       const movements: StockMovement[] = [];
-      let totalAmount = 0;
+      let totalAmount = 0;          // tiền hàng gross (trước giảm)
+      let totalDiscount = 0;        // tổng giảm (giảm dòng + giảm phiếu đã phân bổ)
       for (const l of clean) {
         const cur = running.get(l.productId);
         if (!cur) continue;
+        const lineGross = (l.quantity || 0) * (l.importPrice || 0);
+        const lineDiscount = roundMoney(l.discount_amount || 0);
+        // Phân bổ giảm toàn phiếu theo tỉ lệ giá trị gross của từng dòng
+        const orderDiscountAlloc = totalGross > 0
+          ? roundMoney(clampedOrderDiscount * (lineGross / totalGross))
+          : 0;
+        const totalLineDiscountAmount = lineDiscount + orderDiscountAlloc;
+        // Giá nhập net (sau tất cả giảm) — dùng cho MAC và import_price
+        const netPrice = l.quantity > 0
+          ? roundMoney((lineGross - totalLineDiscountAmount) / l.quantity)
+          : l.importPrice;
         // Công thức MAC dùng chung (lib/costing.ts) — KHỚP SQL 0042/0048/0053.
-        const pv = previewImportAvg(cur.stock_quantity, cur.avg_cost, l.quantity, l.importPrice);
+        const pv = previewImportAvg(cur.stock_quantity, cur.avg_cost, l.quantity, netPrice);
         const prevStock = pv.oldStock;
         const prevCost = pv.oldAvg;
         const newStock = pv.newStock;
         const newAvgCost = pv.newAvg;
         cur.stock_quantity = newStock;
         cur.avg_cost = newAvgCost;
-        cur.import_price = l.importPrice;
-        totalAmount += l.quantity * l.importPrice;
+        cur.import_price = netPrice;
+        totalAmount += lineGross;
+        totalDiscount += totalLineDiscountAmount;
         movements.push({
           id: `sm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           reference_code: refCode,
@@ -656,21 +680,22 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
           new_stock: newStock,
           // Ghi chú phiếu KHÔNG đưa vào thẻ kho (xem trang Quản lý Đơn nhập) —
           // chỉ giữ NCC + MAC để truy vết giá vốn.
-          note: `Nhập kho (${resolvedSupplierName}) - MAC: ${prevCost.toLocaleString('vi-VN')}đ -> ${newAvgCost.toLocaleString('vi-VN')}đ`,
+          note: `Nhập kho (${resolvedSupplierName}) - MAC: ${prevCost.toLocaleString('vi-VN')}đ -> ${newAvgCost.toLocaleString('vi-VN')}đ (giá net: ${netPrice.toLocaleString('vi-VN')}đ)`,
           created_at: now,
         });
       }
       if (movements.length === 0) return false;
 
+      const totalAmountNet = roundMoney(totalAmount - totalDiscount); // thành tiền thực sau giảm
       let paidAmount = 0;
       if (paymentMethod === 'cash' || paymentMethod === 'transfer') {
-        paidAmount = roundMoney(totalAmount);
+        paidAmount = roundMoney(totalAmountNet);
       } else if (paymentMethod === 'debt') {
         paidAmount = 0;
       } else if (paymentMethod === 'partial') {
-        paidAmount = Math.max(0, Math.min(roundMoney(totalAmount), roundMoney(paymentOptions?.paidAmount || 0)));
+        paidAmount = Math.max(0, Math.min(roundMoney(totalAmountNet), roundMoney(paymentOptions?.paidAmount || 0)));
       }
-      const debtAmount = roundMoney(Math.max(0, totalAmount - paidAmount));
+      const debtAmount = roundMoney(Math.max(0, totalAmountNet - paidAmount));
 
       if (debtAmount > 0 && !supplierRef) {
         notify(`Nhà cung cấp "${supplierName}" chưa có trong danh mục. Bấm nút (+) tạo NCC trước khi ghi nợ!`, 'error');
@@ -693,12 +718,13 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
             name: p?.name || '',
             quantity: l.quantity,
             unit_price: l.importPrice,
+            discount_amount: roundMoney(l.discount_amount || 0),
             subtotal: roundMoney(l.quantity * l.importPrice),
           };
         }),
         subtotal: roundMoney(totalAmount),
-        discount_amount: 0,
-        total_amount: roundMoney(totalAmount),
+        discount_amount: roundMoney(totalDiscount),
+        total_amount: totalAmountNet,
         paid_amount: paidAmount,
         debt_amount: debtAmount,
         status: poStatus,
@@ -731,7 +757,7 @@ export function useTxShiftStock({ syncPendingOpsRef, pendingQueueRef }: TxShiftS
         note: note.trim() || undefined,
         lines: clean.map((l) => {
           const p = products.find((x) => x.id === l.productId);
-          return { productId: l.productId, sku: p?.sku || '', quantity: l.quantity, importPrice: l.importPrice };
+          return { productId: l.productId, sku: p?.sku || '', quantity: l.quantity, importPrice: l.importPrice, discount_amount: l.discount_amount || 0 };
         }),
       };
       const voucherPayload = expenseEntry

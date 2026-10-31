@@ -221,7 +221,8 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
       paid?: number;
       debt?: number;
       note?: string;
-      lines: { productId: string; sku: string; quantity: number; importPrice: number }[];
+      orderDiscountAmount?: number;
+      lines: { productId: string; sku: string; quantity: number; importPrice: number; discount_amount?: number }[];
     };
     type VoucherPayload = {
       entryId: string;
@@ -324,7 +325,9 @@ export function useTxDebts({ currentShift, setCashbook, setCurrentShift }: TxDeb
               product_id: asUuidOrNull(l.productId),
               quantity: l.quantity,
               import_price: l.importPrice,
+              discount_amount: l.discount_amount || 0,
             })),
+            p_order_discount: roundMoney(p.orderDiscountAmount || 0),
             p_total: roundMoney(total),
             p_paid: roundMoney(paid),
             p_debt: roundMoney(debt),
