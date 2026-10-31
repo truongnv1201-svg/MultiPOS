@@ -550,3 +550,30 @@ describe('phiếu nhập: mặc định thanh toán là ghi nợ NCC', () => {
     assert.match(pos, /if \(paid < impTotal && !impSupplier\.trim\(\)\) \{/);
   });
 });
+
+describe('panel khách hàng bên bán: đưa cả cụm vào card như NCC bên nhập kho', () => {
+  const pos = read('components/pos/POSScreen.tsx');
+  const card = pos.slice(
+    pos.indexOf('{/* Customer Selection [F4]'),
+    pos.indexOf('id="customer-search-dropdown"'),
+  );
+
+  it('nhãn + ô tìm + nút + nằm trong cùng khối card với NCC', () => {
+    assert.match(pos, /<div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">\s*<label htmlFor="f4-supplier-input"/);
+    assert.match(card, /className="relative bg-white p-3 rounded-lg border border-slate-200 shadow-2xs"/);
+    assert.match(card, /id="f4-customer-input"/);
+    assert.match(card, /id="btn-quick-customer-modal"/);
+    // nhãn phải nằm trong card, trước ô nhập — trước đây tiêu đề trôi bên ngoài khối
+    assert.ok(card.indexOf('Khách hàng') < card.indexOf('id="f4-customer-input"'));
+  });
+
+  it('chip phím F4 dùng chung class với NCC (bỏ py-0.2 không tồn tại)', () => {
+    assert.match(card, /<kbd className="hidden sm:inline-flex px-1 text-\[9px\] font-mono bg-slate-200 rounded text-slate-600">/);
+    assert.doesNotMatch(card, /py-0\.2/);
+  });
+
+  it('dropdown vẫn bám đúng mép ô nhập sau khi card có padding 12px', () => {
+    // top/bottom tính theo padding box của card -> phải cộng 12px padding, mép trái/phải thụt 12px
+    assert.match(pos, /id="customer-search-dropdown"\s+className="absolute top-\[68px\] inset-x-3 max-h-40/);
+  });
+});

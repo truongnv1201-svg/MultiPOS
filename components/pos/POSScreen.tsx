@@ -2082,12 +2082,13 @@ export function POSScreen() {
           </div>
         )}
         <div className={`space-y-3 ${activeCart.items.length === 0 ? 'max-sm:hidden' : ''}`}>
-          {/* Customer Selection [F4] */}
-          <div ref={customerWrapRef} className="relative">
+          {/* Customer Selection [F4] — cùng khối card với "Nhà cung cấp" bên nhập kho:
+              nhãn + icon + phím, ô tìm + nút thêm nhanh, dòng công nợ phía dưới. */}
+          <div ref={customerWrapRef} className="relative bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
             <label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5 mb-1">
               <User className="w-3.5 h-3.5 text-blue-600" />
               Khách hàng
-              <kbd className="hidden sm:inline-flex px-1 py-0.2 text-[9px] font-mono bg-slate-200 rounded text-slate-600">
+              <kbd className="hidden sm:inline-flex px-1 text-[9px] font-mono bg-slate-200 rounded text-slate-600">
                 F4
               </kbd>
             </label>
@@ -2155,7 +2156,7 @@ export function POSScreen() {
                     }
                     if (e.key === 'Escape') closeCustomerDropdown();
                   }}
-                  placeholder="Tìm khách theo Tên / SĐT (F4)..."
+                  placeholder="Gõ để tìm khách theo tên / SĐT..."
                   className="w-full h-8 px-2.5 text-xs bg-white border border-slate-300 rounded-md focus:border-blue-500 focus:outline-hidden"
                 />
               </div>
@@ -2183,11 +2184,12 @@ export function POSScreen() {
             )}
 
             {/* Customer Dropdown — bám sát số kết quả, có trần max-h-40: trước đây cao cố
-                định nên chỉ vài khách vẫn chừa khối trống to (xem #search-results-dropdown). */}
+                định nên chỉ vài khách vẫn chừa khối trống to (xem #search-results-dropdown).
+                68px = 12px padding của card + 56px nhãn/ô nhập; inset-x-3 để mép khớp ô nhập. */}
             {isCustomerDropdownOpen && (
               <div
                 id="customer-search-dropdown"
-                className="absolute top-14 left-0 right-0 max-h-40 bg-white border border-slate-200 rounded-md shadow-xl z-30 overflow-y-auto"
+                className="absolute top-[68px] inset-x-3 max-h-40 bg-white border border-slate-200 rounded-md shadow-xl z-30 overflow-y-auto"
               >
                 {filteredCustomers.length === 0 ? (
                   <div className="px-3 py-2.5 text-[11px] text-slate-400 leading-relaxed">
